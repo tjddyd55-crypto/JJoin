@@ -7,6 +7,7 @@ Related:
 - Local auth / ADB reverse: [`docs/local-auth-connectivity.md`](./local-auth-connectivity.md)
 - Gate A map QA: [`docs/gate-a-local-naver-map.md`](./gate-a-local-naver-map.md)
 - Phase E summary: [`docs/phase-e-report.md`](./phase-e-report.md)
+- Phase E.1 GitHub auto deploy: [`docs/phase-e1-report.md`](./phase-e1-report.md)
 
 ## Architecture
 
@@ -107,16 +108,34 @@ Mobile API URL stays `EXPO_PUBLIC_API_URL=http://127.0.0.1:3000` for device QA.
 
 To point a Development Build at Railway temporarily, set `EXPO_PUBLIC_API_URL` to the HTTPS public URL and restart Metro (do not commit the value).
 
-## CLI deploy (current)
+## GitHub auto deploy (Phase E.1)
 
-Linked project from repo root:
+| Item | Value |
+|------|--------|
+| GitHub repository | `tjddyd55-crypto/JJoin` |
+| Branch | `main` |
+| Railway Project | `JJOIN` (existing — do not recreate) |
+| Service | `api` (existing — do not recreate) |
+| Postgres | existing `Postgres` service; keep `${{Postgres.DATABASE_URL}}` |
+| Monorepo root | repository root (shared workspace; **not** `apps/mobile`) |
+
+Flow:
+
+```
+git push origin main
+  → Railway api auto build (Nixpacks + nixpacks.toml / railway.json)
+  → preDeploy: prisma migrate deploy
+  → start: node apps/api/dist/main.js
+  → GET /health
+```
+
+Manual upload remains available if needed:
 
 ```bash
 railway up --service api --ci
 ```
 
-GitHub auto-deploy: connect the GitHub repository to the `api` service in Railway Dashboard when the remote exists (see Phase E report User Action).
-
+Prefer GitHub `main` pushes for normal redeploys. Do not create a second API or Postgres service.
 ## Migration troubleshooting
 
 If `migrate deploy` fails with a BOM / syntax error near the first line of SQL:
