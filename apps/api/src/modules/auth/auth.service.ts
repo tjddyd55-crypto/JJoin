@@ -82,11 +82,11 @@ export class AuthService {
     return { userId, me };
   }
 
-  logout(token: string | undefined) {
+  async logout(token: string | undefined) {
     if (!token) throw new BadRequestException('missing_token');
     const userId =
       mockUserStore.getUserIdByToken(token) ?? verifySessionToken(token);
-    if (userId) this.presence.hideOnLogout(userId);
+    if (userId) await this.presence.hideOnLogout(userId);
     mockUserStore.logout(token);
     return { ok: true };
   }

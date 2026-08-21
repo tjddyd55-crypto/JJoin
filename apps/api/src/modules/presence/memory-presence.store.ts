@@ -1,33 +1,24 @@
 import { PresenceVisibility } from '@jjoin/types';
-
-export type StoredPresence = {
-  userId: string;
-  visibility: PresenceVisibility;
-  availableUntil: Date | null;
-  latitude: number;
-  longitude: number;
-  accuracyMeters: number | null;
-  lastLocationAt: Date;
-  updatedAt: Date;
-};
+import type { NearbyPresenceQuery, PresenceStore, StoredPresence } from './presence.store';
+import { haversineMeters } from './privacy-location';
 
 /**
- * In-memory presence store for Phase D (works with mock auth users).
- * Prisma UserPresence schema is the long-term model; switch via repository later.
+ * In-memory presence for local/dev without Postgres.
+ * Never use as silent Production fallback.
  */
-export class MemoryPresenceStore {
+export class MemoryPresenceStore implements PresenceStore {
   private byUser = new Map<string, StoredPresence>();
 
-  get(userId: string): StoredPresence | null {
+  async get(userId: string): Promise<StoredPresence | null> {
     return this.byUser.get(userId) ?? null;
   }
 
-  upsert(row: StoredPresence): StoredPresence {
+  async upsert(row: StoredPresence): Promise<StoredPresence> {
     this.byUser.set(row.userId, row);
     return row;
   }
 
-  hide(userId: string): StoredPresence | null {
+  async hide(userId: string): Promise<StoredPresence | null> {
     const current = this.byUser.get(userId);
     if (!current) return null;
     const next: StoredPresence = {
@@ -40,19 +31,27 @@ export class MemoryPresenceStore {
     return next;
   }
 
-  listAvailable(): StoredPresence[] {
+  async findNearbyCandidates(query: NearbyPresenceQuery): Promise<StoredPresence[]> {
     const now = Date.now();
-    return [...this.byUser.values()].filter(
-      (p) =>
-        p.visibility === PresenceVisibility.AVAILABLE &&
-        p.availableUntil != null &&
-        p.availableUntil.getTime() > now,
-    );
+    const freshAfter = now - query.freshnessMinutes * 60_000;
+    const rows = [...this.byUser.values()].filter((p) => {
+      if (query.viewerUserId && p.userId === query.viewerUserId) return false;
+      if (p.visibility !== PresenceVisibility.AVAILABLE) return false;
+      if (!p.availableUntil || p.availableUntil.getTime() <= now) return false;
+      if (p.lastLocationAt.getTime() < freshAfter) return false;
+      const d = haversineMeters(
+        query.centerLat,
+        query.centerLng,
+        p.latitude,
+        p.longitude,
+      );
+      return d <= query.radiusMeters;
+    });
+    rows.sort((a, b) => b.lastLocationAt.getTime() - a.lastLocationAt.getTime());
+    return rows.slice(0, Math.max(query.limit * 4, query.limit));
   }
 
   clear() {
     this.byUser.clear();
   }
 }
-
-export const memoryPresenceStore = new MemoryPresenceStore();

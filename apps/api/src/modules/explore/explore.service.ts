@@ -1,17 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import {
-  AgeBand,
   ExploreFilter,
-  SportSkillLevel,
   type ExploreMapResponse,
-  type PublicNearbyUserDto,
 } from '@jjoin/types';
-import { mockUserStore } from '../../mock/mock-user.store';
-import { memoryPresenceStore } from '../presence/memory-presence.store';
-import { exploreConfig, presenceConfig } from '../presence/presence.config';
-import { haversineMeters, toPrivacyDisplayPoint } from '../presence/privacy-location';
-import { MOCK_EXPLORE_VENUES } from './explore.mock-venues';
+import { exploreConfig } from '../presence/presence.config';
+import { haversineMeters } from '../presence/privacy-location';
+import { PresenceService } from '../presence/presence.service';
 import { JoinsService } from '../joins/joins.service';
+import { MOCK_EXPLORE_VENUES } from './explore.mock-venues';
 
 export type ExploreMapQuery = {
   sportCode?: string;
@@ -27,7 +23,10 @@ export type ExploreMapQuery = {
 
 @Injectable()
 export class ExploreService {
-  constructor(private readonly joins: JoinsService) {}
+  constructor(
+    private readonly joins: JoinsService,
+    private readonly presence: PresenceService,
+  ) {}
 
   async getMap(query: ExploreMapQuery): Promise<ExploreMapResponse> {
     const sportCode = query.sportCode ?? exploreConfig.defaultSportCode;
@@ -60,7 +59,7 @@ export class ExploreService {
     const users =
       filter === 'VENUE' || filter === 'TODAY_JOIN'
         ? []
-        : this.nearbyUsers({
+        : await this.presence.listNearbyPublic({
             centerLat,
             centerLng,
             viewerUserId: query.viewerUserId,
@@ -77,57 +76,5 @@ export class ExploreService {
         userCount: users.length,
       },
     };
-  }
-
-  private nearbyUsers(input: {
-    centerLat: number;
-    centerLng: number;
-    viewerUserId?: string;
-  }): PublicNearbyUserDto[] {
-    const now = Date.now();
-    const freshnessMs = presenceConfig.freshnessMinutes * 60_000;
-    const radius = presenceConfig.nearbyRadiusMeters;
-
-    const fromPresence = memoryPresenceStore
-      .listAvailable()
-      .filter((p) => p.userId !== input.viewerUserId)
-      .filter((p) => now - p.lastLocationAt.getTime() <= freshnessMs)
-      .map((p) => {
-        const distance = haversineMeters(
-          input.centerLat,
-          input.centerLng,
-          p.latitude,
-          p.longitude,
-        );
-        if (distance > radius) return null;
-        const me = mockUserStore.getMe(p.userId);
-        const display = toPrivacyDisplayPoint({
-          userId: p.userId,
-          latitude: p.latitude,
-          longitude: p.longitude,
-          jitterMinMeters: presenceConfig.privacyJitterMinMeters,
-          jitterMaxMeters: presenceConfig.privacyJitterMaxMeters,
-          gridDegrees: presenceConfig.privacyGridDegrees,
-        });
-        return {
-          userId: p.userId,
-          nickname: me?.publicProfile?.nickname ?? '조인러',
-          avatarUrl: me?.publicProfile?.avatarUrl ?? null,
-          verifiedBadge: me?.publicProfile?.verifiedBadge ?? false,
-          ageBand: (me?.publicProfile?.ageBand as AgeBand | null) ?? null,
-          genderDisplay: me?.publicProfile?.genderDisplay ?? null,
-          skillLevel:
-            (me?.publicProfile?.sportProfiles[0]?.skillLevel as SportSkillLevel | null) ??
-            null,
-          approxDistanceMeters: Math.round(distance),
-          displayLat: display.displayLat,
-          displayLng: display.displayLng,
-          regionLabel: me?.publicProfile?.regionLabel ?? null,
-          availableUntil: (p.availableUntil ?? new Date()).toISOString(),
-        } satisfies PublicNearbyUserDto;
-      })
-      .filter((u): u is PublicNearbyUserDto => u != null);
-
-    return fromPresence;
   }
 }

@@ -46,7 +46,7 @@ export class AuthController {
   }
 
   @Post('logout')
-  logout(@Headers('authorization') authorization?: string) {
+  async logout(@Headers('authorization') authorization?: string) {
     const token = authorization?.startsWith('Bearer ')
       ? authorization.slice(7)
       : undefined;
