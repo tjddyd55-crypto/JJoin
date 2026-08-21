@@ -18,7 +18,7 @@ export async function fetchExploreMap(input: {
       sportCode: 'SCREEN_GOLF',
     });
   } catch {
-    return getMockExploreMap(input.filter);
+    return getMockExploreMap();
   }
 }
 

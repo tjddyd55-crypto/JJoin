@@ -205,9 +205,10 @@ export function ExploreMapScreen() {
       sheetRef.current?.snapToIndex(0);
       await loadMap(lastCameraCenter);
     } catch {
-      Alert.alert('Presence', '서버에 연결되지 않아 로컬 ON으로 표시합니다.');
-      setPresence(PresenceVisibility.AVAILABLE);
-      setSheetMode('PEEK');
+      Alert.alert(
+        '지금 조인 가능',
+        '서버에 연결하지 못해 활성화할 수 없습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.',
+      );
     }
   };
 
