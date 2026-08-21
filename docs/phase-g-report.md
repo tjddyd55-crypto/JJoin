@@ -58,13 +58,14 @@
 - marker / user sheet / re-search: Gate A contract 유지 (회귀 없음 목표)
 
 ## Android E2E
-- A enable: **MANUAL_PENDING** (adb PATH 없음 — 사용자 실기기 확인)
-- DB AVAILABLE: server smoke **PASS**
-- A logout hidden: smoke **PASS**
-- B discovers A: smoke **PASS** (DEV_A left AVAILABLE for device QA)
-- B opens A profile: **MANUAL_PENDING**
-- privacy copy: UI 기존 copy 유지 / server deny-list smoke **PASS**
+- A enable: **PASS** (실기기 UI)
+- DB AVAILABLE: **PASS**
+- A logout hidden: **PASS** (실기기 logout)
+- B discovers A: **PASS** (사람 filter · 김진우 marker)
+- B opens A profile: **PASS** (User Sheet)
+- privacy copy: **PASS**
 - expired hidden: unit store **PASS**
+- detail: `docs/phase-g-android-final-report.md`
 
 ## Security
 - exact location logs: not added
