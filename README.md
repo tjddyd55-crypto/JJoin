@@ -23,6 +23,9 @@
 - [docs/naver-map-integration.md](docs/naver-map-integration.md) ← Naver Map D1
 - [docs/location-presence.md](docs/location-presence.md) ← Presence privacy
 - [docs/phase-d-report.md](docs/phase-d-report.md) ← **Phase D Explore / Map**
+- [docs/phase-e-report.md](docs/phase-e-report.md) ← Phase E Railway foundation
+- [docs/phase-e1-report.md](docs/phase-e1-report.md) ← Phase E.1 GitHub auto deploy
+- [docs/railway-deployment.md](docs/railway-deployment.md) ← Railway / GitHub deploy SSOT
 
 
 ### Product / UX (Phase 1)
