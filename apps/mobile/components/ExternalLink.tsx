@@ -1,9 +1,14 @@
-import { Link } from 'expo-router';
+import { Link, type Href } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import type { ComponentProps } from 'react';
 import { Platform } from 'react-native';
 
-export function ExternalLink(props: Omit<ComponentProps<typeof Link>, 'href'> & { href: string }) {
+type Props = Omit<ComponentProps<typeof Link>, 'href'> & {
+  /** External https URL or in-app path accepted by Expo Router. */
+  href: Href;
+};
+
+export function ExternalLink(props: Props) {
   return (
     <Link
       target="_blank"
@@ -11,10 +16,9 @@ export function ExternalLink(props: Omit<ComponentProps<typeof Link>, 'href'> & 
       href={props.href}
       onPress={(e) => {
         if (Platform.OS !== 'web') {
-          // Prevent the default behavior of linking to the default browser on native.
           e.preventDefault();
-          // Open the link in an in-app browser.
-          WebBrowser.openBrowserAsync(props.href as string);
+          const url = typeof props.href === 'string' ? props.href : String(props.href);
+          void WebBrowser.openBrowserAsync(url);
         }
       }}
     />
