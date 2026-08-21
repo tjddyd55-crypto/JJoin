@@ -89,20 +89,11 @@
 - database: connected
 
 ## Remaining
-- Android 실기기 Manual E2E 확인 (아래 체크리스트)
 - Actual Venue Provider
 - Coin Hold / Settlement
 - Real OAuth
 - Identity Verification
 - PostGIS optimization
 
-## Android Manual Checklist (one-device)
-
-1. Metro: `EXPO_PUBLIC_API_URL=https://api-production-2d67e.up.railway.app`
-2. TEST A: DEV_A → 지금 조인 가능 ON → Active → OFF → logout hide
-3. Cursor smoke already re-armed DEV_A AVAILABLE at Geoje QA coords (재실행 시 기본 CLEANUP 없음)
-4. TEST B: DEV_B → Explore → [사람] → 김진우 marker → sheet (정확한 위치 비공개 copy)
-5. 종료 후: `CLEANUP=1` 로 smoke 재실행 또는 A에서 Presence OFF
-
 ## Result
-**MANUAL_PENDING** (server/Railway/smoke PASS; Android 실기기 수동 확인 대기)
+**PASS**
