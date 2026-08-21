@@ -226,16 +226,26 @@ export type ExploreJoinPreviewDto = {
   hostVerified: boolean;
 };
 
+/** Venue source for Explore — Kakao live search never implies DB persistence. */
+export type ExploreVenueSource = 'KAKAO_LOCAL' | 'MOCK' | 'JJOIN';
+
 export type ExploreVenueDto = {
   venueId: string;
   name: string;
   address: string | null;
+  roadAddress?: string | null;
   regionLabel: string | null;
+  categoryName?: string | null;
+  phone?: string | null;
+  placeUrl?: string | null;
   latitude: number;
   longitude: number;
   distanceMeters: number | null;
   openJoinCount: number;
   joinPreviews: ExploreJoinPreviewDto[];
+  source?: ExploreVenueSource;
+  /** True when Create Join from this card is supported in current product phase. */
+  canCreateJoin?: boolean;
 };
 
 /**

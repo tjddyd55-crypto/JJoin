@@ -13,6 +13,7 @@ import {
   SCREEN_GOLF_CODE,
   type CreateJoinRequest,
   type ExploreJoinPreviewDto,
+  type ExploreVenueDto,
   type JoinDetailDto,
   type JoinListItemDto,
   type JoinParticipantDto,
@@ -31,6 +32,7 @@ import { createJoinSchema } from '@jjoin/validation';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ensureFoundation } from '../../foundation/ensure-foundation';
+import { haversineMeters } from '../presence/privacy-location';
 
 const ACTIVE_JOIN_STATUSES: JoinStatus[] = [JoinStatus.OPEN, JoinStatus.FULL];
 
@@ -288,6 +290,76 @@ export class JoinsService {
     });
 
     return this.getDetail(joinId, hostUserId);
+  }
+
+  /** Phase F “오늘 조인”: JJOIN venues that currently have open joins. */
+  async listOpenJoinVenuesNear(input: {
+    centerLat: number;
+    centerLng: number;
+  }): Promise<ExploreVenueDto[]> {
+    const joins = await this.prisma.join.findMany({
+      where: {
+        status: { in: ['OPEN', 'FULL'] },
+        startAt: { gte: new Date(Date.now() - 24 * 60 * 60_000) },
+      },
+      include: {
+        venue: true,
+        host: { include: { profile: true } },
+      },
+      orderBy: { startAt: 'asc' },
+      take: 40,
+    });
+
+    const byVenue = new Map<
+      string,
+      {
+        venue: (typeof joins)[number]['venue'];
+        previews: ExploreJoinPreviewDto[];
+      }
+    >();
+
+    for (const join of joins) {
+      const key = join.venueId;
+      const entry = byVenue.get(key) ?? {
+        venue: join.venue,
+        previews: [],
+      };
+      entry.previews.push({
+        joinId: join.id,
+        startAt: join.startAt.toISOString(),
+        scheduledEndAt: join.scheduledEndAt.toISOString(),
+        currentParticipants: join.confirmedPlayerCount,
+        maxParticipants: join.plannedPlayerCount,
+        rewardCoin: String(join.rewardPerParticipant),
+        hostNickname: join.host.profile?.nickname ?? '호스트',
+        hostVerified: true,
+      });
+      byVenue.set(key, entry);
+    }
+
+    return [...byVenue.values()].map(({ venue, previews }) => {
+      const lat = Number(venue.latitude);
+      const lng = Number(venue.longitude);
+      return {
+        venueId: venue.id,
+        name: venue.name,
+        address: venue.address,
+        roadAddress: venue.roadAddress,
+        regionLabel: venue.region ?? venue.address,
+        categoryName: null,
+        phone: venue.phone,
+        placeUrl: null,
+        latitude: lat,
+        longitude: lng,
+        distanceMeters: Math.round(
+          haversineMeters(input.centerLat, input.centerLng, lat, lng),
+        ),
+        openJoinCount: previews.length,
+        joinPreviews: previews,
+        source: 'JJOIN' as const,
+        canCreateJoin: true,
+      };
+    });
   }
 
   /** Merge DB open joins onto mock venue fixtures by providerPlaceId. */

@@ -10,14 +10,8 @@ export interface IdentityVerificationProvider {
   confirm(sessionId: string): Promise<{ verified: boolean; ciHash?: string }>;
 }
 
-export interface VenueSearchProvider {
-  searchNearby(input: {
-    lat: number;
-    lng: number;
-    sportCode: string;
-    query?: string;
-  }): Promise<Array<{ providerPlaceId: string; name: string; lat: number; lng: number }>>;
-}
+/** @deprecated Use VenueSearchProvider from venue-search.types — kept for compile compatibility during Phase H. */
+export type { VenueSearchProvider } from './venue-search.types';
 
 export interface MediaStorageProvider {
   createUploadUrl(input: {

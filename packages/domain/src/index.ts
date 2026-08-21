@@ -53,6 +53,18 @@ export function autoPayAt(scheduledEndAt: Date, hours = 24): Date {
   return new Date(scheduledEndAt.getTime() + hours * 60 * 60_000);
 }
 
+/**
+ * Default venue keyword per sport for Explore live search.
+ * Keep mapping here — never hardcode in screen components.
+ */
+export const SPORT_VENUE_SEARCH_KEYWORDS: Record<string, string> = {
+  SCREEN_GOLF: '스크린골프',
+};
+
+export function defaultVenueSearchQuery(sportCode: string): string {
+  return SPORT_VENUE_SEARCH_KEYWORDS[sportCode] ?? sportCode;
+}
+
 export const SCREEN_GOLF_DURATION_RULE: SportDurationRule = {
   strategy: 'PER_PLAYER_MINUTES',
   minutesPerPlayer: 60,

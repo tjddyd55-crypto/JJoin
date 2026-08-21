@@ -14,6 +14,7 @@ export class ExploreController {
     @Req() req: { headers: { authorization?: string }; userId?: string },
     @Query('sportCode') sportCode?: string,
     @Query('filter') filter?: ExploreFilter,
+    @Query('query') query?: string,
     @Query('centerLat') centerLat?: string,
     @Query('centerLng') centerLng?: string,
     @Query('southWestLat') southWestLat?: string,
@@ -29,6 +30,7 @@ export class ExploreController {
     return this.explore.getMap({
       sportCode,
       filter,
+      query,
       centerLat: num(centerLat),
       centerLng: num(centerLng),
       southWestLat: num(southWestLat),

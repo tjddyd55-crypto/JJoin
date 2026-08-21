@@ -10,5 +10,6 @@
     "strictPropertyInitialization": false,
     "types": ["node"]
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/**/*.node-test.ts"]
 }
