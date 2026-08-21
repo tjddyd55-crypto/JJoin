@@ -60,17 +60,17 @@ export class ExploreService {
         centerLng,
       });
     } else if (filter !== 'USER') {
+      const defaultQuery = defaultVenueSearchQuery(sportCode);
+      const isDefaultQuery = searchQuery === defaultQuery;
       const hits = await this.venues.search({
         sportCode,
         query: searchQuery,
         centerLat,
         centerLng,
         // Default sport keyword uses map viewport rect.
-        // Explicit user queries (e.g. "서울 스크린골프", "SG골프") must not be trapped by current map rect.
-        bounds:
-          bounds && searchQuery === defaultVenueSearchQuery(sportCode)
-            ? bounds
-            : undefined,
+        // Explicit user queries must not be trapped by current map region.
+        bounds: isDefaultQuery ? bounds ?? undefined : undefined,
+        unscoped: !isDefaultQuery,
       });
       if (this.venues.name === 'MOCK') {
         const dbJoins = await this.joins.openJoinsByProviderPlaceIds(

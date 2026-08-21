@@ -32,6 +32,11 @@ export type VenueSearchInput = {
   bounds?: VenueSearchBounds;
   /** Fallback radius meters when bounds missing (capped by config). */
   radiusMeters?: number;
+  /**
+   * When true, search by query accuracy only (no rect / radius).
+   * Used for explicit keywords like "서울 스크린골프" so current map region cannot trap results.
+   */
+  unscoped?: boolean;
 };
 
 export interface VenueSearchProvider {

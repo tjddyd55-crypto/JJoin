@@ -93,7 +93,7 @@ export class KakaoLocalVenueSearchAdapter implements VenueSearchProvider {
     if (input.bounds) {
       const { west, south, east, north } = input.bounds;
       url.searchParams.set('rect', `${west},${south},${east},${north}`);
-    } else {
+    } else if (!input.unscoped) {
       url.searchParams.set('x', String(input.centerLng));
       url.searchParams.set('y', String(input.centerLat));
       url.searchParams.set('radius', String(cappedRadiusMeters(input.radiusMeters)));
