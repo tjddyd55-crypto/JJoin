@@ -1,0 +1,516 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  WITHDRAWN
+}
+
+enum IdentityStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  FAILED
+}
+
+enum SocialProvider {
+  KAKAO
+  NAVER
+  GOOGLE
+}
+
+enum JoinStatus {
+  DRAFT
+  OPEN
+  FULL
+  CONFIRMED
+  IN_PROGRESS
+  SETTLING
+  COMPLETED
+  CANCELLED
+}
+
+enum JoinMethod {
+  OPEN
+  APPROVAL
+}
+
+enum ParticipationStatus {
+  APPLIED
+  APPROVED
+  CONFIRMED
+  COMPLETED
+  NO_SHOW
+  LEFT_EARLY
+  CANCELLED
+  DISPUTED
+}
+
+enum ParticipantRole {
+  HOST
+  PARTICIPANT
+}
+
+enum RewardStatus {
+  NOT_ELIGIBLE
+  HELD
+  PENDING_CONFIRMATION
+  PAID
+  AUTO_PAID
+  DISPUTED
+  REFUNDED
+}
+
+enum CoinHoldStatus {
+  OPEN
+  PARTIALLY_RELEASED
+  RELEASED
+  REFUNDED
+}
+
+enum CoinTxType {
+  ROOM_CREATION_FEE
+  JOIN_REWARD_HOLD
+  JOIN_REWARD_RELEASE
+  JOIN_REWARD_TRANSFER
+  JOIN_REWARD_REFUND
+  ADMIN_ADJUSTMENT
+}
+
+enum CoinTxDirection {
+  DEBIT
+  CREDIT
+}
+
+enum ReportStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+enum MediaKind {
+  AVATAR
+  OTHER
+}
+
+/// Opt-in "지금 조인 가능" — not the same as OS location permission.
+enum PresenceVisibility {
+  HIDDEN
+  AVAILABLE
+}
+
+model User {
+  id             String         @id @default(uuid()) @db.Uuid
+  status         UserStatus     @default(ACTIVE)
+  identityStatus IdentityStatus @default(UNVERIFIED) @map("identity_status")
+  countryCode    String         @default("KR") @map("country_code") @db.Char(2)
+  locale         String         @default("ko-KR")
+  timezone       String         @default("Asia/Seoul")
+  lastLoginAt    DateTime?      @map("last_login_at") @db.Timestamptz(6)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  profile               UserProfile?
+  socialAccounts        SocialAccount[]
+  identityVerifications IdentityVerification[]
+  mediaAssets           MediaAsset[]
+  sportProfiles         UserSportProfile[]
+  hostedJoins           Join[]                 @relation("JoinHost")
+  participations        JoinParticipant[]
+  wallets               Wallet[]
+  reportsFiled          Report[]               @relation("ReportReporter")
+  presence              UserPresence?
+
+  @@map("users")
+}
+
+/// Current presence only (MVP: no location history table).
+/// Public APIs must never expose actual latitude/longitude.
+model UserPresence {
+  id              String             @id @default(uuid()) @db.Uuid
+  userId          String             @unique @map("user_id") @db.Uuid
+  visibility      PresenceVisibility @default(HIDDEN)
+  availableUntil  DateTime?          @map("available_until") @db.Timestamptz(6)
+  /// Actual coordinates — server-only; never in PublicNearbyUserDto
+  latitude        Decimal            @db.Decimal(10, 7)
+  longitude       Decimal            @db.Decimal(10, 7)
+  accuracyMeters  Float?             @map("accuracy_meters")
+  lastLocationAt  DateTime           @map("last_location_at") @db.Timestamptz(6)
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([visibility, availableUntil])
+  @@index([lastLocationAt])
+  @@map("user_presences")
+}
+
+model UserProfile {
+  userId        String    @id @map("user_id") @db.Uuid
+  nickname      String    @unique
+  avatarAssetId String?   @map("avatar_asset_id") @db.Uuid
+  gender        String?
+  ageBand       String?   @map("age_band")
+  regionCode    String?   @map("region_code")
+  regionLabel   String?   @map("region_label")
+  bio           String?
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  avatarAsset MediaAsset? @relation("ProfileAvatar", fields: [avatarAssetId], references: [id], onDelete: SetNull)
+
+  @@map("user_profiles")
+}
+
+model SocialAccount {
+  id              String         @id @default(uuid()) @db.Uuid
+  userId          String         @map("user_id") @db.Uuid
+  provider        SocialProvider
+  providerSubject String         @map("provider_subject")
+  providerEmail   String?        @map("provider_email")
+  linkedAt        DateTime       @default(now()) @map("linked_at") @db.Timestamptz(6)
+  lastLoginAt     DateTime?      @map("last_login_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerSubject])
+  @@index([userId])
+  @@map("social_accounts")
+}
+
+model IdentityVerification {
+  id                     String         @id @default(uuid()) @db.Uuid
+  userId                 String         @map("user_id") @db.Uuid
+  provider               String
+  providerVerificationId String?        @map("provider_verification_id")
+  status                 IdentityStatus @default(PENDING)
+  ciHash                 String?        @map("ci_hash")
+  verifiedAt             DateTime?      @map("verified_at") @db.Timestamptz(6)
+  /// Sensitive operational fields — never expose via public profile APIs
+  verifiedNameMasked     String?        @map("verified_name_masked")
+  birthDate              DateTime?      @map("birth_date") @db.Date
+  phoneEncrypted         String?        @map("phone_encrypted")
+  createdAt              DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@map("identity_verifications")
+}
+
+model MediaAsset {
+  id          String    @id @default(uuid()) @db.Uuid
+  ownerUserId String    @map("owner_user_id") @db.Uuid
+  kind        MediaKind @default(AVATAR)
+  storageKey  String    @map("storage_key")
+  mimeType    String?   @map("mime_type")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  owner    User          @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  profiles UserProfile[] @relation("ProfileAvatar")
+
+  @@index([ownerUserId])
+  @@map("media_assets")
+}
+
+model Sport {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique
+  nameKey   String   @map("name_i18n_key")
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  rule          SportRule?
+  venues        Venue[]
+  joins         Join[]
+  sportProfiles UserSportProfile[]
+
+  @@map("sports")
+}
+
+model SportRule {
+  sportId            String   @id @map("sport_id") @db.Uuid
+  durationStrategy   String   @map("duration_strategy")
+  durationParamJson  Json     @map("duration_param_json")
+  defaultJoinMethod  JoinMethod @default(OPEN) @map("default_join_method")
+  metadata           Json?
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  sport Sport @relation(fields: [sportId], references: [id], onDelete: Cascade)
+
+  @@map("sport_rules")
+}
+
+model UserSportProfile {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  sportId    String   @map("sport_id") @db.Uuid
+  skillLevel String   @map("skill_level")
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sport Sport @relation(fields: [sportId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sportId])
+  @@map("user_sport_profiles")
+}
+
+model Venue {
+  id               String   @id @default(uuid()) @db.Uuid
+  sportId          String   @map("sport_id") @db.Uuid
+  provider         String
+  providerPlaceId  String   @map("provider_place_id")
+  name             String
+  address          String?
+  roadAddress      String?  @map("road_address")
+  latitude         Decimal  @db.Decimal(10, 7)
+  longitude        Decimal  @db.Decimal(10, 7)
+  phone            String?
+  countryCode      String   @default("KR") @map("country_code") @db.Char(2)
+  region           String?
+  timezone         String?
+  metadata         Json?
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  sport Sport  @relation(fields: [sportId], references: [id])
+  joins Join[]
+
+  @@unique([provider, providerPlaceId])
+  @@index([sportId, latitude, longitude])
+  @@map("venues")
+}
+
+model Join {
+  id                      String     @id @default(uuid()) @db.Uuid
+  sportId                 String     @map("sport_id") @db.Uuid
+  venueId                 String     @map("venue_id") @db.Uuid
+  hostUserId              String     @map("host_user_id") @db.Uuid
+  title                   String?
+  description             String?
+  status                  JoinStatus @default(DRAFT)
+  joinMethod              JoinMethod @default(OPEN) @map("join_method")
+  startAt                 DateTime   @map("start_at") @db.Timestamptz(6)
+  scheduledEndAt          DateTime   @map("scheduled_end_at") @db.Timestamptz(6)
+  plannedPlayerCount      Int        @map("planned_player_count")
+  confirmedPlayerCount    Int        @default(1) @map("confirmed_player_count")
+  rewardPerParticipant    Decimal    @map("reward_per_participant") @db.Decimal(18, 4)
+  coinAssetId             String     @map("coin_asset_id") @db.Uuid
+  roomCreationFeeAmount   Decimal    @map("room_creation_fee_amount") @db.Decimal(18, 4)
+  rewardHoldTotalAmount   Decimal    @map("reward_hold_total_amount") @db.Decimal(18, 4)
+  costShareType           String?    @map("cost_share_type")
+  countryCode             String     @default("KR") @map("country_code") @db.Char(2)
+  timezone                String     @default("Asia/Seoul")
+  confirmedAt             DateTime?  @map("confirmed_at") @db.Timestamptz(6)
+  cancelledAt             DateTime?  @map("cancelled_at") @db.Timestamptz(6)
+  createdAt               DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  sport          Sport              @relation(fields: [sportId], references: [id])
+  venue          Venue              @relation(fields: [venueId], references: [id])
+  host           User               @relation("JoinHost", fields: [hostUserId], references: [id])
+  coinAsset      CoinAsset          @relation(fields: [coinAssetId], references: [id])
+  requirements   JoinRequirement[]
+  options        JoinOption[]
+  participants   JoinParticipant[]
+  holds          CoinHold[]
+  reports        Report[]
+
+  @@index([venueId, startAt])
+  @@index([status, startAt])
+  @@index([hostUserId, startAt])
+  @@index([sportId, startAt])
+  @@map("joins")
+}
+
+model JoinRequirement {
+  id              String  @id @default(uuid()) @db.Uuid
+  joinId          String  @map("join_id") @db.Uuid
+  requirementType String  @map("requirement_type")
+  operator        String
+  valueJson       Json    @map("value_json")
+  targetCount     Int?    @map("target_count")
+  sortOrder       Int     @default(0) @map("sort_order")
+  metadata        Json?
+
+  join Join @relation(fields: [joinId], references: [id], onDelete: Cascade)
+
+  @@index([joinId])
+  @@map("join_requirements")
+}
+
+model JoinOption {
+  id              String @id @default(uuid()) @db.Uuid
+  joinId          String @map("join_id") @db.Uuid
+  optionKey       String @map("option_key")
+  optionValueJson Json   @map("option_value_json")
+
+  join Join @relation(fields: [joinId], references: [id], onDelete: Cascade)
+
+  @@unique([joinId, optionKey])
+  @@map("join_options")
+}
+
+model JoinParticipant {
+  id                   String              @id @default(uuid()) @db.Uuid
+  joinId               String              @map("join_id") @db.Uuid
+  userId               String              @map("user_id") @db.Uuid
+  role                 ParticipantRole     @default(PARTICIPANT)
+  participationStatus  ParticipationStatus @default(APPLIED) @map("participation_status")
+  partySize            Int                 @default(1) @map("party_size")
+  appliedAt            DateTime            @default(now()) @map("applied_at") @db.Timestamptz(6)
+  approvedAt           DateTime?           @map("approved_at") @db.Timestamptz(6)
+  confirmedAt          DateTime?           @map("confirmed_at") @db.Timestamptz(6)
+  cancelledAt          DateTime?           @map("cancelled_at") @db.Timestamptz(6)
+
+  join       Join               @relation(fields: [joinId], references: [id], onDelete: Cascade)
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  settlement RewardSettlement?
+  reports    Report[]
+
+  @@unique([joinId, userId])
+  @@index([userId])
+  @@map("join_participants")
+}
+
+model RewardSettlement {
+  id                   String       @id @default(uuid()) @db.Uuid
+  joinId               String       @map("join_id") @db.Uuid
+  joinParticipantId    String       @unique @map("join_participant_id") @db.Uuid
+  coinAssetId          String       @map("coin_asset_id") @db.Uuid
+  amount               Decimal      @db.Decimal(18, 4)
+  rewardStatus         RewardStatus @default(HELD) @map("reward_status")
+  holdId               String?      @map("hold_id") @db.Uuid
+  settlementAvailableAt DateTime    @map("settlement_available_at") @db.Timestamptz(6)
+  autoPayAt            DateTime     @map("auto_pay_at") @db.Timestamptz(6)
+  heldAt               DateTime?    @map("held_at") @db.Timestamptz(6)
+  paidAt               DateTime?    @map("paid_at") @db.Timestamptz(6)
+  disputedAt           DateTime?    @map("disputed_at") @db.Timestamptz(6)
+  refundedAt           DateTime?    @map("refunded_at") @db.Timestamptz(6)
+  paidTxId             String?      @map("paid_tx_id") @db.Uuid
+  idempotencyKey       String       @unique @map("idempotency_key")
+  createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  participant JoinParticipant  @relation(fields: [joinParticipantId], references: [id], onDelete: Cascade)
+  coinAsset   CoinAsset        @relation(fields: [coinAssetId], references: [id])
+  hold        CoinHold?        @relation(fields: [holdId], references: [id])
+  paidTx      CoinTransaction? @relation(fields: [paidTxId], references: [id])
+
+  @@index([rewardStatus, autoPayAt])
+  @@index([joinId])
+  @@map("reward_settlements")
+}
+
+model CoinAsset {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique
+  nameKey   String   @map("name_i18n_key")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  wallets      Wallet[]
+  transactions CoinTransaction[]
+  holds        CoinHold[]
+  joins        Join[]
+  settlements  RewardSettlement[]
+
+  @@map("coin_assets")
+}
+
+model Wallet {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  coinAssetId      String   @map("coin_asset_id") @db.Uuid
+  availableBalance Decimal  @default(0) @map("available_balance") @db.Decimal(18, 4)
+  heldBalance      Decimal  @default(0) @map("held_balance") @db.Decimal(18, 4)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coinAsset    CoinAsset         @relation(fields: [coinAssetId], references: [id])
+  transactions CoinTransaction[]
+  holds        CoinHold[]
+
+  @@unique([userId, coinAssetId])
+  @@map("wallets")
+}
+
+model CoinTransaction {
+  id                   String           @id @default(uuid()) @db.Uuid
+  walletId             String           @map("wallet_id") @db.Uuid
+  coinAssetId          String           @map("coin_asset_id") @db.Uuid
+  type                 CoinTxType
+  direction            CoinTxDirection
+  amount               Decimal          @db.Decimal(18, 4)
+  balanceAfterAvailable Decimal         @map("balance_after_available") @db.Decimal(18, 4)
+  balanceAfterHeld     Decimal          @map("balance_after_held") @db.Decimal(18, 4)
+  refType              String?          @map("ref_type")
+  refId                String?          @map("ref_id")
+  idempotencyKey       String           @unique @map("idempotency_key")
+  metadata             Json?
+  createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  wallet      Wallet             @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  coinAsset   CoinAsset          @relation(fields: [coinAssetId], references: [id])
+  settlements RewardSettlement[]
+
+  @@index([walletId, createdAt])
+  @@index([refType, refId])
+  @@map("coin_transactions")
+}
+
+model CoinHold {
+  id          String         @id @default(uuid()) @db.Uuid
+  walletId    String         @map("wallet_id") @db.Uuid
+  coinAssetId String         @map("coin_asset_id") @db.Uuid
+  joinId      String?        @map("join_id") @db.Uuid
+  amount      Decimal        @db.Decimal(18, 4)
+  reason      String
+  status      CoinHoldStatus @default(OPEN)
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  releasedAt  DateTime?      @map("released_at") @db.Timestamptz(6)
+  refundedAt  DateTime?      @map("refunded_at") @db.Timestamptz(6)
+
+  wallet      Wallet             @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  coinAsset   CoinAsset          @relation(fields: [coinAssetId], references: [id])
+  join        Join?              @relation(fields: [joinId], references: [id], onDelete: SetNull)
+  settlements RewardSettlement[]
+
+  @@index([walletId, status])
+  @@index([joinId])
+  @@map("coin_holds")
+}
+
+model Report {
+  id                   String       @id @default(uuid()) @db.Uuid
+  joinId               String       @map("join_id") @db.Uuid
+  reporterUserId       String       @map("reporter_user_id") @db.Uuid
+  subjectParticipantId String?      @map("subject_participant_id") @db.Uuid
+  reasonCode           String       @map("reason_code")
+  description          String?
+  status               ReportStatus @default(OPEN)
+  createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  join               Join             @relation(fields: [joinId], references: [id], onDelete: Cascade)
+  reporter           User             @relation("ReportReporter", fields: [reporterUserId], references: [id])
+  subjectParticipant JoinParticipant? @relation(fields: [subjectParticipantId], references: [id], onDelete: SetNull)
+
+  @@index([joinId, status])
+  @@map("reports")
+}

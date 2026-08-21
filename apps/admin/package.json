@@ -1,0 +1,9 @@
+{
+  "name": "@jjoin/admin",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Admin placeholder — not implemented in Phase 2 foundation",
+  "scripts": {
+    "typecheck": "echo \"admin placeholder\""
+  }
+}

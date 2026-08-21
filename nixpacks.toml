@@ -1,0 +1,18 @@
+# Nixpacks / Railway build for pnpm monorepo (apps/api)
+[phases.setup]
+nixPkgs = ["nodejs_22", "pnpm-9_x"]
+
+[phases.install]
+cmds = ["pnpm install --frozen-lockfile"]
+
+[phases.build]
+cmds = [
+  "pnpm --filter @jjoin/types build",
+  "pnpm --filter @jjoin/domain build",
+  "pnpm --filter @jjoin/validation build",
+  "pnpm exec prisma generate --schema=prisma/schema.prisma",
+  "pnpm --filter @jjoin/api build"
+]
+
+[start]
+cmd = "node apps/api/dist/main.js"

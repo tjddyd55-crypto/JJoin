@@ -1,0 +1,27 @@
+{
+  "name": "jjoin",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:mobile": "pnpm --filter @jjoin/mobile start",
+    "dev:api": "pnpm --filter @jjoin/api start:dev",
+    "build": "pnpm -r --if-present run build",
+    "build:api": "pnpm --filter @jjoin/types build && pnpm --filter @jjoin/domain build && pnpm --filter @jjoin/validation build && pnpm prisma:generate && pnpm --filter @jjoin/api build",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "lint": "pnpm -r --if-present run lint",
+    "test": "pnpm -r --if-present run test",
+    "prisma:generate": "pnpm exec prisma generate --schema=prisma/schema.prisma",
+    "prisma:validate": "pnpm exec prisma validate --schema=prisma/schema.prisma",
+    "prisma:migrate:deploy": "pnpm exec prisma migrate deploy --schema=prisma/schema.prisma",
+    "prisma:migrate:status": "pnpm exec prisma migrate status --schema=prisma/schema.prisma",
+    "start:api:prod": "node apps/api/dist/main.js"
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "prisma": "^6.19.3",
+    "typescript": "^5.7.3"
+  }
+}
