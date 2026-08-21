@@ -13,5 +13,9 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
+  ],
+  "exclude": [
+    "**/*.node-test.ts",
+    "modules/**/android/**"
   ]
 }

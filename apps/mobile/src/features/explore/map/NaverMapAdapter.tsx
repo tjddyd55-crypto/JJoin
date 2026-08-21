@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import {
   NaverMapMarkerOverlay,
   NaverMapView,
@@ -7,7 +7,8 @@ import {
 } from '@mj-studio/react-native-naver-map';
 import type { ExploreVenueDto, PublicNearbyUserDto } from '@jjoin/types';
 import type { MapCoordinate, MapRegion } from '../model/map-types';
-import { AppText, colors } from '@jjoin/design-system';
+import { colors } from '@jjoin/design-system';
+import type { MapCameraHandle } from './map-handle';
 
 export type NaverMapAdapterProps = {
   initialRegion: MapRegion;
@@ -22,11 +23,11 @@ export type NaverMapAdapterProps = {
   onCameraGesture?: (center: MapCoordinate) => void;
   onVenuePress: (venueId: string) => void;
   onUserPress: (userId: string) => void;
-  mapRef?: React.RefObject<NaverMapViewRef | null>;
+  mapRef?: React.RefObject<MapCameraHandle | null>;
 };
 
 /**
- * Sole place that talks to Naver Map SDK.
+ * Temporary migration fallback — remove after Gate K PASS.
  * Screens must not import @mj-studio/react-native-naver-map directly.
  */
 export function NaverMapAdapter({
@@ -43,6 +44,18 @@ export function NaverMapAdapter({
   onUserPress,
   mapRef,
 }: NaverMapAdapterProps) {
+  const nativeRef = React.useRef<NaverMapViewRef | null>(null);
+
+  React.useImperativeHandle(mapRef, () => ({
+    animateCameraTo: async (target, durationMs = 500) => {
+      nativeRef.current?.animateCameraTo({
+        latitude: target.latitude,
+        longitude: target.longitude,
+        duration: durationMs,
+      });
+    },
+  }));
+
   const initial = useMemo(
     () => ({
       latitude: initialRegion.latitude,
@@ -55,7 +68,7 @@ export function NaverMapAdapter({
 
   return (
     <NaverMapView
-      ref={mapRef}
+      ref={nativeRef}
       style={StyleSheet.absoluteFill}
       initialRegion={initial}
       isShowLocationButton={false}
@@ -63,7 +76,6 @@ export function NaverMapAdapter({
       isShowScaleBar={false}
       onCameraChanged={(e) => {
         if (!e) return;
-        // Only gesture/control from user should dirty re-search CTA
         if (e.reason === 'Gesture' || e.reason === 'Control') {
           onCameraGesture?.({ latitude: e.latitude, longitude: e.longitude });
         }
@@ -71,8 +83,7 @@ export function NaverMapAdapter({
     >
       {venues.map((v) => {
         const selected = v.venueId === selectedVenueId;
-        const caption =
-          v.openJoinCount > 0 ? `⛳ ${v.openJoinCount}` : '⛳';
+        const caption = v.openJoinCount > 0 ? `⛳ ${v.openJoinCount}` : '⛳';
         return (
           <NaverMapMarkerOverlay
             key={`venue-${v.venueId}`}
@@ -127,7 +138,7 @@ export function NaverMapAdapter({
       ) : null}
 
       {cameraTarget ? (
-        <CameraMover mapRef={mapRef} target={cameraTarget} token={cameraKey} />
+        <CameraMover mapRef={nativeRef} target={cameraTarget} token={cameraKey} />
       ) : null}
     </NaverMapView>
   );
@@ -138,12 +149,12 @@ function CameraMover({
   target,
   token,
 }: {
-  mapRef?: React.RefObject<NaverMapViewRef | null>;
+  mapRef: React.RefObject<NaverMapViewRef | null>;
   target: MapCoordinate;
   token: number;
 }) {
   React.useEffect(() => {
-    const map = mapRef?.current;
+    const map = mapRef.current;
     if (!map) return;
     map.animateCameraTo({
       latitude: target.latitude,
@@ -153,30 +164,3 @@ function CameraMover({
   }, [mapRef, target.latitude, target.longitude, token]);
   return null;
 }
-
-export function MapUnavailablePanel({
-  title,
-  body,
-}: {
-  title: string;
-  body: string;
-}) {
-  return (
-    <View style={styles.fallback}>
-      <AppText variant="subtitle">{title}</AppText>
-      <AppText variant="body" color="textSecondary">
-        {body}
-      </AppText>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  fallback: {
-    flex: 1,
-    backgroundColor: '#DCE8E3',
-    padding: 24,
-    justifyContent: 'center',
-    gap: 8,
-  },
-});

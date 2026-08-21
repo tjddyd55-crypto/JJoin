@@ -20,7 +20,6 @@ import {
 } from '@jjoin/types';
 import { defaultVenueSearchQuery } from '@jjoin/domain';
 import { AppText, colors, spacing } from '@jjoin/design-system';
-import type { NaverMapViewRef } from '@mj-studio/react-native-naver-map';
 import { getSecureSessionStore } from '../../../session/SessionContext';
 import { getApiClient } from '../../../lib/api';
 import { fetchExploreMap, REGION_SEARCH_FIXTURES } from '../api/explore-api';
@@ -31,11 +30,16 @@ import {
   ReSearchAreaButton,
 } from '../components/MapChrome';
 import { ExploreBottomSheetBody } from '../components/ExploreBottomSheetBody';
-import { MapUnavailablePanel, NaverMapAdapter } from '../map/NaverMapAdapter';
-import { getNaverMapRuntimeStatus } from '../map/map-runtime';
+import { KakaoMapAdapter } from '../map/KakaoMapAdapter';
+import { MapUnavailablePanel } from '../map/MapUnavailablePanel';
+import { NaverMapAdapter } from '../map/NaverMapAdapter';
+import type { MapCameraHandle } from '../map/map-handle';
+import { regionFromBounds } from '../map/map-geo';
+import { getMapRuntimeStatus } from '../map/map-runtime';
 import {
   GEOJE_DEMO_REGION,
   type ExploreFilterId,
+  type MapBounds,
   type MapCoordinate,
   type MapRegion,
   type SheetMode,
@@ -44,7 +48,7 @@ import {
 export function ExploreMapScreen() {
   const router = useRouter();
   const store = getSecureSessionStore();
-  const mapRef = useRef<NaverMapViewRef | null>(null);
+  const mapRef = useRef<MapCameraHandle | null>(null);
   const sheetRef = useRef<BottomSheet>(null);
   const requestSeq = useRef(0);
 
@@ -67,7 +71,7 @@ export function ExploreMapScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const runtime = getNaverMapRuntimeStatus();
+  const runtime = getMapRuntimeStatus();
   const snapPoints = useMemo(() => ['28%', '52%', '88%'], []);
 
   const loadMap = useCallback(
@@ -271,38 +275,82 @@ export function ExploreMapScreen() {
     setPresence(PresenceVisibility.HIDDEN);
   };
 
+  const onCameraGesture = (center: MapCoordinate, bounds?: MapBounds) => {
+    setLastCameraCenter(center);
+    if (bounds) {
+      const next = regionFromBounds({
+        west: bounds.southWest.longitude,
+        south: bounds.southWest.latitude,
+        east: bounds.northEast.longitude,
+        north: bounds.northEast.latitude,
+      });
+      setSearchRegion(next);
+    } else {
+      setSearchRegion((prev) => ({
+        ...prev,
+        latitude: center.latitude,
+        longitude: center.longitude,
+      }));
+    }
+    setCameraDirty(true);
+  };
+
+  const mapUnavailable =
+    runtime.kind === 'missing_native_key' ? (
+      <MapUnavailablePanel
+        title="Kakao Map Native App Key 필요"
+        body="Kakao Developers에서 Native App Key를 발급해 apps/mobile/.env 의 EXPO_PUBLIC_KAKAO_MAP_NATIVE_APP_KEY에 설정한 뒤 Development Build를 재생성하세요. (REST API Key와 다릅니다. package: com.jjoin.app + Android key hash 등록 필요)"
+      />
+    ) : runtime.kind === 'missing_client_id' ? (
+      <MapUnavailablePanel
+        title="Naver Map Client ID 필요"
+        body="일시적 rollback용입니다. EXPO_PUBLIC_NAVER_MAP_CLIENT_ID를 설정한 뒤 Development Build로 실행하세요."
+      />
+    ) : runtime.kind === 'expo_go_unsupported' ? (
+      <MapUnavailablePanel
+        title="Development Build 필요"
+        body="Kakao Map은 Expo Go에서 사용할 수 없습니다. prebuild 후 expo run:android 로 Dev Client를 사용하세요."
+      />
+    ) : null;
+
+  const mapNode =
+    mapUnavailable ??
+    (runtime.provider === 'naver' ? (
+      <NaverMapAdapter
+        mapRef={mapRef}
+        initialRegion={searchRegion}
+        cameraKey={cameraKey}
+        cameraTarget={cameraTarget}
+        myLocation={deviceLocation}
+        venues={data?.venues ?? []}
+        users={data?.users ?? []}
+        selectedVenueId={selectedVenueId}
+        selectedUserId={selectedUserId}
+        onCameraGesture={(center) => onCameraGesture(center)}
+        onVenuePress={onVenuePress}
+        onUserPress={onUserPress}
+      />
+    ) : (
+      <KakaoMapAdapter
+        mapRef={mapRef}
+        initialRegion={searchRegion}
+        cameraKey={cameraKey}
+        cameraTarget={cameraTarget}
+        myLocation={deviceLocation}
+        venues={data?.venues ?? []}
+        users={data?.users ?? []}
+        selectedVenueId={selectedVenueId}
+        selectedUserId={selectedUserId}
+        onCameraGesture={onCameraGesture}
+        onVenuePress={onVenuePress}
+        onUserPress={onUserPress}
+      />
+    ));
+
   return (
     <GestureHandlerRootView style={styles.root}>
       <View style={styles.mapArea}>
-        {runtime.kind === 'missing_client_id' ? (
-          <MapUnavailablePanel
-            title="Naver Map Client ID 필요"
-            body="EXPO_PUBLIC_NAVER_MAP_CLIENT_ID를 설정한 뒤 Development Build로 실행하세요. Expo Go에서는 네이버 지도가 동작하지 않습니다."
-          />
-        ) : runtime.kind === 'expo_go_unsupported' ? (
-          <MapUnavailablePanel
-            title="Development Build 필요"
-            body="네이버 지도는 Expo Go에서 사용할 수 없습니다. prebuild 후 expo run:android / run:ios 로 Dev Client를 사용하세요."
-          />
-        ) : (
-          <NaverMapAdapter
-            mapRef={mapRef}
-            initialRegion={searchRegion}
-            cameraKey={cameraKey}
-            cameraTarget={cameraTarget}
-            myLocation={deviceLocation}
-            venues={data?.venues ?? []}
-            users={data?.users ?? []}
-            selectedVenueId={selectedVenueId}
-            selectedUserId={selectedUserId}
-            onCameraGesture={(center) => {
-              setLastCameraCenter(center);
-              setCameraDirty(true);
-            }}
-            onVenuePress={onVenuePress}
-            onUserPress={onUserPress}
-          />
-        )}
+        {mapNode}
 
         <View style={styles.topChrome} pointerEvents="box-none">
           <MapSearchBar onPress={() => setSearchOpen(true)} />
