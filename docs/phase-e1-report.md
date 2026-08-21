@@ -26,7 +26,7 @@ See also: [`docs/railway-deployment.md`](./railway-deployment.md)
 - apps/api: present
 - apps/mobile: present
 - prisma: present
-- latest commit: (see `git log -1` after docs push)
+- latest commit: `21846c2` (`docs: link Phase E.1 report from README`) — auto-deploy validated on `bd576e7` docs push
 
 ## Railway
 
