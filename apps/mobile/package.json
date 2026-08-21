@@ -22,6 +22,7 @@
     "@jjoin/types": "workspace:*",
     "@jjoin/validation": "workspace:*",
     "@mj-studio/react-native-naver-map": "^2.9.0",
+    "jjoin-kakao-map": "file:./modules/jjoin-kakao-map",
     "expo": "~57.0.15",
     "expo-build-properties": "^57.0.13",
     "expo-constants": "~57.0.13",
