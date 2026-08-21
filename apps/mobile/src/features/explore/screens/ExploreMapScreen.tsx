@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Linking,
   Modal,
   Pressable,
   StyleSheet,
@@ -17,6 +18,7 @@ import {
   type ExploreMapResponse,
   type PresenceDurationOption,
 } from '@jjoin/types';
+import { defaultVenueSearchQuery } from '@jjoin/domain';
 import { AppText, colors, spacing } from '@jjoin/design-system';
 import type { NaverMapViewRef } from '@mj-studio/react-native-naver-map';
 import { getSecureSessionStore } from '../../../session/SessionContext';
@@ -44,10 +46,12 @@ export function ExploreMapScreen() {
   const store = getSecureSessionStore();
   const mapRef = useRef<NaverMapViewRef | null>(null);
   const sheetRef = useRef<BottomSheet>(null);
+  const requestSeq = useRef(0);
 
   const [filter, setFilter] = useState<ExploreFilterId>('ALL');
   const [data, setData] = useState<ExploreMapResponse | null>(null);
   const [searchRegion, setSearchRegion] = useState<MapRegion>(GEOJE_DEMO_REGION);
+  const [venueQuery, setVenueQuery] = useState(defaultVenueSearchQuery('SCREEN_GOLF'));
   const [deviceLocation, setDeviceLocation] = useState<MapCoordinate | null>(null);
   const [locationDenied, setLocationDenied] = useState(false);
   const [cameraDirty, setCameraDirty] = useState(false);
@@ -67,7 +71,13 @@ export function ExploreMapScreen() {
   const snapPoints = useMemo(() => ['28%', '52%', '88%'], []);
 
   const loadMap = useCallback(
-    async (center: MapCoordinate, nextFilter: ExploreFilterId = filter) => {
+    async (
+      center: MapCoordinate,
+      nextFilter: ExploreFilterId = filter,
+      nextQuery: string = venueQuery,
+      region: MapRegion = searchRegion,
+    ) => {
+      const seq = ++requestSeq.current;
       setLoading(true);
       setError(null);
       try {
@@ -75,15 +85,44 @@ export function ExploreMapScreen() {
           store,
           filter: nextFilter as ExploreFilter,
           center,
+          region: {
+            ...region,
+            latitude: center.latitude,
+            longitude: center.longitude,
+          },
+          query: nextQuery,
         });
+        if (seq !== requestSeq.current) return;
         setData(result);
+        if (nextQuery.trim() && result.venues.length > 0) {
+          const first = result.venues[0];
+          const inView =
+            Math.abs(first.latitude - center.latitude) < region.latitudeDelta &&
+            Math.abs(first.longitude - center.longitude) < region.longitudeDelta;
+          if (!inView) {
+            const fitted: MapCoordinate = {
+              latitude: first.latitude,
+              longitude: first.longitude,
+            };
+            setLastCameraCenter(fitted);
+            setCameraTarget(fitted);
+            setCameraKey((k) => k + 1);
+            setSearchRegion((r) => ({
+              ...r,
+              latitude: fitted.latitude,
+              longitude: fitted.longitude,
+            }));
+          }
+        }
       } catch (e) {
+        if (seq !== requestSeq.current) return;
         setError(e instanceof Error ? e.message : 'explore_error');
+        Alert.alert('장소 검색', '장소를 불러오지 못했습니다. 다시 시도해주세요.');
       } finally {
-        setLoading(false);
+        if (seq === requestSeq.current) setLoading(false);
       }
     },
-    [filter, store],
+    [filter, store, venueQuery, searchRegion],
   );
 
   useEffect(() => {
@@ -98,20 +137,18 @@ export function ExploreMapScreen() {
         const pos = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
         });
-        const coord = {
+        setDeviceLocation({
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
-        };
-        setDeviceLocation(coord);
-        // Product scenario: keep Explore demo on Geoje for Venue fixtures;
-        // device location still drives "내 위치" marker + FAB.
+        });
         setLastCameraCenter(GEOJE_DEMO_REGION);
         await loadMap(GEOJE_DEMO_REGION);
       } catch {
         await loadMap(GEOJE_DEMO_REGION);
       }
     })();
-  }, [loadMap]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     void (async () => {
@@ -148,13 +185,15 @@ export function ExploreMapScreen() {
   };
 
   const onReSearch = async () => {
+    if (loading) return;
     const center = lastCameraCenter;
-    setSearchRegion({
+    const nextRegion = {
       ...searchRegion,
       latitude: center.latitude,
       longitude: center.longitude,
-    });
-    await loadMap(center);
+    };
+    setSearchRegion(nextRegion);
+    await loadMap(center, filter, venueQuery, nextRegion);
     setCameraDirty(false);
   };
 
@@ -173,19 +212,30 @@ export function ExploreMapScreen() {
     setCameraDirty(false);
   };
 
-  const applyRegionSearch = (keyword: string) => {
-    const region = REGION_SEARCH_FIXTURES[keyword];
-    if (!region) {
-      Alert.alert('검색', '데모 지역: 거제 / 부산 / 서울');
+  const applyKeywordSearch = (keyword: string) => {
+    const trimmed = keyword.trim();
+    if (!trimmed) {
+      Alert.alert('검색', '검색어를 입력해 주세요.');
       return;
     }
-    setSearchRegion(region);
-    setLastCameraCenter(region);
-    setCameraTarget(region);
-    setCameraKey((k) => k + 1);
+    if (loading) return;
+    const regionHit = REGION_SEARCH_FIXTURES[trimmed];
+    if (regionHit) {
+      const defaultQ = defaultVenueSearchQuery('SCREEN_GOLF');
+      setSearchRegion(regionHit);
+      setLastCameraCenter(regionHit);
+      setCameraTarget(regionHit);
+      setCameraKey((k) => k + 1);
+      setVenueQuery(defaultQ);
+      setSearchOpen(false);
+      setCameraDirty(false);
+      void loadMap(regionHit, filter, defaultQ, regionHit);
+      return;
+    }
+    setVenueQuery(trimmed);
     setSearchOpen(false);
     setCameraDirty(false);
-    void loadMap(region);
+    void loadMap(lastCameraCenter, filter, trimmed, searchRegion);
   };
 
   const activatePresence = async (duration: PresenceDurationOption) => {
@@ -259,6 +309,7 @@ export function ExploreMapScreen() {
           <MapFilterBar
             value={filter}
             onChange={(next) => {
+              if (loading) return;
               setFilter(next);
               void loadMap(lastCameraCenter, next);
             }}
@@ -281,7 +332,9 @@ export function ExploreMapScreen() {
         </View>
 
         <View style={styles.fabCol} pointerEvents="box-none">
-          {cameraDirty ? <ReSearchAreaButton onPress={() => void onReSearch()} /> : null}
+          {cameraDirty ? (
+            <ReSearchAreaButton onPress={() => void onReSearch()} />
+          ) : null}
           <CurrentLocationButton onPress={goMyLocation} />
         </View>
       </View>
@@ -291,11 +344,6 @@ export function ExploreMapScreen() {
         index={0}
         snapPoints={snapPoints}
         enablePanDownToClose={false}
-        onChange={(index) => {
-          if (index === 0 && sheetMode !== 'PRESENCE_PRIVACY' && sheetMode !== 'PRESENCE_DURATION') {
-            // keep selection when peeking slightly
-          }
-        }}
       >
         <BottomSheetScrollView contentContainerStyle={styles.sheetContent}>
           <ExploreBottomSheetBody
@@ -321,9 +369,23 @@ export function ExploreMapScreen() {
               sheetRef.current?.snapToIndex(0);
             }}
             onPickDuration={(d) => void activatePresence(d)}
-            onCreateJoin={() => router.push('/(tabs)/create')}
+            onCreateJoin={() => {
+              if (!selectedVenue?.canCreateJoin) {
+                Alert.alert(
+                  '조인 만들기',
+                  '카카오 실시간 장소에서 조인 만들기는 다음 단계에서 지원됩니다.',
+                );
+                return;
+              }
+              router.push('/(tabs)/create');
+            }}
             onVenueDetail={() => {
-              Alert.alert('장소 상세', 'VENUE_01_Detail — 다음 슬라이스에서 연결');
+              const url = selectedVenue?.placeUrl;
+              if (url) {
+                void Linking.openURL(url);
+                return;
+              }
+              Alert.alert('장소 상세', '연결된 외부 지도 링크가 없습니다.');
             }}
             onOpenProfile={() => {
               if (selectedUserId) router.push(`/user/${selectedUserId}`);
@@ -337,19 +399,30 @@ export function ExploreMapScreen() {
 
       <Modal visible={searchOpen} animationType="slide" onRequestClose={() => setSearchOpen(false)}>
         <View style={styles.searchModal}>
-          <AppText variant="subtitle">지역 검색</AppText>
+          <AppText variant="subtitle">장소 / 지역 검색</AppText>
           <AppText variant="caption" color="textSecondary">
-            기기 GPS와 검색 지역을 분리합니다. (거제 / 부산 / 서울)
+            예: 스크린골프, 골프존, SG골프, 서울 스크린골프 · 지역 단축: 거제/부산/서울
           </AppText>
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholder="예: 거제"
+            placeholder="검색어 입력 후 검색"
             style={styles.input}
             autoFocus
+            returnKeyType="search"
+            onSubmitEditing={() => applyKeywordSearch(searchQuery)}
           />
-          {['거제', '부산', '서울'].map((k) => (
-            <Pressable key={k} style={styles.searchRow} onPress={() => applyRegionSearch(k)}>
+          <Pressable
+            style={styles.searchRow}
+            onPress={() => applyKeywordSearch(searchQuery)}
+            disabled={loading}
+          >
+            <AppText variant="body" color="primary">
+              검색
+            </AppText>
+          </Pressable>
+          {['거제', '부산', '서울', '골프존', 'SG골프', '스크린골프'].map((k) => (
+            <Pressable key={k} style={styles.searchRow} onPress={() => applyKeywordSearch(k)}>
               <AppText variant="body">{k}</AppText>
             </Pressable>
           ))}

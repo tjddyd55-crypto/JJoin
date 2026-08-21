@@ -69,17 +69,40 @@ export function ExploreBottomSheetBody(props: {
     return (
       <View style={styles.block}>
         <AppText variant="subtitle">{v.name}</AppText>
+        {v.categoryName ? (
+          <AppText variant="caption" color="textSecondary">
+            {v.categoryName}
+          </AppText>
+        ) : null}
         <AppText variant="caption" color="textSecondary">
           {v.distanceMeters != null ? `${(v.distanceMeters / 1000).toFixed(1)}km · ` : ''}
-          {v.regionLabel ?? v.address ?? ''}
+          {v.roadAddress ?? v.regionLabel ?? v.address ?? ''}
         </AppText>
-        <AppText variant="body" color="primary">
-          열린 조인 {v.openJoinCount}
-        </AppText>
-        {v.joinPreviews.length === 0 ? (
+        {v.address && v.roadAddress ? (
           <AppText variant="caption" color="textSecondary">
-            현재 열린 조인 없음
+            {v.address}
           </AppText>
+        ) : null}
+        {v.phone ? (
+          <AppText variant="caption" color="textSecondary">
+            {v.phone}
+          </AppText>
+        ) : null}
+        {v.source === 'KAKAO_LOCAL' ? (
+          <AppText variant="caption" color="textSecondary">
+            열린 조인은 JJOIN에 등록된 장소에만 표시됩니다.
+          </AppText>
+        ) : (
+          <AppText variant="body" color="primary">
+            열린 조인 {v.openJoinCount}
+          </AppText>
+        )}
+        {v.joinPreviews.length === 0 ? (
+          v.source !== 'KAKAO_LOCAL' ? (
+            <AppText variant="caption" color="textSecondary">
+              현재 열린 조인 없음
+            </AppText>
+          ) : null
         ) : (
           v.joinPreviews.map((j) => (
             <Pressable key={j.joinId} style={styles.card} onPress={() => props.onJoinPress(j.joinId)}>
@@ -93,8 +116,18 @@ export function ExploreBottomSheetBody(props: {
             </Pressable>
           ))
         )}
-        <Button label="장소 상세" variant="secondary" onPress={props.onVenueDetail} />
-        <Button label="이 장소에서 조인 만들기" onPress={props.onCreateJoin} />
+        {v.placeUrl ? (
+          <Button label="카카오맵에서 보기" variant="secondary" onPress={props.onVenueDetail} />
+        ) : (
+          <Button label="장소 상세" variant="secondary" onPress={props.onVenueDetail} />
+        )}
+        {v.canCreateJoin ? (
+          <Button label="이 장소에서 조인 만들기" onPress={props.onCreateJoin} />
+        ) : (
+          <AppText variant="caption" color="textSecondary">
+            이 장소에서 조인 만들기는 곧 지원됩니다.
+          </AppText>
+        )}
       </View>
     );
   }
@@ -148,7 +181,8 @@ export function ExploreBottomSheetBody(props: {
           <AppText variant="body">⛳ {v.name}</AppText>
           <AppText variant="caption" color="textSecondary">
             {v.distanceMeters != null ? `${(v.distanceMeters / 1000).toFixed(1)}km · ` : ''}
-            {v.regionLabel ?? ''} · 열린 조인 {v.openJoinCount}
+            {v.regionLabel ?? ''}
+            {v.source === 'KAKAO_LOCAL' ? '' : ` · 열린 조인 ${v.openJoinCount}`}
           </AppText>
         </Pressable>
       ))}

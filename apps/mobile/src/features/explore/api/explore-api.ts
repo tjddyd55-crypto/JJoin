@@ -1,20 +1,29 @@
 import type { ExploreFilter, ExploreMapResponse } from '@jjoin/types';
-import type { MapCoordinate, MapRegion } from '../model/map-types';
 import { getMockExploreMap } from '../model/mock-explore-data';
 import { getApiClient } from '../../../lib/api';
 import type { SecureSessionStore } from '../../../session/secure-session-store';
+import type { MapCoordinate, MapRegion } from '../model/map-types';
 
 export async function fetchExploreMap(input: {
   store: SecureSessionStore;
   filter: ExploreFilter;
   center: MapCoordinate;
+  region: MapRegion;
+  query?: string;
 }): Promise<ExploreMapResponse> {
+  const halfLat = input.region.latitudeDelta / 2;
+  const halfLng = input.region.longitudeDelta / 2;
   try {
     const client = getApiClient(input.store);
     return await client.getExploreMap({
       filter: input.filter,
+      query: input.query,
       centerLat: input.center.latitude,
       centerLng: input.center.longitude,
+      southWestLat: input.center.latitude - halfLat,
+      southWestLng: input.center.longitude - halfLng,
+      northEastLat: input.center.latitude + halfLat,
+      northEastLng: input.center.longitude + halfLng,
       sportCode: 'SCREEN_GOLF',
     });
   } catch {

@@ -196,6 +196,7 @@ export class ApiClient {
   async getExploreMap(query: {
     sportCode?: string;
     filter?: ExploreFilter;
+    query?: string;
     centerLat?: number;
     centerLng?: number;
     southWestLat?: number;
@@ -205,7 +206,7 @@ export class ApiClient {
   }): Promise<ExploreMapResponse> {
     const params = new URLSearchParams();
     Object.entries(query).forEach(([k, v]) => {
-      if (v != null) params.set(k, String(v));
+      if (v != null && v !== '') params.set(k, String(v));
     });
     const qs = params.toString();
     const res = await request(`${this.config.baseUrl}/explore/map${qs ? `?${qs}` : ''}`, {
