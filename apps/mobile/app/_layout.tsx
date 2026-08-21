@@ -75,6 +75,7 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="auth" />
             <Stack.Screen name="my" />
+            <Stack.Screen name="join/[joinId]" />
             <Stack.Screen name="user/[userId]" />
           </Stack>
         </AuthGateBootstrap>

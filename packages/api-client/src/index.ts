@@ -2,9 +2,12 @@ import {
   MockAuthScenario,
   SocialProvider,
   type AuthSessionDto,
+  type CreateJoinRequest,
   type ExploreFilter,
   type ExploreMapResponse,
+  type JoinDetailDto,
   type MeDto,
+  type MyJoinsResponse,
   type PrivateIdentityDto,
   type PrivatePresenceDto,
   type PublicUserProfileDto,
@@ -232,6 +235,48 @@ export class ApiClient {
       method: 'DELETE',
       headers: await this.headers(true),
     });
+    return parseJson(res);
+  }
+
+  async createJoin(body: CreateJoinRequest): Promise<JoinDetailDto> {
+    const res = await request(`${this.config.baseUrl}/joins`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async getJoin(joinId: string): Promise<JoinDetailDto> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getMyJoins(): Promise<MyJoinsResponse> {
+    const res = await request(`${this.config.baseUrl}/joins/mine`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async applyJoin(joinId: string): Promise<JoinDetailDto> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/apply`, {
+      method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async approveParticipant(joinId: string, participantId: string): Promise<JoinDetailDto> {
+    const res = await request(
+      `${this.config.baseUrl}/joins/${joinId}/participants/${participantId}/approve`,
+      {
+        method: 'POST',
+        headers: await this.headers(true),
+      },
+    );
     return parseJson(res);
   }
 }

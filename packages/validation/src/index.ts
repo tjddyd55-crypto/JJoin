@@ -43,3 +43,28 @@ export const termsConsentSchema = z.object({
 });
 
 export type TermsConsentInput = z.infer<typeof termsConsentSchema>;
+
+export const createJoinSchema = z.object({
+  sportCode: z.string().trim().min(1).default('SCREEN_GOLF'),
+  venue: z.object({
+    provider: z.string().trim().min(1),
+    providerPlaceId: z.string().trim().min(1),
+    name: z.string().trim().min(1).max(120),
+    address: z.string().trim().max(200).nullable().optional(),
+    regionLabel: z.string().trim().max(80).nullable().optional(),
+    latitude: z.number().finite().gte(-90).lte(90),
+    longitude: z.number().finite().gte(-180).lte(180),
+  }),
+  startAt: z.string().min(1),
+  plannedPlayerCount: z.number().int().min(2).max(8),
+  joinMethod: z.enum(['OPEN', 'APPROVAL']),
+  title: z.string().trim().max(80).nullable().optional(),
+  description: z.string().trim().max(500).nullable().optional(),
+  /** Display snapshot — not a settled coin policy. */
+  rewardPerParticipant: z
+    .string()
+    .regex(/^\d+(\.\d{1,4})?$/)
+    .optional(),
+});
+
+export type CreateJoinInput = z.infer<typeof createJoinSchema>;

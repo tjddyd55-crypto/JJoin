@@ -11,7 +11,7 @@ import {
   spacing,
 } from '@jjoin/design-system';
 import { t } from '@jjoin/i18n';
-import { MockAuthScenario, SocialProvider } from '@jjoin/types';
+import { MockAuthPersona, MockAuthScenario, SocialProvider } from '@jjoin/types';
 import { useSession } from '../../../session/SessionContext';
 
 function routeForNextStep(nextStep: string) {
@@ -30,7 +30,14 @@ function routeForNextStep(nextStep: string) {
 }
 
 export function LoginScreen() {
-  const { signInWithSocialProvider, mockScenario, setMockScenario, error } = useSession();
+  const {
+    signInWithSocialProvider,
+    mockScenario,
+    setMockScenario,
+    mockPersona,
+    setMockPersona,
+    error,
+  } = useSession();
   const router = useRouter();
   const [loading, setLoading] = useState<SocialProvider | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -44,7 +51,6 @@ export function LoginScreen() {
     } catch (e) {
       if (__DEV__) {
         const msg = e instanceof Error ? e.message : String(e);
-        // Dev-only diagnostic — no secrets / full server dumps
         console.warn('[auth.login]', {
           provider,
           path: '/auth/social/mock-sign-in',
@@ -70,32 +76,70 @@ export function LoginScreen() {
         </AppText>
 
         {__DEV__ ? (
-          <View style={styles.devRow}>
+          <View style={styles.devBlock}>
             <AppText variant="caption" color="textSecondary">
-              DEV scenario (not shown in production)
+              DEV USER (mock only — production UI 숨김)
             </AppText>
             <View style={styles.devBtns}>
               <Pressable
                 accessibilityRole="button"
-                onPress={() => setMockScenario(MockAuthScenario.NEW_USER)}
-                style={[
-                  styles.devChip,
-                  mockScenario === MockAuthScenario.NEW_USER && styles.devChipOn,
-                ]}
+                onPress={() => {
+                  setMockPersona(MockAuthPersona.DEV_A);
+                  setMockScenario(MockAuthScenario.RETURNING_USER);
+                }}
+                style={[styles.devChip, mockPersona === MockAuthPersona.DEV_A && styles.devChipOn]}
               >
-                <AppText variant="caption">NEW</AppText>
+                <AppText variant="caption">A 김진우</AppText>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
-                onPress={() => setMockScenario(MockAuthScenario.RETURNING_USER)}
-                style={[
-                  styles.devChip,
-                  mockScenario === MockAuthScenario.RETURNING_USER && styles.devChipOn,
-                ]}
+                onPress={() => {
+                  setMockPersona(MockAuthPersona.DEV_B);
+                  setMockScenario(MockAuthScenario.RETURNING_USER);
+                }}
+                style={[styles.devChip, mockPersona === MockAuthPersona.DEV_B && styles.devChipOn]}
               >
-                <AppText variant="caption">RETURNING</AppText>
+                <AppText variant="caption">B 박민수</AppText>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setMockPersona(null)}
+                style={[styles.devChip, mockPersona == null && styles.devChipOn]}
+              >
+                <AppText variant="caption">시나리오</AppText>
               </Pressable>
             </View>
+
+            {mockPersona == null ? (
+              <View style={styles.devBtns}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setMockScenario(MockAuthScenario.NEW_USER)}
+                  style={[
+                    styles.devChip,
+                    mockScenario === MockAuthScenario.NEW_USER && styles.devChipOn,
+                  ]}
+                >
+                  <AppText variant="caption">NEW</AppText>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setMockScenario(MockAuthScenario.RETURNING_USER)}
+                  style={[
+                    styles.devChip,
+                    mockScenario === MockAuthScenario.RETURNING_USER && styles.devChipOn,
+                  ]}
+                >
+                  <AppText variant="caption">RETURNING</AppText>
+                </Pressable>
+              </View>
+            ) : (
+              <AppText variant="caption" color="textSecondary">
+                {mockPersona === MockAuthPersona.DEV_A
+                  ? '안정 DB 유저 A (Host 테스트용)'
+                  : '안정 DB 유저 B (Participant 테스트용)'}
+              </AppText>
+            )}
           </View>
         ) : null}
 
@@ -130,16 +174,15 @@ export function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  body: { flex: 1, justifyContent: 'center' },
-  devRow: { gap: spacing.xs },
-  devBtns: { flexDirection: 'row', gap: spacing.xs },
+  body: { flex: 1, paddingBottom: spacing.lg },
+  devBlock: { gap: spacing.sm },
+  devBtns: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   devChip: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
-    borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderRadius: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   devChipOn: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
 });

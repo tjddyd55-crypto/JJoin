@@ -10,7 +10,7 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import {
   PresenceVisibility,
   type ExploreFilter,
@@ -328,7 +328,7 @@ export function ExploreMapScreen() {
               if (selectedUserId) router.push(`/user/${selectedUserId}`);
             }}
             onJoinPress={(joinId) => {
-              Alert.alert('조인 상세', `JOIN ${joinId} — Join Detail 연결 예정`);
+              router.push({ pathname: '/join/[joinId]', params: { joinId } } as Href);
             }}
           />
         </BottomSheetScrollView>

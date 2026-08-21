@@ -58,6 +58,26 @@ export const SCREEN_GOLF_DURATION_RULE: SportDurationRule = {
   minutesPerPlayer: 60,
 };
 
+/** Confirmed roster size — HOST + APPROVED/CONFIRMED participants. */
+export function computeConfirmedPlayerCount(statuses: string[]): number {
+  return statuses.filter((s) => s === 'APPROVED' || s === 'CONFIRMED').length;
+}
+
+export function isJoinFull(confirmedPlayerCount: number, plannedPlayerCount: number): boolean {
+  return confirmedPlayerCount >= plannedPlayerCount;
+}
+
+export function nextJoinStatusAfterRoster(params: {
+  currentStatus: string;
+  confirmedPlayerCount: number;
+  plannedPlayerCount: number;
+}): 'OPEN' | 'FULL' | string {
+  if (params.currentStatus === 'CANCELLED' || params.currentStatus === 'COMPLETED') {
+    return params.currentStatus;
+  }
+  return isJoinFull(params.confirmedPlayerCount, params.plannedPlayerCount) ? 'FULL' : 'OPEN';
+}
+
 export function resolveAuthAppState(me: MeDto | null, hasSession: boolean): AuthAppState {
   if (!hasSession || !me) {
     return AuthAppState.UNAUTHENTICATED;

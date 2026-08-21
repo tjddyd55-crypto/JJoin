@@ -2,5 +2,9 @@
 import { JoinsController } from './joins.controller';
 import { JoinsService } from './joins.service';
 
-@Module({ controllers: [JoinsController], providers: [JoinsService] })
+@Module({
+  controllers: [JoinsController],
+  providers: [JoinsService],
+  exports: [JoinsService],
+})
 export class JoinsModule {}

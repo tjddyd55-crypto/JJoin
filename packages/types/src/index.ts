@@ -27,6 +27,22 @@ export enum MockAuthScenario {
   RETURNING_USER = 'RETURNING_USER',
 }
 
+/** Stable DEV personas for one-device A↔B E2E (mock auth only). Not account roles. */
+export enum MockAuthPersona {
+  DEV_A = 'DEV_A',
+  DEV_B = 'DEV_B',
+}
+
+export enum JoinMethod {
+  OPEN = 'OPEN',
+  APPROVAL = 'APPROVAL',
+}
+
+export enum ParticipantRole {
+  HOST = 'HOST',
+  PARTICIPANT = 'PARTICIPANT',
+}
+
 export enum SportSkillLevel {
   BEGINNER = 'BEGINNER',
   INTERMEDIATE = 'INTERMEDIATE',
@@ -168,6 +184,8 @@ export type SocialSignInRequest = {
   provider: SocialProvider;
   /** Dev/QA only — never exposed in production UI. */
   scenario?: MockAuthScenario;
+  /** Dev/QA only — stable DB user (takes precedence over scenario when set). */
+  persona?: MockAuthPersona;
 };
 
 export type SocialSignInResponse = {
@@ -266,4 +284,93 @@ export type UpsertPresenceRequest = {
   longitude: number;
   accuracyMeters?: number;
   duration: PresenceDurationOption;
+};
+
+/** Venue reference from mock (or future) venue provider — upserted into Postgres. */
+export type JoinVenueRefInput = {
+  provider: string;
+  providerPlaceId: string;
+  name: string;
+  address?: string | null;
+  regionLabel?: string | null;
+  latitude: number;
+  longitude: number;
+};
+
+export type CreateJoinRequest = {
+  sportCode: string;
+  venue: JoinVenueRefInput;
+  startAt: string;
+  plannedPlayerCount: number;
+  joinMethod: JoinMethod;
+  title?: string | null;
+  description?: string | null;
+  /**
+   * Display snapshot only.
+   * COIN_ACCOUNTING_PENDING — no wallet debit / hold in Phase F.
+   */
+  rewardPerParticipant?: string;
+};
+
+export type JoinParticipantDto = {
+  participantId: string;
+  userId: string;
+  role: ParticipantRole;
+  participationStatus: ParticipationStatus;
+  nickname: string;
+  verifiedBadge: boolean;
+  appliedAt: string;
+  approvedAt: string | null;
+};
+
+export type JoinDetailDto = {
+  joinId: string;
+  status: JoinStatus;
+  joinMethod: JoinMethod;
+  sportCode: string;
+  title: string | null;
+  description: string | null;
+  startAt: string;
+  scheduledEndAt: string;
+  plannedPlayerCount: number;
+  confirmedPlayerCount: number;
+  availableSlots: number;
+  rewardPerParticipant: string;
+  /** Always true in Phase F — ledger not executed. */
+  coinAccountingPending: true;
+  venue: {
+    venueId: string;
+    provider: string;
+    providerPlaceId: string;
+    name: string;
+    address: string | null;
+    regionLabel: string | null;
+    latitude: number;
+    longitude: number;
+  };
+  host: PublicUserProfileDto;
+  myParticipation: JoinParticipantDto | null;
+  participants: JoinParticipantDto[];
+};
+
+export type JoinListItemDto = {
+  joinId: string;
+  status: JoinStatus;
+  joinMethod: JoinMethod;
+  startAt: string;
+  scheduledEndAt: string;
+  plannedPlayerCount: number;
+  confirmedPlayerCount: number;
+  availableSlots: number;
+  rewardPerParticipant: string;
+  venueName: string;
+  hostNickname: string;
+  myRole: ParticipantRole | null;
+  myParticipationStatus: ParticipationStatus | null;
+  pendingApplicantCount: number;
+};
+
+export type MyJoinsResponse = {
+  hosted: JoinListItemDto[];
+  participating: JoinListItemDto[];
 };

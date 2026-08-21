@@ -68,7 +68,42 @@ export class MockUserStore {
 
   getUserIdByToken(token: string | undefined): string | null {
     if (!token) return null;
-    return this.tokens.get(token) ?? null;
+    const fromMap = this.tokens.get(token);
+    if (fromMap) return fromMap;
+    // Signed tokens verified by AuthService / MockAuthGuard via verifySessionToken
+    return null;
+  }
+
+  bindToken(token: string, userId: string) {
+    this.tokens.set(token, userId);
+  }
+
+  /** Mirror a DB-backed MeDto into memory so existing /me routes keep working. */
+  hydrateFromMe(userId: string, me: MeDto, provider: SocialProvider) {
+    const profile = me.publicProfile;
+    this.users.set(userId, {
+      userId,
+      scenario: MockAuthScenario.RETURNING_USER,
+      termsAccepted: me.authAppHints.termsAccepted,
+      identityStatus: me.identity.verificationStatus,
+      identityProvider: me.identity.provider,
+      verifiedAt: me.identity.verifiedAt,
+      nickname: profile?.nickname ?? null,
+      gender: profile?.genderDisplay === '남성' ? 'MALE' : profile?.genderDisplay === '여성' ? 'FEMALE' : null,
+      ageBand: profile?.ageBand ?? null,
+      regionLabel: profile?.regionLabel ?? null,
+      bio: profile?.bio ?? null,
+      avatarUrl: profile?.avatarUrl ?? null,
+      skillLevel: profile?.sportProfiles[0]?.skillLevel ?? null,
+      participationCount: profile?.participationCount ?? 0,
+      connectedProvider: provider,
+      availableCoin: me.walletSummary.availableCoin,
+      heldCoin: me.walletSummary.heldCoin,
+    });
+  }
+
+  logout(token: string) {
+    this.tokens.delete(token);
   }
 
   getMe(userId: string): MeDto | null {
@@ -151,10 +186,6 @@ export class MockUserStore {
   getPublicProfile(userId: string): PublicUserProfileDto | null {
     const user = this.users.get(userId);
     return user ? this.toPublic(user) : null;
-  }
-
-  logout(token: string) {
-    this.tokens.delete(token);
   }
 
   private createNew(provider: SocialProvider): StoredUser {

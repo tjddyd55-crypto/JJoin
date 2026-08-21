@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 import {
   AuthAppState,
+  MockAuthPersona,
   MockAuthScenario,
   SocialProvider,
   type MeDto,
@@ -30,6 +31,8 @@ type SessionContextValue = {
   error: string | null;
   mockScenario: MockAuthScenario;
   setMockScenario: (s: MockAuthScenario) => void;
+  mockPersona: MockAuthPersona | null;
+  setMockPersona: (p: MockAuthPersona | null) => void;
   signInWithSocialProvider: (provider: SocialProvider) => Promise<string>;
   refreshMe: () => Promise<void>;
   acceptTerms: (body: unknown) => Promise<void>;
@@ -62,6 +65,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [bootstrapping, setBootstrapping] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mockScenario, setMockScenario] = useState(MockAuthScenario.NEW_USER);
+  const [mockPersona, setMockPersona] = useState<MockAuthPersona | null>(null);
   const api = useMemo(() => getApiClient(store), []);
 
   const applyMe = useCallback(async (next: MeDto | null, hasSession: boolean) => {
@@ -98,7 +102,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       try {
         const res = await api.mockSocialSignIn({
           provider,
-          scenario: mockScenario,
+          scenario: mockPersona ? undefined : mockScenario,
+          persona: mockPersona ?? undefined,
         });
         await store.setToken(res.session.accessToken);
         await applyMe(res.me, true);
@@ -120,7 +125,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         throw e;
       }
     },
-    [api, applyMe, mockScenario],
+    [api, applyMe, mockPersona, mockScenario],
   );
 
   const refreshMe = useCallback(async () => {
@@ -218,6 +223,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     error,
     mockScenario,
     setMockScenario,
+    mockPersona,
+    setMockPersona,
     signInWithSocialProvider,
     refreshMe,
     acceptTerms,

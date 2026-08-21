@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   assertPublicProfileHasNoPrivateFields,
+  computeConfirmedPlayerCount,
+  nextJoinStatusAfterRoster,
   requiresIdentityGate,
   resolveAuthAppState,
   resolveOnboardingStep,
@@ -147,4 +149,24 @@ test('public profile deny-list', () => {
 test('mock scenario enum exists for QA', () => {
   assert.equal(MockAuthScenario.NEW_USER, 'NEW_USER');
   assert.equal(MockAuthScenario.RETURNING_USER, 'RETURNING_USER');
+});
+
+test('confirmed count and FULL transition', () => {
+  assert.equal(computeConfirmedPlayerCount(['APPROVED', 'APPLIED', 'APPROVED']), 2);
+  assert.equal(
+    nextJoinStatusAfterRoster({
+      currentStatus: 'OPEN',
+      confirmedPlayerCount: 4,
+      plannedPlayerCount: 4,
+    }),
+    'FULL',
+  );
+  assert.equal(
+    nextJoinStatusAfterRoster({
+      currentStatus: 'OPEN',
+      confirmedPlayerCount: 2,
+      plannedPlayerCount: 4,
+    }),
+    'OPEN',
+  );
 });
