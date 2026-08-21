@@ -65,7 +65,12 @@ export class ExploreService {
         query: searchQuery,
         centerLat,
         centerLng,
-        bounds: bounds ?? undefined,
+        // Default sport keyword uses map viewport rect.
+        // Explicit user queries (e.g. "서울 스크린골프", "SG골프") must not be trapped by current map rect.
+        bounds:
+          bounds && searchQuery === defaultVenueSearchQuery(sportCode)
+            ? bounds
+            : undefined,
       });
       if (this.venues.name === 'MOCK') {
         const dbJoins = await this.joins.openJoinsByProviderPlaceIds(
