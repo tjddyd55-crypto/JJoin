@@ -212,6 +212,199 @@ export class CoinLedgerService {
     return { hold, tx: ledgerTx };
   }
 
+  /**
+   * Release held reward to participant wallet.
+   * Accounting (no double count):
+   * - Host: JOIN_REWARD_RELEASE (held ↓ only)
+   * - Participant: JOIN_REWARD_TRANSFER CREDIT (available ↑)
+   * Shared economic idempotency prefix — manual/auto share same transfer key.
+   */
+  async applyRewardTransfer(
+    tx: PrismaTx,
+    params: {
+      hostWalletId: string;
+      participantWalletId: string;
+      participantUserId: string;
+      coinAssetId: string;
+      amount: string;
+      settlementId: string;
+      joinId: string;
+      idempotencyKey: string;
+    },
+  ) {
+    const creditKey = `${params.idempotencyKey}:participant-credit`;
+    const existingCredit = await tx.coinTransaction.findUnique({
+      where: { idempotencyKey: creditKey },
+    });
+    if (existingCredit) {
+      const release = await tx.coinTransaction.findUnique({
+        where: { idempotencyKey: `${params.idempotencyKey}:host-release` },
+      });
+      return { participantTx: existingCredit, hostReleaseTx: release };
+    }
+
+    if (!isCoinAmountPositive(params.amount)) {
+      throw new Error('invalid_transfer_amount');
+    }
+
+    const hostWallet = await this.lockWallet(tx, params.hostWalletId);
+    const participantWallet = await this.lockWallet(tx, params.participantWalletId);
+
+    const hostHeld = String(hostWallet.heldBalance);
+    const hostAvailable = String(hostWallet.availableBalance);
+    if (compareCoinAmounts(hostHeld, params.amount) < 0) {
+      throw new InsufficientBalanceError();
+    }
+
+    const hostHeldAfter = subCoinAmounts(hostHeld, params.amount);
+    await tx.wallet.update({
+      where: { id: hostWallet.id },
+      data: {
+        availableBalance: new Prisma.Decimal(hostAvailable),
+        heldBalance: new Prisma.Decimal(hostHeldAfter),
+      },
+    });
+
+    const hostReleaseTx = await tx.coinTransaction.create({
+      data: {
+        walletId: hostWallet.id,
+        coinAssetId: params.coinAssetId,
+        type: 'JOIN_REWARD_RELEASE',
+        direction: 'DEBIT',
+        amount: new Prisma.Decimal(params.amount),
+        balanceAfterAvailable: new Prisma.Decimal(hostAvailable),
+        balanceAfterHeld: new Prisma.Decimal(hostHeldAfter),
+        refType: 'SETTLEMENT',
+        refId: params.settlementId,
+        idempotencyKey: `${params.idempotencyKey}:host-release`,
+        metadata: {
+          joinId: params.joinId,
+          participantUserId: params.participantUserId,
+        },
+      },
+    });
+
+    const partAvailable = String(participantWallet.availableBalance);
+    const partHeld = String(participantWallet.heldBalance);
+    const partAvailableAfter = addCoinAmounts(partAvailable, params.amount);
+
+    await tx.wallet.update({
+      where: { id: participantWallet.id },
+      data: {
+        availableBalance: new Prisma.Decimal(partAvailableAfter),
+        heldBalance: new Prisma.Decimal(partHeld),
+      },
+    });
+
+    const participantTx = await tx.coinTransaction.create({
+      data: {
+        walletId: participantWallet.id,
+        coinAssetId: params.coinAssetId,
+        type: 'JOIN_REWARD_TRANSFER',
+        direction: 'CREDIT',
+        amount: new Prisma.Decimal(params.amount),
+        balanceAfterAvailable: new Prisma.Decimal(partAvailableAfter),
+        balanceAfterHeld: new Prisma.Decimal(partHeld),
+        refType: 'SETTLEMENT',
+        refId: params.settlementId,
+        idempotencyKey: creditKey,
+        metadata: {
+          joinId: params.joinId,
+          fromHostWalletId: hostWallet.id,
+        },
+      },
+    });
+
+    return { participantTx, hostReleaseTx };
+  }
+
+  /** Refund held reward slice back to host available (NO_SHOW etc.). */
+  async applyRewardRefund(
+    tx: PrismaTx,
+    params: {
+      hostWalletId: string;
+      coinAssetId: string;
+      amount: string;
+      settlementId: string;
+      joinId: string;
+      idempotencyKey: string;
+    },
+  ) {
+    const existing = await tx.coinTransaction.findUnique({
+      where: { idempotencyKey: params.idempotencyKey },
+    });
+    if (existing) return existing;
+
+    if (!isCoinAmountPositive(params.amount)) {
+      throw new Error('invalid_refund_amount');
+    }
+
+    const wallet = await this.lockWallet(tx, params.hostWalletId);
+    const available = String(wallet.availableBalance);
+    const held = String(wallet.heldBalance);
+    if (compareCoinAmounts(held, params.amount) < 0) {
+      throw new InsufficientBalanceError();
+    }
+
+    const availableAfter = addCoinAmounts(available, params.amount);
+    const heldAfter = subCoinAmounts(held, params.amount);
+
+    await tx.wallet.update({
+      where: { id: wallet.id },
+      data: {
+        availableBalance: new Prisma.Decimal(availableAfter),
+        heldBalance: new Prisma.Decimal(heldAfter),
+      },
+    });
+
+    return tx.coinTransaction.create({
+      data: {
+        walletId: wallet.id,
+        coinAssetId: params.coinAssetId,
+        type: 'JOIN_REWARD_REFUND',
+        direction: 'CREDIT',
+        amount: new Prisma.Decimal(params.amount),
+        balanceAfterAvailable: new Prisma.Decimal(availableAfter),
+        balanceAfterHeld: new Prisma.Decimal(heldAfter),
+        refType: 'SETTLEMENT',
+        refId: params.settlementId,
+        idempotencyKey: params.idempotencyKey,
+        metadata: { joinId: params.joinId },
+      },
+    });
+  }
+
+  async refreshCoinHoldStatus(tx: PrismaTx, holdId: string) {
+    const hold = await tx.coinHold.findUniqueOrThrow({ where: { id: holdId } });
+    const settlements = await tx.rewardSettlement.findMany({ where: { holdId } });
+    const holdTotal = String(hold.amount);
+
+    let accounted = zeroCoinAmount();
+    for (const s of settlements) {
+      if (['PAID', 'AUTO_PAID', 'REFUNDED'].includes(s.rewardStatus)) {
+        accounted = addCoinAmounts(accounted, String(s.amount));
+      }
+    }
+
+    let status: 'OPEN' | 'PARTIALLY_RELEASED' | 'RELEASED' | 'REFUNDED' = hold.status as never;
+    if (compareCoinAmounts(accounted, '0') === 0) {
+      status = 'OPEN';
+    } else if (compareCoinAmounts(accounted, holdTotal) < 0) {
+      status = 'PARTIALLY_RELEASED';
+    } else {
+      const allRefunded = settlements.every((s) => s.rewardStatus === 'REFUNDED');
+      status = allRefunded ? 'REFUNDED' : 'RELEASED';
+    }
+
+    await tx.coinHold.update({
+      where: { id: holdId },
+      data: {
+        status,
+        ...(status === 'RELEASED' || status === 'REFUNDED' ? { releasedAt: new Date() } : {}),
+      },
+    });
+  }
+
   /** Reconcile wallet projection against ledger + open holds. */
   async reconcileWallet(walletId: string): Promise<{
     ok: boolean;
@@ -244,13 +437,18 @@ export class CoinLedgerService {
         held = addCoinAmounts(held, amount);
         continue;
       }
-      // Settlement types (transfer/release/refund) not applied in Phase J replay.
-      if (
-        row.type === 'JOIN_REWARD_TRANSFER' ||
-        row.type === 'JOIN_REWARD_RELEASE' ||
-        row.type === 'JOIN_REWARD_REFUND'
-      ) {
-        throw new Error(`settlement_tx_not_supported_in_phase_j_reconcile:${row.type}`);
+      if (row.type === 'JOIN_REWARD_RELEASE' && row.direction === 'DEBIT') {
+        held = subCoinAmounts(held, amount);
+        continue;
+      }
+      if (row.type === 'JOIN_REWARD_TRANSFER' && row.direction === 'CREDIT') {
+        available = addCoinAmounts(available, amount);
+        continue;
+      }
+      if (row.type === 'JOIN_REWARD_REFUND' && row.direction === 'CREDIT') {
+        available = addCoinAmounts(available, amount);
+        held = subCoinAmounts(held, amount);
+        continue;
       }
     }
 

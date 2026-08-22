@@ -42,6 +42,7 @@ import {
   CoinLedgerService,
   InsufficientBalanceError,
 } from '../wallet/coin-ledger.service';
+import { SettlementService } from '../settlement/settlement.service';
 import {
   resolveDefaultRewardPerParticipant,
   resolveRoomCreationFee,
@@ -55,6 +56,7 @@ export class JoinsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ledger: CoinLedgerService,
+    private readonly settlement: SettlementService,
   ) {}
 
   ping() {
@@ -276,7 +278,15 @@ export class JoinsService {
       },
     });
     if (!join) throw new NotFoundException('join_not_found');
-    return this.toDetail(join, viewerUserId);
+    const detail = this.toDetail(join, viewerUserId);
+    if (viewerUserId) {
+      try {
+        detail.settlement = await this.settlement.getJoinSettlements(joinId, viewerUserId);
+      } catch (e) {
+        if (!(e instanceof ForbiddenException)) throw e;
+      }
+    }
+    return detail;
   }
 
   async myJoins(userId: string): Promise<MyJoinsResponse> {
@@ -418,6 +428,14 @@ export class JoinsService {
           scheduledEndAt,
           status: nextStatus as never,
         },
+      });
+
+      await this.settlement.ensureSettlementOnApprove(tx, {
+        joinId,
+        participantId,
+        scheduledEndAt,
+        rewardPerParticipant: join.rewardPerParticipant,
+        coinAssetId: join.coinAssetId,
       });
     });
 

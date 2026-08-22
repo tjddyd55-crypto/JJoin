@@ -1,9 +1,590 @@
-﻿import { Injectable } from '@nestjs/common';
+﻿import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  JoinStatus,
+  ParticipantRole,
+  RewardStatus,
+  type JoinSettlementSummaryDto,
+  type SettlementIssueRequest,
+  type SettlementParticipantDto,
+} from '@jjoin/types';
+import {
+  canAutoPayReward,
+  canHostPayReward,
+  computeAutoPayAt,
+  formatCountdownMs,
+  isSettlementWindowOpen,
+  isTerminalRewardStatus,
+  settlementRefundIdempotencyKey,
+  settlementRowIdempotencyKey,
+  settlementTransferIdempotencyKey,
+} from '@jjoin/domain';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
+import { CoinLedgerService } from '../wallet/coin-ledger.service';
+import { SystemSettlementClock, type SettlementClock, isSettlementQaAllowed } from '../../settlement/settlement-clock';
+import { mockUserStore } from '../../mock/mock-user.store';
+
+const SETTLING_ELIGIBLE: JoinStatus[] = [
+  JoinStatus.OPEN,
+  JoinStatus.FULL,
+  JoinStatus.CONFIRMED,
+  JoinStatus.IN_PROGRESS,
+  JoinStatus.SETTLING,
+];
 
 @Injectable()
 export class SettlementService {
-  // Foundation skeleton — no business implementation yet.
+  private readonly clock: SettlementClock;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ledger: CoinLedgerService,
+  ) {
+    this.clock = new SystemSettlementClock();
+  }
+
   ping() {
-    return { module: 'settlement', status: 'skeleton' };
+    return {
+      module: 'settlement',
+      status: 'ready',
+      participantLevel: true,
+      autoPay: 'RUNNER',
+    };
+  }
+
+  /** Create settlement row when participant is approved — idempotent, host excluded. */
+  async ensureSettlementOnApprove(
+    tx: Prisma.TransactionClient,
+    params: {
+      joinId: string;
+      participantId: string;
+      scheduledEndAt: Date;
+      rewardPerParticipant: Prisma.Decimal;
+      coinAssetId: string;
+    },
+  ) {
+    const participant = await tx.joinParticipant.findUniqueOrThrow({
+      where: { id: params.participantId },
+    });
+    if (participant.role === 'HOST') return null;
+
+    const existing = await tx.rewardSettlement.findUnique({
+      where: { joinParticipantId: params.participantId },
+    });
+    if (existing) return existing;
+
+    const hold = await tx.coinHold.findFirst({
+      where: { joinId: params.joinId, status: { in: ['OPEN', 'PARTIALLY_RELEASED'] } },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const autoPayAt = computeAutoPayAt(params.scheduledEndAt);
+    const idempotencyKey = settlementRowIdempotencyKey(params.participantId);
+
+    return tx.rewardSettlement.create({
+      data: {
+        joinId: params.joinId,
+        joinParticipantId: params.participantId,
+        coinAssetId: params.coinAssetId,
+        amount: params.rewardPerParticipant,
+        rewardStatus: 'HELD',
+        holdId: hold?.id ?? null,
+        settlementAvailableAt: params.scheduledEndAt,
+        autoPayAt,
+        heldAt: new Date(),
+        idempotencyKey,
+      },
+    });
+  }
+
+  async refreshJoinSettlementState(joinId: string): Promise<void> {
+    const now = this.clock.now();
+    const join = await this.prisma.join.findUnique({
+      where: { id: joinId },
+      include: {
+        participants: { include: { settlement: true } },
+      },
+    });
+    if (!join || join.status === 'CANCELLED') return;
+
+    await this.prisma.$transaction(async (tx) => {
+      const open = isSettlementWindowOpen(join.scheduledEndAt, now);
+
+      if (open && SETTLING_ELIGIBLE.includes(join.status as JoinStatus)) {
+        await tx.join.update({
+          where: { id: joinId },
+          data: { status: 'SETTLING' },
+        });
+      }
+
+      for (const p of join.participants) {
+        if (p.role === 'HOST' || !p.settlement) continue;
+        if (p.settlement.rewardStatus !== 'HELD') continue;
+        if (open) {
+          await tx.rewardSettlement.update({
+            where: { id: p.settlement.id },
+            data: { rewardStatus: 'PENDING_CONFIRMATION' },
+          });
+        }
+      }
+
+      await this.tryCompleteJoin(tx, joinId);
+    });
+  }
+
+  async getJoinSettlements(
+    joinId: string,
+    viewerUserId: string,
+  ): Promise<JoinSettlementSummaryDto> {
+    await this.refreshJoinSettlementState(joinId);
+
+    const join = await this.prisma.join.findUnique({
+      where: { id: joinId },
+      include: {
+        participants: {
+          include: {
+            settlement: true,
+            user: { include: { profile: true } },
+          },
+        },
+      },
+    });
+    if (!join) throw new NotFoundException('join_not_found');
+
+    const isHost = join.hostUserId === viewerUserId;
+    const isParticipant = join.participants.some((p) => p.userId === viewerUserId);
+    if (!isHost && !isParticipant) {
+      throw new ForbiddenException('settlement_forbidden');
+    }
+
+    const now = this.clock.now();
+    const settlementOpen = isSettlementWindowOpen(join.scheduledEndAt, now);
+
+    const settlements: SettlementParticipantDto[] = join.participants
+      .filter((p) => p.role !== 'HOST' && p.settlement)
+      .map((p) => {
+        const s = p.settlement!;
+        const rewardStatus = s.rewardStatus as RewardStatus;
+        return {
+          settlementId: s.id,
+          participantId: p.id,
+          userId: p.userId,
+          nickname: p.user.profile?.nickname ?? '참가자',
+          role: p.role as ParticipantRole,
+          participationStatus: p.participationStatus as never,
+          rewardAmount: String(s.amount),
+          rewardStatus,
+          settlementAvailableAt: s.settlementAvailableAt.toISOString(),
+          autoPayAt: s.autoPayAt.toISOString(),
+          autoPayCountdownMs: formatCountdownMs(s.autoPayAt, now),
+          canHostPay: isHost
+            ? canHostPayReward({
+                now,
+                scheduledEndAt: join.scheduledEndAt,
+                rewardStatus: s.rewardStatus,
+                joinStatus: join.status,
+              })
+            : false,
+          paidAt: s.paidAt?.toISOString() ?? null,
+          refundedAt: s.refundedAt?.toISOString() ?? null,
+          disputedAt: s.disputedAt?.toISOString() ?? null,
+        };
+      });
+
+    return {
+      joinId,
+      joinStatus: join.status as JoinStatus,
+      scheduledEndAt: join.scheduledEndAt.toISOString(),
+      settlementOpen,
+      settlements,
+    };
+  }
+
+  async payParticipant(
+    joinId: string,
+    participantId: string,
+    hostUserId: string,
+    mode: 'MANUAL' | 'AUTO',
+  ) {
+    await this.refreshJoinSettlementState(joinId);
+    const now = this.clock.now();
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const join = await tx.join.findUnique({
+        where: { id: joinId },
+        include: {
+          participants: { include: { settlement: true } },
+          holds: true,
+        },
+      });
+      if (!join) throw new NotFoundException('join_not_found');
+      if (join.hostUserId !== hostUserId && mode === 'MANUAL') {
+        throw new ForbiddenException('not_join_host');
+      }
+      if (join.status === 'CANCELLED') {
+        throw new BadRequestException('join_cancelled');
+      }
+
+      const participant = join.participants.find((p) => p.id === participantId);
+      if (!participant?.settlement) {
+        throw new NotFoundException('settlement_not_found');
+      }
+      const settlement = participant.settlement;
+
+      if (mode === 'MANUAL') {
+        if (
+          !canHostPayReward({
+            now,
+            scheduledEndAt: join.scheduledEndAt,
+            rewardStatus: settlement.rewardStatus,
+            joinStatus: join.status,
+          })
+        ) {
+          throw new BadRequestException('settlement_not_payable');
+        }
+      } else if (
+        !canAutoPayReward({
+          now,
+          autoPayAt: settlement.autoPayAt,
+          rewardStatus: settlement.rewardStatus,
+        })
+      ) {
+        return null;
+      }
+
+      if (settlement.rewardStatus === 'PAID' || settlement.rewardStatus === 'AUTO_PAID') {
+        return settlement;
+      }
+
+      const amount = String(settlement.amount);
+      const hostWallet = await this.ledger.getOrCreateWallet(join.hostUserId, join.coinAssetId, tx);
+      const participantWallet = await this.ledger.getOrCreateWallet(
+        participant.userId,
+        join.coinAssetId,
+        tx,
+      );
+
+      const transferKey = settlementTransferIdempotencyKey(settlement.id);
+      const { participantTx } = await this.ledger.applyRewardTransfer(tx, {
+        hostWalletId: hostWallet.id,
+        participantWalletId: participantWallet.id,
+        participantUserId: participant.userId,
+        coinAssetId: join.coinAssetId,
+        amount,
+        settlementId: settlement.id,
+        joinId,
+        idempotencyKey: transferKey,
+      });
+
+      if (settlement.holdId) {
+        await this.ledger.refreshCoinHoldStatus(tx, settlement.holdId);
+      }
+
+      const nextRewardStatus = mode === 'AUTO' ? 'AUTO_PAID' : 'PAID';
+      const claimed = await tx.rewardSettlement.updateMany({
+        where: { id: settlement.id, rewardStatus: 'PENDING_CONFIRMATION' },
+        data: {
+          rewardStatus: nextRewardStatus,
+          paidAt: now,
+          paidTxId: participantTx.id,
+        },
+      });
+
+      if (claimed.count === 0) {
+        return tx.rewardSettlement.findUniqueOrThrow({ where: { id: settlement.id } });
+      }
+
+      await tx.joinParticipant.update({
+        where: { id: participant.id },
+        data: { participationStatus: 'COMPLETED' },
+      });
+
+      mockUserStore.syncWalletBalances(
+        join.hostUserId,
+        String(
+          (
+            await tx.wallet.findUniqueOrThrow({ where: { id: hostWallet.id } })
+          ).availableBalance,
+        ),
+        String(
+          (
+            await tx.wallet.findUniqueOrThrow({ where: { id: hostWallet.id } })
+          ).heldBalance,
+        ),
+      );
+      mockUserStore.syncWalletBalances(
+        participant.userId,
+        String(
+          (
+            await tx.wallet.findUniqueOrThrow({ where: { id: participantWallet.id } })
+          ).availableBalance,
+        ),
+        String(
+          (
+            await tx.wallet.findUniqueOrThrow({ where: { id: participantWallet.id } })
+          ).heldBalance,
+        ),
+      );
+
+      await this.tryCompleteJoin(tx, joinId);
+      return tx.rewardSettlement.findUniqueOrThrow({ where: { id: settlement.id } });
+    });
+
+    if (!result) return { ok: false, skipped: true };
+    return { ok: true, settlementId: result.id, rewardStatus: result.rewardStatus };
+  }
+
+  async payAllEligible(joinId: string, hostUserId: string) {
+    const summary = await this.getJoinSettlements(joinId, hostUserId);
+    const eligible = summary.settlements.filter((s) => s.canHostPay);
+    const results = [];
+    for (const s of eligible) {
+      results.push(await this.payParticipant(joinId, s.participantId, hostUserId, 'MANUAL'));
+    }
+    return { count: results.filter((r) => r.ok).length, results };
+  }
+
+  async reportIssue(
+    joinId: string,
+    participantId: string,
+    hostUserId: string,
+    body: SettlementIssueRequest,
+  ) {
+    await this.refreshJoinSettlementState(joinId);
+    const now = this.clock.now();
+
+    return this.prisma.$transaction(async (tx) => {
+      const join = await tx.join.findUnique({
+        where: { id: joinId },
+        include: { participants: { include: { settlement: true } } },
+      });
+      if (!join) throw new NotFoundException('join_not_found');
+      if (join.hostUserId !== hostUserId) throw new ForbiddenException('not_join_host');
+      if (!isSettlementWindowOpen(join.scheduledEndAt, now)) {
+        throw new BadRequestException('settlement_not_open');
+      }
+
+      const participant = join.participants.find((p) => p.id === participantId);
+      if (!participant?.settlement) throw new NotFoundException('settlement_not_found');
+      const settlement = participant.settlement;
+
+      if (isTerminalRewardStatus(settlement.rewardStatus)) {
+        return { ok: true, alreadyTerminal: true };
+      }
+
+      switch (body.issueType) {
+        case 'NO_SHOW':
+          return this.applyNoShow(tx, join, participant, settlement, now);
+        case 'LEFT_EARLY':
+          return this.applyLeftEarly(tx, participant, settlement, now);
+        case 'DISPUTE':
+          return this.applyDispute(tx, participant, settlement, now);
+        default:
+          throw new BadRequestException('invalid_issue_type');
+      }
+    });
+  }
+
+  private async applyNoShow(
+    tx: Prisma.TransactionClient,
+    join: { id: string; hostUserId: string; coinAssetId: string },
+    participant: { id: string; userId: string },
+    settlement: {
+      id: string;
+      amount: Prisma.Decimal;
+      holdId: string | null;
+      rewardStatus: string;
+    },
+    now: Date,
+  ) {
+    if (settlement.rewardStatus === 'REFUNDED') {
+      return { ok: true, rewardStatus: 'REFUNDED' };
+    }
+
+    await tx.joinParticipant.update({
+      where: { id: participant.id },
+      data: { participationStatus: 'NO_SHOW' },
+    });
+
+    const amount = String(settlement.amount);
+    const hostWallet = await this.ledger.getOrCreateWallet(join.hostUserId, join.coinAssetId, tx);
+    await this.ledger.applyRewardRefund(tx, {
+      hostWalletId: hostWallet.id,
+      coinAssetId: join.coinAssetId,
+      amount,
+      settlementId: settlement.id,
+      joinId: join.id,
+      idempotencyKey: settlementRefundIdempotencyKey(settlement.id),
+    });
+
+    if (settlement.holdId) {
+      await this.ledger.refreshCoinHoldStatus(tx, settlement.holdId);
+    }
+
+    await tx.rewardSettlement.update({
+      where: { id: settlement.id },
+      data: {
+        rewardStatus: 'REFUNDED',
+        refundedAt: now,
+        disputedAt: now,
+      },
+    });
+
+    await this.tryCompleteJoin(tx, join.id);
+    return { ok: true, rewardStatus: 'REFUNDED' };
+  }
+
+  private async applyLeftEarly(
+    tx: Prisma.TransactionClient,
+    participant: { id: string },
+    settlement: { id: string; rewardStatus: string },
+    now: Date,
+  ) {
+    if (settlement.rewardStatus === 'DISPUTED') return { ok: true, rewardStatus: 'DISPUTED' };
+
+    await tx.joinParticipant.update({
+      where: { id: participant.id },
+      data: { participationStatus: 'LEFT_EARLY' },
+    });
+    await tx.rewardSettlement.update({
+      where: { id: settlement.id },
+      data: {
+        rewardStatus: 'DISPUTED',
+        disputedAt: now,
+      },
+    });
+    return { ok: true, rewardStatus: 'DISPUTED' };
+  }
+
+  private async applyDispute(
+    tx: Prisma.TransactionClient,
+    participant: { id: string },
+    settlement: { id: string; rewardStatus: string },
+    now: Date,
+  ) {
+    if (settlement.rewardStatus === 'DISPUTED') return { ok: true, rewardStatus: 'DISPUTED' };
+
+    await tx.joinParticipant.update({
+      where: { id: participant.id },
+      data: { participationStatus: 'DISPUTED' },
+    });
+    await tx.rewardSettlement.update({
+      where: { id: settlement.id },
+      data: {
+        rewardStatus: 'DISPUTED',
+        disputedAt: now,
+      },
+    });
+    return { ok: true, rewardStatus: 'DISPUTED' };
+  }
+
+  async runAutoPayCron(secret?: string) {
+    const expected = process.env.SETTLEMENT_CRON_SECRET;
+    if (expected) {
+      if (secret !== expected) throw new ForbiddenException('cron_forbidden');
+    } else if (!isSettlementQaAllowed()) {
+      throw new ForbiddenException('cron_forbidden');
+    }
+    return this.runAutoPayBatch();
+  }
+
+  async runAutoPayBatch(limit = Number(process.env.SETTLEMENT_AUTOPAY_BATCH_SIZE ?? 20)) {
+    const now = this.clock.now();
+    const due = await this.prisma.rewardSettlement.findMany({
+      where: {
+        rewardStatus: 'PENDING_CONFIRMATION',
+        autoPayAt: { lte: now },
+      },
+      orderBy: { autoPayAt: 'asc' },
+      take: limit,
+      include: {
+        participant: { include: { join: true } },
+      },
+    });
+
+    let processed = 0;
+    for (const row of due) {
+      const join = row.participant.join;
+      if (join.status === 'CANCELLED') continue;
+      const result = await this.payParticipant(
+        join.id,
+        row.joinParticipantId,
+        join.hostUserId,
+        'AUTO',
+      );
+      if (result.ok) processed += 1;
+    }
+    return { scanned: due.length, processed, now: now.toISOString() };
+  }
+
+  /** DEV/mock QA — advance scheduledEndAt/autoPayAt for settlement E2E. */
+  async qaAdvanceSettlementClock(joinId: string, hostUserId: string, mode: 'open' | 'autopay') {
+    if (!isSettlementQaAllowed()) {
+      throw new ForbiddenException('qa_settlement_forbidden');
+    }
+    const join = await this.prisma.join.findUnique({
+      where: { id: joinId },
+      include: { participants: { include: { settlement: true } } },
+    });
+    if (!join) throw new NotFoundException('join_not_found');
+    if (join.hostUserId !== hostUserId) throw new ForbiddenException('not_join_host');
+
+    const past = new Date(Date.now() - 60_000);
+    const autoPast = new Date(Date.now() - 30_000);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.join.update({
+        where: { id: joinId },
+        data: {
+          scheduledEndAt: past,
+          status: join.status === 'CANCELLED' ? join.status : 'SETTLING',
+        },
+      });
+      for (const p of join.participants) {
+        if (!p.settlement) continue;
+        await tx.rewardSettlement.update({
+          where: { id: p.settlement.id },
+          data: {
+            settlementAvailableAt: past,
+            autoPayAt: mode === 'autopay' ? autoPast : p.settlement.autoPayAt,
+            rewardStatus:
+              p.settlement.rewardStatus === 'HELD' ? 'PENDING_CONFIRMATION' : p.settlement.rewardStatus,
+          },
+        });
+      }
+    });
+
+    return { ok: true, mode };
+  }
+
+  private async tryCompleteJoin(tx: Prisma.TransactionClient, joinId: string) {
+    const join = await tx.join.findUnique({
+      where: { id: joinId },
+      include: { participants: { include: { settlement: true } } },
+    });
+    if (!join || join.status === 'CANCELLED' || join.status === 'COMPLETED') return;
+
+    const nonHost = join.participants.filter((p) => p.role !== 'HOST');
+    if (nonHost.length === 0) return;
+
+    const hasDisputed = nonHost.some(
+      (p) => p.settlement?.rewardStatus === 'DISPUTED' || p.participationStatus === 'DISPUTED',
+    );
+    if (hasDisputed) return;
+
+    const allTerminal = nonHost.every(
+      (p) => p.settlement && isTerminalRewardStatus(p.settlement.rewardStatus),
+    );
+    if (allTerminal) {
+      await tx.join.update({
+        where: { id: joinId },
+        data: { status: 'COMPLETED' },
+      });
+    }
   }
 }

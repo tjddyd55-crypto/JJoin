@@ -8,6 +8,7 @@ import {
   type JoinCoinPreviewDto,
   type JoinCoinPreviewRequest,
   type JoinDetailDto,
+  type JoinSettlementSummaryDto,
   type MeDto,
   type MyJoinsResponse,
   type PrivateIdentityDto,
@@ -19,6 +20,7 @@ import {
   type UpsertPresenceRequest,
   type WalletSummaryDto,
   type WalletTransactionsResponse,
+  type SettlementIssueRequest,
 } from '@jjoin/types';
 
 export type ApiClientConfig = {
@@ -312,6 +314,69 @@ export class ApiClient {
         headers: await this.headers(true),
       },
     );
+    return parseJson(res);
+  }
+
+  async getJoinSettlements(joinId: string): Promise<JoinSettlementSummaryDto> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/settlements`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async paySettlementParticipant(joinId: string, participantId: string): Promise<{
+    ok: boolean;
+    settlementId?: string;
+    rewardStatus?: string;
+    skipped?: boolean;
+  }> {
+    const res = await request(
+      `${this.config.baseUrl}/joins/${joinId}/settlements/${participantId}/pay`,
+      {
+        method: 'POST',
+        headers: await this.headers(true),
+      },
+    );
+    return parseJson(res);
+  }
+
+  async payAllSettlements(joinId: string): Promise<{
+    count: number;
+    results: Array<{ ok: boolean; skipped?: boolean }>;
+  }> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/settlements/pay-all`, {
+      method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async reportSettlementIssue(
+    joinId: string,
+    participantId: string,
+    body: SettlementIssueRequest,
+  ): Promise<{ ok: boolean; rewardStatus?: string; alreadyTerminal?: boolean }> {
+    const res = await request(
+      `${this.config.baseUrl}/joins/${joinId}/settlements/${participantId}/issue`,
+      {
+        method: 'POST',
+        headers: await this.headers(true),
+        body: JSON.stringify(body),
+      },
+    );
+    return parseJson(res);
+  }
+
+  /** DEV/mock QA — advance settlement clock (host only). */
+  async qaAdvanceSettlementClock(
+    joinId: string,
+    mode: 'open' | 'autopay' = 'open',
+  ): Promise<{ ok: boolean; mode: string }> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/settlements/_qa/advance-clock`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify({ mode }),
+    });
     return parseJson(res);
   }
 }

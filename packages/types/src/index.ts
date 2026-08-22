@@ -368,6 +368,39 @@ export type JoinParticipantDto = {
   approvedAt: string | null;
 };
 
+export type SettlementParticipantDto = {
+  settlementId: string;
+  participantId: string;
+  userId: string;
+  nickname: string;
+  role: ParticipantRole;
+  participationStatus: ParticipationStatus;
+  rewardAmount: string;
+  rewardStatus: RewardStatus;
+  settlementAvailableAt: string;
+  autoPayAt: string;
+  /** Milliseconds until auto pay; 0 when due or terminal. Server-calculated. */
+  autoPayCountdownMs: number;
+  canHostPay: boolean;
+  paidAt: string | null;
+  refundedAt: string | null;
+  disputedAt: string | null;
+};
+
+export type JoinSettlementSummaryDto = {
+  joinId: string;
+  joinStatus: JoinStatus;
+  scheduledEndAt: string;
+  settlementOpen: boolean;
+  settlements: SettlementParticipantDto[];
+};
+
+export type SettlementIssueType = 'NO_SHOW' | 'LEFT_EARLY' | 'DISPUTE';
+
+export type SettlementIssueRequest = {
+  issueType: SettlementIssueType;
+};
+
 export type JoinDetailDto = {
   joinId: string;
   status: JoinStatus;
@@ -398,6 +431,8 @@ export type JoinDetailDto = {
   host: PublicUserProfileDto;
   myParticipation: JoinParticipantDto | null;
   participants: JoinParticipantDto[];
+  /** Present when viewer is host or participant with settlement rows. */
+  settlement?: JoinSettlementSummaryDto | null;
 };
 
 export type JoinListItemDto = {

@@ -53,6 +53,24 @@ export function autoPayAt(scheduledEndAt: Date, hours = 24): Date {
   return new Date(scheduledEndAt.getTime() + hours * 60 * 60_000);
 }
 
+export {
+  canAutoPayReward,
+  canHostPayReward,
+  blocksAutoPay,
+  computeAutoPayAt,
+  formatCountdownMs,
+  isAutoPayDue,
+  isSettlementWindowOpen,
+  isTerminalRewardStatus,
+  settlementRefundIdempotencyKey,
+  settlementRowIdempotencyKey,
+  settlementTransferIdempotencyKey,
+  systemSettlementClock,
+  TERMINAL_REWARD_STATUSES,
+  type SettlementClock,
+  type TerminalRewardStatus,
+} from './settlement';
+
 /**
  * Default venue keyword per sport for Explore live search.
  * Keep mapping here — never hardcode in screen components.
