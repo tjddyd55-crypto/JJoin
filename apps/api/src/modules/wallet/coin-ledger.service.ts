@@ -64,7 +64,7 @@ export class CoinLedgerService {
 
   async lockWallet(tx: PrismaTx, walletId: string) {
     await tx.$queryRaw`
-      SELECT id FROM wallets WHERE id = ${walletId}::uuid FOR UPDATE
+      SELECT id FROM wallets WHERE id = CAST(${walletId} AS uuid) FOR UPDATE
     `;
     return tx.wallet.findUniqueOrThrow({ where: { id: walletId } });
   }

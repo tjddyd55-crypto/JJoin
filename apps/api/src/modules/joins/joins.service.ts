@@ -176,22 +176,7 @@ export class JoinsService {
           throw new InsufficientBalanceError();
         }
 
-        await this.ledger.applyRoomCreationFee(tx, {
-          walletId: wallet.id,
-          coinAssetId: coinAsset.id,
-          amount: requirement.roomCreationFee,
-          joinId,
-          idempotencyKey: `join:${idemBase}:room-fee`,
-        });
-
-        await this.ledger.applyJoinRewardHold(tx, {
-          walletId: wallet.id,
-          coinAssetId: coinAsset.id,
-          amount: requirement.rewardHoldTotal,
-          joinId,
-          idempotencyKey: `join:${idemBase}:reward-hold`,
-        });
-
+        // Join row first — CoinHold.joinId FK requires the join to exist.
         await tx.join.create({
           data: {
             id: joinId,
@@ -230,6 +215,22 @@ export class JoinsService {
                 }
               : {}),
           },
+        });
+
+        await this.ledger.applyRoomCreationFee(tx, {
+          walletId: wallet.id,
+          coinAssetId: coinAsset.id,
+          amount: requirement.roomCreationFee,
+          joinId,
+          idempotencyKey: `join:${idemBase}:room-fee`,
+        });
+
+        await this.ledger.applyJoinRewardHold(tx, {
+          walletId: wallet.id,
+          coinAssetId: coinAsset.id,
+          amount: requirement.rewardHoldTotal,
+          joinId,
+          idempotencyKey: `join:${idemBase}:reward-hold`,
         });
       });
     } catch (e) {
