@@ -150,15 +150,42 @@ export type SocialAccountLinkDto = {
   status: SocialLinkStatus;
 };
 
+export type WalletTransactionDto = {
+  id: string;
+  type: CoinTxType;
+  direction: 'DEBIT' | 'CREDIT';
+  amount: string;
+  createdAt: string;
+  /** Human-readable label for UI (not an accounting field). */
+  label: string;
+  reference: {
+    refType: string | null;
+    refId: string | null;
+  };
+};
+
 export type WalletSummaryDto = {
+  assetCode: string;
   availableCoin: string;
   heldCoin: string;
-  recentTransactions: Array<{
-    id: string;
-    label: string;
-    amount: string;
-    createdAt: string;
-  }>;
+  /** available + held (display only; not a separate ledger balance). */
+  totalCoin: string;
+  recentTransactions: WalletTransactionDto[];
+};
+
+export type WalletTransactionsResponse = {
+  items: WalletTransactionDto[];
+  nextCursor: string | null;
+};
+
+export type JoinCoinPreviewDto = {
+  roomCreationFee: string;
+  rewardPerParticipant: string;
+  rewardEligibleSlots: number;
+  rewardHoldTotal: string;
+  totalRequiredCoin: string;
+  walletAvailable: string;
+  canCreate: boolean;
 };
 
 export type MeDto = {
@@ -316,9 +343,17 @@ export type CreateJoinRequest = {
   title?: string | null;
   description?: string | null;
   /**
-   * Display snapshot only.
-   * COIN_ACCOUNTING_PENDING — no wallet debit / hold in Phase F.
+   * Host-chosen per-participant reward (Hold target).
+   * Room creation fee is server policy — never trust a client fee field.
+   * Omitted → DEV/TEST policy default when COIN_POLICY_MODE=dev (POLICY_TBD for production).
    */
+  rewardPerParticipant?: string;
+  /** Client request idempotency — same key must not double-create join/fee/hold. */
+  idempotencyKey?: string;
+};
+
+export type JoinCoinPreviewRequest = {
+  plannedPlayerCount: number;
   rewardPerParticipant?: string;
 };
 
@@ -346,8 +381,10 @@ export type JoinDetailDto = {
   confirmedPlayerCount: number;
   availableSlots: number;
   rewardPerParticipant: string;
-  /** Always true in Phase F — ledger not executed. */
-  coinAccountingPending: true;
+  roomCreationFeeAmount: string;
+  rewardHoldTotalAmount: string;
+  /** False once create path writes ledger (Phase J+). */
+  coinAccountingPending: boolean;
   venue: {
     venueId: string;
     provider: string;

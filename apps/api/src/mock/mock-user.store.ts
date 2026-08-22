@@ -102,6 +102,13 @@ export class MockUserStore {
     });
   }
 
+  syncWalletBalances(userId: string, availableCoin: string, heldCoin: string) {
+    const user = this.users.get(userId);
+    if (!user) return;
+    user.availableCoin = availableCoin;
+    user.heldCoin = heldCoin;
+  }
+
   logout(token: string) {
     this.tokens.delete(token);
   }
@@ -282,25 +289,11 @@ export class MockUserStore {
             : SocialLinkStatus.NOT_CONNECTED,
       })),
       walletSummary: {
+        assetCode: 'JJOIN',
         availableCoin: user.availableCoin,
         heldCoin: user.heldCoin,
-        recentTransactions:
-          user.scenario === MockAuthScenario.RETURNING_USER
-            ? [
-                {
-                  id: 'tx1',
-                  label: '조인 보상 (Mock)',
-                  amount: '+20',
-                  createdAt: new Date().toISOString(),
-                },
-                {
-                  id: 'tx2',
-                  label: '방 생성 수수료 (Mock)',
-                  amount: '-2',
-                  createdAt: new Date().toISOString(),
-                },
-              ]
-            : [],
+        totalCoin: String(Number(user.availableCoin) + Number(user.heldCoin)),
+        recentTransactions: [],
       },
     };
   }

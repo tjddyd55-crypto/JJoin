@@ -60,11 +60,22 @@ export const createJoinSchema = z.object({
   joinMethod: z.enum(['OPEN', 'APPROVAL']),
   title: z.string().trim().max(80).nullable().optional(),
   description: z.string().trim().max(500).nullable().optional(),
-  /** Display snapshot — not a settled coin policy. */
+  /** Host reward per participant — fee is never accepted from client. */
+  rewardPerParticipant: z
+    .string()
+    .regex(/^\d+(\.\d{1,4})?$/)
+    .optional(),
+  idempotencyKey: z.string().trim().min(8).max(120).optional(),
+});
+
+export type CreateJoinInput = z.infer<typeof createJoinSchema>;
+
+export const joinCoinPreviewSchema = z.object({
+  plannedPlayerCount: z.number().int().min(2).max(8),
   rewardPerParticipant: z
     .string()
     .regex(/^\d+(\.\d{1,4})?$/)
     .optional(),
 });
 
-export type CreateJoinInput = z.infer<typeof createJoinSchema>;
+export type JoinCoinPreviewInput = z.infer<typeof joinCoinPreviewSchema>;

@@ -7,19 +7,25 @@ import { AgeBand, SportSkillLevel, SCREEN_GOLF_CODE } from '@jjoin/types';
 import { profileEditSchema, profileSetupSchema, termsConsentSchema } from '@jjoin/validation';
 import { mockUserStore } from '../../mock/mock-user.store';
 import { MockMediaAdapter } from '../../providers/mock.adapters';
+import { WalletService } from '../wallet/wallet.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly media: MockMediaAdapter) {}
+  constructor(
+    private readonly media: MockMediaAdapter,
+    private readonly wallet: WalletService,
+  ) {}
 
   ping() {
     return { module: 'users', status: 'mock' };
   }
 
-  getMe(userId: string) {
+  async getMe(userId: string) {
     const me = mockUserStore.getMe(userId);
     if (!me) throw new NotFoundException('user_not_found');
-    return me;
+    const walletSummary = await this.wallet.getSummary(userId);
+    mockUserStore.syncWalletBalances(userId, walletSummary.availableCoin, walletSummary.heldCoin);
+    return { ...me, walletSummary };
   }
 
   acceptTerms(userId: string, body: unknown) {
@@ -78,7 +84,8 @@ export class UsersService {
   }
 
   getSportProfiles(userId: string) {
-    const me = this.getMe(userId);
+    const me = mockUserStore.getMe(userId);
+    if (!me) throw new NotFoundException('user_not_found');
     return me.publicProfile?.sportProfiles ?? [];
   }
 
@@ -90,6 +97,6 @@ export class UsersService {
   }
 
   getWalletSummary(userId: string) {
-    return this.getMe(userId).walletSummary;
+    return this.wallet.getSummary(userId);
   }
 }

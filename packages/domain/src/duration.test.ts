@@ -53,7 +53,13 @@ function baseMe(overrides: Partial<MeDto> = {}): MeDto {
       { provider: SocialProvider.NAVER, status: SocialLinkStatus.NOT_CONNECTED },
       { provider: SocialProvider.GOOGLE, status: SocialLinkStatus.NOT_CONNECTED },
     ],
-    walletSummary: { availableCoin: '0', heldCoin: '0', recentTransactions: [] },
+    walletSummary: {
+      assetCode: 'JJOIN',
+      availableCoin: '0',
+      heldCoin: '0',
+      totalCoin: '0',
+      recentTransactions: [],
+    },
     ...overrides,
   };
 }

@@ -181,3 +181,22 @@ export function mapGenderDisplay(gender: string | null | undefined): string | nu
       return null;
   }
 }
+
+export {
+  CoinAmountError,
+  addCoinAmounts,
+  compareCoinAmounts,
+  formatCoinUnits,
+  isCoinAmountPositive,
+  mulCoinAmountByInt,
+  parseCoinUnits,
+  subCoinAmounts,
+  zeroCoinAmount,
+} from './coin-amount';
+
+export {
+  canAffordJoinCreate,
+  computeJoinCoinRequirement,
+  computeRewardEligibleSlots,
+  type JoinCoinRequirement,
+} from './coin-join';

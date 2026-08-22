@@ -1,0 +1,364 @@
+import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  addCoinAmounts,
+  compareCoinAmounts,
+  isCoinAmountPositive,
+  subCoinAmounts,
+  zeroCoinAmount,
+} from '@jjoin/domain';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
+import { ensureFoundation } from '../../foundation/ensure-foundation';
+import {
+  isDevCoinFundingAllowed,
+  resolveFundingTargetAvailable,
+} from '../../coin/dev-coin-policy';
+
+export type PrismaTx = Prisma.TransactionClient;
+
+export class InsufficientBalanceError extends Error {
+  readonly code = 'INSUFFICIENT_BALANCE';
+  constructor() {
+    super('INSUFFICIENT_BALANCE');
+    this.name = 'InsufficientBalanceError';
+  }
+}
+
+/**
+ * Immutable ledger writer + wallet projection updates.
+ * Never expose update/delete for CoinTransaction rows.
+ */
+@Injectable()
+export class CoinLedgerService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async getOrCreateWallet(userId: string, coinAssetId?: string, tx?: PrismaTx) {
+    const db = tx ?? this.prisma;
+    const assetId =
+      coinAssetId ??
+      (await ensureFoundation(this.prisma)).coinAsset.id;
+
+    const existing = await db.wallet.findUnique({
+      where: { userId_coinAssetId: { userId, coinAssetId: assetId } },
+    });
+    if (existing) return existing;
+
+    try {
+      return await db.wallet.create({
+        data: {
+          userId,
+          coinAssetId: assetId,
+          availableBalance: new Prisma.Decimal(0),
+          heldBalance: new Prisma.Decimal(0),
+        },
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        return db.wallet.findUniqueOrThrow({
+          where: { userId_coinAssetId: { userId, coinAssetId: assetId } },
+        });
+      }
+      throw e;
+    }
+  }
+
+  async lockWallet(tx: PrismaTx, walletId: string) {
+    await tx.$queryRaw`
+      SELECT id FROM wallets WHERE id = ${walletId}::uuid FOR UPDATE
+    `;
+    return tx.wallet.findUniqueOrThrow({ where: { id: walletId } });
+  }
+
+  /**
+   * Idempotent DEV/TEST top-up to funding target. Ledger-only — never raw balance UPDATE.
+   * Guarded: mock auth + COIN_POLICY_MODE=dev only.
+   */
+  async ensureDevFundingTarget(userId: string, personaLabel: string): Promise<void> {
+    if (!isDevCoinFundingAllowed()) {
+      throw new Error('dev_coin_funding_forbidden');
+    }
+    const { coinAsset } = await ensureFoundation(this.prisma);
+    const target = resolveFundingTargetAvailable();
+
+    await this.prisma.$transaction(async (tx) => {
+      const wallet = await this.getOrCreateWallet(userId, coinAsset.id, tx);
+      const locked = await this.lockWallet(tx, wallet.id);
+      const available = String(locked.availableBalance);
+      if (compareCoinAmounts(available, target) >= 0) {
+        return;
+      }
+      const creditAmount = subCoinAmounts(target, available);
+      const idempotencyKey = `dev-funding:${personaLabel}:${coinAsset.code}:to-${target}:from-${available}`;
+      const existing = await tx.coinTransaction.findUnique({ where: { idempotencyKey } });
+      if (existing) return;
+
+      await this.appendCredit(tx, {
+        walletId: locked.id,
+        coinAssetId: coinAsset.id,
+        type: 'ADMIN_ADJUSTMENT',
+        amount: creditAmount,
+        availableBefore: available,
+        heldBefore: String(locked.heldBalance),
+        idempotencyKey,
+        refType: 'DEV_FUNDING',
+        refId: userId,
+        metadata: { policy: 'TEST_ONLY', persona: personaLabel },
+      });
+    });
+  }
+
+  async applyRoomCreationFee(
+    tx: PrismaTx,
+    params: {
+      walletId: string;
+      coinAssetId: string;
+      amount: string;
+      joinId: string;
+      idempotencyKey: string;
+    },
+  ) {
+    if (!isCoinAmountPositive(params.amount)) {
+      // Zero fee allowed for POLICY_TBD edge — no ledger row.
+      return null;
+    }
+    const existing = await tx.coinTransaction.findUnique({
+      where: { idempotencyKey: params.idempotencyKey },
+    });
+    if (existing) return existing;
+
+    const wallet = await this.lockWallet(tx, params.walletId);
+    const available = String(wallet.availableBalance);
+    const held = String(wallet.heldBalance);
+    if (compareCoinAmounts(available, params.amount) < 0) {
+      throw new InsufficientBalanceError();
+    }
+    return this.appendDebit(tx, {
+      walletId: wallet.id,
+      coinAssetId: params.coinAssetId,
+      type: 'ROOM_CREATION_FEE',
+      amount: params.amount,
+      availableBefore: available,
+      heldBefore: held,
+      moveToHeld: false,
+      idempotencyKey: params.idempotencyKey,
+      refType: 'JOIN',
+      refId: params.joinId,
+    });
+  }
+
+  async applyJoinRewardHold(
+    tx: PrismaTx,
+    params: {
+      walletId: string;
+      coinAssetId: string;
+      amount: string;
+      joinId: string;
+      idempotencyKey: string;
+    },
+  ) {
+    if (!isCoinAmountPositive(params.amount)) {
+      return { hold: null, tx: null };
+    }
+
+    const existingTx = await tx.coinTransaction.findUnique({
+      where: { idempotencyKey: params.idempotencyKey },
+    });
+    if (existingTx) {
+      const hold = await tx.coinHold.findFirst({
+        where: { joinId: params.joinId, status: 'OPEN' },
+      });
+      return { hold, tx: existingTx };
+    }
+
+    const openHold = await tx.coinHold.findFirst({
+      where: { joinId: params.joinId, status: 'OPEN' },
+    });
+    if (openHold) {
+      throw new ConflictException('duplicate_join_reward_hold');
+    }
+
+    const wallet = await this.lockWallet(tx, params.walletId);
+    const available = String(wallet.availableBalance);
+    const held = String(wallet.heldBalance);
+    if (compareCoinAmounts(available, params.amount) < 0) {
+      throw new InsufficientBalanceError();
+    }
+
+    const hold = await tx.coinHold.create({
+      data: {
+        walletId: wallet.id,
+        coinAssetId: params.coinAssetId,
+        joinId: params.joinId,
+        amount: new Prisma.Decimal(params.amount),
+        reason: 'JOIN_REWARD_HOLD',
+        status: 'OPEN',
+      },
+    });
+
+    const ledgerTx = await this.appendDebit(tx, {
+      walletId: wallet.id,
+      coinAssetId: params.coinAssetId,
+      type: 'JOIN_REWARD_HOLD',
+      amount: params.amount,
+      availableBefore: available,
+      heldBefore: held,
+      moveToHeld: true,
+      idempotencyKey: params.idempotencyKey,
+      refType: 'JOIN',
+      refId: params.joinId,
+      metadata: { holdId: hold.id },
+    });
+
+    return { hold, tx: ledgerTx };
+  }
+
+  /** Reconcile wallet projection against ledger + open holds. */
+  async reconcileWallet(walletId: string): Promise<{
+    ok: boolean;
+    availableProjected: string;
+    heldProjected: string;
+    availableLedger: string;
+    heldLedger: string;
+  }> {
+    const wallet = await this.prisma.wallet.findUniqueOrThrow({ where: { id: walletId } });
+    const txs = await this.prisma.coinTransaction.findMany({
+      where: { walletId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    let available = zeroCoinAmount();
+    let held = zeroCoinAmount();
+
+    for (const row of txs) {
+      const amount = String(row.amount);
+      if (row.type === 'ADMIN_ADJUSTMENT' && row.direction === 'CREDIT') {
+        available = addCoinAmounts(available, amount);
+        continue;
+      }
+      if (row.type === 'ROOM_CREATION_FEE' && row.direction === 'DEBIT') {
+        available = subCoinAmounts(available, amount);
+        continue;
+      }
+      if (row.type === 'JOIN_REWARD_HOLD' && row.direction === 'DEBIT') {
+        available = subCoinAmounts(available, amount);
+        held = addCoinAmounts(held, amount);
+        continue;
+      }
+      // Settlement types (transfer/release/refund) not applied in Phase J replay.
+      if (
+        row.type === 'JOIN_REWARD_TRANSFER' ||
+        row.type === 'JOIN_REWARD_RELEASE' ||
+        row.type === 'JOIN_REWARD_REFUND'
+      ) {
+        throw new Error(`settlement_tx_not_supported_in_phase_j_reconcile:${row.type}`);
+      }
+    }
+
+    const availableProjected = String(wallet.availableBalance);
+    const heldProjected = String(wallet.heldBalance);
+    const ok =
+      compareCoinAmounts(availableProjected, available) === 0 &&
+      compareCoinAmounts(heldProjected, held) === 0;
+
+    return {
+      ok,
+      availableProjected,
+      heldProjected,
+      availableLedger: available,
+      heldLedger: held,
+    };
+  }
+
+  private async appendCredit(
+    tx: PrismaTx,
+    params: {
+      walletId: string;
+      coinAssetId: string;
+      type: 'ADMIN_ADJUSTMENT';
+      amount: string;
+      availableBefore: string;
+      heldBefore: string;
+      idempotencyKey: string;
+      refType?: string;
+      refId?: string;
+      metadata?: Prisma.InputJsonValue;
+    },
+  ) {
+    const availableAfter = addCoinAmounts(params.availableBefore, params.amount);
+    const heldAfter = params.heldBefore;
+
+    await tx.wallet.update({
+      where: { id: params.walletId },
+      data: {
+        availableBalance: new Prisma.Decimal(availableAfter),
+        heldBalance: new Prisma.Decimal(heldAfter),
+      },
+    });
+
+    return tx.coinTransaction.create({
+      data: {
+        walletId: params.walletId,
+        coinAssetId: params.coinAssetId,
+        type: params.type,
+        direction: 'CREDIT',
+        amount: new Prisma.Decimal(params.amount),
+        balanceAfterAvailable: new Prisma.Decimal(availableAfter),
+        balanceAfterHeld: new Prisma.Decimal(heldAfter),
+        refType: params.refType,
+        refId: params.refId,
+        idempotencyKey: params.idempotencyKey,
+        metadata: params.metadata,
+      },
+    });
+  }
+
+  private async appendDebit(
+    tx: PrismaTx,
+    params: {
+      walletId: string;
+      coinAssetId: string;
+      type: 'ROOM_CREATION_FEE' | 'JOIN_REWARD_HOLD';
+      amount: string;
+      availableBefore: string;
+      heldBefore: string;
+      moveToHeld: boolean;
+      idempotencyKey: string;
+      refType?: string;
+      refId?: string;
+      metadata?: Prisma.InputJsonValue;
+    },
+  ) {
+    const availableAfter = subCoinAmounts(params.availableBefore, params.amount);
+    const heldAfter = params.moveToHeld
+      ? addCoinAmounts(params.heldBefore, params.amount)
+      : params.heldBefore;
+
+    if (compareCoinAmounts(availableAfter, '0') < 0) {
+      throw new InsufficientBalanceError();
+    }
+
+    await tx.wallet.update({
+      where: { id: params.walletId },
+      data: {
+        availableBalance: new Prisma.Decimal(availableAfter),
+        heldBalance: new Prisma.Decimal(heldAfter),
+      },
+    });
+
+    return tx.coinTransaction.create({
+      data: {
+        walletId: params.walletId,
+        coinAssetId: params.coinAssetId,
+        type: params.type,
+        direction: 'DEBIT',
+        amount: new Prisma.Decimal(params.amount),
+        balanceAfterAvailable: new Prisma.Decimal(availableAfter),
+        balanceAfterHeld: new Prisma.Decimal(heldAfter),
+        refType: params.refType,
+        refId: params.refId,
+        idempotencyKey: params.idempotencyKey,
+        metadata: params.metadata,
+      },
+    });
+  }
+}

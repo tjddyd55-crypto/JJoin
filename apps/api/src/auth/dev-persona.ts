@@ -11,11 +11,14 @@ import {
   type PublicUserProfileDto,
   type SocialSignInResponse,
 } from '@jjoin/types';
-import { mapGenderDisplay, resolveOnboardingStep } from '@jjoin/domain';
+import { mapGenderDisplay, resolveOnboardingStep, addCoinAmounts } from '@jjoin/domain';
 import type { PrismaClient } from '@prisma/client';
 import { ensureFoundation } from '../foundation/ensure-foundation';
 import { issueSessionToken } from './session-token';
 import { mockUserStore } from '../mock/mock-user.store';
+import { CoinLedgerService } from '../modules/wallet/coin-ledger.service';
+import { isDevCoinFundingAllowed } from '../coin/dev-coin-policy';
+import type { PrismaService } from '../prisma/prisma.service';
 
 type PersonaFixture = {
   persona: MockAuthPersona;
@@ -140,8 +143,14 @@ export async function signInDevPersona(
     userId = created.id;
   }
 
-  const me = await loadMeFromDb(prisma, userId);
-  mockUserStore.hydrateFromMe(userId, me, provider);
+  if (isDevCoinFundingAllowed()) {
+    // Idempotent TEST ONLY top-up — not a production grant endpoint.
+    const ledger = new CoinLedgerService(prisma as PrismaService);
+    await ledger.ensureDevFundingTarget(userId, fixture.persona);
+  }
+
+  const fundedMe = await loadMeFromDb(prisma, userId);
+  mockUserStore.hydrateFromMe(userId, fundedMe, provider);
 
   const accessToken = issueSessionToken(userId);
   mockUserStore.bindToken(accessToken, userId);
@@ -152,8 +161,8 @@ export async function signInDevPersona(
       userId,
       scenario: MockAuthScenario.RETURNING_USER,
     },
-    me,
-    nextStep: resolveOnboardingStep(me),
+    me: fundedMe,
+    nextStep: resolveOnboardingStep(fundedMe),
   };
 }
 
@@ -211,8 +220,12 @@ export async function loadMeFromDb(prisma: PrismaClient, userId: string): Promis
         : SocialLinkStatus.NOT_CONNECTED,
     })),
     walletSummary: {
+      assetCode: 'JJOIN',
       availableCoin: wallet ? String(wallet.availableBalance) : '0',
       heldCoin: wallet ? String(wallet.heldBalance) : '0',
+      totalCoin: wallet
+        ? addCoinAmounts(String(wallet.availableBalance), String(wallet.heldBalance))
+        : '0',
       recentTransactions: [],
     },
   };
