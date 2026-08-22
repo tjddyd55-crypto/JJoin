@@ -4,6 +4,7 @@
   ForbiddenException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import {
   JoinMethod,
@@ -44,6 +45,7 @@ import {
 } from '../wallet/coin-ledger.service';
 import { SettlementService } from '../settlement/settlement.service';
 import {
+  CoinPolicyDisabledError,
   resolveDefaultRewardPerParticipant,
   resolveRoomCreationFee,
 } from '../../coin/dev-coin-policy';
@@ -74,12 +76,24 @@ export class JoinsService {
     if (!parsed.success) {
       throw new BadRequestException('invalid_coin_preview');
     }
-    const reward =
-      parsed.data.rewardPerParticipant ?? resolveDefaultRewardPerParticipant();
+    let reward: string;
+    let roomCreationFee: string;
+    try {
+      reward = parsed.data.rewardPerParticipant ?? resolveDefaultRewardPerParticipant();
+      roomCreationFee = resolveRoomCreationFee();
+    } catch (e) {
+      if (e instanceof CoinPolicyDisabledError) {
+        throw new ServiceUnavailableException({
+          code: e.code,
+          message: '코인 정책이 아직 적용되지 않았습니다.',
+        });
+      }
+      throw e;
+    }
     const requirement = computeJoinCoinRequirement({
       plannedPlayerCount: parsed.data.plannedPlayerCount,
       rewardPerParticipant: reward,
-      roomCreationFee: resolveRoomCreationFee(),
+      roomCreationFee,
     });
     const { coinAsset } = await ensureFoundation(this.prisma);
     const wallet = await this.ledger.getOrCreateWallet(hostUserId, coinAsset.id);
@@ -128,9 +142,20 @@ export class JoinsService {
       throw new BadRequestException('unsupported_sport');
     }
 
-    const rewardPerParticipant =
-      input.rewardPerParticipant ?? resolveDefaultRewardPerParticipant();
-    const roomCreationFee = resolveRoomCreationFee();
+    let rewardPerParticipant: string;
+    let roomCreationFee: string;
+    try {
+      rewardPerParticipant = input.rewardPerParticipant ?? resolveDefaultRewardPerParticipant();
+      roomCreationFee = resolveRoomCreationFee();
+    } catch (e) {
+      if (e instanceof CoinPolicyDisabledError) {
+        throw new ServiceUnavailableException({
+          code: e.code,
+          message: '코인 정책이 아직 적용되지 않았습니다.',
+        });
+      }
+      throw e;
+    }
     const requirement = computeJoinCoinRequirement({
       plannedPlayerCount: input.plannedPlayerCount,
       rewardPerParticipant,
@@ -239,6 +264,12 @@ export class JoinsService {
         });
       });
     } catch (e) {
+      if (e instanceof CoinPolicyDisabledError) {
+        throw new ServiceUnavailableException({
+          code: e.code,
+          message: '코인 정책이 아직 적용되지 않았습니다.',
+        });
+      }
       if (e instanceof InsufficientBalanceError) {
         throw new BadRequestException({
           code: 'INSUFFICIENT_BALANCE',

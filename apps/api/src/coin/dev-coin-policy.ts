@@ -5,6 +5,24 @@
 
 export type CoinPolicyMode = 'dev' | 'disabled';
 
+export class CoinPolicyDisabledError extends Error {
+  readonly code = 'COIN_POLICY_UNAVAILABLE';
+  constructor() {
+    super('coin_policy_disabled');
+    this.name = 'CoinPolicyDisabledError';
+  }
+}
+
+function resolveSocialAuthMode(): string {
+  return (process.env.SOCIAL_AUTH_MODE ?? 'mock').trim().toLowerCase();
+}
+
+/** Hybrid keeps real Kakao tokens while DEV personas still need TEST coin policy. */
+function isRegressionSocialAuthMode(): boolean {
+  const mode = resolveSocialAuthMode();
+  return mode === 'mock' || mode === 'hybrid';
+}
+
 /** TEST ONLY / POLICY_TBD — not a production price or fee schedule. */
 export const DEV_TEST_COIN_POLICY = {
   mode: 'dev' as const,
@@ -24,26 +42,26 @@ export function resolveCoinPolicyMode(): CoinPolicyMode {
   const raw = (process.env.COIN_POLICY_MODE ?? '').trim().toLowerCase();
   if (raw === 'disabled') return 'disabled';
   if (raw === 'dev') return 'dev';
-  // Mock auth QA on Railway uses production NODE_ENV — allow DEV policy when mock social is on.
-  if (process.env.SOCIAL_AUTH_MODE === 'mock') return 'dev';
+  // Railway production QA: mock + hybrid social auth both use TEST coin policy for DEV personas.
+  if (isRegressionSocialAuthMode()) return 'dev';
   return 'disabled';
 }
 
 export function isDevCoinFundingAllowed(): boolean {
   if (resolveCoinPolicyMode() !== 'dev') return false;
-  return process.env.SOCIAL_AUTH_MODE === 'mock';
+  return isRegressionSocialAuthMode();
 }
 
 export function resolveRoomCreationFee(): string {
   if (resolveCoinPolicyMode() !== 'dev') {
-    throw new Error('coin_policy_disabled');
+    throw new CoinPolicyDisabledError();
   }
   return DEV_TEST_COIN_POLICY.roomCreationFee;
 }
 
 export function resolveDefaultRewardPerParticipant(): string {
   if (resolveCoinPolicyMode() !== 'dev') {
-    throw new Error('coin_policy_disabled');
+    throw new CoinPolicyDisabledError();
   }
   return DEV_TEST_COIN_POLICY.defaultRewardPerParticipant;
 }
