@@ -14,6 +14,8 @@ import {
   type CreateJoinRequest,
   type ExploreJoinPreviewDto,
   type ExploreVenueDto,
+  type JoinCoinPreviewDto,
+  type JoinCoinPreviewRequest,
   type JoinDetailDto,
   type JoinListItemDto,
   type JoinParticipantDto,
@@ -23,25 +25,70 @@ import {
 import {
   SCREEN_GOLF_DURATION_RULE,
   assertPublicProfileHasNoPrivateFields,
+  canAffordJoinCreate,
   computeConfirmedPlayerCount,
+  computeJoinCoinRequirement,
   estimateEndAt,
   mapGenderDisplay,
   nextJoinStatusAfterRoster,
 } from '@jjoin/domain';
-import { createJoinSchema } from '@jjoin/validation';
+import { createJoinSchema, joinCoinPreviewSchema } from '@jjoin/validation';
 import { Prisma } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ensureFoundation } from '../../foundation/ensure-foundation';
 import { haversineMeters } from '../presence/privacy-location';
+import {
+  CoinLedgerService,
+  InsufficientBalanceError,
+} from '../wallet/coin-ledger.service';
+import {
+  resolveDefaultRewardPerParticipant,
+  resolveRoomCreationFee,
+} from '../../coin/dev-coin-policy';
+import { mockUserStore } from '../../mock/mock-user.store';
 
 const ACTIVE_JOIN_STATUSES: JoinStatus[] = [JoinStatus.OPEN, JoinStatus.FULL];
 
 @Injectable()
 export class JoinsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ledger: CoinLedgerService,
+  ) {}
 
   ping() {
-    return { module: 'joins', status: 'ready', coinAccounting: 'COIN_ACCOUNTING_PENDING' };
+    return {
+      module: 'joins',
+      status: 'ready',
+      coinAccounting: 'WALLET_LEDGER_HOLD',
+    };
+  }
+
+  async previewCoin(hostUserId: string, raw: JoinCoinPreviewRequest): Promise<JoinCoinPreviewDto> {
+    const parsed = joinCoinPreviewSchema.safeParse(raw);
+    if (!parsed.success) {
+      throw new BadRequestException('invalid_coin_preview');
+    }
+    const reward =
+      parsed.data.rewardPerParticipant ?? resolveDefaultRewardPerParticipant();
+    const requirement = computeJoinCoinRequirement({
+      plannedPlayerCount: parsed.data.plannedPlayerCount,
+      rewardPerParticipant: reward,
+      roomCreationFee: resolveRoomCreationFee(),
+    });
+    const { coinAsset } = await ensureFoundation(this.prisma);
+    const wallet = await this.ledger.getOrCreateWallet(hostUserId, coinAsset.id);
+    const walletAvailable = String(wallet.availableBalance);
+    return {
+      roomCreationFee: requirement.roomCreationFee,
+      rewardPerParticipant: requirement.rewardPerParticipant,
+      rewardEligibleSlots: requirement.rewardEligibleSlots,
+      rewardHoldTotal: requirement.rewardHoldTotal,
+      totalRequiredCoin: requirement.totalRequiredCoin,
+      walletAvailable,
+      canCreate: canAffordJoinCreate(walletAvailable, requirement.totalRequiredCoin),
+    };
   }
 
   async create(hostUserId: string, raw: CreateJoinRequest): Promise<JoinDetailDto> {
@@ -55,77 +102,161 @@ export class JoinsService {
       throw new BadRequestException('start_at_must_be_future');
     }
 
+    const clientIdempotencyKey = input.idempotencyKey?.trim();
+    if (clientIdempotencyKey) {
+      const existingFee = await this.prisma.coinTransaction.findUnique({
+        where: { idempotencyKey: `join:${clientIdempotencyKey}:room-fee` },
+      });
+      if (existingFee?.refType === 'JOIN' && existingFee.refId) {
+        return this.getDetail(existingFee.refId, hostUserId);
+      }
+      const existingHold = await this.prisma.coinTransaction.findUnique({
+        where: { idempotencyKey: `join:${clientIdempotencyKey}:reward-hold` },
+      });
+      if (existingHold?.refType === 'JOIN' && existingHold.refId) {
+        return this.getDetail(existingHold.refId, hostUserId);
+      }
+    }
+
     const { sport, coinAsset } = await ensureFoundation(this.prisma);
     if (input.sportCode !== sport.code && input.sportCode !== SCREEN_GOLF_CODE) {
       throw new BadRequestException('unsupported_sport');
     }
 
-    const reward = input.rewardPerParticipant ?? process.env.DEV_FIXTURE_REWARD_PER_PARTICIPANT ?? '0';
+    const rewardPerParticipant =
+      input.rewardPerParticipant ?? resolveDefaultRewardPerParticipant();
+    const roomCreationFee = resolveRoomCreationFee();
+    const requirement = computeJoinCoinRequirement({
+      plannedPlayerCount: input.plannedPlayerCount,
+      rewardPerParticipant,
+      roomCreationFee,
+    });
+
     const scheduledEndAt = estimateEndAt({
       startAt,
       playerCount: input.plannedPlayerCount,
       rule: SCREEN_GOLF_DURATION_RULE,
     });
 
-    const joinId = await this.prisma.$transaction(async (tx) => {
-      const venue = await tx.venue.upsert({
-        where: {
-          provider_providerPlaceId: {
-            provider: input.venue.provider,
-            providerPlaceId: input.venue.providerPlaceId,
-          },
-        },
-        create: {
-          sportId: sport.id,
-          provider: input.venue.provider,
-          providerPlaceId: input.venue.providerPlaceId,
-          name: input.venue.name,
-          address: input.venue.address ?? null,
-          region: input.venue.regionLabel ?? null,
-          latitude: input.venue.latitude,
-          longitude: input.venue.longitude,
-        },
-        update: {
-          name: input.venue.name,
-          address: input.venue.address ?? null,
-          region: input.venue.regionLabel ?? null,
-          latitude: input.venue.latitude,
-          longitude: input.venue.longitude,
-        },
-      });
+    const joinId = randomUUID();
+    const idemBase = clientIdempotencyKey ?? joinId;
 
-      const join = await tx.join.create({
-        data: {
-          sportId: sport.id,
-          venueId: venue.id,
-          hostUserId,
-          title: input.title ?? null,
-          description: input.description ?? null,
-          status: 'OPEN',
-          joinMethod: input.joinMethod,
-          startAt,
-          scheduledEndAt,
-          plannedPlayerCount: input.plannedPlayerCount,
-          confirmedPlayerCount: 1,
-          rewardPerParticipant: new Prisma.Decimal(reward),
-          coinAssetId: coinAsset.id,
-          // COIN_ACCOUNTING_PENDING — snapshots only, no ledger
-          roomCreationFeeAmount: new Prisma.Decimal(0),
-          rewardHoldTotalAmount: new Prisma.Decimal(0),
-          participants: {
-            create: {
-              userId: hostUserId,
-              role: 'HOST',
-              participationStatus: 'APPROVED',
-              approvedAt: new Date(),
-              confirmedAt: new Date(),
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        const venue = await tx.venue.upsert({
+          where: {
+            provider_providerPlaceId: {
+              provider: input.venue.provider,
+              providerPlaceId: input.venue.providerPlaceId,
             },
           },
-        },
-      });
+          create: {
+            sportId: sport.id,
+            provider: input.venue.provider,
+            providerPlaceId: input.venue.providerPlaceId,
+            name: input.venue.name,
+            address: input.venue.address ?? null,
+            region: input.venue.regionLabel ?? null,
+            latitude: input.venue.latitude,
+            longitude: input.venue.longitude,
+          },
+          update: {
+            name: input.venue.name,
+            address: input.venue.address ?? null,
+            region: input.venue.regionLabel ?? null,
+            latitude: input.venue.latitude,
+            longitude: input.venue.longitude,
+          },
+        });
 
-      return join.id;
-    });
+        const wallet = await this.ledger.getOrCreateWallet(hostUserId, coinAsset.id, tx);
+        const locked = await this.ledger.lockWallet(tx, wallet.id);
+        const available = String(locked.availableBalance);
+        if (!canAffordJoinCreate(available, requirement.totalRequiredCoin)) {
+          throw new InsufficientBalanceError();
+        }
+
+        await this.ledger.applyRoomCreationFee(tx, {
+          walletId: wallet.id,
+          coinAssetId: coinAsset.id,
+          amount: requirement.roomCreationFee,
+          joinId,
+          idempotencyKey: `join:${idemBase}:room-fee`,
+        });
+
+        await this.ledger.applyJoinRewardHold(tx, {
+          walletId: wallet.id,
+          coinAssetId: coinAsset.id,
+          amount: requirement.rewardHoldTotal,
+          joinId,
+          idempotencyKey: `join:${idemBase}:reward-hold`,
+        });
+
+        await tx.join.create({
+          data: {
+            id: joinId,
+            sportId: sport.id,
+            venueId: venue.id,
+            hostUserId,
+            title: input.title ?? null,
+            description: input.description ?? null,
+            status: 'OPEN',
+            joinMethod: input.joinMethod,
+            startAt,
+            scheduledEndAt,
+            plannedPlayerCount: input.plannedPlayerCount,
+            confirmedPlayerCount: 1,
+            rewardPerParticipant: new Prisma.Decimal(requirement.rewardPerParticipant),
+            coinAssetId: coinAsset.id,
+            roomCreationFeeAmount: new Prisma.Decimal(requirement.roomCreationFee),
+            rewardHoldTotalAmount: new Prisma.Decimal(requirement.rewardHoldTotal),
+            participants: {
+              create: {
+                userId: hostUserId,
+                role: 'HOST',
+                participationStatus: 'APPROVED',
+                approvedAt: new Date(),
+                confirmedAt: new Date(),
+              },
+            },
+            ...(clientIdempotencyKey
+              ? {
+                  options: {
+                    create: {
+                      optionKey: 'client_idempotency_key',
+                      optionValueJson: { key: clientIdempotencyKey },
+                    },
+                  },
+                }
+              : {}),
+          },
+        });
+      });
+    } catch (e) {
+      if (e instanceof InsufficientBalanceError) {
+        throw new BadRequestException({
+          code: 'INSUFFICIENT_BALANCE',
+          message: '보유 코인이 부족합니다.',
+        });
+      }
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        if (clientIdempotencyKey) {
+          const fee = await this.prisma.coinTransaction.findUnique({
+            where: { idempotencyKey: `join:${clientIdempotencyKey}:room-fee` },
+          });
+          if (fee?.refId) return this.getDetail(fee.refId, hostUserId);
+        }
+        throw new ConflictException('join_create_conflict');
+      }
+      throw e;
+    }
+
+    const updated = await this.ledger.getOrCreateWallet(hostUserId, coinAsset.id);
+    mockUserStore.syncWalletBalances(
+      hostUserId,
+      String(updated.availableBalance),
+      String(updated.heldBalance),
+    );
 
     return this.getDetail(joinId, hostUserId);
   }
@@ -422,6 +553,8 @@ export class JoinsService {
       plannedPlayerCount: number;
       confirmedPlayerCount: number;
       rewardPerParticipant: Prisma.Decimal;
+      roomCreationFeeAmount: Prisma.Decimal;
+      rewardHoldTotalAmount: Prisma.Decimal;
       sport: { code: string };
       venue: {
         id: string;
@@ -488,7 +621,9 @@ export class JoinsService {
       confirmedPlayerCount: join.confirmedPlayerCount,
       availableSlots: Math.max(0, join.plannedPlayerCount - join.confirmedPlayerCount),
       rewardPerParticipant: String(join.rewardPerParticipant),
-      coinAccountingPending: true,
+      roomCreationFeeAmount: String(join.roomCreationFeeAmount),
+      rewardHoldTotalAmount: String(join.rewardHoldTotalAmount),
+      coinAccountingPending: false,
       venue: {
         venueId: join.venue.id,
         provider: join.venue.provider,
@@ -515,6 +650,8 @@ export class JoinsService {
       plannedPlayerCount: number;
       confirmedPlayerCount: number;
       rewardPerParticipant: Prisma.Decimal;
+      roomCreationFeeAmount: Prisma.Decimal;
+      rewardHoldTotalAmount: Prisma.Decimal;
       venue: { name: string };
       host: { profile: { nickname: string } | null };
       participants: Array<{

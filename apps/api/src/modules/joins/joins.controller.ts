@@ -6,7 +6,7 @@
   Post,
   UseGuards,
 } from '@nestjs/common';
-import type { CreateJoinRequest } from '@jjoin/types';
+import type { CreateJoinRequest, JoinCoinPreviewRequest } from '@jjoin/types';
 import { JoinsService } from './joins.service';
 import { CurrentUserId, MockAuthGuard } from '../../common/mock-auth.guard';
 
@@ -17,6 +17,12 @@ export class JoinsController {
   @Get('_meta')
   meta() {
     return this.service.ping();
+  }
+
+  @Post('coin-preview')
+  @UseGuards(MockAuthGuard)
+  coinPreview(@CurrentUserId() userId: string, @Body() body: JoinCoinPreviewRequest) {
+    return this.service.previewCoin(userId, body);
   }
 
   @Post()
