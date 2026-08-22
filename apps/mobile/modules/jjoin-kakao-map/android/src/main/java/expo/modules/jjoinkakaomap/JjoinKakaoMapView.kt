@@ -1,13 +1,23 @@
 package expo.modules.jjoinkakaomap
 
+import android.app.Activity
+import android.app.Application
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
+import android.os.Bundle
+import android.util.Log
+import android.view.View
 import android.view.ViewGroup
 import com.kakao.vectormap.KakaoMap
 import com.kakao.vectormap.KakaoMapReadyCallback
 import com.kakao.vectormap.LatLng
 import com.kakao.vectormap.MapLifeCycleCallback
+import com.kakao.vectormap.MapType
 import com.kakao.vectormap.MapView
+import com.kakao.vectormap.MapViewInfo
 import com.kakao.vectormap.camera.CameraAnimation
 import com.kakao.vectormap.camera.CameraUpdateFactory
 import com.kakao.vectormap.label.LabelLayer
@@ -23,20 +33,35 @@ import org.json.JSONArray
 
 /**
  * Kakao Map Android SDK v2 bridge for Explore.
- * Marker taps and camera gestures are normalized for JS adapters.
+ *
+ * Root-cause constraints for RN/Fabric embedding:
+ * - Do not call MapView.start() before attach + non-zero layout.
+ * - Drive resume/pause from Activity lifecycle (Kakao official requirement).
+ * - Keep container transparent so SurfaceView punch-through can show tiles.
  */
 class JjoinKakaoMapView(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
+  companion object {
+    private const val TAG = "JjoinKakaoMap"
+  }
+
+  /** Required so MapView/SurfaceView receive real Android measure/layout under Yoga. */
+  override val shouldUseAndroidLayout: Boolean = true
+
   private val onMapReady by EventDispatcher()
   private val onMapError by EventDispatcher()
   private val onCameraChanged by EventDispatcher()
   private val onMarkerPress by EventDispatcher()
 
-  private val mapView = MapView(context).also {
-    addView(
-      it,
-      LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
-    )
-  }
+  private val mapView =
+    MapView(context).also { child ->
+      child.setBackgroundColor(Color.TRANSPARENT)
+      // ExpoView is a LinearLayout; weight=1 guarantees non-zero child height under Yoga.
+      val lp =
+        LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f).apply {
+          gravity = android.view.Gravity.FILL
+        }
+      addView(child, lp)
+    }
 
   var initialLatitude: Double = 37.5665
   var initialLongitude: Double = 126.978
@@ -44,32 +69,148 @@ class JjoinKakaoMapView(context: Context, appContext: AppContext) : ExpoView(con
 
   private var kakaoMap: KakaoMap? = null
   private var labelLayer: LabelLayer? = null
-  private var started = false
+  private var startRequested = false
+  private var mapReady = false
   private var pendingMarkersJson: String = "[]"
   private var programmaticMove = false
+  private var activityCallbacksRegistered = false
+
+  private val markerIconCache = HashMap<Int, Bitmap>()
+
+  private val activityCallbacks =
+    object : Application.ActivityLifecycleCallbacks {
+      override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+
+      override fun onActivityStarted(activity: Activity) = Unit
+
+      override fun onActivityResumed(activity: Activity) {
+        if (activity !== appContext.currentActivity) return
+        Log.i(TAG, "activityResumed ready=$mapReady")
+        safeResume("activityResumed")
+      }
+
+      override fun onActivityPaused(activity: Activity) {
+        if (activity !== appContext.currentActivity) return
+        Log.i(TAG, "activityPaused ready=$mapReady")
+        safePause("activityPaused")
+      }
+
+      override fun onActivityStopped(activity: Activity) = Unit
+
+      override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+
+      override fun onActivityDestroyed(activity: Activity) = Unit
+    }
 
   init {
-    startMapIfNeeded()
+    setBackgroundColor(Color.TRANSPARENT)
+    clipChildren = false
+    clipToPadding = false
+    registerActivityLifecycle()
+  }
+
+  override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+    val w = MeasureSpec.getSize(widthMeasureSpec)
+    val h = MeasureSpec.getSize(heightMeasureSpec)
+    setMeasuredDimension(w, h)
+    if (w > 0 && h > 0) {
+      mapView.measure(
+        MeasureSpec.makeMeasureSpec(w, MeasureSpec.EXACTLY),
+        MeasureSpec.makeMeasureSpec(h, MeasureSpec.EXACTLY),
+      )
+    }
+  }
+
+  override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+    val w = right - left
+    val h = bottom - top
+    if (w > 0 && h > 0) {
+      mapView.layout(0, 0, w, h)
+    }
   }
 
   override fun onAttachedToWindow() {
     super.onAttachedToWindow()
-    mapView.resume()
+    registerActivityLifecycle()
+    forceMapViewLayout("attached")
+    Log.i(TAG, "onAttachedToWindow size=${width}x${height} map=${mapView.width}x${mapView.height}")
+    maybeStartMap("attached")
+    safeResume("attached")
   }
 
   override fun onDetachedFromWindow() {
-    mapView.pause()
+    safePause("detached")
+    Log.i(TAG, "onDetachedFromWindow")
     super.onDetachedFromWindow()
   }
 
-  fun destroyMap() {
+  override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+    super.onSizeChanged(w, h, oldw, oldh)
+    forceMapViewLayout("sizeChanged")
+    Log.i(
+      TAG,
+      "onSizeChanged ${oldw}x${oldh} -> ${w}x${h} map=${mapView.width}x${mapView.height}",
+    )
+    maybeStartMap("sizeChanged")
+    if (w > 0 && h > 0) {
+      safeResume("sizeChanged")
+    }
+  }
+
+  override fun onWindowVisibilityChanged(visibility: Int) {
+    super.onWindowVisibilityChanged(visibility)
+    if (visibility == View.VISIBLE) {
+      forceMapViewLayout("windowVisible")
+      maybeStartMap("windowVisible")
+      safeResume("windowVisible")
+    } else {
+      safePause("windowHidden")
+    }
+  }
+
+  private fun forceMapViewLayout(reason: String) {
+    if (width <= 0 || height <= 0) return
+    mapView.measure(
+      MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
+      MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY),
+    )
+    mapView.layout(0, 0, width, height)
+    Log.i(TAG, "forceMapViewLayout($reason) map=${mapView.width}x${mapView.height}")
+  }
+
+  private fun safeResume(reason: String) {
+    if (!mapReady) return
     try {
-      mapView.finish()
-    } catch (_: Throwable) {
-      // ignore teardown races
+      mapView.resume()
+      Log.i(TAG, "resume($reason)")
+    } catch (error: Throwable) {
+      Log.w(TAG, "resume($reason) failed: ${error.javaClass.simpleName}: ${error.message}")
+    }
+  }
+
+  private fun safePause(reason: String) {
+    if (!mapReady) return
+    try {
+      mapView.pause()
+      Log.i(TAG, "pause($reason)")
+    } catch (error: Throwable) {
+      Log.w(TAG, "pause($reason) failed: ${error.javaClass.simpleName}: ${error.message}")
+    }
+  }
+
+  fun destroyMap() {
+    unregisterActivityLifecycle()
+    mapReady = false
+    try {
+      if (startRequested) {
+        mapView.finish()
+      }
+    } catch (error: Throwable) {
+      Log.w(TAG, "finish failed: ${error.javaClass.simpleName}")
     }
     kakaoMap = null
     labelLayer = null
+    startRequested = false
   }
 
   fun setMarkersJson(json: String) {
@@ -104,20 +245,51 @@ class JjoinKakaoMapView(context: Context, appContext: AppContext) : ExpoView(con
     )
   }
 
-  private fun startMapIfNeeded() {
-    if (started) return
-    started = true
+  private fun registerActivityLifecycle() {
+    if (activityCallbacksRegistered) return
+    val activity = appContext.currentActivity ?: return
+    activity.application.registerActivityLifecycleCallbacks(activityCallbacks)
+    activityCallbacksRegistered = true
+  }
+
+  private fun unregisterActivityLifecycle() {
+    if (!activityCallbacksRegistered) return
+    val activity = appContext.currentActivity
+    activity?.application?.unregisterActivityLifecycleCallbacks(activityCallbacks)
+    activityCallbacksRegistered = false
+  }
+
+  private fun maybeStartMap(reason: String) {
+    if (startRequested) return
+    if (!isAttachedToWindow) return
+    forceMapViewLayout("preStart:$reason")
+    if (width <= 0 || height <= 0 || mapView.width <= 0 || mapView.height <= 0) {
+      Log.i(
+        TAG,
+        "defer start ($reason): view=${width}x${height} map=${mapView.width}x${mapView.height}",
+      )
+      return
+    }
+    startRequested = true
+    Log.i(TAG, "MapView.start ($reason) view=${width}x${height} map=${mapView.width}x${mapView.height}")
     mapView.start(
       object : MapLifeCycleCallback() {
         override fun onMapDestroy() {
+          Log.i(TAG, "onMapDestroy")
+          mapReady = false
           kakaoMap = null
           labelLayer = null
         }
 
         override fun onMapError(error: Exception) {
+          val type = error.javaClass.simpleName
+          val message = error.message ?: "kakao_map_error"
+          Log.e(TAG, "onMapError type=$type message=$message")
+          mapReady = false
           onMapError(
             mapOf(
-              "message" to (error.message ?: "kakao_map_error"),
+              "message" to message,
+              "type" to type,
               "hint" to "Check Native App Key, package com.jjoin.app, and Android key hash",
             ),
           )
@@ -132,16 +304,81 @@ class JjoinKakaoMapView(context: Context, appContext: AppContext) : ExpoView(con
           return initialZoomLevel.coerceIn(1, 21)
         }
 
+        override fun getMapViewInfo(): MapViewInfo {
+          return MapViewInfo.from("openmap", MapType.NORMAL)
+        }
+
+        override fun isVisible(): Boolean = true
+
         override fun onMapReady(map: KakaoMap) {
           kakaoMap = map
           labelLayer = map.labelManager?.layer
+          mapReady = true
+          try {
+            mapView.setFinishManually(true)
+          } catch (error: Throwable) {
+            Log.w(TAG, "setFinishManually after ready failed: ${error.message}")
+          }
+          forceMapViewLayout("onMapReady")
+          val surface = mapView.surfaceView
+          val surfaceW = surface?.width ?: -1
+          val surfaceH = surface?.height ?: -1
+          Log.i(
+            TAG,
+            "onMapReady engine=${safeEngineState()} vulkan=${safeIsVulkan()} " +
+              "view=${width}x${height} map=${mapView.width}x${mapView.height} " +
+              "surface=${surfaceW}x${surfaceH}",
+          )
+          surface?.setZOrderMediaOverlay(true)
           wireCameraListener(map)
           wireLabelClick(map)
           renderMarkers(pendingMarkersJson)
-          onMapReady(mapOf("ok" to true))
+          safeResume("onMapReady")
+          onMapReady(
+            mapOf(
+              "ok" to true,
+              "width" to width,
+              "height" to height,
+              "mapWidth" to mapView.width,
+              "mapHeight" to mapView.height,
+              "surfaceWidth" to surfaceW,
+              "surfaceHeight" to surfaceH,
+              "vulkan" to safeIsVulkan(),
+            ),
+          )
         }
       },
     )
+    // SurfaceView is created during start — re-apply size so GL can complete ready.
+    mapView.post {
+      forceMapViewLayout("postStart")
+      mapView.requestLayout()
+      mapView.invalidate()
+    }
+    mapView.postDelayed({
+      forceMapViewLayout("postStartDelayed")
+      Log.i(
+        TAG,
+        "postStartDelayed map=${mapView.width}x${mapView.height} " +
+          "surface=${mapView.surfaceView?.width ?: -1}x${mapView.surfaceView?.height ?: -1} ready=$mapReady",
+      )
+    }, 300)
+  }
+
+  private fun safeEngineState(): String {
+    return try {
+      mapView.engineState
+    } catch (_: Throwable) {
+      "unknown"
+    }
+  }
+
+  private fun safeIsVulkan(): Boolean {
+    return try {
+      mapView.isVulkan
+    } catch (_: Throwable) {
+      false
+    }
   }
 
   private fun wireCameraListener(map: KakaoMap) {
@@ -195,7 +432,7 @@ class JjoinKakaoMapView(context: Context, appContext: AppContext) : ExpoView(con
     try {
       layer.removeAll()
     } catch (_: Throwable) {
-      // older SDK builds may throw if empty
+      // empty layer on some SDK builds
     }
 
     val arr =
@@ -225,23 +462,46 @@ class JjoinKakaoMapView(context: Context, appContext: AppContext) : ExpoView(con
       }
       try {
         layer.addLabel(options)
-      } catch (_: Throwable) {
-        // skip bad marker rather than crash Explore
+      } catch (error: Throwable) {
+        Log.w(TAG, "addLabel skipped id=$id err=${error.javaClass.simpleName}")
       }
     }
   }
 
   private fun stylesFor(map: KakaoMap, kind: String, selected: Boolean): LabelStyles {
-    val textColor =
+    val fill =
       when (kind) {
         "user" -> Color.parseColor("#2674B2")
         "me" -> Color.parseColor("#C62828")
         else -> if (selected) Color.parseColor("#023D31") else Color.parseColor("#0A6B56")
       }
+    val textColor = Color.WHITE
     val textSize = if (selected) 28 else 24
+    val icon = markerIcon(fill, if (selected) 36 else 28)
     val textStyle = LabelTextStyle.from(textSize, textColor)
-    val style = LabelStyle.from(textStyle).setApplyDpScale(true)
+    val style =
+      LabelStyle.from(icon)
+        .setTextStyles(textStyle)
+        .setApplyDpScale(true)
     return requireNotNull(map.labelManager!!.addLabelStyles(LabelStyles.from(style)))
+  }
+
+  private fun markerIcon(color: Int, sizeDp: Int): Bitmap {
+    val key = color xor (sizeDp shl 16)
+    markerIconCache[key]?.let { return it }
+    val density = resources.displayMetrics.density
+    val px = (sizeDp * density).toInt().coerceAtLeast(16)
+    val bitmap = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val paint =
+      Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.color = color
+        style = Paint.Style.FILL
+      }
+    val r = px / 2f
+    canvas.drawCircle(r, r, r * 0.92f, paint)
+    markerIconCache[key] = bitmap
+    return bitmap
   }
 
   private data class Viewport(

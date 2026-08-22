@@ -476,7 +476,8 @@ export function ExploreMapScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
-  mapArea: { flex: 1 },
+  // Transparent so Kakao SurfaceView punch-through can show base tiles.
+  mapArea: { flex: 1, backgroundColor: 'transparent' },
   topChrome: {
     position: 'absolute',
     top: 52,

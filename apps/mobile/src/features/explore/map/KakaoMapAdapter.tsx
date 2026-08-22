@@ -108,11 +108,32 @@ export function KakaoMapAdapter({
     <>
       <JjoinKakaoMapView
         ref={nativeRef}
-        style={StyleSheet.absoluteFill}
+        style={[StyleSheet.absoluteFill, styles.map]}
         initialLatitude={initialRegion.latitude}
         initialLongitude={initialRegion.longitude}
         initialZoomLevel={zoomLevel}
         markers={markers}
+        onMapReady={(e) => {
+          const ev = e.nativeEvent as {
+            ok?: boolean;
+            width?: number;
+            height?: number;
+            surfaceWidth?: number;
+            surfaceHeight?: number;
+            vulkan?: boolean;
+          };
+          console.log('[KakaoMap] ready', {
+            ok: ev.ok,
+            width: ev.width,
+            height: ev.height,
+            surfaceWidth: ev.surfaceWidth,
+            surfaceHeight: ev.surfaceHeight,
+            vulkan: ev.vulkan,
+          });
+        }}
+        onMapError={(e) => {
+          console.warn('[KakaoMap] error', e.nativeEvent);
+        }}
         onCameraChanged={(e) => {
           const ev = e.nativeEvent;
           if (ev.reason !== 'Gesture') return;
@@ -160,3 +181,9 @@ function CameraMover({
   }, [mapRef, target.latitude, target.longitude, token]);
   return null;
 }
+
+const styles = StyleSheet.create({
+  map: {
+    backgroundColor: 'transparent',
+  },
+});
