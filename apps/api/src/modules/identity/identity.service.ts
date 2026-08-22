@@ -13,6 +13,10 @@ export class IdentityService {
     return this.accounts.getIdentityStatus(userId);
   }
 
+  getCapability(userId: string) {
+    return this.accounts.getIdentityCapability(userId);
+  }
+
   start(userId: string) {
     return this.accounts.startIdentity(userId);
   }

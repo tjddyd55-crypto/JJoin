@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   AppText,
@@ -8,7 +8,8 @@ import {
   Stack,
 } from '@jjoin/design-system';
 import { t } from '@jjoin/i18n';
-import { useSession } from '../../../session/SessionContext';
+import { useSession, getSecureSessionStore } from '../../../session/SessionContext';
+import { getApiClient } from '../../../lib/api';
 
 export function IdentityScreen() {
   const { startIdentity, confirmIdentity, cancelIdentity, me } = useSession();
@@ -20,6 +21,24 @@ export function IdentityScreen() {
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [capability, setCapability] = useState<{
+    status: string;
+    canStart: boolean;
+    message: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const api = getApiClient(getSecureSessionStore());
+        const res = await api.getIdentityCapability();
+        setCapability(res);
+      } catch {
+        setCapability({ status: 'UNKNOWN', canStart: false, message: t('common.error') });
+      }
+    })();
+  }, []);
 
   async function onStart() {
     setLoading(true);
@@ -99,6 +118,11 @@ export function IdentityScreen() {
         <AppText variant="body" color="textSecondary">
           {t('auth.identity.body')}
         </AppText>
+        {capability?.status === 'UNAVAILABLE' ? (
+          <AppText variant="body" color="textSecondary">
+            {capability.message ?? '본인확인 서비스 준비 중입니다.'}
+          </AppText>
+        ) : null}
         {status === 'success' ? (
           <AppText variant="body" color="primary">
             {t('auth.identity.success')}
@@ -113,11 +137,13 @@ export function IdentityScreen() {
       <BottomActionBar>
         {status === 'idle' || status === 'fail' || status === 'cancelled' ? (
           <>
-            <Button
-              label={status === 'idle' ? t('auth.identity.cta') : t('auth.identity.retry')}
-              loading={loading}
-              onPress={() => void onStart()}
-            />
+            {capability?.canStart !== false ? (
+              <Button
+                label={status === 'idle' ? t('auth.identity.cta') : t('auth.identity.retry')}
+                loading={loading}
+                onPress={() => void onStart()}
+              />
+            ) : null}
             <Button
               label={t('auth.gate.later')}
               variant="secondary"
@@ -125,15 +151,19 @@ export function IdentityScreen() {
             />
           </>
         ) : null}
-        {status === 'pending' ? (
+        {status === 'pending' && capability?.canStart ? (
           <>
-            <Button label="Mock 성공" loading={loading} onPress={() => void onSuccess()} />
-            <Button
-              label="Mock 실패"
-              variant="danger"
-              loading={loading}
-              onPress={() => void onFail()}
-            />
+            {__DEV__ ? (
+              <>
+                <Button label="Mock 성공" loading={loading} onPress={() => void onSuccess()} />
+                <Button
+                  label="Mock 실패"
+                  variant="danger"
+                  loading={loading}
+                  onPress={() => void onFail()}
+                />
+              </>
+            ) : null}
             <Button
               label="취소"
               variant="secondary"

@@ -2,10 +2,13 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 
 /**
  * Expo config — Kakao Map requires Development Build (not Expo Go).
- * Native App Key (map) ≠ REST API Key (Kakao Local on Railway).
+ * Kakao Map Native App Key ≠ Kakao Login Native App Key ≠ REST API Key.
  */
 export default ({ config }: ConfigContext): ExpoConfig => {
-  const kakaoNativeAppKey = process.env.EXPO_PUBLIC_KAKAO_MAP_NATIVE_APP_KEY ?? '';
+  const kakaoMapNativeAppKey = process.env.EXPO_PUBLIC_KAKAO_MAP_NATIVE_APP_KEY ?? '';
+  const kakaoLoginNativeAppKey = process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY ?? '';
+  const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '';
+  const naverUrlScheme = process.env.EXPO_PUBLIC_NAVER_LOGIN_URL_SCHEME ?? 'jjoinnaverlogin';
 
   const plugins: ExpoConfig['plugins'] = [
     'expo-router',
@@ -28,7 +31,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     [
       './modules/jjoin-kakao-map/app.plugin.js',
       {
-        nativeAppKey: kakaoNativeAppKey || 'MISSING_KAKAO_MAP_NATIVE_APP_KEY',
+        nativeAppKey: kakaoMapNativeAppKey || 'MISSING_KAKAO_MAP_NATIVE_APP_KEY',
       },
     ],
     [
@@ -37,11 +40,40 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         android: {
           extraMavenRepos: [
             'https://devrepo.kakao.com/nexus/repository/kakaomap-releases/',
+            'https://devrepo.kakao.com/nexus/content/groups/public/',
           ],
         },
       },
     ],
   ];
+
+  if (kakaoLoginNativeAppKey) {
+    plugins.push([
+      '@react-native-seoul/kakao-login',
+      {
+        kakaoAppKey: kakaoLoginNativeAppKey,
+        overrideKakaoSDKVersion: '2.11.2',
+      },
+    ]);
+  }
+
+  if (googleWebClientId) {
+    plugins.push([
+      '@react-native-google-signin/google-signin',
+      {
+        iosUrlScheme: googleWebClientId.split('.').reverse().join('.'),
+      },
+    ]);
+  }
+
+  if (process.env.EXPO_PUBLIC_NAVER_LOGIN_CLIENT_ID) {
+    plugins.push([
+      '@react-native-seoul/naver-login',
+      {
+        urlScheme: naverUrlScheme,
+      },
+    ]);
+  }
 
   return {
     ...config,
@@ -82,7 +114,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     extra: {
       mapProvider: 'kakao' as const,
-      kakaoMapNativeAppKeyConfigured: Boolean(kakaoNativeAppKey),
+      kakaoMapNativeAppKeyConfigured: Boolean(kakaoMapNativeAppKey),
+      kakaoLoginNativeAppKeyConfigured: Boolean(kakaoLoginNativeAppKey),
+      googleLoginConfigured: Boolean(googleWebClientId),
+      naverLoginConfigured: Boolean(process.env.EXPO_PUBLIC_NAVER_LOGIN_CLIENT_ID),
       eas: {
         projectId: undefined,
       },

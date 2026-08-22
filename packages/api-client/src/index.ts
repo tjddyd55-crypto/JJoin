@@ -169,6 +169,17 @@ export class ApiClient {
     return parseJson(res);
   }
 
+  async getIdentityCapability(): Promise<{
+    status: 'MOCK' | 'REAL' | 'UNAVAILABLE';
+    canStart: boolean;
+    message: string | null;
+  }> {
+    const res = await request(`${this.config.baseUrl}/me/identity/capability`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
   async startIdentity(): Promise<{ sessionId: string }> {
     const res = await request(`${this.config.baseUrl}/me/identity/start`, {
       method: 'POST',

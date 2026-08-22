@@ -8,6 +8,7 @@
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { SocialAuthService } from '../../auth/social-auth.service';
+import { resolveSocialAuthMode } from '../../auth/social-auth-mode';
 import type { SocialSignInRequest, SocialExchangeRequest } from '@jjoin/types';
 
 @Controller('auth')
@@ -28,15 +29,16 @@ export class AuthController {
    */
   @Post('social/mock-sign-in')
   mockSignIn(@Body() body: SocialSignInRequest) {
-    const mode = (process.env.SOCIAL_AUTH_MODE ?? 'mock').toLowerCase();
-    const nodeEnv = (process.env.NODE_ENV ?? 'development').toLowerCase();
-    if (nodeEnv === 'production' && mode !== 'mock') {
+    const mode = resolveSocialAuthMode();
+    if (mode === 'disabled' || mode === 'real') {
       throw new ForbiddenException('mock_sign_in_disabled');
     }
-    // Allow mock in production only when SOCIAL_AUTH_MODE=mock (explicit staging/demo).
-    // Default production should set SOCIAL_AUTH_MODE=disabled when OAuth lands.
-    if (mode === 'disabled') {
-      throw new ForbiddenException('mock_sign_in_disabled');
+    const nodeEnv = (process.env.NODE_ENV ?? 'development').toLowerCase();
+    if (nodeEnv === 'production' && mode === 'hybrid' && !body.persona) {
+      throw new ForbiddenException('mock_persona_required');
+    }
+    if (!body.persona && !body.scenario) {
+      throw new ForbiddenException('mock_sign_in_invalid');
     }
     return this.service.mockSignIn(body);
   }
@@ -44,7 +46,7 @@ export class AuthController {
   /** Verify provider credential server-side and issue JJOIN session. */
   @Post('social/exchange')
   socialExchange(@Body() body: SocialExchangeRequest) {
-    const mode = (process.env.SOCIAL_AUTH_MODE ?? 'mock').toLowerCase();
+    const mode = resolveSocialAuthMode();
     if (mode === 'disabled') {
       throw new ForbiddenException('social_auth_disabled');
     }

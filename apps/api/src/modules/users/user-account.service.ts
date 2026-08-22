@@ -384,6 +384,24 @@ export class UserAccountService {
     return this.loadUser(userId).then((u) => buildMeFromUser(u).identity);
   }
 
+  async getIdentityCapability(userId: string) {
+    const devPersona = await this.isDevPersonaUser(userId);
+    const identityMode = resolveIdentityProviderMode();
+    const socialMode = (process.env.SOCIAL_AUTH_MODE ?? 'mock').toLowerCase();
+
+    if (identityMode === 'real') {
+      return { status: 'REAL' as const, canStart: true, message: null };
+    }
+    if (devPersona || socialMode === 'mock') {
+      return { status: 'MOCK' as const, canStart: true, message: null };
+    }
+    return {
+      status: 'UNAVAILABLE' as const,
+      canStart: false,
+      message: '본인확인 서비스 준비 중입니다. 조회 기능은 계속 이용할 수 있습니다.',
+    };
+  }
+
   private async assertMockIdentityAllowed(userId: string): Promise<void> {
     if (resolveIdentityProviderMode() === 'real') {
       throw new ForbiddenException('identity_provider_not_configured');

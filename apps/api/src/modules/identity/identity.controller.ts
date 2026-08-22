@@ -12,6 +12,12 @@ export class IdentityController {
   }
 
   @UseGuards(MockAuthGuard)
+  @Get('me/identity/capability')
+  capability(@CurrentUserId() userId: string) {
+    return this.service.getCapability(userId);
+  }
+
+  @UseGuards(MockAuthGuard)
   @Get('me/identity-status')
   status(@CurrentUserId() userId: string) {
     return this.service.getStatus(userId);

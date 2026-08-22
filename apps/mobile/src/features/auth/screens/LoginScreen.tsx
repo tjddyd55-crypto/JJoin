@@ -13,6 +13,7 @@ import {
 import { t } from '@jjoin/i18n';
 import { MockAuthPersona, MockAuthScenario, SocialProvider } from '@jjoin/types';
 import { useSession } from '../../../session/SessionContext';
+import { SocialLoginCancelledError } from '../social/social-auth-errors';
 
 function routeForNextStep(nextStep: string) {
   switch (nextStep) {
@@ -51,6 +52,9 @@ export function LoginScreen() {
       const nextStep = await signInWithSocialProvider(provider);
       router.replace(routeForNextStep(nextStep));
     } catch (e) {
+      if (e instanceof SocialLoginCancelledError) {
+        return;
+      }
       if (__DEV__) {
         const msg = e instanceof Error ? e.message : String(e);
         console.warn('[auth.login]', {

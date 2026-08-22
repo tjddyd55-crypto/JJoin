@@ -15,6 +15,11 @@ import {
   type PendingActionIntent,
 } from '@jjoin/types';
 import { obtainSocialCredential } from '../features/auth/social/obtain-social-credential';
+import { useMockSocialAuthFlow } from '../features/auth/social/social-auth-config';
+import {
+  SocialLoginCancelledError,
+  SocialLoginUnavailableError,
+} from '../features/auth/social/social-auth-errors';
 import { pendingActionRoute, resolveAuthAppState } from '@jjoin/domain';
 import { getApiClient } from '../lib/api';
 import { createExpoSecureSessionStore } from './expo-secure-session-store';
@@ -108,7 +113,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
             provider,
             persona: mockPersona,
           });
-        } else if (__DEV__) {
+        } else if (__DEV__ && useMockSocialAuthFlow()) {
           res = await api.mockSocialSignIn({
             provider,
             scenario: mockScenario,
@@ -121,6 +126,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         await applyMe(res.me, true);
         return res.nextStep;
       } catch (e) {
+        if (e instanceof SocialLoginCancelledError) {
+          throw e;
+        }
+        if (e instanceof SocialLoginUnavailableError) {
+          setError('provider_not_configured');
+          throw e;
+        }
         const message = e instanceof Error ? e.message : 'login_failed';
         if (__DEV__) {
           console.warn('[session.signIn]', {
