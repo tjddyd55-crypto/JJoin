@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { ConflictException, Injectable } from '@nestjs/common';
 import {
   addCoinAmounts,
@@ -88,9 +89,12 @@ export class CoinLedgerService {
         return;
       }
       const creditAmount = subCoinAmounts(target, available);
-      const idempotencyKey = `dev-funding:${personaLabel}:${coinAsset.code}:to-${target}:from-${available}`;
+      let idempotencyKey = `dev-funding:${personaLabel}:${coinAsset.code}:to-${target}:from-${available}`;
       const existing = await tx.coinTransaction.findUnique({ where: { idempotencyKey } });
-      if (existing) return;
+      if (existing) {
+        // Same available balance can recur after spend — allow another TEST top-up.
+        idempotencyKey = `dev-funding:${personaLabel}:${coinAsset.code}:${randomUUID()}`;
+      }
 
       await this.appendCredit(tx, {
         walletId: locked.id,

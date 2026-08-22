@@ -90,7 +90,7 @@ async function setupDispute(tokenA: string, tokenB: string, label: string) {
     {
       method: 'POST',
       headers: { Authorization: `Bearer ${tokenA}` },
-      body: JSON.stringify({ issueType: 'DISPUTED', statement: '참가 문제 신고' }),
+      body: JSON.stringify({ issueType: 'DISPUTE', statement: '참가 문제 신고' }),
     },
   );
   assert(issue.rewardStatus === RewardStatus.DISPUTED, 'settlement DISPUTED');
