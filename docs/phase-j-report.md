@@ -47,7 +47,7 @@
 - Wallet: `GET /me/wallet` live balances + recent txs
 - Create summary: `POST /joins/coin-preview` server values
 - insufficient balance: copy `보유 코인이 부족합니다.` (no purchase flow)
-- Android E2E: **MANUAL_PENDING** (USB device not run in this session)
+- Android E2E: **PASS** — see `docs/phase-j-android-final-report.md`
 
 ## Security
 - currentUser: wallet APIs guarded; no body.userId
