@@ -69,12 +69,14 @@ export function KakaoMapAdapter({
     const list: KakaoMapMarkerDto[] = [];
     for (const v of venues) {
       const selected = v.venueId === selectedVenueId;
+      // Kakao Live venues: no open-join count on the pin. JJOIN-owned only (future).
+      const showJoinBadge = v.source === 'JJOIN' && v.openJoinCount > 0;
       list.push({
         id: `venue:${v.venueId}`,
         kind: 'venue',
         latitude: v.latitude,
         longitude: v.longitude,
-        caption: v.openJoinCount > 0 ? `⛳ ${v.openJoinCount}` : '⛳',
+        caption: showJoinBadge ? String(v.openJoinCount) : '',
         selected,
       });
     }
@@ -85,7 +87,8 @@ export function KakaoMapAdapter({
         kind: 'user',
         latitude: u.displayLat,
         longitude: u.displayLng,
-        caption: selected ? u.nickname : '👤',
+        // Shape/color separates users from venue pins; avoid emoji clutter.
+        caption: '',
         selected,
       });
     }
@@ -95,7 +98,7 @@ export function KakaoMapAdapter({
         kind: 'me',
         latitude: myLocation.latitude,
         longitude: myLocation.longitude,
-        caption: '나',
+        caption: '',
         selected: false,
       });
     }

@@ -7,6 +7,8 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.PointF
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -25,7 +27,6 @@ import com.kakao.vectormap.label.LabelOptions
 import com.kakao.vectormap.label.LabelStyle
 import com.kakao.vectormap.label.LabelStyles
 import com.kakao.vectormap.label.LabelTextBuilder
-import com.kakao.vectormap.label.LabelTextStyle
 import expo.modules.kotlin.AppContext
 import expo.modules.kotlin.viewevent.EventDispatcher
 import expo.modules.kotlin.views.ExpoView
@@ -469,37 +470,173 @@ class JjoinKakaoMapView(context: Context, appContext: AppContext) : ExpoView(con
   }
 
   private fun stylesFor(map: KakaoMap, kind: String, selected: Boolean): LabelStyles {
-    val fill =
+    val icon =
       when (kind) {
-        "user" -> Color.parseColor("#2674B2")
-        "me" -> Color.parseColor("#C62828")
-        else -> if (selected) Color.parseColor("#023D31") else Color.parseColor("#0A6B56")
+        "user" -> userMarkerIcon(selected)
+        "me" -> meMarkerIcon()
+        else -> venuePinIcon(selected)
       }
-    val textColor = Color.WHITE
-    val textSize = if (selected) 28 else 24
-    val icon = markerIcon(fill, if (selected) 36 else 28)
-    val textStyle = LabelTextStyle.from(textSize, textColor)
     val style =
       LabelStyle.from(icon)
-        .setTextStyles(textStyle)
         .setApplyDpScale(true)
+        .setAnchorPoint(anchorFor(kind))
     return requireNotNull(map.labelManager!!.addLabelStyles(LabelStyles.from(style)))
   }
 
-  private fun markerIcon(color: Int, sizeDp: Int): Bitmap {
-    val key = color xor (sizeDp shl 16)
+  /** Venue pin tip = coordinate. User/me disc center = coordinate. */
+  private fun anchorFor(kind: String): PointF {
+    return when (kind) {
+      "venue" -> PointF(0.5f, 1.0f)
+      else -> PointF(0.5f, 0.5f)
+    }
+  }
+
+  private fun venuePinIcon(selected: Boolean): Bitmap {
+    val key = (if (selected) 1 else 0) shl 20 or 0x101
     markerIconCache[key]?.let { return it }
     val density = resources.displayMetrics.density
-    val px = (sizeDp * density).toInt().coerceAtLeast(16)
-    val bitmap = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
+    val widthDp = if (selected) 26f else 14f
+    val heightDp = if (selected) 36f else 20f
+    val w = (widthDp * density).toInt().coerceAtLeast(16)
+    val h = (heightDp * density).toInt().coerceAtLeast(22)
+    val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
-    val paint =
+    val fill = if (selected) Color.parseColor("#023D31") else Color.parseColor("#0A6B56")
+    val cx = w / 2f
+    val headR = w * (if (selected) 0.38f else 0.34f)
+    val headCy = headR + density * 0.8f
+    val tipY = h - density * 0.4f
+
+    val path =
+      Path().apply {
+        moveTo(cx, tipY)
+        cubicTo(
+          cx - headR * 0.15f,
+          tipY - headR * 0.55f,
+          cx - headR,
+          headCy + headR * 0.55f,
+          cx - headR,
+          headCy,
+        )
+        cubicTo(
+          cx - headR,
+          headCy - headR * 1.05f,
+          cx + headR,
+          headCy - headR * 1.05f,
+          cx + headR,
+          headCy,
+        )
+        cubicTo(
+          cx + headR,
+          headCy + headR * 0.55f,
+          cx + headR * 0.15f,
+          tipY - headR * 0.55f,
+          cx,
+          tipY,
+        )
+        close()
+      }
+    val fillPaint =
       Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        this.color = color
+        color = fill
         style = Paint.Style.FILL
       }
-    val r = px / 2f
-    canvas.drawCircle(r, r, r * 0.92f, paint)
+    val strokePaint =
+      Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.STROKE
+        strokeWidth = density * (if (selected) 2.4f else 1.1f)
+        strokeJoin = Paint.Join.ROUND
+      }
+    canvas.drawPath(path, fillPaint)
+    canvas.drawPath(path, strokePaint)
+    if (selected) {
+      val halo =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+          color = Color.parseColor("#0A6B56")
+          style = Paint.Style.STROKE
+          strokeWidth = density * 1.4f
+          alpha = 90
+        }
+      canvas.drawCircle(cx, headCy, headR + density * 2f, halo)
+      val dot =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+          color = Color.WHITE
+          style = Paint.Style.FILL
+        }
+      canvas.drawCircle(cx, headCy, headR * 0.32f, dot)
+    }
+    markerIconCache[key] = bitmap
+    return bitmap
+  }
+
+  private fun userMarkerIcon(selected: Boolean): Bitmap {
+    val key = (if (selected) 1 else 0) shl 20 or 0x200
+    markerIconCache[key]?.let { return it }
+    val density = resources.displayMetrics.density
+    val sizeDp = if (selected) 18f else 14f
+    val px = (sizeDp * density).toInt().coerceAtLeast(14)
+    val bitmap = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val cx = px / 2f
+    val cy = px / 2f
+    val r = px / 2f - density
+    val fill =
+      Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#2674B2")
+        style = Paint.Style.FILL
+      }
+    val ring =
+      Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.STROKE
+        strokeWidth = density * (if (selected) 2.2f else 1.5f)
+      }
+    canvas.drawCircle(cx, cy, r, fill)
+    canvas.drawCircle(cx, cy, r, ring)
+    if (selected) {
+      val outer =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+          color = Color.parseColor("#2674B2")
+          style = Paint.Style.STROKE
+          strokeWidth = density * 1.2f
+          alpha = 120
+        }
+      canvas.drawCircle(cx, cy, r + density * 1.5f, outer)
+    }
+    markerIconCache[key] = bitmap
+    return bitmap
+  }
+
+  private fun meMarkerIcon(): Bitmap {
+    val key = 0x300
+    markerIconCache[key]?.let { return it }
+    val density = resources.displayMetrics.density
+    val px = (16f * density).toInt().coerceAtLeast(16)
+    val bitmap = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val cx = px / 2f
+    val cy = px / 2f
+    val halo =
+      Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#4FC3F7")
+        style = Paint.Style.FILL
+        alpha = 90
+      }
+    val core =
+      Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#0288D1")
+        style = Paint.Style.FILL
+      }
+    val border =
+      Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.STROKE
+        strokeWidth = density * 1.5f
+      }
+    canvas.drawCircle(cx, cy, px / 2f - density * 0.5f, halo)
+    canvas.drawCircle(cx, cy, px * 0.22f, core)
+    canvas.drawCircle(cx, cy, px * 0.22f, border)
     markerIconCache[key] = bitmap
     return bitmap
   }
