@@ -15,7 +15,17 @@ if (-not $keytool) {
 
 $debugKeystore = Join-Path $env:USERPROFILE '.android\debug.keystore'
 if (-not (Test-Path $debugKeystore)) {
-  Write-Error "Debug keystore not found: $debugKeystore"
+  $androidHome = $env:ANDROID_HOME
+  if (-not $androidHome) {
+    $androidHome = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+  }
+  Write-Host 'Default ~/.android/debug.keystore not found.'
+  Write-Host 'Run Gradle signingReport instead (after expo prebuild):'
+  Write-Host "  `$env:ANDROID_HOME='$androidHome'"
+  Write-Host '  cd apps/mobile/android'
+  Write-Host '  .\gradlew.bat signingReport'
+  Write-Host 'Use Variant: debug SHA1 -> Kakao Base64 hash below.'
+  exit 0
 }
 
 Write-Host 'Package: com.jjoin.app'
