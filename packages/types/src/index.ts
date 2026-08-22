@@ -31,6 +31,7 @@ export enum MockAuthScenario {
 export enum MockAuthPersona {
   DEV_A = 'DEV_A',
   DEV_B = 'DEV_B',
+  DEV_ADMIN = 'DEV_ADMIN',
 }
 
 export enum JoinMethod {
@@ -385,6 +386,7 @@ export type SettlementParticipantDto = {
   paidAt: string | null;
   refundedAt: string | null;
   disputedAt: string | null;
+  dispute?: DisputeParticipantDto | null;
 };
 
 export type JoinSettlementSummaryDto = {
@@ -399,6 +401,84 @@ export type SettlementIssueType = 'NO_SHOW' | 'LEFT_EARLY' | 'DISPUTE';
 
 export type SettlementIssueRequest = {
   issueType: SettlementIssueType;
+  statement?: string;
+};
+
+export enum DisputeStatus {
+  OPEN = 'OPEN',
+  UNDER_REVIEW = 'UNDER_REVIEW',
+  RESOLVED = 'RESOLVED',
+}
+
+export enum DisputeResolution {
+  PAY_PARTICIPANT = 'PAY_PARTICIPANT',
+  REFUND_HOST = 'REFUND_HOST',
+}
+
+export type DisputeParticipantDto = {
+  disputeId: string;
+  joinId: string;
+  status: DisputeStatus;
+  reasonType: string;
+  resolution: DisputeResolution | null;
+  rewardAmount: string;
+  rewardStatus: RewardStatus;
+  hostStatement: string | null;
+  participantStatement: string | null;
+  openedAt: string;
+  resolvedAt: string | null;
+  canSubmitStatement: boolean;
+  userFacingMessage: string;
+};
+
+export type DisputeStatementRequest = {
+  statement: string;
+};
+
+export type AdminDisputeListItemDto = {
+  disputeId: string;
+  joinId: string;
+  venueName: string;
+  scheduledEndAt: string;
+  hostNickname: string;
+  participantNickname: string;
+  rewardAmount: string;
+  reasonType: string;
+  status: DisputeStatus;
+  openedAt: string;
+};
+
+export type AdminDisputeListResponse = {
+  items: AdminDisputeListItemDto[];
+  nextCursor: string | null;
+};
+
+export type AdminDisputeDetailDto = {
+  disputeId: string;
+  joinId: string;
+  joinStatus: JoinStatus;
+  venueName: string;
+  scheduledEndAt: string;
+  hostNickname: string;
+  participantNickname: string;
+  rewardAmount: string;
+  rewardStatus: RewardStatus;
+  holdStatus: string | null;
+  reasonType: string;
+  status: DisputeStatus;
+  resolution: DisputeResolution | null;
+  hostStatement: string | null;
+  participantStatement: string | null;
+  adminNote: string | null;
+  openedAt: string;
+  underReviewAt: string | null;
+  participantStatementAt: string | null;
+  resolvedAt: string | null;
+};
+
+export type AdminResolveDisputeRequest = {
+  resolution: DisputeResolution;
+  adminNote?: string;
 };
 
 export type JoinDetailDto = {

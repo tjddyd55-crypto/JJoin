@@ -21,6 +21,12 @@ import {
   type WalletSummaryDto,
   type WalletTransactionsResponse,
   type SettlementIssueRequest,
+  type DisputeStatementRequest,
+  type DisputeParticipantDto,
+  type AdminDisputeListResponse,
+  type AdminDisputeDetailDto,
+  type AdminResolveDisputeRequest,
+  type DisputeStatus,
 } from '@jjoin/types';
 
 export type ApiClientConfig = {
@@ -355,7 +361,7 @@ export class ApiClient {
     joinId: string,
     participantId: string,
     body: SettlementIssueRequest,
-  ): Promise<{ ok: boolean; rewardStatus?: string; alreadyTerminal?: boolean }> {
+  ): Promise<{ ok: boolean; rewardStatus?: string; alreadyTerminal?: boolean; disputeId?: string }> {
     const res = await request(
       `${this.config.baseUrl}/joins/${joinId}/settlements/${participantId}/issue`,
       {
@@ -376,6 +382,60 @@ export class ApiClient {
       method: 'POST',
       headers: await this.headers(true),
       body: JSON.stringify({ mode }),
+    });
+    return parseJson(res);
+  }
+
+  async getMyDispute(disputeId: string): Promise<DisputeParticipantDto> {
+    const res = await request(`${this.config.baseUrl}/me/disputes/${disputeId}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async submitDisputeStatement(
+    disputeId: string,
+    body: DisputeStatementRequest,
+  ): Promise<{ id: string }> {
+    const res = await request(`${this.config.baseUrl}/me/disputes/${disputeId}/statement`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async listAdminDisputes(query?: {
+    status?: DisputeStatus;
+    cursor?: string;
+    limit?: number;
+  }): Promise<AdminDisputeListResponse> {
+    const params = new URLSearchParams();
+    if (query?.status) params.set('status', query.status);
+    if (query?.cursor) params.set('cursor', query.cursor);
+    if (query?.limit != null) params.set('limit', String(query.limit));
+    const qs = params.toString();
+    const res = await request(`${this.config.baseUrl}/admin/disputes${qs ? `?${qs}` : ''}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getAdminDispute(disputeId: string): Promise<AdminDisputeDetailDto> {
+    const res = await request(`${this.config.baseUrl}/admin/disputes/${disputeId}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async resolveAdminDispute(
+    disputeId: string,
+    body: AdminResolveDisputeRequest,
+  ): Promise<{ ok: boolean; resolution?: string; rewardStatus?: string; alreadyResolved?: boolean }> {
+    const res = await request(`${this.config.baseUrl}/admin/disputes/${disputeId}/resolve`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
     });
     return parseJson(res);
   }

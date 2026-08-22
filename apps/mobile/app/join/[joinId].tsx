@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AppState, StyleSheet, View } from 'react-native';
+import { AppState, StyleSheet, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   AppText,
@@ -80,7 +80,8 @@ function SettlementRowHost(props: {
       <View style={styles.settlementMeta}>
         <AppText variant="body">{props.row.nickname}</AppText>
         <AppText variant="caption" color="textSecondary">
-          {props.row.rewardAmount} Coin · {rewardStatusLabel(props.row.rewardStatus)}
+          {props.row.rewardAmount} Coin ·{' '}
+          {props.row.dispute?.userFacingMessage ?? rewardStatusLabel(props.row.rewardStatus)}
         </AppText>
         {showCountdown ? (
           <AppText variant="caption" color="textSecondary">
@@ -124,6 +125,7 @@ export default function JoinDetailScreen() {
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [detail, setDetail] = useState<JoinDetailDto | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [statement, setStatement] = useState('');
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -218,6 +220,21 @@ export default function JoinDetailScreen() {
     }
   }
 
+  async function onSubmitStatement() {
+    const disputeId = mySettlement?.dispute?.disputeId;
+    if (!disputeId || !statement.trim() || busy) return;
+    setBusy(true);
+    try {
+      await api.submitDisputeStatement(disputeId, { statement: statement.trim() });
+      setStatement('');
+      await load();
+    } catch {
+      setError('설명 제출에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function onQaAdvance(mode: 'open' | 'autopay') {
     if (!joinId || !__DEV__) return;
     setBusy(true);
@@ -271,12 +288,32 @@ export default function JoinDetailScreen() {
         {mySettlement ? (
           <View style={styles.rewardBox}>
             <AppText variant="body">보상 {mySettlement.rewardAmount} Coin</AppText>
-            <AppText variant="body">{rewardStatusLabel(mySettlement.rewardStatus)}</AppText>
+            <AppText variant="body">
+              {mySettlement.dispute?.userFacingMessage ??
+                rewardStatusLabel(mySettlement.rewardStatus)}
+            </AppText>
             {mySettlement.rewardStatus === RewardStatus.PENDING_CONFIRMATION &&
             myCountdownMs > 0 ? (
               <AppText variant="caption" color="textSecondary">
                 자동 지급까지 {formatCountdown(myCountdownMs)}
               </AppText>
+            ) : null}
+            {mySettlement.dispute?.canSubmitStatement ? (
+              <View style={styles.statementBox}>
+                <TextInput
+                  style={styles.statementInput}
+                  placeholder="상황 설명을 입력해 주세요"
+                  value={statement}
+                  onChangeText={setStatement}
+                  multiline
+                  maxLength={1000}
+                />
+                <Button
+                  label="설명 제출"
+                  loading={busy}
+                  onPress={() => void onSubmitStatement()}
+                />
+              </View>
             ) : null}
           </View>
         ) : null}
@@ -413,5 +450,17 @@ const styles = StyleSheet.create({
   qaBox: {
     gap: spacing.sm,
     paddingTop: spacing.sm,
+  },
+  statementBox: {
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  statementInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: spacing.sm,
+    minHeight: 80,
+    textAlignVertical: 'top',
   },
 });

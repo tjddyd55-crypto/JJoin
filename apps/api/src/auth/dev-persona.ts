@@ -49,6 +49,15 @@ const PERSONAS: Record<MockAuthPersona, PersonaFixture> = {
     regionLabel: '거제',
     skillLevel: SportSkillLevel.BEGINNER,
   },
+  [MockAuthPersona.DEV_ADMIN]: {
+    persona: MockAuthPersona.DEV_ADMIN,
+    providerSubject: 'dev-persona-admin',
+    nickname: '운영관리자',
+    gender: Gender.MALE,
+    ageBand: AgeBand.THIRTIES,
+    regionLabel: '거제',
+    skillLevel: SportSkillLevel.INTERMEDIATE,
+  },
 };
 
 /**

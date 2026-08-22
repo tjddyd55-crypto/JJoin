@@ -13,6 +13,8 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { MediaModule } from './modules/media/media.module';
 import { PresenceModule } from './modules/presence/presence.module';
 import { ExploreModule } from './modules/explore/explore.module';
+import { DisputeModule } from './modules/dispute/dispute.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -32,6 +34,8 @@ import { PrismaModule } from './prisma/prisma.module';
     MediaModule,
     PresenceModule,
     ExploreModule,
+    DisputeModule,
+    AdminModule,
   ],
 })
 export class AppModule {}

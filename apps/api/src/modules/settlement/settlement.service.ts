@@ -8,6 +8,7 @@ import {
   JoinStatus,
   ParticipantRole,
   RewardStatus,
+  DisputeStatus,
   type JoinSettlementSummaryDto,
   type SettlementIssueRequest,
   type SettlementParticipantDto,
@@ -27,6 +28,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CoinLedgerService } from '../wallet/coin-ledger.service';
 import { SystemSettlementClock, type SettlementClock, isSettlementQaAllowed } from '../../settlement/settlement-clock';
+import { DisputeService } from '../dispute/dispute.service';
 import { mockUserStore } from '../../mock/mock-user.store';
 
 const SETTLING_ELIGIBLE: JoinStatus[] = [
@@ -44,6 +46,7 @@ export class SettlementService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ledger: CoinLedgerService,
+    private readonly disputes: DisputeService,
   ) {
     this.clock = new SystemSettlementClock();
   }
@@ -148,7 +151,7 @@ export class SettlementService {
       include: {
         participants: {
           include: {
-            settlement: true,
+            settlement: { include: { dispute: true } },
             user: { include: { profile: true } },
           },
         },
@@ -170,6 +173,24 @@ export class SettlementService {
       .map((p) => {
         const s = p.settlement!;
         const rewardStatus = s.rewardStatus as RewardStatus;
+        const disputeDto = s.dispute
+          ? this.disputes.toParticipantDto(
+              {
+                id: s.dispute.id,
+                joinId: s.dispute.joinId,
+                status: s.dispute.status as DisputeStatus,
+                reasonType: s.dispute.reasonType,
+                resolution: s.dispute.resolution as import('@jjoin/types').DisputeResolution | null,
+                hostStatement: s.dispute.hostStatement,
+                participantStatement: s.dispute.participantStatement,
+                openedAt: s.dispute.openedAt,
+                resolvedAt: s.dispute.resolvedAt,
+                settlement: { amount: s.amount, rewardStatus: s.rewardStatus },
+                participant: { userId: p.userId },
+              },
+              viewerUserId,
+            )
+          : null;
         return {
           settlementId: s.id,
           participantId: p.id,
@@ -193,6 +214,7 @@ export class SettlementService {
           paidAt: s.paidAt?.toISOString() ?? null,
           refundedAt: s.refundedAt?.toISOString() ?? null,
           disputedAt: s.disputedAt?.toISOString() ?? null,
+          dispute: disputeDto,
         };
       });
 
@@ -381,9 +403,9 @@ export class SettlementService {
         case 'NO_SHOW':
           return this.applyNoShow(tx, join, participant, settlement, now);
         case 'LEFT_EARLY':
-          return this.applyLeftEarly(tx, participant, settlement, now);
+          return this.applyLeftEarly(tx, join, participant, settlement, now, body.statement);
         case 'DISPUTE':
-          return this.applyDispute(tx, participant, settlement, now);
+          return this.applyDispute(tx, join, participant, settlement, now, body.statement);
         default:
           throw new BadRequestException('invalid_issue_type');
       }
@@ -441,9 +463,11 @@ export class SettlementService {
 
   private async applyLeftEarly(
     tx: Prisma.TransactionClient,
+    join: { id: string; hostUserId: string },
     participant: { id: string },
     settlement: { id: string; rewardStatus: string },
     now: Date,
+    hostStatement?: string,
   ) {
     if (settlement.rewardStatus === 'DISPUTED') return { ok: true, rewardStatus: 'DISPUTED' };
 
@@ -458,14 +482,24 @@ export class SettlementService {
         disputedAt: now,
       },
     });
-    return { ok: true, rewardStatus: 'DISPUTED' };
+    const dispute = await this.disputes.ensureDisputeCase(tx, {
+      joinId: join.id,
+      joinParticipantId: participant.id,
+      settlementId: settlement.id,
+      openedByUserId: join.hostUserId,
+      reasonType: 'LEFT_EARLY',
+      hostStatement: hostStatement?.trim() || null,
+    });
+    return { ok: true, rewardStatus: 'DISPUTED', disputeId: dispute.id };
   }
 
   private async applyDispute(
     tx: Prisma.TransactionClient,
+    join: { id: string; hostUserId: string },
     participant: { id: string },
     settlement: { id: string; rewardStatus: string },
     now: Date,
+    hostStatement?: string,
   ) {
     if (settlement.rewardStatus === 'DISPUTED') return { ok: true, rewardStatus: 'DISPUTED' };
 
@@ -480,7 +514,15 @@ export class SettlementService {
         disputedAt: now,
       },
     });
-    return { ok: true, rewardStatus: 'DISPUTED' };
+    const dispute = await this.disputes.ensureDisputeCase(tx, {
+      joinId: join.id,
+      joinParticipantId: participant.id,
+      settlementId: settlement.id,
+      openedByUserId: join.hostUserId,
+      reasonType: 'DISPUTED',
+      hostStatement: hostStatement?.trim() || null,
+    });
+    return { ok: true, rewardStatus: 'DISPUTED', disputeId: dispute.id };
   }
 
   async runAutoPayCron(secret?: string) {
@@ -562,6 +604,200 @@ export class SettlementService {
     return { ok: true, mode };
   }
 
+  async adminResolveDispute(
+    disputeId: string,
+    adminUserId: string,
+    resolution: 'PAY_PARTICIPANT' | 'REFUND_HOST',
+    adminNote?: string,
+  ) {
+    const now = this.clock.now();
+
+    return this.prisma.$transaction(async (tx) => {
+      const dispute = await tx.disputeCase.findUnique({
+        where: { id: disputeId },
+        include: {
+          settlement: true,
+          participant: true,
+          join: true,
+        },
+      });
+      if (!dispute) throw new NotFoundException('dispute_not_found');
+      if (dispute.status === 'RESOLVED') {
+        return {
+          ok: true,
+          alreadyResolved: true,
+          resolution: dispute.resolution,
+          rewardStatus: dispute.settlement.rewardStatus,
+        };
+      }
+
+      if (resolution === 'PAY_PARTICIPANT') {
+        if (dispute.settlement.rewardStatus === 'REFUNDED') {
+          throw new BadRequestException('settlement_already_refunded');
+        }
+        await this.executeAdminPay(tx, dispute, now);
+      } else {
+        if (
+          dispute.settlement.rewardStatus === 'PAID' ||
+          dispute.settlement.rewardStatus === 'AUTO_PAID'
+        ) {
+          throw new BadRequestException('settlement_already_paid');
+        }
+        await this.executeAdminRefund(tx, dispute, now);
+      }
+
+      await tx.disputeCase.update({
+        where: { id: disputeId },
+        data: {
+          status: 'RESOLVED',
+          resolution,
+          resolvedByAdminUserId: adminUserId,
+          resolvedAt: now,
+          adminNote: adminNote?.trim() || null,
+        },
+      });
+
+      await this.tryCompleteJoin(tx, dispute.joinId);
+      const updated = await tx.rewardSettlement.findUniqueOrThrow({
+        where: { id: dispute.settlementId },
+      });
+      return { ok: true, resolution, rewardStatus: updated.rewardStatus };
+    });
+  }
+
+  private async executeAdminPay(
+    tx: Prisma.TransactionClient,
+    dispute: {
+      settlement: {
+        id: string;
+        amount: Prisma.Decimal;
+        rewardStatus: string;
+        holdId: string | null;
+      };
+      participant: { id: string; userId: string };
+      join: { id: string; hostUserId: string; coinAssetId: string };
+    },
+    now: Date,
+  ) {
+    const settlement = dispute.settlement;
+    if (settlement.rewardStatus === 'PAID' || settlement.rewardStatus === 'AUTO_PAID') {
+      return;
+    }
+    if (settlement.rewardStatus !== 'DISPUTED') {
+      throw new BadRequestException('settlement_not_disputed');
+    }
+
+    const amount = String(settlement.amount);
+    const hostWallet = await this.ledger.getOrCreateWallet(
+      dispute.join.hostUserId,
+      dispute.join.coinAssetId,
+      tx,
+    );
+    const participantWallet = await this.ledger.getOrCreateWallet(
+      dispute.participant.userId,
+      dispute.join.coinAssetId,
+      tx,
+    );
+
+    const { participantTx } = await this.ledger.applyRewardTransfer(tx, {
+      hostWalletId: hostWallet.id,
+      participantWalletId: participantWallet.id,
+      participantUserId: dispute.participant.userId,
+      coinAssetId: dispute.join.coinAssetId,
+      amount,
+      settlementId: settlement.id,
+      joinId: dispute.join.id,
+      idempotencyKey: settlementTransferIdempotencyKey(settlement.id),
+    });
+
+    if (settlement.holdId) {
+      await this.ledger.refreshCoinHoldStatus(tx, settlement.holdId);
+    }
+
+    const claimed = await tx.rewardSettlement.updateMany({
+      where: { id: settlement.id, rewardStatus: 'DISPUTED' },
+      data: {
+        rewardStatus: 'PAID',
+        paidAt: now,
+        paidTxId: participantTx.id,
+      },
+    });
+    if (claimed.count === 0) {
+      const current = await tx.rewardSettlement.findUniqueOrThrow({ where: { id: settlement.id } });
+      if (current.rewardStatus !== 'PAID' && current.rewardStatus !== 'AUTO_PAID') {
+        throw new BadRequestException('settlement_not_disputed');
+      }
+      return;
+    }
+
+    await tx.joinParticipant.update({
+      where: { id: dispute.participant.id },
+      data: { participationStatus: 'COMPLETED' },
+    });
+
+    mockUserStore.syncWalletBalances(
+      dispute.join.hostUserId,
+      String((await tx.wallet.findUniqueOrThrow({ where: { id: hostWallet.id } })).availableBalance),
+      String((await tx.wallet.findUniqueOrThrow({ where: { id: hostWallet.id } })).heldBalance),
+    );
+    mockUserStore.syncWalletBalances(
+      dispute.participant.userId,
+      String(
+        (await tx.wallet.findUniqueOrThrow({ where: { id: participantWallet.id } })).availableBalance,
+      ),
+      String(
+        (await tx.wallet.findUniqueOrThrow({ where: { id: participantWallet.id } })).heldBalance,
+      ),
+    );
+  }
+
+  private async executeAdminRefund(
+    tx: Prisma.TransactionClient,
+    dispute: {
+      settlement: {
+        id: string;
+        amount: Prisma.Decimal;
+        rewardStatus: string;
+        holdId: string | null;
+      };
+      join: { id: string; hostUserId: string; coinAssetId: string };
+    },
+    now: Date,
+  ) {
+    const settlement = dispute.settlement;
+    if (settlement.rewardStatus === 'REFUNDED') return;
+    if (settlement.rewardStatus !== 'DISPUTED') {
+      throw new BadRequestException('settlement_not_disputed');
+    }
+
+    const amount = String(settlement.amount);
+    const hostWallet = await this.ledger.getOrCreateWallet(
+      dispute.join.hostUserId,
+      dispute.join.coinAssetId,
+      tx,
+    );
+    await this.ledger.applyRewardRefund(tx, {
+      hostWalletId: hostWallet.id,
+      coinAssetId: dispute.join.coinAssetId,
+      amount,
+      settlementId: settlement.id,
+      joinId: dispute.join.id,
+      idempotencyKey: settlementRefundIdempotencyKey(settlement.id),
+    });
+
+    if (settlement.holdId) {
+      await this.ledger.refreshCoinHoldStatus(tx, settlement.holdId);
+    }
+
+    await tx.rewardSettlement.updateMany({
+      where: { id: settlement.id, rewardStatus: 'DISPUTED' },
+      data: {
+        rewardStatus: 'REFUNDED',
+        refundedAt: now,
+      },
+    });
+  }
+
   private async tryCompleteJoin(tx: Prisma.TransactionClient, joinId: string) {
     const join = await tx.join.findUnique({
       where: { id: joinId },
@@ -572,10 +808,8 @@ export class SettlementService {
     const nonHost = join.participants.filter((p) => p.role !== 'HOST');
     if (nonHost.length === 0) return;
 
-    const hasDisputed = nonHost.some(
-      (p) => p.settlement?.rewardStatus === 'DISPUTED' || p.participationStatus === 'DISPUTED',
-    );
-    if (hasDisputed) return;
+    const openDisputes = await this.disputes.countOpenDisputesForJoin(tx, joinId);
+    if (openDisputes > 0) return;
 
     const allTerminal = nonHost.every(
       (p) => p.settlement && isTerminalRewardStatus(p.settlement.rewardStatus),

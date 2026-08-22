@@ -96,6 +96,22 @@ enum ReportStatus {
   REJECTED
 }
 
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+}
+
+enum DisputeResolution {
+  PAY_PARTICIPANT
+  REFUND_HOST
+}
+
+enum DisputeReasonType {
+  LEFT_EARLY
+  DISPUTED
+}
+
 enum MediaKind {
   AVATAR
   OTHER
@@ -127,6 +143,8 @@ model User {
   participations        JoinParticipant[]
   wallets               Wallet[]
   reportsFiled          Report[]               @relation("ReportReporter")
+  disputesOpened        DisputeCase[]          @relation("DisputeOpenedBy")
+  disputesResolvedAdmin DisputeCase[]          @relation("DisputeResolvedBy")
   presence              UserPresence?
 
   @@map("users")
@@ -330,6 +348,7 @@ model Join {
   participants   JoinParticipant[]
   holds          CoinHold[]
   reports        Report[]
+  disputes       DisputeCase[]
 
   @@index([venueId, startAt])
   @@index([status, startAt])
@@ -382,6 +401,7 @@ model JoinParticipant {
   user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   settlement RewardSettlement?
   reports    Report[]
+  dispute    DisputeCase?
 
   @@unique([joinId, userId])
   @@index([userId])
@@ -411,6 +431,7 @@ model RewardSettlement {
   coinAsset   CoinAsset        @relation(fields: [coinAssetId], references: [id])
   hold        CoinHold?        @relation(fields: [holdId], references: [id])
   paidTx      CoinTransaction? @relation(fields: [paidTxId], references: [id])
+  dispute     DisputeCase?
 
   @@index([rewardStatus, autoPayAt])
   @@index([joinId])
@@ -513,4 +534,35 @@ model Report {
 
   @@index([joinId, status])
   @@map("reports")
+}
+
+model DisputeCase {
+  id                     String             @id @default(uuid()) @db.Uuid
+  joinId                 String             @map("join_id") @db.Uuid
+  joinParticipantId      String             @unique @map("join_participant_id") @db.Uuid
+  settlementId           String             @unique @map("settlement_id") @db.Uuid
+  openedByUserId         String             @map("opened_by_user_id") @db.Uuid
+  reasonType             DisputeReasonType  @map("reason_type")
+  hostStatement          String?            @map("host_statement")
+  participantStatement   String?            @map("participant_statement")
+  status                 DisputeStatus      @default(OPEN)
+  resolution             DisputeResolution?
+  resolvedByAdminUserId  String?            @map("resolved_by_admin_user_id") @db.Uuid
+  adminNote              String?            @map("admin_note")
+  openedAt               DateTime           @default(now()) @map("opened_at") @db.Timestamptz(6)
+  underReviewAt          DateTime?          @map("under_review_at") @db.Timestamptz(6)
+  participantStatementAt DateTime?          @map("participant_statement_at") @db.Timestamptz(6)
+  resolvedAt             DateTime?          @map("resolved_at") @db.Timestamptz(6)
+  createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  join            Join              @relation(fields: [joinId], references: [id], onDelete: Cascade)
+  participant     JoinParticipant   @relation(fields: [joinParticipantId], references: [id], onDelete: Cascade)
+  settlement      RewardSettlement  @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  openedBy        User              @relation("DisputeOpenedBy", fields: [openedByUserId], references: [id])
+  resolvedByAdmin User?             @relation("DisputeResolvedBy", fields: [resolvedByAdminUserId], references: [id])
+
+  @@index([status, openedAt])
+  @@index([joinId])
+  @@map("dispute_cases")
 }
