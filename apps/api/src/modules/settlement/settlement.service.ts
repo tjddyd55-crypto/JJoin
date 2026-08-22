@@ -236,6 +236,10 @@ export class SettlementService {
       }
       const settlement = participant.settlement;
 
+      if (settlement.rewardStatus === 'PAID' || settlement.rewardStatus === 'AUTO_PAID') {
+        return settlement;
+      }
+
       if (mode === 'MANUAL') {
         if (
           !canHostPayReward({
@@ -255,10 +259,6 @@ export class SettlementService {
         })
       ) {
         return null;
-      }
-
-      if (settlement.rewardStatus === 'PAID' || settlement.rewardStatus === 'AUTO_PAID') {
-        return settlement;
       }
 
       const amount = String(settlement.amount);
