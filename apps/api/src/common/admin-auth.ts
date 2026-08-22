@@ -14,7 +14,8 @@ export async function isAdminUser(
   userId: string,
 ): Promise<boolean> {
   if (parseAdminUserIds().includes(userId)) return true;
-  if (process.env.SOCIAL_AUTH_MODE !== 'mock') return false;
+  const socialMode = (process.env.SOCIAL_AUTH_MODE ?? 'mock').trim().toLowerCase();
+  if (socialMode !== 'mock' && socialMode !== 'hybrid') return false;
   const account = await prisma.socialAccount.findFirst({
     where: { userId, providerSubject: ADMIN_MOCK_SUBJECT },
   });

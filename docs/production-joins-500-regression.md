@@ -44,7 +44,10 @@ This was **not** identity gate, Prisma schema, or join payload regression.
 3. **`apps/api/src/settlement/settlement-clock.ts`**
    - Allow settlement QA advance-clock under `hybrid` (same regression as coin policy).
 
-4. **`scripts/dev-coin-policy.node-test.ts`**
+4. **`apps/api/src/common/admin-auth.ts`**
+   - Allow DEV_ADMIN admin routes under `hybrid`.
+
+5. **`scripts/dev-coin-policy.node-test.ts`**
    - Guards hybrid vs real social mode behavior.
 
 5. **`scripts/phase-m-auth-smoke.ts`**

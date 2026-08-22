@@ -120,13 +120,13 @@ async function main() {
       headers: { Authorization: `Bearer ${token}` },
     });
     assert(me.authAppHints.locationOnboardingComplete, 'location onboarding');
-  }
 
-  const publicProfile = await json<Record<string, unknown>>(
-    `/users/${first.session.userId}/public-profile`,
-  );
-  for (const denied of ['phone', 'birthDate', 'ci', 'di', 'providerSubject']) {
-    assert(!(denied in publicProfile), `public leak ${denied}`);
+    const publicProfile = await json<Record<string, unknown>>(
+      `/users/${first.session.userId}/public-profile`,
+    );
+    for (const denied of ['phone', 'birthDate', 'ci', 'di', 'providerSubject']) {
+      assert(!(denied in publicProfile), `public leak ${denied}`);
+    }
   }
 
   const gate = await fetch(`${API_BASE}/joins`, {
