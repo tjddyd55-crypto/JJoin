@@ -1,29 +1,44 @@
 # Phase N — Production Auth Activation Report
 
-**Status:** READY_FOR_KAKAO_CONSOLE (pending deploy verification)
+**Status:** **KAKAO_ANDROID_PASS** (2026-08-22)
 
-## Scope
+## Scope completed
 
-- Native social login SDK integration (Kakao/Naver/Google)
-- Production auth path in mobile (`obtainSocialCredential` → `/auth/social/exchange`)
-- Server mock guard + `GET /me/identity/capability`
-- Production identity UNAVAILABLE UX (no fake verification)
-- Docs, smoke scripts, key hash helper
+- Kakao Native Login SDK on Android Dev Client
+- Real Kakao access token → `/auth/social/exchange` on production API
+- Returning login + SecureStore session persistence
+- Identity gate for unverified real users (Create Join)
+- Kakao Map native regression after social SDK (no black screen)
+- Server smokes + invalid-token rejection
 
-## Not in scope (Phase N.1+)
+## Detailed E2E
 
-- NICE/KCB/PASS production identity adapter
-- Naver/Google console E2E (after Kakao)
-- Push / Coin Purchase / PG/IAP
+See `docs/phase-n-kakao-android-e2e-report.md`.
+
+## Still USER_ACTION / later phases
+
+| Item | Status |
+|------|--------|
+| Naver console + E2E | Not started |
+| Google console + E2E | Not started |
+| NICE/KCB/PASS identity | Not started |
+| Push / Coin Purchase / PG/IAP | Not started |
+| Direct Postgres audit from laptop | Use `scripts/phase-n-kakao-db-verify.ts` in Railway network |
 
 ## Railway env (names only)
 
 | Variable | Recommended |
 |----------|-------------|
-| `SOCIAL_AUTH_MODE` | `hybrid` (smoke personas + real tokens) |
+| `SOCIAL_AUTH_MODE` | `hybrid` |
 | `IDENTITY_PROVIDER` | `mock` until contract |
-| `GOOGLE_OAUTH_CLIENT_ID` | Web client ID when Google enabled |
+| `GOOGLE_OAUTH_CLIENT_ID` | when Google enabled |
 
-## Next: Kakao console
+## Known follow-ups (non-blocking for Kakao PASS)
 
-See `docs/phase-n-provider-console-checklist.md` and USER_ACTION section in final report.
+- Production `/joins` 500 affects Phase F/J/K/L smokes (pre-existing)
+- Presence failure uses generic network alert instead of identity-specific copy
+- Admin vite build: `SocialProvider` export (pre-existing, out of Phase N mobile scope)
+
+## Next approved step
+
+Naver actual login console setup + E2E (separate approval).

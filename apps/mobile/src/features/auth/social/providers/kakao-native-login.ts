@@ -8,9 +8,15 @@ export async function obtainKakaoAccessToken(): Promise<string> {
   }
 
   try {
-    const existing = await getAccessToken();
-    if (existing?.accessToken) {
-      return existing.accessToken;
+    let cachedAccessToken: string | undefined;
+    try {
+      const existing = await getAccessToken();
+      cachedAccessToken = existing?.accessToken;
+    } catch {
+      // No cached Kakao session — fall through to interactive login().
+    }
+    if (cachedAccessToken) {
+      return cachedAccessToken;
     }
 
     const result = await login();

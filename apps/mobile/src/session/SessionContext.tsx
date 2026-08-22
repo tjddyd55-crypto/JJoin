@@ -136,7 +136,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         const message = e instanceof Error ? e.message : 'login_failed';
         if (__DEV__) {
           console.warn('[session.signIn]', {
-            path: '/auth/social/mock-sign-in',
+            provider,
             kind: message.startsWith('api_error:')
               ? 'HTTP'
               : message.startsWith('network_error:')
