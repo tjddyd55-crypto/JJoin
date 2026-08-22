@@ -5,6 +5,8 @@ import {
   type CreateJoinRequest,
   type ExploreFilter,
   type ExploreMapResponse,
+  type JoinCoinPreviewDto,
+  type JoinCoinPreviewRequest,
   type JoinDetailDto,
   type MeDto,
   type MyJoinsResponse,
@@ -16,6 +18,7 @@ import {
   type SportSkillLevel,
   type UpsertPresenceRequest,
   type WalletSummaryDto,
+  type WalletTransactionsResponse,
 } from '@jjoin/types';
 
 export type ApiClientConfig = {
@@ -177,6 +180,37 @@ export class ApiClient {
   async getWalletSummary(): Promise<WalletSummaryDto> {
     const res = await request(`${this.config.baseUrl}/me/wallet/summary`, {
       headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getWallet(): Promise<WalletSummaryDto> {
+    const res = await request(`${this.config.baseUrl}/me/wallet`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getWalletTransactions(query?: {
+    cursor?: string;
+    limit?: number;
+  }): Promise<WalletTransactionsResponse> {
+    const params = new URLSearchParams();
+    if (query?.cursor) params.set('cursor', query.cursor);
+    if (query?.limit != null) params.set('limit', String(query.limit));
+    const qs = params.toString();
+    const res = await request(
+      `${this.config.baseUrl}/me/wallet/transactions${qs ? `?${qs}` : ''}`,
+      { headers: await this.headers(true) },
+    );
+    return parseJson(res);
+  }
+
+  async previewJoinCoin(body: JoinCoinPreviewRequest): Promise<JoinCoinPreviewDto> {
+    const res = await request(`${this.config.baseUrl}/joins/coin-preview`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
     });
     return parseJson(res);
   }

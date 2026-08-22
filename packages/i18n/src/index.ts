@@ -58,10 +58,18 @@ const koKR = {
   'my.account.title': '계정',
   'my.account.linkingTbd': 'Account Linking · AUTH_POLICY_TBD',
   'wallet.available': '사용 가능',
-  'wallet.hold': 'HOLD',
+  'wallet.hold': '보류 중',
+  'wallet.total': '보유',
   'wallet.title': 'MY Wallet',
   'wallet.emptyTx': '거래내역이 없습니다.',
-  'wallet.foundationNote': 'Wallet Business Logic은 이후 Vertical Slice에서 구현합니다.',
+  'wallet.foundationNote':
+    '방 생성 수수료와 참가 보상은 별도 회계입니다. 원화 환산은 POLICY_TBD.',
+  'create.coin.fee': '방 생성 수수료',
+  'create.coin.reward': '참가 보상',
+  'create.coin.hold': '보류 예정',
+  'create.coin.total': '총 필요',
+  'create.coin.available': '사용 가능',
+  'create.coin.insufficient': '보유 코인이 부족합니다.',
   'profile.public.title': '프로필',
   'profile.skill': '스크린골프 실력',
   'profile.participationCount': '참여 횟수',
@@ -91,7 +99,9 @@ const enUS = {
   'auth.login.google': 'Continue with Google',
   'auth.gate.identityRequired': 'Identity verification is required for join activities.',
   'wallet.available': 'Available',
-  'wallet.hold': 'HOLD',
+  'wallet.hold': 'Held',
+  'wallet.total': 'Total',
+  'create.coin.insufficient': 'Insufficient coin balance.',
 } as const;
 
 export type MessageKey = keyof typeof koKR;

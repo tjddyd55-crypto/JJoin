@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
 import {
@@ -10,7 +10,8 @@ import {
   colors,
   spacing,
 } from '@jjoin/design-system';
-import { JoinMethod, SCREEN_GOLF_CODE } from '@jjoin/types';
+import { t } from '@jjoin/i18n';
+import { JoinMethod, SCREEN_GOLF_CODE, type JoinCoinPreviewDto } from '@jjoin/types';
 import { useSession } from '../../src/session/SessionContext';
 import { getApiClient } from '../../src/lib/api';
 import { getSecureSessionStore } from '../../src/session/SessionContext';
@@ -42,15 +43,35 @@ function defaultStartAtIso() {
   return d.toISOString();
 }
 
+function newIdempotencyKey() {
+  return `create-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export default function CreateScreen() {
   const { requestGatedAction, me } = useSession();
   const router = useRouter();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [venueIndex, setVenueIndex] = useState(0);
   const [players, setPlayers] = useState(4);
+  const [preview, setPreview] = useState<JoinCoinPreviewDto | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [doneJoinId, setDoneJoinId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const next = await api.previewJoinCoin({ plannedPlayerCount: players });
+        if (!cancelled) setPreview(next);
+      } catch {
+        if (!cancelled) setPreview(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [api, players, me?.userId]);
 
   const onCreate = useCallback(async () => {
     const gate = requestGatedAction({ type: 'CREATE_JOIN' });
@@ -59,6 +80,10 @@ export default function CreateScreen() {
       return;
     }
     if (submitting) return;
+    if (preview && !preview.canCreate) {
+      setError(t('create.coin.insufficient'));
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -70,18 +95,19 @@ export default function CreateScreen() {
         plannedPlayerCount: players,
         joinMethod: JoinMethod.APPROVAL,
         title: `${venue.name} 스크린골프`,
-        rewardPerParticipant: '0',
+        idempotencyKey: newIdempotencyKey(),
       });
       setDoneJoinId(detail.joinId);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'create_failed';
       if (msg.startsWith('network_error')) setError('네트워크 오류 — API 연결을 확인하세요.');
       else if (msg.includes('401')) setError('로그인이 필요합니다.');
+      else if (msg.includes('INSUFFICIENT_BALANCE')) setError(t('create.coin.insufficient'));
       else setError('조인 생성에 실패했습니다.');
     } finally {
       setSubmitting(false);
     }
-  }, [api, players, requestGatedAction, router, submitting, venueIndex]);
+  }, [api, players, preview, requestGatedAction, router, submitting, venueIndex]);
 
   if (doneJoinId) {
     return (
@@ -89,7 +115,7 @@ export default function CreateScreen() {
         <Stack gap="md" style={styles.body}>
           <AppText variant="subtitle">조인 생성 완료</AppText>
           <AppText variant="body" color="textSecondary">
-            PostgreSQL에 저장되었습니다. Explore에서 확인할 수 있습니다.
+            방 생성 수수료와 참가 보상 보류가 Ledger에 기록되었습니다.
           </AppText>
           <Button
             label="조인 상세"
@@ -102,6 +128,7 @@ export default function CreateScreen() {
             variant="secondary"
             onPress={() => router.push('/(tabs)/my-joins')}
           />
+          <Button label="월렛" variant="secondary" onPress={() => router.push('/my/wallet')} />
         </Stack>
       </ScreenContainer>
     );
@@ -143,8 +170,32 @@ export default function CreateScreen() {
           ))}
         </View>
 
+        <AppText variant="subtitle">코인 요약 (서버 계산)</AppText>
+        {preview ? (
+          <View style={styles.summary}>
+            <SummaryRow
+              label={t('create.coin.fee')}
+              value={`${preview.roomCreationFee} Coin`}
+            />
+            <SummaryRow
+              label={t('create.coin.reward')}
+              value={`${preview.rewardPerParticipant} Coin × ${preview.rewardEligibleSlots}명`}
+            />
+            <SummaryRow label={t('create.coin.hold')} value={`${preview.rewardHoldTotal} Coin`} />
+            <SummaryRow label={t('create.coin.total')} value={`${preview.totalRequiredCoin} Coin`} />
+            <SummaryRow
+              label={t('create.coin.available')}
+              value={`${preview.walletAvailable} Coin`}
+            />
+          </View>
+        ) : (
+          <AppText variant="caption" color="textSecondary">
+            코인 preview 로딩 중…
+          </AppText>
+        )}
+
         <AppText variant="caption" color="textSecondary">
-          참가 방식: 승인제 · 보상 스냅샷만 저장 (Coin 정산 보류)
+          참가 방식: 승인제 · 수수료와 보상 보류는 별도 회계 (TEST ONLY / POLICY_TBD)
         </AppText>
 
         {error ? (
@@ -161,6 +212,17 @@ export default function CreateScreen() {
   );
 }
 
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.summaryRow}>
+      <AppText variant="body" color="textSecondary">
+        {label}
+      </AppText>
+      <AppText variant="bodyStrong">{value}</AppText>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   body: { paddingBottom: spacing.lg },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
@@ -172,4 +234,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   chipOn: { borderColor: colors.primary, backgroundColor: colors.surface },
+  summary: { gap: spacing.xs },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.xs,
+  },
 });

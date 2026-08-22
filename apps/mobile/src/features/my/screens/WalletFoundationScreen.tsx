@@ -1,4 +1,5 @@
 import { StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AppText,
   CoinBadge,
@@ -8,11 +9,29 @@ import {
   spacing,
 } from '@jjoin/design-system';
 import { t } from '@jjoin/i18n';
-import { useSession } from '../../../session/SessionContext';
+import type { WalletSummaryDto } from '@jjoin/types';
+import { getApiClient } from '../../../lib/api';
+import { getSecureSessionStore } from '../../../session/SessionContext';
 
 export function WalletFoundationScreen() {
-  const { me } = useSession();
-  const wallet = me?.walletSummary;
+  const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
+  const [wallet, setWallet] = useState<WalletSummaryDto | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const summary = await api.getWallet();
+      setWallet(summary);
+      setError(null);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'wallet_load_failed';
+      setError(msg.includes('401') ? '로그인이 필요합니다.' : '월렛을 불러오지 못했습니다.');
+    }
+  }, [api]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   return (
     <ScreenContainer>
@@ -21,8 +40,10 @@ export function WalletFoundationScreen() {
         <AppText variant="caption" color="textSecondary">
           {t('wallet.foundationNote')}
         </AppText>
-        <CoinBadge amount={wallet?.availableCoin ?? '0'} label={t('wallet.available')} />
-        <CoinBadge amount={wallet?.heldCoin ?? '0'} label={t('wallet.hold')} />
+        {error ? <AppText color="danger">{error}</AppText> : null}
+        <CoinBadge amount={wallet?.totalCoin ?? '—'} label={t('wallet.total')} />
+        <CoinBadge amount={wallet?.availableCoin ?? '—'} label={t('wallet.available')} />
+        <CoinBadge amount={wallet?.heldCoin ?? '—'} label={t('wallet.hold')} />
         <AppText variant="subtitle">거래내역</AppText>
         {(wallet?.recentTransactions.length ?? 0) === 0 ? (
           <AppText color="textSecondary">{t('wallet.emptyTx')}</AppText>
