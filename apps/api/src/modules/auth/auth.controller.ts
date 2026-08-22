@@ -7,11 +7,15 @@
   Post,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import type { SocialSignInRequest } from '@jjoin/types';
+import { SocialAuthService } from '../../auth/social-auth.service';
+import type { SocialSignInRequest, SocialExchangeRequest } from '@jjoin/types';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly service: AuthService) {}
+  constructor(
+    private readonly service: AuthService,
+    private readonly socialAuth: SocialAuthService,
+  ) {}
 
   @Get('_meta')
   meta() {
@@ -35,6 +39,16 @@ export class AuthController {
       throw new ForbiddenException('mock_sign_in_disabled');
     }
     return this.service.mockSignIn(body);
+  }
+
+  /** Verify provider credential server-side and issue JJOIN session. */
+  @Post('social/exchange')
+  socialExchange(@Body() body: SocialExchangeRequest) {
+    const mode = (process.env.SOCIAL_AUTH_MODE ?? 'mock').toLowerCase();
+    if (mode === 'disabled') {
+      throw new ForbiddenException('social_auth_disabled');
+    }
+    return this.socialAuth.exchange(body);
   }
 
   @Get('session')

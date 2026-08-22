@@ -28,6 +28,7 @@ function baseMe(overrides: Partial<MeDto> = {}): MeDto {
       termsAccepted: true,
       profileComplete: true,
       hasAvatar: true,
+      locationOnboardingComplete: true,
       ...overrides.authAppHints,
     },
     publicProfile: {
@@ -85,21 +86,31 @@ test('resolveAuthAppState: unauthenticated', () => {
 
 test('resolveAuthAppState: needs terms', () => {
   const me = baseMe({
-    authAppHints: { termsAccepted: false, profileComplete: false, hasAvatar: false },
+    authAppHints: {
+      termsAccepted: false,
+      profileComplete: false,
+      hasAvatar: false,
+      locationOnboardingComplete: false,
+    },
   });
   assert.equal(resolveAuthAppState(me, true), AuthAppState.AUTHENTICATED_NEEDS_TERMS);
 });
 
-test('resolveAuthAppState: profile incomplete before identity state', () => {
+test('resolveAuthAppState: identity gate before profile completion', () => {
   const me = baseMe({
-    authAppHints: { termsAccepted: true, profileComplete: false, hasAvatar: false },
+    authAppHints: {
+      termsAccepted: true,
+      profileComplete: false,
+      hasAvatar: false,
+      locationOnboardingComplete: false,
+    },
     identity: {
       verificationStatus: IdentityStatus.UNVERIFIED,
       verifiedAt: null,
       provider: null,
     },
   });
-  assert.equal(resolveAuthAppState(me, true), AuthAppState.AUTHENTICATED_PROFILE_INCOMPLETE);
+  assert.equal(resolveAuthAppState(me, true), AuthAppState.AUTHENTICATED_IDENTITY_UNVERIFIED);
 });
 
 test('resolveAuthAppState: identity unverified but profile ready', () => {
@@ -115,7 +126,12 @@ test('resolveAuthAppState: identity unverified but profile ready', () => {
 
 test('onboarding new user path', () => {
   const me = baseMe({
-    authAppHints: { termsAccepted: false, profileComplete: false, hasAvatar: false },
+    authAppHints: {
+      termsAccepted: false,
+      profileComplete: false,
+      hasAvatar: false,
+      locationOnboardingComplete: false,
+    },
     identity: {
       verificationStatus: IdentityStatus.UNVERIFIED,
       verifiedAt: null,

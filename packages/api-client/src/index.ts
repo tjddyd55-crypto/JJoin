@@ -84,6 +84,18 @@ export class ApiClient {
     return parseJson(res);
   }
 
+  async socialExchange(body: {
+    provider: SocialProvider;
+    credential: string;
+  }): Promise<SocialSignInResponse> {
+    const res = await request(`${this.config.baseUrl}/auth/social/exchange`, {
+      method: 'POST',
+      headers: await this.headers(false),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
   async getSession(): Promise<{ userId: string; me: MeDto }> {
     const res = await request(`${this.config.baseUrl}/auth/session`, {
       headers: await this.headers(true),
@@ -138,6 +150,14 @@ export class ApiClient {
       method: 'POST',
       headers: await this.headers(true),
       body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async completeLocationOnboarding(): Promise<MeDto> {
+    const res = await request(`${this.config.baseUrl}/me/onboarding/location`, {
+      method: 'POST',
+      headers: await this.headers(true),
     });
     return parseJson(res);
   }

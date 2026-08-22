@@ -25,13 +25,16 @@ export class IdentityController {
 
   @UseGuards(MockAuthGuard)
   @Post('me/identity/confirm')
-  confirm(@Body() body: { sessionId: string; outcome?: 'success' | 'fail' }) {
-    return this.service.confirm(body.sessionId, body.outcome ?? 'success');
+  confirm(
+    @CurrentUserId() userId: string,
+    @Body() body: { sessionId: string; outcome?: 'success' | 'fail' },
+  ) {
+    return this.service.confirm(userId, body.sessionId, body.outcome ?? 'success');
   }
 
   @UseGuards(MockAuthGuard)
   @Post('me/identity/cancel')
-  cancel(@Body() body: { sessionId: string }) {
-    return this.service.cancel(body.sessionId);
+  cancel(@CurrentUserId() userId: string, @Body() body: { sessionId: string }) {
+    return this.service.cancel(userId, body.sessionId);
   }
 }

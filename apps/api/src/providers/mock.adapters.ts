@@ -12,6 +12,9 @@ export class MockKakaoAuthAdapter implements SocialAuthProvider {
   async exchangeCode(code: string) {
     return { subject: `kakao_${code || randomUUID()}`, email: undefined };
   }
+  async verifyCredential(credential: string) {
+    return this.exchangeCode(credential);
+  }
 }
 
 @Injectable()
@@ -20,6 +23,9 @@ export class MockNaverAuthAdapter implements SocialAuthProvider {
   async exchangeCode(code: string) {
     return { subject: `naver_${code || randomUUID()}`, email: undefined };
   }
+  async verifyCredential(credential: string) {
+    return this.exchangeCode(credential);
+  }
 }
 
 @Injectable()
@@ -27,6 +33,9 @@ export class MockGoogleAuthAdapter implements SocialAuthProvider {
   readonly name = 'GOOGLE' as const;
   async exchangeCode(code: string) {
     return { subject: `google_${code || randomUUID()}`, email: undefined };
+  }
+  async verifyCredential(credential: string) {
+    return this.exchangeCode(credential);
   }
 }
 

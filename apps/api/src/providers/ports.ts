@@ -1,8 +1,15 @@
-﻿/** Provider ports — adapters implement these later. */
+﻿/** Provider ports — adapters implement these. */
+
+export type VerifiedSocialProfile = {
+  subject: string;
+  email?: string;
+  nickname?: string;
+  avatarUrl?: string;
+};
 
 export interface SocialAuthProvider {
   readonly name: 'KAKAO' | 'NAVER' | 'GOOGLE';
-  exchangeCode(code: string): Promise<{ subject: string; email?: string }>;
+  verifyCredential(credential: string): Promise<VerifiedSocialProfile>;
 }
 
 export interface IdentityVerificationProvider {

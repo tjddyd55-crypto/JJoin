@@ -195,6 +195,7 @@ export type MeDto = {
     termsAccepted: boolean;
     profileComplete: boolean;
     hasAvatar: boolean;
+    locationOnboardingComplete: boolean;
   };
   publicProfile: PublicUserProfileDto | null;
   identity: PrivateIdentityDto;
@@ -216,6 +217,12 @@ export type SocialSignInRequest = {
   persona?: MockAuthPersona;
 };
 
+export type SocialExchangeRequest = {
+  provider: SocialProvider;
+  /** Provider access token, ID token, or mock:test-subject (mock mode only). */
+  credential: string;
+};
+
 export type SocialSignInResponse = {
   session: AuthSessionDto;
   me: MeDto;
@@ -224,7 +231,8 @@ export type SocialSignInResponse = {
     | 'TERMS'
     | 'IDENTITY'
     | 'PROFILE_SETUP'
-    | 'PROFILE_PHOTO';
+    | 'PROFILE_PHOTO'
+    | 'LOCATION';
 };
 
 export const DEFAULT_LOCALE = 'ko-KR';

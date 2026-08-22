@@ -24,6 +24,8 @@ function routeForNextStep(nextStep: string) {
       return '/auth/profile-setup';
     case 'PROFILE_PHOTO':
       return '/auth/profile-photo';
+    case 'LOCATION':
+      return '/auth/location';
     default:
       return '/(tabs)';
   }

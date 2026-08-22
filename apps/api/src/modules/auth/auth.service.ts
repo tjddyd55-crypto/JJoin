@@ -17,6 +17,7 @@ import {
 } from '../../providers/mock.adapters';
 import { PresenceService } from '../presence/presence.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { UserAccountService } from '../users/user-account.service';
 import { loadMeFromDb, signInDevPersona } from '../../auth/dev-persona';
 import { issueSessionToken, verifySessionToken } from '../../auth/session-token';
 
@@ -28,10 +29,11 @@ export class AuthService {
     private readonly google: MockGoogleAuthAdapter,
     private readonly presence: PresenceService,
     private readonly prisma: PrismaService,
+    private readonly accounts: UserAccountService,
   ) {}
 
   ping() {
-    return { module: 'auth', status: 'mock' };
+    return { module: 'auth', status: 'ready' };
   }
 
   async mockSignIn(body: SocialSignInRequest) {
@@ -43,7 +45,7 @@ export class AuthService {
           ? this.naver
           : this.google;
 
-    await adapter.exchangeCode(`mock_code_${provider}`);
+    await adapter.verifyCredential(`mock_code_${provider}`);
 
     if (body.persona) {
       if (!Object.values(MockAuthPersona).includes(body.persona)) {
@@ -70,16 +72,22 @@ export class AuthService {
     }
     if (!userId) throw new UnauthorizedException('unauthorized');
 
-    let me = mockUserStore.getMe(userId);
-    if (!me) {
-      try {
-        me = await loadMeFromDb(this.prisma, userId);
-        mockUserStore.hydrateFromMe(userId, me, SocialProvider.KAKAO);
-      } catch {
-        throw new UnauthorizedException('unauthorized');
+    try {
+      const me = await this.accounts.getMe(userId);
+      mockUserStore.hydrateFromMe(userId, me, SocialProvider.KAKAO);
+      return { userId, me };
+    } catch {
+      let me = mockUserStore.getMe(userId);
+      if (!me) {
+        try {
+          me = await loadMeFromDb(this.prisma, userId);
+          mockUserStore.hydrateFromMe(userId, me, SocialProvider.KAKAO);
+        } catch {
+          throw new UnauthorizedException('unauthorized');
+        }
       }
+      return { userId, me };
     }
-    return { userId, me };
   }
 
   async logout(token: string | undefined) {

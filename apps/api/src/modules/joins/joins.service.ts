@@ -47,6 +47,7 @@ import {
   resolveDefaultRewardPerParticipant,
   resolveRoomCreationFee,
 } from '../../coin/dev-coin-policy';
+import { UserAccountService } from '../users/user-account.service';
 import { mockUserStore } from '../../mock/mock-user.store';
 
 const ACTIVE_JOIN_STATUSES: JoinStatus[] = [JoinStatus.OPEN, JoinStatus.FULL];
@@ -57,6 +58,7 @@ export class JoinsService {
     private readonly prisma: PrismaService,
     private readonly ledger: CoinLedgerService,
     private readonly settlement: SettlementService,
+    private readonly accounts: UserAccountService,
   ) {}
 
   ping() {
@@ -94,6 +96,7 @@ export class JoinsService {
   }
 
   async create(hostUserId: string, raw: CreateJoinRequest): Promise<JoinDetailDto> {
+    await this.accounts.assertIdentityVerified(hostUserId, 'CREATE_JOIN');
     const parsed = createJoinSchema.safeParse(raw);
     if (!parsed.success) {
       throw new BadRequestException('invalid_create_join');
@@ -322,6 +325,7 @@ export class JoinsService {
   }
 
   async apply(joinId: string, userId: string): Promise<JoinDetailDto> {
+    await this.accounts.assertIdentityVerified(userId, 'APPLY_JOIN');
     await this.prisma.$transaction(async (tx) => {
       const join = await tx.join.findUnique({
         where: { id: joinId },

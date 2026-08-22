@@ -14,6 +14,7 @@ import {
   type MeDto,
   type PendingActionIntent,
 } from '@jjoin/types';
+import { obtainSocialCredential } from '../features/auth/social/obtain-social-credential';
 import { pendingActionRoute, resolveAuthAppState } from '@jjoin/domain';
 import { getApiClient } from '../lib/api';
 import { createExpoSecureSessionStore } from './expo-secure-session-store';
@@ -42,6 +43,7 @@ type SessionContextValue = {
   setupProfile: (body: unknown) => Promise<void>;
   setAvatar: (body: { localUri?: string | null; skip?: boolean }) => Promise<void>;
   editProfile: (body: unknown) => Promise<void>;
+  completeLocationOnboarding: () => Promise<void>;
   logout: () => Promise<void>;
   requestGatedAction: (intent: PendingActionIntent) => {
     allowed: boolean;
@@ -100,11 +102,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     async (provider: SocialProvider) => {
       setError(null);
       try {
-        const res = await api.mockSocialSignIn({
-          provider,
-          scenario: mockPersona ? undefined : mockScenario,
-          persona: mockPersona ?? undefined,
-        });
+        let res;
+        if (mockPersona) {
+          res = await api.mockSocialSignIn({
+            provider,
+            persona: mockPersona,
+          });
+        } else if (__DEV__) {
+          res = await api.mockSocialSignIn({
+            provider,
+            scenario: mockScenario,
+          });
+        } else {
+          const credential = await obtainSocialCredential(provider);
+          res = await api.socialExchange({ provider, credential });
+        }
         await store.setToken(res.session.accessToken);
         await applyMe(res.me, true);
         return res.nextStep;
@@ -187,6 +199,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     [api, applyMe],
   );
 
+  const completeLocationOnboarding = useCallback(async () => {
+    const next = await api.completeLocationOnboarding();
+    await applyMe(next, true);
+  }, [api, applyMe]);
+
   const logout = useCallback(async () => {
     try {
       await api.logout();
@@ -234,6 +251,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setupProfile,
     setAvatar,
     editProfile,
+    completeLocationOnboarding,
     logout,
     requestGatedAction,
     completeGateAndReturn,

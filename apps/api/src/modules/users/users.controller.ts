@@ -46,6 +46,12 @@ export class UsersController {
   }
 
   @UseGuards(MockAuthGuard)
+  @Post('me/onboarding/location')
+  location(@CurrentUserId() userId: string) {
+    return this.service.completeLocationOnboarding(userId);
+  }
+
+  @UseGuards(MockAuthGuard)
   @Get('me/sport-profiles')
   sportProfiles(@CurrentUserId() userId: string) {
     return this.service.getSportProfiles(userId);

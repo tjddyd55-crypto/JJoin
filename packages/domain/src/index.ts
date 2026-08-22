@@ -115,25 +115,25 @@ export function resolveAuthAppState(me: MeDto | null, hasSession: boolean): Auth
   if (!me.authAppHints.termsAccepted) {
     return AuthAppState.AUTHENTICATED_NEEDS_TERMS;
   }
-  if (!me.authAppHints.profileComplete) {
-    return AuthAppState.AUTHENTICATED_PROFILE_INCOMPLETE;
-  }
   if (me.identity.verificationStatus !== IdentityStatus.VERIFIED) {
     return AuthAppState.AUTHENTICATED_IDENTITY_UNVERIFIED;
+  }
+  if (!me.authAppHints.profileComplete || !me.authAppHints.hasAvatar) {
+    return AuthAppState.AUTHENTICATED_PROFILE_INCOMPLETE;
+  }
+  if (!me.authAppHints.locationOnboardingComplete) {
+    return AuthAppState.AUTHENTICATED_PROFILE_INCOMPLETE;
   }
   return AuthAppState.READY;
 }
 
-/** Onboarding path for new users. Avatar step is routed by ProfileSetupScreen, not required for returning users. */
+/** Onboarding path for new users. */
 export function resolveOnboardingStep(me: MeDto): SocialSignInNextStep {
   if (!me.authAppHints.termsAccepted) return 'TERMS';
-  if (
-    me.identity.verificationStatus !== IdentityStatus.VERIFIED &&
-    !me.authAppHints.profileComplete
-  ) {
-    return 'IDENTITY';
-  }
+  if (me.identity.verificationStatus !== IdentityStatus.VERIFIED) return 'IDENTITY';
   if (!me.authAppHints.profileComplete) return 'PROFILE_SETUP';
+  if (!me.authAppHints.hasAvatar) return 'PROFILE_PHOTO';
+  if (!me.authAppHints.locationOnboardingComplete) return 'LOCATION';
   return 'HOME';
 }
 
@@ -142,7 +142,8 @@ export type SocialSignInNextStep =
   | 'TERMS'
   | 'IDENTITY'
   | 'PROFILE_SETUP'
-  | 'PROFILE_PHOTO';
+  | 'PROFILE_PHOTO'
+  | 'LOCATION';
 
 export function requiresIdentityGate(
   identityStatus: IdentityStatus,

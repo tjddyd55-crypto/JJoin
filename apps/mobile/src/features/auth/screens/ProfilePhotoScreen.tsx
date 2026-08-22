@@ -23,7 +23,7 @@ export function ProfilePhotoScreen() {
     setError(null);
     try {
       await setAvatar(skip ? { skip: true } : { localUri: uri });
-      router.replace('/(tabs)');
+      router.replace('/auth/location');
     } catch {
       setError(t('common.error'));
     } finally {

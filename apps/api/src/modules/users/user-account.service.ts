@@ -1,0 +1,475 @@
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  IdentityStatus,
+  SCREEN_GOLF_CODE,
+  SocialProvider,
+  SportSkillLevel,
+  type MeDto,
+  type PublicUserProfileDto,
+} from '@jjoin/types';
+import { profileEditSchema, profileSetupSchema, termsConsentSchema } from '@jjoin/validation';
+import { Prisma } from '@prisma/client';
+import { createHash, randomUUID } from 'node:crypto';
+import { TERMS_VERSION } from '../../auth/consent-policy';
+import {
+  buildMeFromUser,
+  buildPublicProfileFromUser,
+  CONSENT_FIELD_MAP,
+  type UserWithRelations,
+} from '../../auth/user-me.mapper';
+import { resolveIdentityProviderMode } from '../../auth/social-auth-mode';
+import { ensureFoundation } from '../../foundation/ensure-foundation';
+import { MockIdentityAdapter } from '../../providers/mock.adapters';
+import { MockMediaAdapter } from '../../providers/mock.adapters';
+import { PrismaService } from '../../prisma/prisma.service';
+import { WalletService } from '../wallet/wallet.service';
+
+const USER_INCLUDE = {
+  profile: true,
+  socialAccounts: true,
+  sportProfiles: { include: { sport: true } },
+  wallets: true,
+  identityVerifications: { orderBy: { createdAt: 'desc' as const }, take: 1 },
+  consents: true,
+} satisfies Prisma.UserInclude;
+
+@Injectable()
+export class UserAccountService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly wallet: WalletService,
+    private readonly media: MockMediaAdapter,
+    private readonly mockIdentity: MockIdentityAdapter,
+  ) {}
+
+  async loadUser(userId: string): Promise<UserWithRelations> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: USER_INCLUDE,
+    });
+    if (!user) throw new NotFoundException('user_not_found');
+    return user;
+  }
+
+  async getMe(userId: string): Promise<MeDto> {
+    const user = await this.loadUser(userId);
+    const participationCount = await this.prisma.joinParticipant.count({
+      where: { userId, participationStatus: { in: ['APPROVED', 'CONFIRMED', 'COMPLETED'] } },
+    });
+    const me = buildMeFromUser(user, participationCount);
+    const walletSummary = await this.wallet.getSummary(userId);
+    return { ...me, walletSummary };
+  }
+
+  async acceptTerms(userId: string, body: unknown): Promise<MeDto> {
+    const parsed = termsConsentSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException({ code: 'terms_incomplete', issues: parsed.error.issues });
+    }
+    const data = parsed.data;
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const [field, type] of Object.entries(CONSENT_FIELD_MAP)) {
+        const value = data[field as keyof typeof data];
+        if (field === 'marketing') {
+          if (value === true) {
+            await tx.userConsent.upsert({
+              where: {
+                userId_type_version: { userId, type, version: TERMS_VERSION },
+              },
+              create: { userId, type, version: TERMS_VERSION, agreed: true },
+              update: { agreed: true, agreedAt: new Date() },
+            });
+          }
+          continue;
+        }
+        if (value !== true) continue;
+        await tx.userConsent.upsert({
+          where: {
+            userId_type_version: { userId, type, version: TERMS_VERSION },
+          },
+          create: { userId, type, version: TERMS_VERSION, agreed: true },
+          update: { agreed: true, agreedAt: new Date() },
+        });
+      }
+    });
+
+    return this.getMe(userId);
+  }
+
+  async completeLocationOnboarding(userId: string): Promise<MeDto> {
+    await this.prisma.userConsent.upsert({
+      where: {
+        userId_type_version: {
+          userId,
+          type: 'LOCATION',
+          version: TERMS_VERSION,
+        },
+      },
+      create: { userId, type: 'LOCATION', version: TERMS_VERSION, agreed: true },
+      update: { agreed: true, agreedAt: new Date() },
+    });
+    return this.getMe(userId);
+  }
+
+  async setupProfile(userId: string, body: unknown): Promise<MeDto> {
+    const parsed = profileSetupSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException({ code: 'profile_invalid', issues: parsed.error.issues });
+    }
+    const data = parsed.data;
+    const sport = await this.prisma.sport.findUniqueOrThrow({
+      where: { code: data.sportCode ?? SCREEN_GOLF_CODE },
+    });
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.userProfile.upsert({
+          where: { userId },
+          create: {
+            userId,
+            nickname: data.nickname,
+            gender: data.gender,
+            ageBand: data.ageBand,
+            regionLabel: data.regionLabel,
+            bio: data.bio || null,
+          },
+          update: {
+            nickname: data.nickname,
+            gender: data.gender,
+            ageBand: data.ageBand,
+            regionLabel: data.regionLabel,
+            bio: data.bio || null,
+          },
+        });
+        await tx.userSportProfile.upsert({
+          where: { userId_sportId: { userId, sportId: sport.id } },
+          create: {
+            userId,
+            sportId: sport.id,
+            skillLevel: data.skillLevel,
+          },
+          update: { skillLevel: data.skillLevel },
+        });
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new BadRequestException('nickname_taken');
+      }
+      throw e;
+    }
+
+    return this.getMe(userId);
+  }
+
+  async editProfile(userId: string, body: unknown): Promise<MeDto> {
+    const parsed = profileEditSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException({ code: 'profile_invalid', issues: parsed.error.issues });
+    }
+    const data = parsed.data;
+    const sport = await this.prisma.sport.findUniqueOrThrow({
+      where: { code: data.sportCode ?? SCREEN_GOLF_CODE },
+    });
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        const existing = await tx.userProfile.findUnique({ where: { userId } });
+        if (!existing) throw new NotFoundException('profile_not_found');
+        await tx.userProfile.update({
+          where: { userId },
+          data: {
+            nickname: data.nickname ?? existing.nickname,
+            gender: data.gender ?? existing.gender,
+            ageBand: data.ageBand ?? existing.ageBand,
+            regionLabel: data.regionLabel ?? existing.regionLabel,
+            bio: data.bio ?? existing.bio,
+          },
+        });
+        if (data.skillLevel) {
+          await tx.userSportProfile.upsert({
+            where: { userId_sportId: { userId, sportId: sport.id } },
+            create: { userId, sportId: sport.id, skillLevel: data.skillLevel },
+            update: { skillLevel: data.skillLevel },
+          });
+        }
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new BadRequestException('nickname_taken');
+      }
+      throw e;
+    }
+
+    return this.getMe(userId);
+  }
+
+  async setAvatar(
+    userId: string,
+    body: { localUri?: string | null; skip?: boolean; socialAvatarUrl?: string | null },
+  ): Promise<MeDto> {
+    if (body.skip) {
+      await this.prisma.userConsent.upsert({
+        where: {
+          userId_type_version: {
+            userId,
+            type: 'AVATAR_SKIPPED',
+            version: TERMS_VERSION,
+          },
+        },
+        create: { userId, type: 'AVATAR_SKIPPED', version: TERMS_VERSION, agreed: true },
+        update: { agreed: true },
+      });
+      return this.getMe(userId);
+    }
+
+    await this.media.createUploadUrl({ userId, contentType: 'image/jpeg' });
+    const storageKey = body.socialAvatarUrl ?? body.localUri ?? `mock://avatar/${userId}`;
+
+    await this.prisma.$transaction(async (tx) => {
+      const asset = await tx.mediaAsset.create({
+        data: {
+          ownerUserId: userId,
+          kind: 'AVATAR',
+          storageKey,
+          mimeType: 'image/jpeg',
+        },
+      });
+      await tx.userProfile.upsert({
+        where: { userId },
+        create: { userId, nickname: `user_${userId.slice(0, 8)}`, avatarAssetId: asset.id },
+        update: { avatarAssetId: asset.id },
+      });
+    });
+
+    return this.getMe(userId);
+  }
+
+  async getPublicProfile(userId: string): Promise<PublicUserProfileDto> {
+    const user = await this.loadUser(userId);
+    if (!user.profile) throw new NotFoundException('user_not_found');
+    const participationCount = await this.prisma.joinParticipant.count({
+      where: { userId, participationStatus: { in: ['APPROVED', 'CONFIRMED', 'COMPLETED'] } },
+    });
+    return buildPublicProfileFromUser(user, participationCount);
+  }
+
+  async assertIdentityVerified(userId: string, action: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { identityStatus: true },
+    });
+    if (!user) throw new NotFoundException('user_not_found');
+    if (user.identityStatus !== IdentityStatus.VERIFIED) {
+      throw new ForbiddenException({
+        code: 'IDENTITY_REQUIRED',
+        message: '조인 활동을 위해 본인확인이 필요합니다.',
+        action,
+      });
+    }
+  }
+
+  async isDevPersonaUser(userId: string): Promise<boolean> {
+    const account = await this.prisma.socialAccount.findFirst({
+      where: {
+        userId,
+        providerSubject: { startsWith: 'dev-persona-' },
+      },
+    });
+    return Boolean(account);
+  }
+
+  async startIdentity(userId: string): Promise<{ sessionId: string }> {
+    await this.assertMockIdentityAllowed(userId);
+    await this.mockIdentity.start(userId);
+
+    const row = await this.prisma.identityVerification.create({
+      data: {
+        userId,
+        provider: 'MOCK_IDENTITY',
+        status: 'PENDING',
+      },
+    });
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { identityStatus: 'PENDING' },
+    });
+
+    return { sessionId: row.id };
+  }
+
+  async confirmIdentity(
+    userId: string,
+    sessionId: string,
+    outcome: 'success' | 'fail' = 'success',
+  ): Promise<MeDto> {
+    await this.assertMockIdentityAllowed(userId);
+    if (!sessionId) throw new BadRequestException('session_required');
+
+    const row = await this.prisma.identityVerification.findFirst({
+      where: { id: sessionId, userId },
+    });
+    if (!row || row.status !== 'PENDING') {
+      throw new BadRequestException('invalid_identity_session');
+    }
+
+    const adapterResult = await this.mockIdentity.confirm(
+      outcome === 'fail' ? `fail_${sessionId}` : sessionId,
+    );
+
+    if (!adapterResult.verified) {
+      await this.prisma.$transaction([
+        this.prisma.identityVerification.update({
+          where: { id: sessionId },
+          data: { status: 'FAILED' },
+        }),
+        this.prisma.user.update({
+          where: { id: userId },
+          data: { identityStatus: 'FAILED' },
+        }),
+      ]);
+      return this.getMe(userId);
+    }
+
+    const ciHash = adapterResult.ciHash
+      ? createHash('sha256').update(adapterResult.ciHash).digest('hex')
+      : null;
+
+    await this.prisma.$transaction([
+      this.prisma.identityVerification.update({
+        where: { id: sessionId },
+        data: {
+          status: 'VERIFIED',
+          verifiedAt: new Date(),
+          ciHash,
+          verifiedNameMasked: '본인**',
+        },
+      }),
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { identityStatus: 'VERIFIED' },
+      }),
+    ]);
+
+    return this.getMe(userId);
+  }
+
+  async cancelIdentity(userId: string, sessionId: string): Promise<MeDto> {
+    const row = await this.prisma.identityVerification.findFirst({
+      where: { id: sessionId, userId, status: 'PENDING' },
+    });
+    if (!row) throw new BadRequestException('invalid_identity_session');
+
+    await this.prisma.$transaction([
+      this.prisma.identityVerification.update({
+        where: { id: sessionId },
+        data: { status: 'FAILED' },
+      }),
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { identityStatus: 'UNVERIFIED' },
+      }),
+    ]);
+
+    return this.getMe(userId);
+  }
+
+  getIdentityStatus(userId: string) {
+    return this.loadUser(userId).then((u) => buildMeFromUser(u).identity);
+  }
+
+  private async assertMockIdentityAllowed(userId: string): Promise<void> {
+    if (resolveIdentityProviderMode() === 'real') {
+      throw new ForbiddenException('identity_provider_not_configured');
+    }
+    const nodeEnv = (process.env.NODE_ENV ?? 'development').toLowerCase();
+    if (nodeEnv === 'production') {
+      const devPersona = await this.isDevPersonaUser(userId);
+      const socialMode = (process.env.SOCIAL_AUTH_MODE ?? 'mock').toLowerCase();
+      if (!devPersona && socialMode !== 'mock') {
+        throw new ForbiddenException('mock_identity_not_allowed');
+      }
+    }
+  }
+
+  async createUserForSocialProvider(params: {
+    provider: SocialProvider;
+    subject: string;
+    email?: string;
+    nickname?: string;
+    avatarUrl?: string;
+  }): Promise<UserWithRelations> {
+    const { coinAsset } = await ensureFoundation(this.prisma);
+    const sport = await this.prisma.sport.findUniqueOrThrow({
+      where: { code: SCREEN_GOLF_CODE },
+    });
+
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          identityStatus: 'UNVERIFIED',
+          wallets: {
+            create: {
+              coinAssetId: coinAsset.id,
+              availableBalance: 0,
+              heldBalance: 0,
+            },
+          },
+          socialAccounts: {
+            create: {
+              provider: params.provider,
+              providerSubject: params.subject,
+              providerEmail: params.email ?? null,
+              lastLoginAt: new Date(),
+            },
+          },
+        },
+        include: USER_INCLUDE,
+      });
+
+      if (params.nickname) {
+        const nick = `${params.nickname}_${randomUUID().slice(0, 4)}`;
+        await tx.userProfile.create({
+          data: {
+            userId: user.id,
+            nickname: nick.slice(0, 20),
+          },
+        });
+      }
+
+      await tx.userSportProfile.create({
+        data: {
+          userId: user.id,
+          sportId: sport.id,
+          skillLevel: SportSkillLevel.BEGINNER,
+        },
+      });
+
+      return tx.user.findUniqueOrThrow({
+        where: { id: user.id },
+        include: USER_INCLUDE,
+      });
+    });
+  }
+
+  async linkSocialLogin(params: {
+    userId: string;
+    provider: SocialProvider;
+    email?: string;
+  }): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: params.userId },
+      data: { lastLoginAt: new Date() },
+    });
+    await this.prisma.socialAccount.updateMany({
+      where: { userId: params.userId, provider: params.provider },
+      data: { lastLoginAt: new Date(), providerEmail: params.email ?? undefined },
+    });
+  }
+}

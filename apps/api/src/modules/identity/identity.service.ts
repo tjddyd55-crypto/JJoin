@@ -1,44 +1,27 @@
-﻿import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { mockUserStore } from '../../mock/mock-user.store';
-import { MockIdentityAdapter } from '../../providers/mock.adapters';
+﻿import { Injectable } from '@nestjs/common';
+import { UserAccountService } from '../users/user-account.service';
 
 @Injectable()
 export class IdentityService {
-  constructor(private readonly identityAdapter: MockIdentityAdapter) {}
+  constructor(private readonly accounts: UserAccountService) {}
 
   ping() {
-    return { module: 'identity', status: 'mock' };
+    return { module: 'identity', status: 'ready' };
   }
 
   getStatus(userId: string) {
-    const me = mockUserStore.getMe(userId);
-    if (!me) throw new NotFoundException('user_not_found');
-    return me.identity;
+    return this.accounts.getIdentityStatus(userId);
   }
 
-  async start(userId: string) {
-    await this.identityAdapter.start(userId);
-    return mockUserStore.startIdentity(userId);
+  start(userId: string) {
+    return this.accounts.startIdentity(userId);
   }
 
-  async confirm(sessionId: string, outcome: 'success' | 'fail' = 'success') {
-    if (!sessionId) throw new BadRequestException('session_required');
-    // Adapter consulted for Port fidelity; store owns session state for mock.
-    await this.identityAdapter.confirm(
-      outcome === 'fail' ? `fail_${sessionId}` : sessionId,
-    );
-    try {
-      return mockUserStore.confirmIdentity(sessionId, outcome);
-    } catch {
-      throw new BadRequestException('invalid_identity_session');
-    }
+  confirm(userId: string, sessionId: string, outcome: 'success' | 'fail' = 'success') {
+    return this.accounts.confirmIdentity(userId, sessionId, outcome);
   }
 
-  cancel(sessionId: string) {
-    try {
-      return mockUserStore.cancelIdentity(sessionId);
-    } catch {
-      throw new BadRequestException('invalid_identity_session');
-    }
+  cancel(userId: string, sessionId: string) {
+    return this.accounts.cancelIdentity(userId, sessionId);
   }
 }

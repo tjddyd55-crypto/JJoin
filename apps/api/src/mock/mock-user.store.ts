@@ -270,6 +270,7 @@ export class MockUserStore {
         termsAccepted: user.termsAccepted,
         profileComplete,
         hasAvatar: Boolean(user.avatarUrl),
+        locationOnboardingComplete: user.termsAccepted,
       },
       publicProfile: profileComplete ? this.toPublic(user) : null,
       identity: {

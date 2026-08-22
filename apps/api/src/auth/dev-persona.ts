@@ -1,17 +1,14 @@
 import {
   AgeBand,
   Gender,
-  IdentityStatus,
   MockAuthPersona,
   MockAuthScenario,
-  SocialLinkStatus,
   SocialProvider,
   SportSkillLevel,
   type MeDto,
-  type PublicUserProfileDto,
   type SocialSignInResponse,
 } from '@jjoin/types';
-import { mapGenderDisplay, resolveOnboardingStep, addCoinAmounts } from '@jjoin/domain';
+import { resolveOnboardingStep } from '@jjoin/domain';
 import type { PrismaClient } from '@prisma/client';
 import { ensureFoundation } from '../foundation/ensure-foundation';
 import { issueSessionToken } from './session-token';
@@ -19,6 +16,8 @@ import { mockUserStore } from '../mock/mock-user.store';
 import { CoinLedgerService } from '../modules/wallet/coin-ledger.service';
 import { isDevCoinFundingAllowed } from '../coin/dev-coin-policy';
 import type { PrismaService } from '../prisma/prisma.service';
+import { buildMeFromUser } from './user-me.mapper';
+import { TERMS_VERSION, REQUIRED_CONSENT_TYPES } from './consent-policy';
 
 type PersonaFixture = {
   persona: MockAuthPersona;
@@ -93,6 +92,7 @@ export async function signInDevPersona(
 
   if (existing) {
     userId = existing.userId;
+    await seedDevPersonaConsents(prisma, userId);
     await prisma.socialAccount.update({
       where: { id: existing.id },
       data: { lastLoginAt: new Date() },
@@ -152,6 +152,8 @@ export async function signInDevPersona(
     userId = created.id;
   }
 
+  await seedDevPersonaConsents(prisma, userId);
+
   if (isDevCoinFundingAllowed()) {
     // Idempotent TEST ONLY top-up — not a production grant endpoint.
     const ledger = new CoinLedgerService(prisma as PrismaService);
@@ -184,60 +186,34 @@ export async function loadMeFromDb(prisma: PrismaClient, userId: string): Promis
       sportProfiles: { include: { sport: true } },
       wallets: true,
       identityVerifications: { orderBy: { createdAt: 'desc' }, take: 1 },
+      consents: true,
     },
   });
 
-  const profile = user.profile;
-  const publicProfile: PublicUserProfileDto | null = profile
-    ? {
-        id: user.id,
-        nickname: profile.nickname,
-        avatarUrl: null,
-        verifiedBadge: user.identityStatus === IdentityStatus.VERIFIED,
-        genderDisplay: profile.gender ? mapGenderDisplay(profile.gender as never) : null,
-        ageBand: (profile.ageBand as AgeBand | null) ?? null,
-        regionLabel: profile.regionLabel,
-        bio: profile.bio,
-        sportProfiles: user.sportProfiles.map((sp) => ({
-          sportCode: sp.sport.code,
-          skillLevel: sp.skillLevel as SportSkillLevel,
-        })),
-        participationCount: 0,
-      }
-    : null;
+  const participationCount = await prisma.joinParticipant.count({
+    where: { userId, participationStatus: { in: ['APPROVED', 'CONFIRMED', 'COMPLETED'] } },
+  });
 
-  const wallet = user.wallets[0];
-  const latestIdentity = user.identityVerifications[0];
+  return buildMeFromUser(user, participationCount);
+}
 
-  return {
-    userId: user.id,
-    authAppHints: {
-      termsAccepted: true,
-      profileComplete: Boolean(profile?.nickname && profile.regionLabel),
-      hasAvatar: Boolean(profile?.avatarAssetId),
+async function seedDevPersonaConsents(prisma: PrismaClient, userId: string): Promise<void> {
+  for (const type of REQUIRED_CONSENT_TYPES) {
+    await prisma.userConsent.upsert({
+      where: {
+        userId_type_version: { userId, type, version: TERMS_VERSION },
+      },
+      create: { userId, type, version: TERMS_VERSION, agreed: true },
+      update: { agreed: true },
+    });
+  }
+  await prisma.userConsent.upsert({
+    where: {
+      userId_type_version: { userId, type: 'AVATAR_SKIPPED', version: TERMS_VERSION },
     },
-    publicProfile,
-    identity: {
-      verificationStatus: user.identityStatus as IdentityStatus,
-      verifiedAt: latestIdentity?.verifiedAt?.toISOString() ?? null,
-      provider: latestIdentity?.provider ?? null,
-    },
-    socialLinks: Object.values(SocialProvider).map((p) => ({
-      provider: p,
-      status: user.socialAccounts.some((s) => s.provider === p)
-        ? SocialLinkStatus.CONNECTED
-        : SocialLinkStatus.NOT_CONNECTED,
-    })),
-    walletSummary: {
-      assetCode: 'JJOIN',
-      availableCoin: wallet ? String(wallet.availableBalance) : '0',
-      heldCoin: wallet ? String(wallet.heldBalance) : '0',
-      totalCoin: wallet
-        ? addCoinAmounts(String(wallet.availableBalance), String(wallet.heldBalance))
-        : '0',
-      recentTransactions: [],
-    },
-  };
+    create: { userId, type: 'AVATAR_SKIPPED', version: TERMS_VERSION, agreed: true },
+    update: { agreed: true },
+  });
 }
 
 export { PERSONAS };

@@ -54,6 +54,16 @@ export class PresenceService {
   }
 
   async upsert(userId: string, body: UpsertPresenceRequest): Promise<PrivatePresenceDto> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { identityStatus: true },
+    });
+    if (!user || user.identityStatus !== 'VERIFIED') {
+      throw new BadRequestException({
+        code: 'IDENTITY_REQUIRED',
+        message: '조인 활동을 위해 본인확인이 필요합니다.',
+      });
+    }
     this.assertCoordinate(body.latitude, body.longitude);
     if (body.accuracyMeters != null && !(body.accuracyMeters >= 0)) {
       throw new BadRequestException('invalid_accuracy');
