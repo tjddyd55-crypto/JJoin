@@ -75,8 +75,14 @@ Real unverified Kakao users still hit `IDENTITY_REQUIRED` before coin policy.
 
 After deploy, re-run against production API:
 
-- `phase-f-smoke.ts`
-- `phase-j-coin-smoke.ts`
-- `phase-k-settlement-smoke.ts`
-- `phase-l-dispute-smoke.ts`
-- `phase-n-kakao-e2e-server.ts`
+- `phase-f-smoke.ts` — **PASS**
+- `phase-j-coin-smoke.ts` — **PASS**
+- `phase-k-settlement-smoke.ts` — **PASS**
+- `phase-l-dispute-smoke.ts` — **PASS**
+- `phase-m-auth-smoke.ts` — **PASS**
+- `phase-n-kakao-e2e-server.ts` — **PASS**
+
+Additional hybrid guards fixed in follow-up commits:
+
+- `settlement-clock.ts` — QA advance-clock
+- `admin-auth.ts` — DEV_ADMIN dispute resolution
