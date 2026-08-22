@@ -13,5 +13,6 @@ export class SystemSettlementClock implements SettlementClock {
 
 /** DEV/mock QA only — never exposed to production real users without guard. */
 export function isSettlementQaAllowed(): boolean {
-  return process.env.SOCIAL_AUTH_MODE === 'mock';
+  const mode = (process.env.SOCIAL_AUTH_MODE ?? 'mock').trim().toLowerCase();
+  return mode === 'mock' || mode === 'hybrid';
 }

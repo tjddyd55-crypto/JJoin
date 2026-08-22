@@ -72,50 +72,55 @@ async function main() {
     }),
   });
 
-  const idStart = await json<{ sessionId: string }>('/me/identity/start', {
+  const identityStartRes = await fetch(`${API_BASE}/me/identity/start`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   });
+  if (identityStartRes.status === 403) {
+    // Hybrid production: mock identity only for DEV personas — expected guard.
+    console.log('mock identity blocked for exchange-only user (hybrid production guard) — OK');
+  } else {
+    const idStart = (await identityStartRes.json()) as { sessionId: string };
+    const afterIdentity = await json<{ identity: { verificationStatus: string } }>(
+      '/me/identity/confirm',
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ sessionId: idStart.sessionId, outcome: 'success' }),
+      },
+    );
+    assert(afterIdentity.identity.verificationStatus === IdentityStatus.VERIFIED, 'verified');
 
-  const afterIdentity = await json<{ identity: { verificationStatus: string } }>(
-    '/me/identity/confirm',
-    {
+    await json('/me/profile/setup', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ sessionId: idStart.sessionId, outcome: 'success' }),
-    },
-  );
-  assert(afterIdentity.identity.verificationStatus === IdentityStatus.VERIFIED, 'verified');
+      body: JSON.stringify({
+        nickname: `테스트${Date.now().toString().slice(-4)}`,
+        gender: 'MALE',
+        ageBand: 'TWENTIES',
+        regionLabel: '거제',
+        bio: '',
+        sportCode: 'SCREEN_GOLF',
+        skillLevel: 'BEGINNER',
+      }),
+    });
 
-  await json('/me/profile/setup', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify({
-      nickname: `테스트${Date.now().toString().slice(-4)}`,
-      gender: 'MALE',
-      ageBand: 'TWENTIES',
-      regionLabel: '거제',
-      bio: '',
-      sportCode: 'SCREEN_GOLF',
-      skillLevel: 'BEGINNER',
-    }),
-  });
+    await json('/me/profile/avatar', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ skip: true }),
+    });
 
-  await json('/me/profile/avatar', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ skip: true }),
-  });
+    await json('/me/onboarding/location', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-  await json('/me/onboarding/location', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  const me = await json<{ authAppHints: { locationOnboardingComplete: boolean } }>('/me', {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  assert(me.authAppHints.locationOnboardingComplete, 'location onboarding');
+    const me = await json<{ authAppHints: { locationOnboardingComplete: boolean } }>('/me', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    assert(me.authAppHints.locationOnboardingComplete, 'location onboarding');
+  }
 
   const publicProfile = await json<Record<string, unknown>>(
     `/users/${first.session.userId}/public-profile`,

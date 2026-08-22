@@ -41,8 +41,14 @@ This was **not** identity gate, Prisma schema, or join payload regression.
 2. **`apps/api/src/modules/joins/joins.service.ts`**
    - Map `CoinPolicyDisabledError` → `503 COIN_POLICY_UNAVAILABLE` (never 500).
 
-3. **`scripts/dev-coin-policy.node-test.ts`**
+3. **`apps/api/src/settlement/settlement-clock.ts`**
+   - Allow settlement QA advance-clock under `hybrid` (same regression as coin policy).
+
+4. **`scripts/dev-coin-policy.node-test.ts`**
    - Guards hybrid vs real social mode behavior.
+
+5. **`scripts/phase-m-auth-smoke.ts`**
+   - Accept `403 mock_identity_not_allowed` for exchange-only users on hybrid production.
 
 ## Accounting impact
 
