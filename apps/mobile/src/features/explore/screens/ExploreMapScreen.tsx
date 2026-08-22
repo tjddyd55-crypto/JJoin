@@ -32,7 +32,6 @@ import {
 import { ExploreBottomSheetBody } from '../components/ExploreBottomSheetBody';
 import { KakaoMapAdapter } from '../map/KakaoMapAdapter';
 import { MapUnavailablePanel } from '../map/MapUnavailablePanel';
-import { NaverMapAdapter } from '../map/NaverMapAdapter';
 import type { MapCameraHandle } from '../map/map-handle';
 import { regionFromBounds } from '../map/map-geo';
 import { getMapRuntimeStatus } from '../map/map-runtime';
@@ -301,11 +300,6 @@ export function ExploreMapScreen() {
         title="Kakao Map Native App Key 필요"
         body="Kakao Developers에서 Native App Key를 발급해 apps/mobile/.env 의 EXPO_PUBLIC_KAKAO_MAP_NATIVE_APP_KEY에 설정한 뒤 Development Build를 재생성하세요. (REST API Key와 다릅니다. package: com.jjoin.app + Android key hash 등록 필요)"
       />
-    ) : runtime.kind === 'missing_client_id' ? (
-      <MapUnavailablePanel
-        title="Naver Map Client ID 필요"
-        body="일시적 rollback용입니다. EXPO_PUBLIC_NAVER_MAP_CLIENT_ID를 설정한 뒤 Development Build로 실행하세요."
-      />
     ) : runtime.kind === 'expo_go_unsupported' ? (
       <MapUnavailablePanel
         title="Development Build 필요"
@@ -314,23 +308,7 @@ export function ExploreMapScreen() {
     ) : null;
 
   const mapNode =
-    mapUnavailable ??
-    (runtime.provider === 'naver' ? (
-      <NaverMapAdapter
-        mapRef={mapRef}
-        initialRegion={searchRegion}
-        cameraKey={cameraKey}
-        cameraTarget={cameraTarget}
-        myLocation={deviceLocation}
-        venues={data?.venues ?? []}
-        users={data?.users ?? []}
-        selectedVenueId={selectedVenueId}
-        selectedUserId={selectedUserId}
-        onCameraGesture={(center) => onCameraGesture(center)}
-        onVenuePress={onVenuePress}
-        onUserPress={onUserPress}
-      />
-    ) : (
+    mapUnavailable ?? (
       <KakaoMapAdapter
         mapRef={mapRef}
         initialRegion={searchRegion}
@@ -345,7 +323,7 @@ export function ExploreMapScreen() {
         onVenuePress={onVenuePress}
         onUserPress={onUserPress}
       />
-    ));
+    );
 
   return (
     <GestureHandlerRootView style={styles.root}>

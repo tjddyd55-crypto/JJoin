@@ -6,9 +6,6 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
  */
 export default ({ config }: ConfigContext): ExpoConfig => {
   const kakaoNativeAppKey = process.env.EXPO_PUBLIC_KAKAO_MAP_NATIVE_APP_KEY ?? '';
-  const naverClientId = process.env.EXPO_PUBLIC_NAVER_MAP_CLIENT_ID ?? '';
-  const mapProviderEnv = (process.env.EXPO_PUBLIC_MAP_PROVIDER ?? 'kakao').toLowerCase();
-  const mapProvider = mapProviderEnv === 'naver' ? 'naver' : 'kakao';
 
   const plugins: ExpoConfig['plugins'] = [
     'expo-router',
@@ -40,23 +37,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         android: {
           extraMavenRepos: [
             'https://devrepo.kakao.com/nexus/repository/kakaomap-releases/',
-            // Temporary during Phase I migration rollback window
-            'https://repository.map.naver.com/archive/maven',
           ],
         },
       },
     ],
   ];
-
-  // Keep Naver plugin only while MAP_PROVIDER=naver rollback is needed.
-  if (mapProvider === 'naver' || naverClientId) {
-    plugins.push([
-      '@mj-studio/react-native-naver-map',
-      {
-        client_id: naverClientId || 'MISSING_NAVER_MAP_CLIENT_ID',
-      },
-    ]);
-  }
 
   return {
     ...config,
@@ -96,9 +81,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       typedRoutes: true,
     },
     extra: {
-      mapProvider,
+      mapProvider: 'kakao' as const,
       kakaoMapNativeAppKeyConfigured: Boolean(kakaoNativeAppKey),
-      naverMapClientIdConfigured: Boolean(naverClientId),
       eas: {
         projectId: undefined,
       },

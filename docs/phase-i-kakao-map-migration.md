@@ -73,14 +73,10 @@ Camera move mid-gesture does **not** call Explore API. `이 지역 재검색` CT
 
 Events: `onVenuePress(id)` / `onUserPress(id)`.
 
-## Temporary provider switch
+## Temporary provider switch (removed)
 
-```
-EXPO_PUBLIC_MAP_PROVIDER=kakao   # default / production
-EXPO_PUBLIC_MAP_PROVIDER=naver   # temporary rollback only
-```
-
-After Gate K PASS, remove Naver RN dependency, Maven, manifest metadata, and env.
+Phase I Gate K PASS 이후 `EXPO_PUBLIC_MAP_PROVIDER` / Naver RN rollback 경로를 제거했다.
+Map provider는 Kakao 고정이다.
 
 ## Gate K (Android)
 
@@ -104,14 +100,10 @@ After Gate K PASS, remove Naver RN dependency, Maven, manifest metadata, and env
 
 ## NAVER cleanup
 
-- Code path: `NaverMapAdapter` kept only while `MAP_PROVIDER=naver` rollback exists.
-- After Gate K PASS: remove `@mj-studio/react-native-naver-map`, Naver Maven, `EXPO_PUBLIC_NAVER_MAP_CLIENT_ID`.
-- **Do not** delete Naver Cloud Console app during rollback window.
+- Removed: `@mj-studio/react-native-naver-map`, Naver Maven repo, `NaverMapAdapter`, `EXPO_PUBLIC_NAVER_MAP_CLIENT_ID`, `EXPO_PUBLIC_MAP_PROVIDER`.
+- **Do not** delete Naver Cloud Console app (historical / account asset). Social login NAVER adapter는 별도 영역이며 유지.
 
-## Rollback note
+## Rollback note (historical)
 
-1. Set `EXPO_PUBLIC_MAP_PROVIDER=naver` + Naver Client ID  
-2. Rebuild Dev Client  
-3. Explore falls back to `NaverMapAdapter`  
-
-Kakao Local / Join / Presence remain on Railway regardless of map provider.
+Gate K 이전에는 `EXPO_PUBLIC_MAP_PROVIDER=naver` + Client ID로 Dev Client rebuild 후 `NaverMapAdapter`로 되돌릴 수 있었다.
+현재 코드 경로에는 없음. Kakao Local / Join / Presence는 Map provider와 무관하게 Railway에 남는다.
