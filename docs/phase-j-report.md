@@ -73,8 +73,8 @@
 - 24h Auto Pay
 - Coin Purchase / PG / Shop
 - Actual OAuth / Identity Verification
-- Android E2E MANUAL_PENDING
+- Android E2E PASS (실기기)
 
 ## Result
 
-**MANUAL_PENDING** (Android E2E only) — server accounting foundation **PASS**
+**PASS**
