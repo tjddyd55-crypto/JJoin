@@ -579,3 +579,70 @@ export type MyJoinsResponse = {
   hosted: JoinListItemDto[];
   participating: JoinListItemDto[];
 };
+
+/** Push / in-app notification (Phase R). */
+export enum NotificationType {
+  JOIN_APPLICATION_RECEIVED = 'JOIN_APPLICATION_RECEIVED',
+  JOIN_APPLICATION_APPROVED = 'JOIN_APPLICATION_APPROVED',
+  JOIN_APPLICATION_REJECTED = 'JOIN_APPLICATION_REJECTED',
+  SETTLEMENT_CONFIRMATION_REQUIRED = 'SETTLEMENT_CONFIRMATION_REQUIRED',
+  REWARD_PAID = 'REWARD_PAID',
+  REWARD_AUTO_PAID = 'REWARD_AUTO_PAID',
+  DISPUTE_OPENED = 'DISPUTE_OPENED',
+  DISPUTE_RESOLVED = 'DISPUTE_RESOLVED',
+  JOIN_CANCELLED = 'JOIN_CANCELLED',
+  JOIN_UPDATED = 'JOIN_UPDATED',
+}
+
+export enum PushPlatform {
+  ANDROID = 'ANDROID',
+  IOS = 'IOS',
+  WEB = 'WEB',
+}
+
+export type RegisterPushDeviceRequest = {
+  pushToken: string;
+  platform: PushPlatform;
+  deviceId?: string | null;
+};
+
+export type PushDeviceDto = {
+  id: string;
+  platform: PushPlatform;
+  active: boolean;
+  lastSeenAt: string;
+  createdAt: string;
+};
+
+export type NotificationDataDto = {
+  type: NotificationType;
+  joinId?: string;
+  settlementId?: string;
+  disputeId?: string;
+  participantId?: string;
+  rewardAmount?: string;
+};
+
+export type AppNotificationDto = {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  data: NotificationDataDto;
+  readAt: string | null;
+  createdAt: string;
+};
+
+export type NotificationListResponse = {
+  items: AppNotificationDto[];
+  nextCursor: string | null;
+  unreadCount: number;
+};
+
+export type NotificationPreferenceDto = {
+  pushEnabled: boolean;
+};
+
+/** Aliases used by API services */
+export type AppNotificationDtoAlias = AppNotificationDto;
+export type NotificationListResponseAlias = NotificationListResponse;

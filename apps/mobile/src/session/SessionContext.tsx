@@ -233,6 +233,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
+      const { deactivateCurrentPushDevice } = await import(
+        '../features/notifications/push-registration'
+      );
+      await deactivateCurrentPushDevice(api);
+    } catch {
+      // push deactivate is best-effort
+    }
+    try {
       await api.logout();
     } catch {
       // ignore network errors on logout

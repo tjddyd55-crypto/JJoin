@@ -101,3 +101,26 @@ export const joinCoinPreviewSchema = z.object({
 });
 
 export type JoinCoinPreviewInput = z.infer<typeof joinCoinPreviewSchema>;
+
+export const registerPushDeviceSchema = z.object({
+  pushToken: z
+    .string()
+    .trim()
+    .min(16)
+    .max(512)
+    .regex(/^(ExponentPushToken\[.+\]|ExpoPushToken\[.+\]|[A-Za-z0-9_.:-]{16,})$/),
+  platform: z.enum(['ANDROID', 'IOS', 'WEB']),
+  deviceId: z.string().trim().min(1).max(128).nullable().optional(),
+});
+
+export type RegisterPushDeviceInput = z.infer<typeof registerPushDeviceSchema>;
+/** @deprecated alias — prefer registerPushDeviceSchema */
+export const registerPushDeviceSchemaAlias = registerPushDeviceSchema;
+
+export const notificationPreferenceSchema = z.object({
+  pushEnabled: z.boolean(),
+});
+
+export type NotificationPreferenceInput = z.infer<typeof notificationPreferenceSchema>;
+/** @deprecated alias */
+export const notificationPreferenceSchemaAlias = notificationPreferenceSchema;

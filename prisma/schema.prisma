@@ -126,6 +126,35 @@ enum ConsentType {
   AVATAR_SKIPPED
 }
 
+enum NotificationType {
+  JOIN_APPLICATION_RECEIVED
+  JOIN_APPLICATION_APPROVED
+  JOIN_APPLICATION_REJECTED
+  SETTLEMENT_CONFIRMATION_REQUIRED
+  REWARD_PAID
+  REWARD_AUTO_PAID
+  DISPUTE_OPENED
+  DISPUTE_RESOLVED
+  JOIN_CANCELLED
+  JOIN_UPDATED
+}
+
+enum PushPlatform {
+  ANDROID
+  IOS
+  WEB
+}
+
+enum PushProviderKind {
+  EXPO
+}
+
+enum NotificationOutboxStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
 /// Opt-in "지금 조인 가능" — not the same as OS location permission.
 enum PresenceVisibility {
   HIDDEN
@@ -156,8 +185,67 @@ model User {
   disputesResolvedAdmin DisputeCase[]          @relation("DisputeResolvedBy")
   presence              UserPresence?
   consents              UserConsent[]
+  pushDevices           PushDevice[]
+  notifications         AppNotification[]
+  pushNotificationsEnabled Boolean @default(true) @map("push_notifications_enabled")
 
   @@map("users")
+}
+
+model PushDevice {
+  id         String          @id @default(uuid()) @db.Uuid
+  userId     String          @map("user_id") @db.Uuid
+  provider   PushProviderKind @default(EXPO)
+  pushToken  String          @map("push_token")
+  platform   PushPlatform
+  deviceId   String?         @map("device_id")
+  active     Boolean         @default(true)
+  lastSeenAt DateTime        @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  createdAt  DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pushToken])
+  @@index([userId, active])
+  @@map("push_devices")
+}
+
+/// In-app + push notification record. Retention: POLICY_TBD (no delete cron in MVP).
+model AppNotification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  title     String
+  body      String
+  data      Json             @default("{}")
+  eventKey  String           @unique @map("event_key")
+  readAt    DateTime?        @map("read_at") @db.Timestamptz(6)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user   User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outbox NotificationOutbox?
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+model NotificationOutbox {
+  id             String                   @id @default(uuid()) @db.Uuid
+  notificationId String                   @unique @map("notification_id") @db.Uuid
+  status         NotificationOutboxStatus @default(PENDING)
+  attemptCount   Int                      @default(0) @map("attempt_count")
+  lastError      String?                  @map("last_error")
+  nextAttemptAt  DateTime                 @default(now()) @map("next_attempt_at") @db.Timestamptz(6)
+  sentAt         DateTime?                @map("sent_at") @db.Timestamptz(6)
+  createdAt      DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  notification AppNotification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@map("notification_outbox")
 }
 
 model UserConsent {

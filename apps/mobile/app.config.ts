@@ -29,6 +29,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       },
     ],
     [
+      'expo-notifications',
+      {
+        icon: './assets/images/icon.png',
+        color: '#0A6B56',
+        defaultChannel: 'jjoin-general',
+      },
+    ],
+    [
       './modules/jjoin-kakao-map/app.plugin.js',
       {
         nativeAppKey: kakaoMapNativeAppKey || 'MISSING_KAKAO_MAP_NATIVE_APP_KEY',
@@ -100,7 +108,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         backgroundImage: './assets/images/android-icon-background.png',
         monochromeImage: './assets/images/android-icon-monochrome.png',
       },
-      permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION'],
+      permissions: [
+        'ACCESS_COARSE_LOCATION',
+        'ACCESS_FINE_LOCATION',
+        'POST_NOTIFICATIONS',
+      ],
       predictiveBackGestureEnabled: false,
     },
     web: {
@@ -119,7 +131,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       googleLoginConfigured: Boolean(googleWebClientId),
       naverLoginConfigured: Boolean(process.env.EXPO_PUBLIC_NAVER_LOGIN_CLIENT_ID),
       eas: {
-        projectId: undefined,
+        projectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID || undefined,
       },
     },
   };

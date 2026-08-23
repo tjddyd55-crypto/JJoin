@@ -6,12 +6,18 @@ import { SessionProvider, useSession } from '../src/session/SessionContext';
 import { AuthAppState } from '@jjoin/types';
 import { AppText, ScreenContainer } from '@jjoin/design-system';
 import { t } from '@jjoin/i18n';
+import { usePushRegistration } from '../src/features/notifications/use-push-registration';
 
 export { ErrorBoundary } from 'expo-router';
 
 export const unstable_settings = {
   initialRouteName: '(tabs)',
 };
+
+function PushBootstrap() {
+  usePushRegistration();
+  return null;
+}
 
 function AuthGateBootstrap({ children }: { children: React.ReactNode }) {
   const { appState, bootstrapping } = useSession();
@@ -71,6 +77,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.root}>
       <SessionProvider>
         <AuthGateBootstrap>
+          <PushBootstrap />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="auth" />

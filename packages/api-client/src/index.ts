@@ -29,6 +29,11 @@ import {
   type AdminDisputeDetailDto,
   type AdminResolveDisputeRequest,
   type DisputeStatus,
+  type RegisterPushDeviceRequest,
+  type PushDeviceDto,
+  type NotificationListResponse,
+  type AppNotificationDto,
+  type NotificationPreferenceDto,
 } from '@jjoin/types';
 
 export type ApiClientConfig = {
@@ -483,6 +488,95 @@ export class ApiClient {
   ): Promise<{ ok: boolean; resolution?: string; rewardStatus?: string; alreadyResolved?: boolean }> {
     const res = await request(`${this.config.baseUrl}/admin/disputes/${disputeId}/resolve`, {
       method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async registerPushDevice(body: RegisterPushDeviceRequest): Promise<PushDeviceDto> {
+    const res = await request(`${this.config.baseUrl}/me/push-devices`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async listPushDevices(): Promise<PushDeviceDto[]> {
+    const res = await request(`${this.config.baseUrl}/me/push-devices`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async deactivatePushDevice(deviceId: string): Promise<{ ok: boolean }> {
+    const res = await request(`${this.config.baseUrl}/me/push-devices/${deviceId}`, {
+      method: 'DELETE',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async deactivateCurrentPushDevice(pushToken: string): Promise<{ ok: boolean }> {
+    const res = await request(`${this.config.baseUrl}/me/push-devices/deactivate-current`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify({ pushToken }),
+    });
+    return parseJson(res);
+  }
+
+  async listNotifications(query?: {
+    cursor?: string;
+    limit?: number;
+  }): Promise<NotificationListResponse> {
+    const params = new URLSearchParams();
+    if (query?.cursor) params.set('cursor', query.cursor);
+    if (query?.limit != null) params.set('limit', String(query.limit));
+    const qs = params.toString();
+    const res = await request(
+      `${this.config.baseUrl}/me/notifications${qs ? `?${qs}` : ''}`,
+      { headers: await this.headers(true) },
+    );
+    return parseJson(res);
+  }
+
+  async getNotificationUnreadCount(): Promise<{ unreadCount: number }> {
+    const res = await request(`${this.config.baseUrl}/me/notifications/unread-count`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async markNotificationRead(id: string): Promise<AppNotificationDto> {
+    const res = await request(`${this.config.baseUrl}/me/notifications/${id}/read`, {
+      method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async markAllNotificationsRead(): Promise<{ ok: boolean; count: number }> {
+    const res = await request(`${this.config.baseUrl}/me/notifications/read-all`, {
+      method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getNotificationPreference(): Promise<NotificationPreferenceDto> {
+    const res = await request(`${this.config.baseUrl}/me/notification-preference`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async setNotificationPreference(
+    body: NotificationPreferenceDto,
+  ): Promise<NotificationPreferenceDto> {
+    const res = await request(`${this.config.baseUrl}/me/notification-preference`, {
+      method: 'PATCH',
       headers: await this.headers(true),
       body: JSON.stringify(body),
     });

@@ -30,6 +30,8 @@ import { CoinLedgerService } from '../wallet/coin-ledger.service';
 import { SystemSettlementClock, type SettlementClock, isSettlementQaAllowed } from '../../settlement/settlement-clock';
 import { DisputeService } from '../dispute/dispute.service';
 import { mockUserStore } from '../../mock/mock-user.store';
+import { NotificationEventService } from '../notifications/notification-event.service';
+import { NotificationType } from '@prisma/client';
 
 const SETTLING_ELIGIBLE: JoinStatus[] = [
   JoinStatus.OPEN,
@@ -47,6 +49,7 @@ export class SettlementService {
     private readonly prisma: PrismaService,
     private readonly ledger: CoinLedgerService,
     private readonly disputes: DisputeService,
+    private readonly notifications: NotificationEventService,
   ) {
     this.clock = new SystemSettlementClock();
   }
@@ -115,6 +118,8 @@ export class SettlementService {
     });
     if (!join || join.status === 'CANCELLED') return;
 
+    const openedSettlementIds: string[] = [];
+
     await this.prisma.$transaction(async (tx) => {
       const open = isSettlementWindowOpen(join.scheduledEndAt, now);
 
@@ -133,11 +138,27 @@ export class SettlementService {
             where: { id: p.settlement.id },
             data: { rewardStatus: 'PENDING_CONFIRMATION' },
           });
+          openedSettlementIds.push(p.settlement.id);
         }
       }
 
       await this.tryCompleteJoin(tx, joinId);
     });
+
+    for (const settlementId of openedSettlementIds) {
+      await this.notifications.enqueueSafe({
+        userId: join.hostUserId,
+        type: NotificationType.SETTLEMENT_CONFIRMATION_REQUIRED,
+        title: '정산 확인',
+        body: '참가자 보상을 확인해 주세요.',
+        data: {
+          type: NotificationType.SETTLEMENT_CONFIRMATION_REQUIRED,
+          joinId,
+          settlementId,
+        },
+        eventKey: `settlement:${settlementId}:confirmation_required`,
+      });
+    }
   }
 
   async getJoinSettlements(
@@ -358,6 +379,36 @@ export class SettlementService {
     });
 
     if (!result) return { ok: false, skipped: true };
+
+    if (result.rewardStatus === 'PAID' || result.rewardStatus === 'AUTO_PAID') {
+      const participant = await this.prisma.joinParticipant.findFirst({
+        where: { settlement: { id: result.id } },
+        select: { userId: true },
+      });
+      if (participant) {
+        const isAuto = mode === 'AUTO' || result.rewardStatus === 'AUTO_PAID';
+        await this.notifications.enqueueSafe({
+          userId: participant.userId,
+          type: isAuto
+            ? NotificationType.REWARD_AUTO_PAID
+            : NotificationType.REWARD_PAID,
+          title: isAuto ? '자동 보상 지급' : '보상 지급',
+          body: isAuto
+            ? '참가 보상이 자동 지급되었습니다.'
+            : '참가 보상이 지급되었습니다.',
+          data: {
+            type: isAuto
+              ? NotificationType.REWARD_AUTO_PAID
+              : NotificationType.REWARD_PAID,
+            joinId,
+            settlementId: result.id,
+            rewardAmount: String(result.amount),
+          },
+          eventKey: `settlement:${result.id}:reward_paid`,
+        });
+      }
+    }
+
     return { ok: true, settlementId: result.id, rewardStatus: result.rewardStatus };
   }
 
@@ -380,7 +431,7 @@ export class SettlementService {
     await this.refreshJoinSettlementState(joinId);
     const now = this.clock.now();
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const join = await tx.join.findUnique({
         where: { id: joinId },
         include: { participants: { include: { settlement: true } } },
@@ -396,20 +447,65 @@ export class SettlementService {
       const settlement = participant.settlement;
 
       if (isTerminalRewardStatus(settlement.rewardStatus)) {
-        return { ok: true, alreadyTerminal: true };
+        return { ok: true as const, alreadyTerminal: true as const, participantUserId: participant.userId };
       }
 
       switch (body.issueType) {
         case 'NO_SHOW':
-          return this.applyNoShow(tx, join, participant, settlement, now);
+          return {
+            ...(await this.applyNoShow(tx, join, participant, settlement, now)),
+            participantUserId: participant.userId,
+          };
         case 'LEFT_EARLY':
-          return this.applyLeftEarly(tx, join, participant, settlement, now, body.statement);
+          return {
+            ...(await this.applyLeftEarly(
+              tx,
+              join,
+              participant,
+              settlement,
+              now,
+              body.statement,
+            )),
+            participantUserId: participant.userId,
+          };
         case 'DISPUTE':
-          return this.applyDispute(tx, join, participant, settlement, now, body.statement);
+          return {
+            ...(await this.applyDispute(
+              tx,
+              join,
+              participant,
+              settlement,
+              now,
+              body.statement,
+            )),
+            participantUserId: participant.userId,
+          };
         default:
           throw new BadRequestException('invalid_issue_type');
       }
     });
+
+    if (
+      result &&
+      'disputeId' in result &&
+      result.disputeId &&
+      !('alreadyTerminal' in result && result.alreadyTerminal)
+    ) {
+      await this.notifications.enqueueSafe({
+        userId: result.participantUserId,
+        type: NotificationType.DISPUTE_OPENED,
+        title: '분쟁 접수',
+        body: '조인 참여 상태 확인이 필요합니다.',
+        data: {
+          type: NotificationType.DISPUTE_OPENED,
+          joinId,
+          disputeId: result.disputeId,
+        },
+        eventKey: `dispute:${result.disputeId}:opened`,
+      });
+    }
+
+    return result;
   }
 
   private async applyNoShow(
@@ -612,7 +708,7 @@ export class SettlementService {
   ) {
     const now = this.clock.now();
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const dispute = await tx.disputeCase.findUnique({
         where: { id: disputeId },
         include: {
@@ -624,10 +720,12 @@ export class SettlementService {
       if (!dispute) throw new NotFoundException('dispute_not_found');
       if (dispute.status === 'RESOLVED') {
         return {
-          ok: true,
-          alreadyResolved: true,
+          ok: true as const,
+          alreadyResolved: true as const,
           resolution: dispute.resolution,
           rewardStatus: dispute.settlement.rewardStatus,
+          participantUserId: dispute.participant.userId,
+          joinId: dispute.joinId,
         };
       }
 
@@ -661,8 +759,35 @@ export class SettlementService {
       const updated = await tx.rewardSettlement.findUniqueOrThrow({
         where: { id: dispute.settlementId },
       });
-      return { ok: true, resolution, rewardStatus: updated.rewardStatus };
+      return {
+        ok: true as const,
+        alreadyResolved: false as const,
+        resolution,
+        rewardStatus: updated.rewardStatus,
+        participantUserId: dispute.participant.userId,
+        joinId: dispute.joinId,
+      };
     });
+
+    if (result.ok && !result.alreadyResolved) {
+      const paid = result.resolution === 'PAY_PARTICIPANT';
+      await this.notifications.enqueueSafe({
+        userId: result.participantUserId,
+        type: NotificationType.DISPUTE_RESOLVED,
+        title: paid ? '보상 지급 완료' : '분쟁 검토 완료',
+        body: paid
+          ? '보상 지급이 완료되었습니다.'
+          : '조인 보상 검토가 완료되었습니다.',
+        data: {
+          type: NotificationType.DISPUTE_RESOLVED,
+          joinId: result.joinId,
+          disputeId,
+        },
+        eventKey: `dispute:${disputeId}:resolved`,
+      });
+    }
+
+    return result;
   }
 
   private async executeAdminPay(

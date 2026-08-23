@@ -51,6 +51,8 @@ import {
 } from '../../coin/dev-coin-policy';
 import { UserAccountService } from '../users/user-account.service';
 import { mockUserStore } from '../../mock/mock-user.store';
+import { NotificationEventService } from '../notifications/notification-event.service';
+import { NotificationType } from '@prisma/client';
 
 const ACTIVE_JOIN_STATUSES: JoinStatus[] = [JoinStatus.OPEN, JoinStatus.FULL];
 
@@ -61,6 +63,7 @@ export class JoinsService {
     private readonly ledger: CoinLedgerService,
     private readonly settlement: SettlementService,
     private readonly accounts: UserAccountService,
+    private readonly notifications: NotificationEventService,
   ) {}
 
   ping() {
@@ -428,6 +431,28 @@ export class JoinsService {
       }
     });
 
+    const [joinMeta, applicant] = await Promise.all([
+      this.prisma.join.findUnique({ where: { id: joinId }, select: { hostUserId: true } }),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { profile: true },
+      }),
+    ]);
+    if (joinMeta && applicant) {
+      const nickname = applicant.profile?.nickname ?? '참가자';
+      await this.notifications.enqueueSafe({
+        userId: joinMeta.hostUserId,
+        type: NotificationType.JOIN_APPLICATION_RECEIVED,
+        title: '새 참가 신청',
+        body: `${nickname}님이 조인 참가를 신청했습니다.`,
+        data: {
+          type: NotificationType.JOIN_APPLICATION_RECEIVED,
+          joinId,
+        },
+        eventKey: `join:${joinId}:application:${userId}:received`,
+      });
+    }
+
     return this.getDetail(joinId, userId);
   }
 
@@ -436,6 +461,8 @@ export class JoinsService {
     participantId: string,
     hostUserId: string,
   ): Promise<JoinDetailDto> {
+    let newlyApprovedUserId: string | null = null;
+
     await this.prisma.$transaction(async (tx) => {
       const join = await tx.join.findUnique({
         where: { id: joinId },
@@ -451,7 +478,10 @@ export class JoinsService {
       if (participant.role === 'HOST') {
         throw new BadRequestException('cannot_approve_host');
       }
-      if (participant.participationStatus === 'APPROVED' || participant.participationStatus === 'CONFIRMED') {
+      if (
+        participant.participationStatus === 'APPROVED' ||
+        participant.participationStatus === 'CONFIRMED'
+      ) {
         return; // idempotent
       }
       if (participant.participationStatus !== 'APPLIED') {
@@ -502,7 +532,23 @@ export class JoinsService {
         rewardPerParticipant: join.rewardPerParticipant,
         coinAssetId: join.coinAssetId,
       });
+
+      newlyApprovedUserId = participant.userId;
     });
+
+    if (newlyApprovedUserId) {
+      await this.notifications.enqueueSafe({
+        userId: newlyApprovedUserId,
+        type: NotificationType.JOIN_APPLICATION_APPROVED,
+        title: '참가 승인',
+        body: '참가 신청이 승인되었습니다.',
+        data: {
+          type: NotificationType.JOIN_APPLICATION_APPROVED,
+          joinId,
+        },
+        eventKey: `join:${joinId}:application:${newlyApprovedUserId}:approved`,
+      });
+    }
 
     return this.getDetail(joinId, hostUserId);
   }

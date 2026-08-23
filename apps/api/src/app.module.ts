@@ -15,6 +15,7 @@ import { PresenceModule } from './modules/presence/presence.module';
 import { ExploreModule } from './modules/explore/explore.module';
 import { DisputeModule } from './modules/dispute/dispute.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -36,6 +37,7 @@ import { PrismaModule } from './prisma/prisma.module';
     ExploreModule,
     DisputeModule,
     AdminModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}

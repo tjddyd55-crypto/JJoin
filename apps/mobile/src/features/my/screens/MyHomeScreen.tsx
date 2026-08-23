@@ -61,7 +61,7 @@ export function MyHomeScreen() {
           <MenuItem label={t('my.hosted')} onPress={() => router.push('/(tabs)/my-joins')} />
           <MenuItem label={t('my.joined')} onPress={() => router.push('/(tabs)/my-joins')} />
           <MenuItem label={t('my.account')} onPress={() => router.push('/my/account')} />
-          <MenuItem label={t('my.notifications')} onPress={() => undefined} />
+          <MenuItem label={t('my.notifications')} onPress={() => router.push('/my/notifications')} />
           <MenuItem label={t('my.terms')} onPress={() => undefined} />
           <MenuItem label={t('my.privacy')} onPress={() => undefined} />
           <MenuItem
