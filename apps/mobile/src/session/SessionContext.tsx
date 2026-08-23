@@ -15,6 +15,7 @@ import {
   type PendingActionIntent,
 } from '@jjoin/types';
 import { obtainSocialCredential } from '../features/auth/social/obtain-social-credential';
+import { obtainKakaoAccessToken } from '../features/auth/social/providers/kakao-native-login';
 import { useMockSocialAuthFlow } from '../features/auth/social/social-auth-config';
 import {
   SocialLoginCancelledError,
@@ -120,7 +121,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           });
         } else {
           const credential = await obtainSocialCredential(provider);
-          res = await api.socialExchange({ provider, credential });
+          try {
+            res = await api.socialExchange({ provider, credential });
+          } catch (exchangeError) {
+            const exchangeMsg =
+              exchangeError instanceof Error ? exchangeError.message : String(exchangeError);
+            if (
+              provider === SocialProvider.KAKAO &&
+              exchangeMsg.includes('kakao_token_invalid')
+            ) {
+              const freshCredential = await obtainKakaoAccessToken({ forceInteractive: true });
+              res = await api.socialExchange({ provider, credential: freshCredential });
+            } else {
+              throw exchangeError;
+            }
+          }
         }
         await store.setToken(res.session.accessToken);
         await applyMe(res.me, true);
