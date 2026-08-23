@@ -114,7 +114,7 @@ export function ExploreBottomSheetBody(props: {
           <Button label="장소 상세" variant="secondary" onPress={props.onVenueDetail} />
         )}
         {v.canCreateJoin ? (
-          <Button label="이 장소에서 조인 만들기" onPress={props.onCreateJoin} />
+          <Button label="여기서 조인 만들기" onPress={props.onCreateJoin} />
         ) : (
           <AppText variant="caption" color="textSecondary">
             이 장소에서 조인 만들기는 곧 지원됩니다.
@@ -174,7 +174,7 @@ export function ExploreBottomSheetBody(props: {
           <AppText variant="caption" color="textSecondary">
             {v.distanceMeters != null ? `${(v.distanceMeters / 1000).toFixed(1)}km · ` : ''}
             {v.regionLabel ?? ''}
-            ` · 열린 조인 ${v.openJoinCount}`
+            {` · 열린 조인 ${v.openJoinCount}`}
           </AppText>
         </Pressable>
       ))}
