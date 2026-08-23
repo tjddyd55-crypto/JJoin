@@ -1,4 +1,5 @@
-# Nixpacks / Railway build for pnpm monorepo (apps/api)
+# Nixpacks / Railway build for pnpm monorepo
+# Set JJOIN_SERVICE_ROLE=landing on the landing Railway service only.
 [phases.setup]
 nixPkgs = ["nodejs_22", "pnpm-9_x"]
 
@@ -7,12 +8,8 @@ cmds = ["pnpm install --frozen-lockfile --prod=false"]
 
 [phases.build]
 cmds = [
-  "pnpm --filter @jjoin/types build",
-  "pnpm --filter @jjoin/domain build",
-  "pnpm --filter @jjoin/validation build",
-  "pnpm exec prisma generate --schema=prisma/schema.prisma",
-  "pnpm --filter @jjoin/api build"
+  "sh -c 'if [ \"$JJOIN_SERVICE_ROLE\" = \"landing\" ]; then pnpm --filter @jjoin/landing build; else pnpm --filter @jjoin/types build && pnpm --filter @jjoin/domain build && pnpm --filter @jjoin/validation build && pnpm exec prisma generate --schema=prisma/schema.prisma && pnpm --filter @jjoin/api build; fi'"
 ]
 
 [start]
-cmd = "node apps/api/dist/main.js"
+cmd = "sh -c 'if [ \"$JJOIN_SERVICE_ROLE\" = \"landing\" ]; then pnpm --filter @jjoin/landing start; else node apps/api/dist/main.js; fi'"
