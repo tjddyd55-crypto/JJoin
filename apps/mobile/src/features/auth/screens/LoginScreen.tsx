@@ -14,6 +14,7 @@ import { t } from '@jjoin/i18n';
 import { MockAuthPersona, MockAuthScenario, SocialProvider } from '@jjoin/types';
 import { useSession } from '../../../session/SessionContext';
 import { SocialLoginCancelledError } from '../social/social-auth-errors';
+import { useMockSocialAuthFlow } from '../social/social-auth-config';
 
 function routeForNextStep(nextStep: string) {
   switch (nextStep) {
@@ -44,6 +45,7 @@ export function LoginScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState<SocialProvider | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
+  const mockSocialAuthEnabled = __DEV__ && useMockSocialAuthFlow();
 
   async function handleProvider(provider: SocialProvider) {
     setLoading(provider);
@@ -116,7 +118,7 @@ export function LoginScreen() {
               </Pressable>
             </View>
 
-            {mockPersona == null ? (
+            {mockPersona == null && mockSocialAuthEnabled ? (
               <View style={styles.devBtns}>
                 <Pressable
                   accessibilityRole="button"
@@ -139,6 +141,10 @@ export function LoginScreen() {
                   <AppText variant="caption">RETURNING</AppText>
                 </Pressable>
               </View>
+            ) : mockPersona == null ? (
+              <AppText variant="caption" color="textSecondary">
+                소셜 버튼 = 실제 OAuth (mock env 미설정)
+              </AppText>
             ) : (
               <AppText variant="caption" color="textSecondary">
                 {mockPersona === MockAuthPersona.DEV_A
