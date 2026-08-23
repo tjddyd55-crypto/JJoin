@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
-import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { AuthAppState } from '@jjoin/types';
 import { getApiClient } from '../../lib/api';
 import { getSecureSessionStore, useSession } from '../../session/SessionContext';
 import {
+  addNotificationResponseListener,
+  configureNotificationHandler,
   deactivateCurrentPushDevice,
   registerPushDeviceWithServer,
   resolvePushRoute,
@@ -13,7 +14,7 @@ import {
 
 /**
  * Registers Expo push token after session is ready (not on first cold splash).
- * Handles notification tap → allowlisted join route.
+ * Never fatal: missing native module / projectId / FCM / permission → skip only.
  */
 export function usePushRegistration() {
   const { appState, me } = useSession();
@@ -21,6 +22,10 @@ export function usePushRegistration() {
   const registeredForUser = useRef<string | null>(null);
   const api = getApiClient(getSecureSessionStore());
   const userId = me?.userId;
+
+  useEffect(() => {
+    void configureNotificationHandler();
+  }, []);
 
   useEffect(() => {
     if (
@@ -38,7 +43,7 @@ export function usePushRegistration() {
         const ok = await registerPushDeviceWithServer(api);
         if (!cancelled && ok) registeredForUser.current = userId;
       } catch {
-        // permission denied / missing projectId — app remains usable
+        // permission denied / missing projectId / native missing — app remains usable
       }
     })();
 
@@ -48,16 +53,27 @@ export function usePushRegistration() {
   }, [api, appState, userId]);
 
   useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as Record<string, unknown>;
-      const target = resolvePushRoute(data);
-      if (target.kind === 'join') {
-        router.push(`/join/${target.joinId}`);
-      } else if (target.kind === 'notifications') {
-        router.push('/my/notifications');
+    let remove: (() => void) | undefined;
+    let cancelled = false;
+    void (async () => {
+      const sub = await addNotificationResponseListener((data) => {
+        const target = resolvePushRoute(data);
+        if (target.kind === 'join') {
+          router.push(`/join/${target.joinId}`);
+        } else if (target.kind === 'notifications') {
+          router.push('/my/notifications');
+        }
+      });
+      if (cancelled) {
+        sub?.remove();
+        return;
       }
-    });
-    return () => sub.remove();
+      remove = sub?.remove;
+    })();
+    return () => {
+      cancelled = true;
+      remove?.();
+    };
   }, [router]);
 
   useEffect(() => {
