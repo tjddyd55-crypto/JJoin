@@ -27,12 +27,27 @@ export class GoogleSocialAuthProvider implements SocialAuthProvider {
       name?: string;
       picture?: string;
       aud?: string;
+      iss?: string;
       email_verified?: string;
     };
     if (!payload.sub) throw new UnauthorizedException('google_token_invalid');
-    if (this.clientId && payload.aud !== this.clientId) {
+
+    // Fail closed: real Google tokens require server audience configuration.
+    if (!this.clientId) {
+      throw new UnauthorizedException('google_oauth_client_id_unconfigured');
+    }
+    if (payload.aud !== this.clientId) {
       throw new UnauthorizedException('google_token_audience_mismatch');
     }
+
+    const allowedIssuers = new Set([
+      'https://accounts.google.com',
+      'accounts.google.com',
+    ]);
+    if (payload.iss && !allowedIssuers.has(payload.iss)) {
+      throw new UnauthorizedException('google_token_issuer_mismatch');
+    }
+
     return {
       subject: payload.sub,
       email: payload.email,
