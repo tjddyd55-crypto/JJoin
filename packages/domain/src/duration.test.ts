@@ -96,7 +96,7 @@ test('resolveAuthAppState: needs terms', () => {
   assert.equal(resolveAuthAppState(me, true), AuthAppState.AUTHENTICATED_NEEDS_TERMS);
 });
 
-test('resolveAuthAppState: identity gate before profile completion', () => {
+test('resolveAuthAppState: incomplete profile before deferred identity', () => {
   const me = baseMe({
     authAppHints: {
       termsAccepted: true,
@@ -104,13 +104,14 @@ test('resolveAuthAppState: identity gate before profile completion', () => {
       hasAvatar: false,
       locationOnboardingComplete: false,
     },
+    publicProfile: null,
     identity: {
       verificationStatus: IdentityStatus.UNVERIFIED,
       verifiedAt: null,
       provider: null,
     },
   });
-  assert.equal(resolveAuthAppState(me, true), AuthAppState.AUTHENTICATED_IDENTITY_UNVERIFIED);
+  assert.equal(resolveAuthAppState(me, true), AuthAppState.AUTHENTICATED_PROFILE_INCOMPLETE);
 });
 
 test('resolveAuthAppState: identity unverified but profile ready', () => {
@@ -139,6 +140,24 @@ test('onboarding new user path', () => {
     },
   });
   assert.equal(resolveOnboardingStep(me), 'TERMS');
+});
+
+test('onboarding: profile setup before identity after terms', () => {
+  const me = baseMe({
+    authAppHints: {
+      termsAccepted: true,
+      profileComplete: false,
+      hasAvatar: false,
+      locationOnboardingComplete: false,
+    },
+    publicProfile: null,
+    identity: {
+      verificationStatus: IdentityStatus.UNVERIFIED,
+      verifiedAt: null,
+      provider: null,
+    },
+  });
+  assert.equal(resolveOnboardingStep(me), 'PROFILE_SETUP');
 });
 
 test('identity gate blocks create/apply when unverified', () => {
