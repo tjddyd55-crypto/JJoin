@@ -1,0 +1,12 @@
+# Railway build for @jjoin/landing (static site, no DB/API)
+[phases.setup]
+nixPkgs = ["nodejs_22", "pnpm-9_x"]
+
+[phases.install]
+cmds = ["cd ../.. && pnpm install --frozen-lockfile --prod=false"]
+
+[phases.build]
+cmds = ["cd ../.. && pnpm --filter @jjoin/landing build"]
+
+[start]
+cmd = "pnpm start"
