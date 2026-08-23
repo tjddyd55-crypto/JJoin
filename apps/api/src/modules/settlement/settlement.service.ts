@@ -51,6 +51,15 @@ export class SettlementService {
     private readonly disputes: DisputeService,
     private readonly notifications: NotificationEventService,
   ) {
+    // Fail-closed: standalone cron must wire DisputeService — never auto-pay without dispute guard.
+    if (!disputes || typeof disputes.countOpenDisputesForJoin !== 'function') {
+      throw new Error(
+        'SettlementService requires DisputeService with countOpenDisputesForJoin',
+      );
+    }
+    if (!notifications || typeof notifications.enqueueSafe !== 'function') {
+      throw new Error('SettlementService requires NotificationEventService with enqueueSafe');
+    }
     this.clock = new SystemSettlementClock();
   }
 
