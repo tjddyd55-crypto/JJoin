@@ -107,13 +107,16 @@ export async function signInDevPersona(
     });
     const coin = await prisma.coinAsset.findUniqueOrThrow({ where: { code: 'JJOIN' } });
 
+    // Deterministic per-persona nickname avoids production unique collisions on re-seed.
+    const devNickname = `${fixture.nickname}_${fixture.persona}`;
+
     const created = await prisma.user.create({
       data: {
         identityStatus: 'VERIFIED',
         lastLoginAt: new Date(),
         profile: {
           create: {
-            nickname: fixture.nickname,
+            nickname: devNickname,
             gender: fixture.gender,
             ageBand: fixture.ageBand,
             regionLabel: fixture.regionLabel,
