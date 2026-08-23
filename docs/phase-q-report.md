@@ -2,26 +2,47 @@
 
 ## Summary
 
-Kakao Live Explore 장소에서 **사용자 선택 활성화**로 JJOIN Venue를 만들고,
-그 Venue에서 Join Create가 가능하도록 연결했다.
+Kakao Live Explore → **여기서 조인 만들기** → server-side Venue activate → Join Create 흐름을 완성했다.
 
 ## Architecture
 
 - Kakao Live Venue: ephemeral Explore hit (`source=KAKAO_LOCAL`)
 - JJOIN Venue: Postgres `(provider, providerPlaceId)` unique
-- Activation: `POST /venues/activate` + server Kakao resolve
-- Explore merge: batch lookup → `jjoinVenueId` / `openJoinCount` / `canCreateJoin`
+- Activation: `POST /venues/activate` + Kakao resolve (anti-spoof)
+- Explore merge: batch lookup → `jjoinVenueId` / `openJoinCount` / `canCreateJoin=true`
 
 ## Kakao Policy
 
-- Documented in `docs/kakao-venue-persistence-policy.md`
-- Persist: placeId + placeUrl + user-selected operational snapshot
-- No raw Kakao payload / no crawl
+See `docs/kakao-venue-persistence-policy.md`  
+Persist: placeId + placeUrl + user-selected operational snapshot only. No raw payload / no crawl.
 
-## Result
+## API / DB
 
-Code complete on `main` (pending Railway deploy + Android E2E confirmation).
+- `POST /venues/activate` idempotent + concurrent-safe
+- `POST /joins` accepts `venueId` (Kakao requires prior activation)
+- Unique `(provider, providerPlaceId)` reused
+
+## Android E2E
+
+- Real Kakao venue sheet CTA PASS
+- UNVERIFIED identity gate PASS
+- DEV_A activate → coin preview → join create PASS
+
+## Regression
+
+F / H / J / P server smokes PASS. Map Explore PASS.
+
+## Git
+
+- `b9fe683` feat: activate kakao venues for join creation
+- `71feb0f` fix: restore explore peek open-join label template
+- `b420a01` fix: wire requestGatedAction in explore create flow
+- (+ create screen activated venue display fix)
 
 ## STOP
 
 Do not start: Push, NICE/KCB/PASS, Coin Purchase, PG/IAP.
+
+## Result
+
+**PASS**

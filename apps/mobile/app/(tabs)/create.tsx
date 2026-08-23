@@ -157,17 +157,28 @@ export default function CreateScreen() {
         </AppText>
 
         <AppText variant="body">장소</AppText>
-        <View style={styles.row}>
-          {VENUE_FIXTURES.map((v, i) => (
-            <Pressable
-              key={v.providerPlaceId}
-              onPress={() => setVenueIndex(i)}
-              style={[styles.chip, venueIndex === i && styles.chipOn]}
-            >
-              <AppText variant="caption">{v.name}</AppText>
-            </Pressable>
-          ))}
-        </View>
+        {activatedVenueId ? (
+          <View style={styles.summary}>
+            <AppText variant="body">{activatedVenueName ?? '선택된 장소'}</AppText>
+            {activatedVenueAddress ? (
+              <AppText variant="caption" color="textSecondary">
+                {activatedVenueAddress}
+              </AppText>
+            ) : null}
+          </View>
+        ) : (
+          <View style={styles.row}>
+            {VENUE_FIXTURES.map((v, i) => (
+              <Pressable
+                key={v.providerPlaceId}
+                onPress={() => setVenueIndex(i)}
+                style={[styles.chip, venueIndex === i && styles.chipOn]}
+              >
+                <AppText variant="caption">{v.name}</AppText>
+              </Pressable>
+            ))}
+          </View>
+        )}
 
         <AppText variant="body">인원 {players}명</AppText>
         <View style={styles.row}>
