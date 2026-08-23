@@ -11,7 +11,7 @@ import {
 import type { AppNotificationDto } from '@jjoin/types';
 import { getApiClient } from '../../src/lib/api';
 import { getSecureSessionStore } from '../../src/session/SessionContext';
-import { resolvePushRoute } from '../../src/features/notifications/push-registration';
+import { resolvePushRoute } from '../../src/features/notifications/push-routing';
 
 export default function NotificationsScreen() {
   const router = useRouter();

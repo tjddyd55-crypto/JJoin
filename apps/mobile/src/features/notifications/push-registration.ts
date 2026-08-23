@@ -1,17 +1,39 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
-import * as Device from 'expo-device';
 import { PushPlatform } from '@jjoin/types';
 import type { ApiClient } from '@jjoin/api-client';
 
 type NotificationsModule = typeof import('expo-notifications');
+type DeviceModule = typeof import('expo-device');
 
 const ANDROID_CHANNEL_ID = 'jjoin-general';
 
 let cachedExpoPushToken: string | null = null;
 let lastRegisteredToken: string | null = null;
 let notificationsModule: NotificationsModule | null | undefined;
+let deviceModule: DeviceModule | null | undefined;
 let nativeUnavailableLogged = false;
+
+async function loadDevice(): Promise<DeviceModule | null> {
+  if (deviceModule !== undefined) return deviceModule;
+  try {
+    deviceModule = await import('expo-device');
+    return deviceModule;
+  } catch (e) {
+    deviceModule = null;
+    if (!nativeUnavailableLogged) {
+      nativeUnavailableLogged = true;
+      const msg = e instanceof Error ? e.message : 'unknown';
+      console.warn('[push] expo-device native unavailable — skip push', msg.slice(0, 120));
+    }
+    return null;
+  }
+}
+
+async function isPhysicalDevice(): Promise<boolean> {
+  const Device = await loadDevice();
+  return Boolean(Device?.isDevice);
+}
 
 /**
  * Lazy-load expo-notifications so a stale Dev Client (missing PushToken native module)
@@ -55,7 +77,7 @@ export async function ensureAndroidNotificationChannel(): Promise<void> {
  * Soft permission request — never block Join/Apply if denied or push unavailable.
  */
 export async function requestNotificationPermission(): Promise<boolean> {
-  if (!Device.isDevice) return false;
+  if (!(await isPhysicalDevice())) return false;
   const Notifications = await loadNotifications();
   if (!Notifications) return false;
   await ensureAndroidNotificationChannel();
@@ -69,7 +91,7 @@ export async function requestNotificationPermission(): Promise<boolean> {
 }
 
 export async function getExpoPushTokenSafe(): Promise<string | null> {
-  if (!Device.isDevice) return null;
+  if (!(await isPhysicalDevice())) return null;
   const Notifications = await loadNotifications();
   if (!Notifications) return null;
 
@@ -151,17 +173,5 @@ export async function addNotificationResponseListener(
   return { remove: () => sub.remove() };
 }
 
-export type PushRouteTarget =
-  | { kind: 'join'; joinId: string }
-  | { kind: 'notifications' }
-  | { kind: 'none' };
-
-/** Allowlisted deep-link mapping — never open arbitrary URLs from payload. */
-export function resolvePushRoute(data: Record<string, unknown> | undefined): PushRouteTarget {
-  if (!data) return { kind: 'none' };
-  const joinId = typeof data.joinId === 'string' ? data.joinId : undefined;
-  if (joinId && /^[0-9a-f-]{36}$/i.test(joinId)) {
-    return { kind: 'join', joinId };
-  }
-  return { kind: 'notifications' };
-}
+export type { PushRouteTarget } from './push-routing';
+export { resolvePushRoute } from './push-routing';

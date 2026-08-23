@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StyleSheet } from 'react-native';
@@ -6,7 +6,6 @@ import { SessionProvider, useSession } from '../src/session/SessionContext';
 import { AuthAppState } from '@jjoin/types';
 import { AppText, ScreenContainer } from '@jjoin/design-system';
 import { t } from '@jjoin/i18n';
-import { usePushRegistration } from '../src/features/notifications/use-push-registration';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -14,9 +13,25 @@ export const unstable_settings = {
   initialRouteName: '(tabs)',
 };
 
+const PushRegistrationHost = React.lazy(async () => {
+  try {
+    const mod = await import('../src/features/notifications/PushRegistrationHost');
+    return { default: mod.PushRegistrationHost };
+  } catch (e) {
+    console.warn(
+      '[push] bootstrap module unavailable',
+      e instanceof Error ? e.message.slice(0, 120) : e,
+    );
+    return { default: () => null };
+  }
+});
+
 function PushBootstrap() {
-  usePushRegistration();
-  return null;
+  return (
+    <Suspense fallback={null}>
+      <PushRegistrationHost />
+    </Suspense>
+  );
 }
 
 function AuthGateBootstrap({ children }: { children: React.ReactNode }) {
