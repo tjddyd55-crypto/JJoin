@@ -1,6 +1,8 @@
 import {
   MockAuthScenario,
   SocialProvider,
+  type ActivateVenueRequest,
+  type ActivateVenueResponse,
   type AuthSessionDto,
   type CreateJoinRequest,
   type ExploreFilter,
@@ -307,6 +309,22 @@ export class ApiClient {
   async deleteMyPresence(): Promise<PrivatePresenceDto> {
     const res = await request(`${this.config.baseUrl}/me/presence`, {
       method: 'DELETE',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async activateVenue(body: ActivateVenueRequest): Promise<ActivateVenueResponse> {
+    const res = await request(`${this.config.baseUrl}/venues/activate`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async getVenue(venueId: string): Promise<ActivateVenueResponse> {
+    const res = await request(`${this.config.baseUrl}/venues/${venueId}`, {
       headers: await this.headers(true),
     });
     return parseJson(res);

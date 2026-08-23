@@ -3,6 +3,7 @@ import { ExploreController } from './explore.controller';
 import { ExploreService } from './explore.service';
 import { JoinsModule } from '../joins/joins.module';
 import { PresenceModule } from '../presence/presence.module';
+import { VenuesModule } from '../venues/venues.module';
 import { VENUE_SEARCH_PROVIDER } from '../../providers/venue-search.types';
 import { resolveVenueProviderMode } from '../../providers/venue-search.config';
 import { MockVenueSearchAdapter } from '../../providers/mock-venue-search.adapter';
@@ -10,7 +11,7 @@ import { KakaoLocalVenueSearchAdapter } from '../../providers/kakao-local-venue-
 import { venueSearchConfig } from '../../providers/venue-search.config';
 
 @Module({
-  imports: [JoinsModule, PresenceModule],
+  imports: [JoinsModule, PresenceModule, VenuesModule],
   controllers: [ExploreController],
   providers: [
     MockVenueSearchAdapter,

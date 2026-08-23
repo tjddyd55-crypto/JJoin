@@ -44,29 +44,51 @@ export const termsConsentSchema = z.object({
 
 export type TermsConsentInput = z.infer<typeof termsConsentSchema>;
 
-export const createJoinSchema = z.object({
-  sportCode: z.string().trim().min(1).default('SCREEN_GOLF'),
-  venue: z.object({
-    provider: z.string().trim().min(1),
-    providerPlaceId: z.string().trim().min(1),
-    name: z.string().trim().min(1).max(120),
-    address: z.string().trim().max(200).nullable().optional(),
-    regionLabel: z.string().trim().max(80).nullable().optional(),
-    latitude: z.number().finite().gte(-90).lte(90),
-    longitude: z.number().finite().gte(-180).lte(180),
-  }),
-  startAt: z.string().min(1),
-  plannedPlayerCount: z.number().int().min(2).max(8),
-  joinMethod: z.enum(['OPEN', 'APPROVAL']),
-  title: z.string().trim().max(80).nullable().optional(),
-  description: z.string().trim().max(500).nullable().optional(),
-  /** Host reward per participant — fee is never accepted from client. */
-  rewardPerParticipant: z
-    .string()
-    .regex(/^\d+(\.\d{1,4})?$/)
+export const activateVenueSchema = z.object({
+  provider: z.enum(['KAKAO', 'MOCK']),
+  providerPlaceId: z.string().trim().min(1).max(64),
+  resolveHint: z
+    .object({
+      latitude: z.number().finite().gte(-90).lte(90),
+      longitude: z.number().finite().gte(-180).lte(180),
+      query: z.string().trim().min(1).max(80).optional(),
+      sportCode: z.string().trim().min(1).max(40).optional(),
+    })
     .optional(),
-  idempotencyKey: z.string().trim().min(8).max(120).optional(),
 });
+
+export type ActivateVenueInput = z.infer<typeof activateVenueSchema>;
+
+export const createJoinSchema = z
+  .object({
+    sportCode: z.string().trim().min(1).default('SCREEN_GOLF'),
+    venueId: z.string().uuid().optional(),
+    venue: z
+      .object({
+        provider: z.string().trim().min(1),
+        providerPlaceId: z.string().trim().min(1),
+        name: z.string().trim().min(1).max(120),
+        address: z.string().trim().max(200).nullable().optional(),
+        regionLabel: z.string().trim().max(80).nullable().optional(),
+        latitude: z.number().finite().gte(-90).lte(90),
+        longitude: z.number().finite().gte(-180).lte(180),
+      })
+      .optional(),
+    startAt: z.string().min(1),
+    plannedPlayerCount: z.number().int().min(2).max(8),
+    joinMethod: z.enum(['OPEN', 'APPROVAL']),
+    title: z.string().trim().max(80).nullable().optional(),
+    description: z.string().trim().max(500).nullable().optional(),
+    /** Host reward per participant — fee is never accepted from client. */
+    rewardPerParticipant: z
+      .string()
+      .regex(/^\d+(\.\d{1,4})?$/)
+      .optional(),
+    idempotencyKey: z.string().trim().min(8).max(120).optional(),
+  })
+  .refine((v) => Boolean(v.venueId || v.venue), {
+    message: 'venue_or_venueId_required',
+  });
 
 export type CreateJoinInput = z.infer<typeof createJoinSchema>;
 

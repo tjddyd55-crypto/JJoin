@@ -11,6 +11,7 @@ import {
   venueSearchConfig,
 } from './venue-search.config';
 import type {
+  VenueResolveInput,
   VenueSearchHit,
   VenueSearchInput,
   VenueSearchProvider,
@@ -77,6 +78,29 @@ export class KakaoLocalVenueSearchAdapter implements VenueSearchProvider {
     }
 
     return [...merged.values()];
+  }
+
+  async resolveByPlaceId(input: VenueResolveInput): Promise<VenueSearchHit | null> {
+    const query =
+      input.query?.trim() || defaultVenueSearchQuery(input.sportCode);
+    const near = await this.search({
+      sportCode: input.sportCode,
+      query,
+      centerLat: input.centerLat,
+      centerLng: input.centerLng,
+      radiusMeters: venueSearchConfig.kakaoMaxRadiusMeters,
+    });
+    const foundNear = near.find((h) => h.providerPlaceId === input.providerPlaceId);
+    if (foundNear) return foundNear;
+
+    const unscoped = await this.search({
+      sportCode: input.sportCode,
+      query,
+      centerLat: input.centerLat,
+      centerLng: input.centerLng,
+      unscoped: true,
+    });
+    return unscoped.find((h) => h.providerPlaceId === input.providerPlaceId) ?? null;
   }
 
   private async fetchPage(

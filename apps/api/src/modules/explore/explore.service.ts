@@ -13,6 +13,7 @@ import { exploreConfig } from '../presence/presence.config';
 import { haversineMeters } from '../presence/privacy-location';
 import { PresenceService } from '../presence/presence.service';
 import { JoinsService } from '../joins/joins.service';
+import { VenuesService } from '../venues/venues.service';
 import {
   VENUE_SEARCH_PROVIDER,
   type VenueSearchHit,
@@ -38,6 +39,7 @@ export class ExploreService {
   constructor(
     private readonly joins: JoinsService,
     private readonly presence: PresenceService,
+    private readonly venueActivation: VenuesService,
     @Inject(VENUE_SEARCH_PROVIDER) private readonly venues: VenueSearchProvider,
   ) {}
 
@@ -72,23 +74,33 @@ export class ExploreService {
         bounds: isDefaultQuery ? bounds ?? undefined : undefined,
         unscoped: !isDefaultQuery,
       });
-      if (this.venues.name === 'MOCK') {
-        const dbJoins = await this.joins.openJoinsByProviderPlaceIds(
-          hits.map((h) => h.providerPlaceId),
-        );
-        venueDtos = hits.map((h) => {
-          const base = this.toVenueDto(h, centerLat, centerLng);
-          const previews = dbJoins.get(h.providerPlaceId) ?? [];
-          return {
-            ...base,
-            joinPreviews: previews,
-            openJoinCount: previews.length,
-            canCreateJoin: true,
-          };
-        });
-      } else {
-        venueDtos = hits.map((h) => this.toVenueDto(h, centerLat, centerLng));
-      }
+            const dbProvider = this.venues.name === 'MOCK' ? 'MOCK' : 'KAKAO';
+      const placeIds = hits.map((h) => h.providerPlaceId);
+      const activated = await this.venueActivation.findByProviderPlaceIds(
+        dbProvider,
+        placeIds,
+      );
+      const dbJoins = await this.joins.openJoinsByProviderPlaceIds(
+        placeIds,
+        dbProvider,
+      );
+      venueDtos = hits.map((h) => {
+        const base = this.toVenueDto(h, centerLat, centerLng);
+        const linked = activated.get(h.providerPlaceId);
+        const previews = dbJoins.get(h.providerPlaceId) ?? [];
+        const isActivated = Boolean(linked);
+        return {
+          ...base,
+          joinPreviews: previews,
+          openJoinCount: previews.length,
+          canCreateJoin: true,
+          jjoinVenueId: linked?.id ?? null,
+          isActivated,
+          activationRequired: !isActivated,
+          provider: dbProvider,
+          providerPlaceId: h.providerPlaceId,
+        };
+      });
     }
 
     const users =
@@ -139,7 +151,7 @@ export class ExploreService {
       openJoinCount: hit.source === 'MOCK' ? 0 : 0,
       joinPreviews: [],
       source: hit.source,
-      canCreateJoin: hit.source === 'MOCK' || hit.source === 'JJOIN',
+      canCreateJoin: true,
     };
   }
 

@@ -39,9 +39,19 @@ export type VenueSearchInput = {
   unscoped?: boolean;
 };
 
+export type VenueResolveInput = {
+  providerPlaceId: string;
+  sportCode: string;
+  centerLat: number;
+  centerLng: number;
+  query?: string;
+};
+
 export interface VenueSearchProvider {
   readonly name: string;
   search(input: VenueSearchInput): Promise<VenueSearchHit[]>;
+  /** Server-side place verify for activation (anti-spoof). */
+  resolveByPlaceId?(input: VenueResolveInput): Promise<VenueSearchHit | null>;
 }
 
 export const VENUE_SEARCH_PROVIDER = Symbol('VENUE_SEARCH_PROVIDER');

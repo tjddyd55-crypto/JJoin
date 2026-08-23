@@ -70,7 +70,9 @@ export function KakaoMapAdapter({
     for (const v of venues) {
       const selected = v.venueId === selectedVenueId;
       // Kakao Live venues: no open-join count on the pin. JJOIN-owned only (future).
-      const showJoinBadge = v.source === 'JJOIN' && v.openJoinCount > 0;
+      const showJoinBadge =
+        (v.source === 'JJOIN' || Boolean(v.jjoinVenueId) || Boolean(v.isActivated)) &&
+        v.openJoinCount > 0;
       list.push({
         id: `venue:${v.venueId}`,
         kind: 'venue',

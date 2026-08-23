@@ -3,6 +3,7 @@ import { defaultVenueSearchQuery } from '@jjoin/domain';
 import { MOCK_EXPLORE_VENUES } from '../modules/explore/explore.mock-venues';
 import { haversineMeters } from '../modules/presence/privacy-location';
 import type {
+  VenueResolveInput,
   VenueSearchHit,
   VenueSearchInput,
   VenueSearchProvider,
@@ -52,5 +53,16 @@ export class MockVenueSearchAdapter implements VenueSearchProvider {
         haversineMeters(input.centerLat, input.centerLng, v.latitude, v.longitude),
       ),
     }));
+  }
+
+  async resolveByPlaceId(input: VenueResolveInput): Promise<VenueSearchHit | null> {
+    const hits = await this.search({
+      sportCode: input.sportCode,
+      query: input.query,
+      centerLat: input.centerLat,
+      centerLng: input.centerLng,
+      unscoped: true,
+    });
+    return hits.find((h) => h.providerPlaceId === input.providerPlaceId) ?? null;
   }
 }

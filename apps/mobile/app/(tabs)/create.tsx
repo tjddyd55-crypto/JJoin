@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { useRouter, type Href } from 'expo-router';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import {
   AppText,
   BottomActionBar,
@@ -50,6 +50,16 @@ function newIdempotencyKey() {
 export default function CreateScreen() {
   const { requestGatedAction, me } = useSession();
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    venueId?: string;
+    venueName?: string;
+    venueAddress?: string;
+  }>();
+  const activatedVenueId = typeof params.venueId === 'string' ? params.venueId : undefined;
+  const activatedVenueName =
+    typeof params.venueName === 'string' ? params.venueName : undefined;
+  const activatedVenueAddress =
+    typeof params.venueAddress === 'string' ? params.venueAddress : undefined;
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [venueIndex, setVenueIndex] = useState(0);
   const [players, setPlayers] = useState(4);
@@ -87,14 +97,16 @@ export default function CreateScreen() {
     setSubmitting(true);
     setError(null);
     try {
-      const venue = VENUE_FIXTURES[venueIndex];
+      const fixture = VENUE_FIXTURES[venueIndex];
       const detail = await api.createJoin({
         sportCode: SCREEN_GOLF_CODE,
-        venue: { ...venue },
+        ...(activatedVenueId
+          ? { venueId: activatedVenueId }
+          : { venue: { ...fixture } }),
         startAt: defaultStartAtIso(),
         plannedPlayerCount: players,
         joinMethod: JoinMethod.APPROVAL,
-        title: `${venue.name} 스크린골프`,
+        title: `${activatedVenueName ?? fixture.name} 스크린골프`,
         idempotencyKey: newIdempotencyKey(),
       });
       setDoneJoinId(detail.joinId);
@@ -107,7 +119,7 @@ export default function CreateScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [api, players, preview, requestGatedAction, router, submitting, venueIndex]);
+  }, [activatedVenueAddress, activatedVenueId, activatedVenueName, api, players, preview, requestGatedAction, router, submitting, venueIndex]);
 
   if (doneJoinId) {
     return (

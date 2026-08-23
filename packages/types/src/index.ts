@@ -282,6 +282,14 @@ export type ExploreVenueDto = {
   source?: ExploreVenueSource;
   /** True when Create Join from this card is supported in current product phase. */
   canCreateJoin?: boolean;
+  /** Present when this Kakao/MOCK place is linked to a JJOIN Venue row. */
+  jjoinVenueId?: string | null;
+  /** True when a JJOIN Venue row already exists for this provider place. */
+  isActivated?: boolean;
+  /** True when create requires POST /venues/activate first (still canCreateJoin). */
+  activationRequired?: boolean;
+  provider?: string;
+  providerPlaceId?: string;
 };
 
 /**
@@ -343,9 +351,36 @@ export type JoinVenueRefInput = {
   longitude: number;
 };
 
+export type ActivateVenueRequest = {
+  provider: 'KAKAO' | 'MOCK';
+  providerPlaceId: string;
+  resolveHint?: {
+    latitude: number;
+    longitude: number;
+    query?: string;
+    sportCode?: string;
+  };
+};
+
+export type ActivateVenueResponse = {
+  venueId: string;
+  provider: string;
+  providerPlaceId: string;
+  name: string;
+  address: string | null;
+  roadAddress: string | null;
+  latitude: number;
+  longitude: number;
+  placeUrl: string | null;
+  status: 'ACTIVE' | 'UNAVAILABLE';
+  created: boolean;
+};
+
 export type CreateJoinRequest = {
   sportCode: string;
-  venue: JoinVenueRefInput;
+  /** Prefer activated JJOIN venue id when present (Kakao path). */
+  venueId?: string;
+  venue?: JoinVenueRefInput;
   startAt: string;
   plannedPlayerCount: number;
   joinMethod: JoinMethod;

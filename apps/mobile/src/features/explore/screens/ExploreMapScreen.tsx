@@ -62,6 +62,7 @@ export function ExploreMapScreen() {
   const [cameraKey, setCameraKey] = useState(0);
   const [cameraTarget, setCameraTarget] = useState<MapCoordinate | null>(null);
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
+  const [activatingVenue, setActivatingVenue] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [sheetMode, setSheetMode] = useState<SheetMode>('PEEK');
   const [presence, setPresence] = useState<PresenceVisibility>(PresenceVisibility.HIDDEN);
@@ -396,14 +397,55 @@ export function ExploreMapScreen() {
             }}
             onPickDuration={(d) => void activatePresence(d)}
             onCreateJoin={() => {
-              if (!selectedVenue?.canCreateJoin) {
-                Alert.alert(
-                  '조인 만들기',
-                  '카카오 실시간 장소에서 조인 만들기는 다음 단계에서 지원됩니다.',
-                );
-                return;
-              }
-              router.push('/(tabs)/create');
+              void (async () => {
+                if (!selectedVenue?.canCreateJoin) {
+                  Alert.alert('조인 만들기', '이 장소에서는 조인을 만들 수 없습니다.');
+                  return;
+                }
+                const gate = requestGatedAction({ type: 'CREATE_JOIN' });
+                if (!gate.allowed) {
+                  router.push('/auth/gate');
+                  return;
+                }
+                if (activatingVenue) return;
+                setActivatingVenue(true);
+                try {
+                  const api = getApiClient(getSecureSessionStore());
+                  const provider =
+                    selectedVenue.source === 'MOCK' || selectedVenue.provider === 'MOCK'
+                      ? 'MOCK'
+                      : 'KAKAO';
+                  const providerPlaceId =
+                    selectedVenue.providerPlaceId ?? selectedVenue.venueId;
+                  const activated = selectedVenue.jjoinVenueId
+                    ? await api.getVenue(selectedVenue.jjoinVenueId)
+                    : await api.activateVenue({
+                        provider,
+                        providerPlaceId,
+                        resolveHint: {
+                          latitude: selectedVenue.latitude,
+                          longitude: selectedVenue.longitude,
+                          query: selectedVenue.name,
+                        },
+                      });
+                  router.push({
+                    pathname: '/(tabs)/create',
+                    params: {
+                      venueId: activated.venueId,
+                      venueName: activated.name,
+                      venueAddress:
+                        activated.roadAddress ?? activated.address ?? '',
+                    },
+                  } as Href);
+                } catch {
+                  Alert.alert(
+                    '장소 확인 실패',
+                    '장소 정보를 확인할 수 없습니다. 다시 시도해 주세요.',
+                  );
+                } finally {
+                  setActivatingVenue(false);
+                }
+              })();
             }}
             onVenueDetail={() => {
               const url = selectedVenue?.placeUrl;

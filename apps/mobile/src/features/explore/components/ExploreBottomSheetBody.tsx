@@ -88,21 +88,13 @@ export function ExploreBottomSheetBody(props: {
             {v.phone}
           </AppText>
         ) : null}
-        {v.source === 'KAKAO_LOCAL' ? (
-          <AppText variant="caption" color="textSecondary">
-            열린 조인은 JJOIN에 등록된 장소에만 표시됩니다.
-          </AppText>
-        ) : (
-          <AppText variant="body" color="primary">
-            열린 조인 {v.openJoinCount}
-          </AppText>
-        )}
+        <AppText variant="body" color="primary">
+          열린 조인 {v.openJoinCount}
+        </AppText>
         {v.joinPreviews.length === 0 ? (
-          v.source !== 'KAKAO_LOCAL' ? (
-            <AppText variant="caption" color="textSecondary">
-              현재 열린 조인 없음
-            </AppText>
-          ) : null
+          <AppText variant="caption" color="textSecondary">
+            현재 열린 조인 없음
+          </AppText>
         ) : (
           v.joinPreviews.map((j) => (
             <Pressable key={j.joinId} style={styles.card} onPress={() => props.onJoinPress(j.joinId)}>
@@ -182,7 +174,7 @@ export function ExploreBottomSheetBody(props: {
           <AppText variant="caption" color="textSecondary">
             {v.distanceMeters != null ? `${(v.distanceMeters / 1000).toFixed(1)}km · ` : ''}
             {v.regionLabel ?? ''}
-            {v.source === 'KAKAO_LOCAL' ? '' : ` · 열린 조인 ${v.openJoinCount}`}
+            ` · 열린 조인 ${v.openJoinCount}`
           </AppText>
         </Pressable>
       ))}

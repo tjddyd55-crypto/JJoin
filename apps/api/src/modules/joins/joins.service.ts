@@ -173,31 +173,61 @@ export class JoinsService {
 
     try {
       await this.prisma.$transaction(async (tx) => {
-        const venue = await tx.venue.upsert({
-          where: {
-            provider_providerPlaceId: {
+        let venue;
+        if (input.venueId) {
+          const byId = await tx.venue.findUnique({ where: { id: input.venueId } });
+          if (!byId) {
+            throw new BadRequestException({
+              code: 'VENUE_NOT_FOUND',
+              message: '장소 정보를 확인할 수 없습니다. 다시 시도해 주세요.',
+            });
+          }
+          venue = byId;
+        } else if (!input.venue) {
+          throw new BadRequestException('invalid_create_join');
+        } else if (input.venue.provider === 'KAKAO') {
+          const existing = await tx.venue.findUnique({
+            where: {
+              provider_providerPlaceId: {
+                provider: 'KAKAO',
+                providerPlaceId: input.venue.providerPlaceId,
+              },
+            },
+          });
+          if (!existing) {
+            throw new BadRequestException({
+              code: 'VENUE_NOT_ACTIVATED',
+              message: '장소 정보를 확인할 수 없습니다. 다시 시도해 주세요.',
+            });
+          }
+          venue = existing;
+        } else {
+          venue = await tx.venue.upsert({
+            where: {
+              provider_providerPlaceId: {
+                provider: input.venue.provider,
+                providerPlaceId: input.venue.providerPlaceId,
+              },
+            },
+            create: {
+              sportId: sport.id,
               provider: input.venue.provider,
               providerPlaceId: input.venue.providerPlaceId,
+              name: input.venue.name,
+              address: input.venue.address ?? null,
+              region: input.venue.regionLabel ?? null,
+              latitude: input.venue.latitude,
+              longitude: input.venue.longitude,
             },
-          },
-          create: {
-            sportId: sport.id,
-            provider: input.venue.provider,
-            providerPlaceId: input.venue.providerPlaceId,
-            name: input.venue.name,
-            address: input.venue.address ?? null,
-            region: input.venue.regionLabel ?? null,
-            latitude: input.venue.latitude,
-            longitude: input.venue.longitude,
-          },
-          update: {
-            name: input.venue.name,
-            address: input.venue.address ?? null,
-            region: input.venue.regionLabel ?? null,
-            latitude: input.venue.latitude,
-            longitude: input.venue.longitude,
-          },
-        });
+            update: {
+              name: input.venue.name,
+              address: input.venue.address ?? null,
+              region: input.venue.regionLabel ?? null,
+              latitude: input.venue.latitude,
+              longitude: input.venue.longitude,
+            },
+          });
+        }
 
         const wallet = await this.ledger.getOrCreateWallet(hostUserId, coinAsset.id, tx);
         const locked = await this.ledger.lockWallet(tx, wallet.id);
@@ -550,12 +580,13 @@ export class JoinsService {
   /** Merge DB open joins onto mock venue fixtures by providerPlaceId. */
   async openJoinsByProviderPlaceIds(
     providerPlaceIds: string[],
+    provider: string = 'MOCK',
   ): Promise<Map<string, ExploreJoinPreviewDto[]>> {
     if (providerPlaceIds.length === 0) return new Map();
 
     const venues = await this.prisma.venue.findMany({
       where: {
-        provider: 'MOCK',
+        provider,
         providerPlaceId: { in: providerPlaceIds },
       },
       select: { id: true, providerPlaceId: true },
