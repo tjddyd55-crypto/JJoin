@@ -20,7 +20,7 @@ import {
 } from '@jjoin/types';
 import { defaultVenueSearchQuery } from '@jjoin/domain';
 import { AppText, colors, spacing } from '@jjoin/design-system';
-import { getSecureSessionStore } from '../../../session/SessionContext';
+import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
 import { getApiClient } from '../../../lib/api';
 import { fetchExploreMap, REGION_SEARCH_FIXTURES } from '../api/explore-api';
 import {
@@ -46,6 +46,7 @@ import {
 
 export function ExploreMapScreen() {
   const router = useRouter();
+  const { requestGatedAction } = useSession();
   const store = getSecureSessionStore();
   const mapRef = useRef<MapCameraHandle | null>(null);
   const sheetRef = useRef<BottomSheet>(null);
