@@ -35,26 +35,14 @@ Certificate: Android Debug (installed APK)
 
 If release/Play App Signing key changes later, update the Android OAuth client SHA list.
 
-## USER_ACTION_REQUIRED (Google Cloud)
+## Console setup (completed)
 
-1. **OAuth consent screen** — External or Internal; app name JJOIN; scopes: openid / profile (email only if needed). No Contacts/Calendar/Gmail.
-2. **Android OAuth client** — Application type Android; package `com.jjoin.app`; SHA-1 above (add SHA-256 if console asks).
-3. **Web OAuth client** — Application type Web; copy Client ID (no secret needed for ID-token audience).
-4. Set **same Web Client ID** in:
+1. OAuth consent screen — JJOIN; scopes openid / profile (email if needed)
+2. Android OAuth client — package `com.jjoin.app` + debug SHA-1
+3. Web OAuth client — same Client ID on:
    - `apps/mobile/.env` → `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`
-   - Railway `api` Variables → `GOOGLE_OAUTH_CLIENT_ID`
-5. Add your Google account as a **test user** if consent screen is in Testing.
-6. Do **not** paste Client IDs or tokens into chat — reply with **「설정 완료」** only.
-
-## After credentials
-
-```powershell
-cd apps/mobile
-pnpm exec expo prebuild -p android --clean
-pnpm exec expo run:android
-```
-
-Then Actual Google Android E2E + Kakao/Naver/Map + F–O regression.
+   - Railway `api` → `GOOGLE_OAUTH_CLIENT_ID`
+4. Actual Android E2E — see `docs/phase-p-google-e2e-report.md`
 
 ## Security
 
