@@ -109,12 +109,8 @@ export function buildMeFromUser(
 }
 
 export function resolveNextOnboardingStep(me: MeDto): ReturnType<typeof resolveOnboardingStep> {
-  if (!me.authAppHints.termsAccepted) return 'TERMS';
-  if (me.identity.verificationStatus !== IdentityStatus.VERIFIED) return 'IDENTITY';
-  if (!me.authAppHints.profileComplete) return 'PROFILE_SETUP';
-  if (!me.authAppHints.hasAvatar) return 'PROFILE_PHOTO';
-  if (!me.authAppHints.locationOnboardingComplete) return 'LOCATION';
-  return 'HOME';
+  // Keep API nextStep aligned with domain (profile before deferred identity).
+  return resolveOnboardingStep(me);
 }
 
 export const CONSENT_FIELD_MAP: Record<string, ConsentType> = {

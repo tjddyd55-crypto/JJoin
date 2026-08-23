@@ -115,14 +115,18 @@ export function resolveAuthAppState(me: MeDto | null, hasSession: boolean): Auth
   if (!me.authAppHints.termsAccepted) {
     return AuthAppState.AUTHENTICATED_NEEDS_TERMS;
   }
+  // Profile must be completed before browse tabs. Identity stays deferred
+  // (IDENTITY_UNVERIFIED allows browse only after profile onboarding).
+  if (
+    !me.authAppHints.profileComplete ||
+    !me.authAppHints.hasAvatar ||
+    !me.authAppHints.locationOnboardingComplete ||
+    !me.publicProfile
+  ) {
+    return AuthAppState.AUTHENTICATED_PROFILE_INCOMPLETE;
+  }
   if (me.identity.verificationStatus !== IdentityStatus.VERIFIED) {
     return AuthAppState.AUTHENTICATED_IDENTITY_UNVERIFIED;
-  }
-  if (!me.authAppHints.profileComplete || !me.authAppHints.hasAvatar) {
-    return AuthAppState.AUTHENTICATED_PROFILE_INCOMPLETE;
-  }
-  if (!me.authAppHints.locationOnboardingComplete) {
-    return AuthAppState.AUTHENTICATED_PROFILE_INCOMPLETE;
   }
   return AuthAppState.READY;
 }
@@ -130,10 +134,10 @@ export function resolveAuthAppState(me: MeDto | null, hasSession: boolean): Auth
 /** Onboarding path for new users. */
 export function resolveOnboardingStep(me: MeDto): SocialSignInNextStep {
   if (!me.authAppHints.termsAccepted) return 'TERMS';
-  if (me.identity.verificationStatus !== IdentityStatus.VERIFIED) return 'IDENTITY';
-  if (!me.authAppHints.profileComplete) return 'PROFILE_SETUP';
+  if (!me.authAppHints.profileComplete || !me.publicProfile) return 'PROFILE_SETUP';
   if (!me.authAppHints.hasAvatar) return 'PROFILE_PHOTO';
   if (!me.authAppHints.locationOnboardingComplete) return 'LOCATION';
+  if (me.identity.verificationStatus !== IdentityStatus.VERIFIED) return 'IDENTITY';
   return 'HOME';
 }
 

@@ -451,15 +451,18 @@ export class UserAccountService {
         include: USER_INCLUDE,
       });
 
-      if (params.nickname) {
-        const nick = `${params.nickname}_${randomUUID().slice(0, 4)}`;
-        await tx.userProfile.create({
-          data: {
-            userId: user.id,
-            nickname: nick.slice(0, 20),
-          },
-        });
-      }
+      // Always create a profile row so MY/publicProfile is never null after social signup.
+      // Nickname may still be incomplete until PROFILE_SETUP (region/gender/age).
+      const emailLocal = params.email?.split('@')[0]?.replace(/[^a-zA-Z0-9가-힣_]/g, '');
+      const fallback = `${params.provider.toLowerCase()}_${params.subject.slice(0, 6)}`;
+      const baseNick = (params.nickname?.trim() || emailLocal || fallback).slice(0, 15);
+      const nick = `${baseNick}_${randomUUID().slice(0, 4)}`;
+      await tx.userProfile.create({
+        data: {
+          userId: user.id,
+          nickname: nick.slice(0, 20),
+        },
+      });
 
       await tx.userSportProfile.create({
         data: {
