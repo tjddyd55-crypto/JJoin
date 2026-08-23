@@ -12,4 +12,4 @@ cmds = [
 ]
 
 [start]
-cmd = "sh -c 'if [ \"$JJOIN_SERVICE_ROLE\" = \"landing\" ]; then pnpm --filter @jjoin/landing start; else node apps/api/dist/main.js; fi'"
+cmd = "sh -c 'if [ \"$JJOIN_SERVICE_ROLE\" = \"landing\" ]; then cd apps/landing && npx serve dist -s -l ${PORT:-3000}; else node apps/api/dist/main.js; fi'"
