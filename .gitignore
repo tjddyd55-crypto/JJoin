@@ -32,5 +32,5 @@ apps/mobile/google-services.json
 **/fcm-service-account*.json
 **/service-account*.json
 
-# Local OpenAPI snapshots (large operational extracts — do not commit by default)
+# LOCALDATA golf facility research snapshots / staging (do not commit)
 data/golf-practice-ranges/

@@ -1,9 +1,9 @@
 import {
   MockAuthScenario,
   SocialProvider,
+  type ActivateGolfFacilityVenueResponse,
   type ActivateVenueRequest,
   type ActivateVenueResponse,
-  type ActivateGolfFacilityVenueResponse,
   type AuthSessionDto,
   type CreateJoinRequest,
   type ExploreFilter,

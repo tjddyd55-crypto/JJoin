@@ -30,6 +30,8 @@ export function ExploreBottomSheetBody(props: {
   onVenueDetail: () => void;
   onOpenProfile: () => void;
   onJoinPress: (joinId: string) => void;
+  /** Override primary CTA label (e.g. GolfFacility confirm). */
+  createJoinLabel?: string;
 }) {
   const theme = useTheme();
 
@@ -134,10 +136,15 @@ export function ExploreBottomSheetBody(props: {
           <Button label="장소 상세" variant="secondary" onPress={props.onVenueDetail} />
         )}
         {v.canCreateJoin ? (
-          <Button label="여기서 조인 만들기" onPress={props.onCreateJoin} />
+          <Button
+            label={props.createJoinLabel ?? '여기서 조인 만들기'}
+            onPress={props.onCreateJoin}
+          />
         ) : (
           <Text variant="caption" tone="tertiary">
-            이 장소에서 조인 만들기는 곧 지원됩니다.
+            {v.source === 'GOLF_FACILITY'
+              ? '위치 정보 확인 중인 시설입니다.'
+              : '이 장소에서 조인 만들기는 곧 지원됩니다.'}
           </Text>
         )}
       </BottomSheetFrame>
