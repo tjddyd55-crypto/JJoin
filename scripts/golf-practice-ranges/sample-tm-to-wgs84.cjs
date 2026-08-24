@@ -2,16 +2,17 @@
 /**
  * Small-sample EPSG:5174 (TM) → EPSG:4326 (WGS84) conversion check.
  *
- * Uses a temporary proj4 package under /tmp (not added to repo dependencies).
+ * Uses workspace proj4 dependency.
  * Does not call NAVER Geocoding.
  */
 
 const fs = require('fs');
 const path = require('path');
 
+const proj4 = require('proj4');
+
 const ROOT = path.resolve(__dirname, '../..');
 const DATA_DIR = path.join(ROOT, 'data/golf-practice-ranges');
-const PROJ4_PATH = '/tmp/proj4-tmp/package';
 
 const SIDO_TARGETS = [
   '서울',
@@ -102,7 +103,6 @@ function inRange(value, [min, max]) {
 }
 
 function main() {
-  const proj4 = require(PROJ4_PATH);
   // EPSG:5174 — Bessel TM mid-origin; towgs84 commonly used for KR Bessel→WGS84
   proj4.defs(
     'EPSG:5174',
@@ -204,7 +204,7 @@ function main() {
 
   const report = {
     method: 'proj4 EPSG:5174 +towgs84 → EPSG:4326',
-    proj4Source: PROJ4_PATH,
+    proj4Source: 'proj4',
     sampleCount: results.length,
     transformOkInKorea: ok,
     failOrOutOfRange: fail,
