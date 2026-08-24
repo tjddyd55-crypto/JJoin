@@ -1,0 +1,30 @@
+/** Raw Club Minimal palette — do not use directly in components. Use semantic tokens via theme. */
+export const palette = {
+  neutral950: '#09090A',
+  neutral900: '#111113',
+  neutral850: '#171719',
+  neutral800: '#1D1D20',
+  neutral750: '#222225',
+  neutral700: '#2A2A2E',
+  neutral600: '#3A3A3F',
+  neutral500: '#7D7A74',
+  neutral400: '#9A9A9E',
+  neutral300: '#B6B2AA',
+  neutral100: '#F5F2EA',
+  gold600: '#B8962E',
+  gold500: '#D4AF37',
+  gold400: '#E3C76D',
+  gold300: '#C6A75E',
+  goldMuted: 'rgba(212, 175, 55, 0.35)',
+  white: '#FFFFFF',
+  success500: '#3D9A6A',
+  successSoft: 'rgba(61, 154, 106, 0.15)',
+  warning500: '#D4923A',
+  warningSoft: 'rgba(212, 146, 58, 0.15)',
+  error500: '#E05252',
+  errorSoft: 'rgba(224, 82, 82, 0.15)',
+  info500: '#5B8DEF',
+  infoSoft: 'rgba(91, 141, 239, 0.15)',
+} as const;
+
+export type PaletteToken = keyof typeof palette;

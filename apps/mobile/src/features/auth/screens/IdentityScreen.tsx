@@ -1,27 +1,25 @@
-import { useEffect, useState } from 'react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+﻿import { useEffect, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import {
-  AppText,
-  BottomActionBar,
   Button,
-  ScreenContainer,
-  Stack,
+  Card,
+  ScreenFrame,
+  StickyActionFrame,
+  Text,
 } from '@jjoin/design-system';
 import { t } from '@jjoin/i18n';
-import { useSession, getSecureSessionStore } from '../../../session/SessionContext';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { getApiClient } from '../../../lib/api';
+import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
 
 export function IdentityScreen() {
-  const { startIdentity, confirmIdentity, cancelIdentity, me } = useSession();
+  const { startIdentity, confirmIdentity, cancelIdentity } = useSession();
   const router = useRouter();
   const params = useLocalSearchParams<{ return?: string }>();
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [status, setStatus] = useState<'idle' | 'pending' | 'success' | 'fail' | 'cancelled'>(
-    'idle',
-  );
+  const [status, setStatus] = useState<'idle' | 'pending' | 'success' | 'fail' | 'cancelled'>('idle');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const [capability, setCapability] = useState<{
     status: string;
     canStart: boolean;
@@ -32,8 +30,8 @@ export function IdentityScreen() {
     void (async () => {
       try {
         const api = getApiClient(getSecureSessionStore());
-        const res = await api.getIdentityCapability();
-        setCapability(res);
+        const result = await api.getIdentityCapability();
+        setCapability(result);
       } catch {
         setCapability({ status: 'UNKNOWN', canStart: false, message: t('common.error') });
       }
@@ -44,8 +42,8 @@ export function IdentityScreen() {
     setLoading(true);
     setError(null);
     try {
-      const id = await startIdentity();
-      setSessionId(id);
+      const nextSessionId = await startIdentity();
+      setSessionId(nextSessionId);
       setStatus('pending');
     } catch {
       setError(t('common.error'));
@@ -57,16 +55,11 @@ export function IdentityScreen() {
   async function onSuccess() {
     if (!sessionId) return;
     setLoading(true);
+    setError(null);
     try {
       await confirmIdentity(sessionId, 'success');
       setStatus('success');
-      if (params.return === 'gate') {
-        router.replace('/auth/gate');
-      } else if (!me?.authAppHints.profileComplete) {
-        router.replace('/auth/profile-setup');
-      } else {
-        router.replace('/(tabs)');
-      }
+      router.replace(params.return === 'gate' ? '/auth/gate' : '/(tabs)');
     } catch {
       setStatus('fail');
       setError(t('auth.identity.fail'));
@@ -103,38 +96,38 @@ export function IdentityScreen() {
     }
   }
 
-  function onBrowseWithoutVerify() {
-    if (params.return === 'gate') {
-      router.replace('/(tabs)');
-      return;
-    }
-    router.replace('/auth/profile-setup');
+  function onLater() {
+    router.replace(params.return === 'gate' ? '/(tabs)' : '/(tabs)');
   }
 
   return (
-    <ScreenContainer>
-      <Stack gap="md" style={{ flex: 1 }}>
-        <AppText variant="title">{t('auth.identity.title')}</AppText>
-        <AppText variant="body" color="textSecondary">
-          {t('auth.identity.body')}
-        </AppText>
-        {capability?.status === 'UNAVAILABLE' ? (
-          <AppText variant="body" color="textSecondary">
-            {capability.message ?? '본인확인 서비스 준비 중입니다.'}
-          </AppText>
-        ) : null}
-        {status === 'success' ? (
-          <AppText variant="body" color="primary">
-            {t('auth.identity.success')}
-          </AppText>
-        ) : null}
-        {error ? (
-          <AppText variant="body" color="danger">
-            {error}
-          </AppText>
-        ) : null}
-      </Stack>
-      <BottomActionBar>
+    <ScreenFrame>
+      <View style={styles.body}>
+        <Card variant="elevated" padding="md" style={styles.card}>
+          <Text variant="headline" tone="primary">
+            {t('auth.identity.title')}
+          </Text>
+          <Text variant="body" tone="secondary">
+            {t('auth.identity.body')}
+          </Text>
+          {capability?.status === 'UNAVAILABLE' ? (
+            <Text variant="caption" tone="secondary">
+              {capability.message ?? '본인확인 서비스 준비 중입니다.'}
+            </Text>
+          ) : null}
+          {status === 'success' ? (
+            <Text variant="body" tone="primary">
+              {t('auth.identity.success')}
+            </Text>
+          ) : null}
+          {error ? (
+            <Text variant="body" tone="error">
+              {error}
+            </Text>
+          ) : null}
+        </Card>
+      </View>
+      <StickyActionFrame>
         {status === 'idle' || status === 'fail' || status === 'cancelled' ? (
           <>
             {capability?.canStart !== false ? (
@@ -144,11 +137,7 @@ export function IdentityScreen() {
                 onPress={() => void onStart()}
               />
             ) : null}
-            <Button
-              label={t('auth.gate.later')}
-              variant="secondary"
-              onPress={onBrowseWithoutVerify}
-            />
+            <Button label={t('auth.gate.later')} variant="secondary" onPress={onLater} />
           </>
         ) : null}
         {status === 'pending' && capability?.canStart ? (
@@ -156,23 +145,23 @@ export function IdentityScreen() {
             {__DEV__ ? (
               <>
                 <Button label="Mock 성공" loading={loading} onPress={() => void onSuccess()} />
-                <Button
-                  label="Mock 실패"
-                  variant="danger"
-                  loading={loading}
-                  onPress={() => void onFail()}
-                />
+                <Button label="Mock 실패" variant="danger" loading={loading} onPress={() => void onFail()} />
               </>
             ) : null}
-            <Button
-              label="취소"
-              variant="secondary"
-              loading={loading}
-              onPress={() => void onCancel()}
-            />
+            <Button label="취소" variant="secondary" loading={loading} onPress={() => void onCancel()} />
           </>
         ) : null}
-      </BottomActionBar>
-    </ScreenContainer>
+      </StickyActionFrame>
+    </ScreenFrame>
   );
 }
+
+const styles = StyleSheet.create({
+  body: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  card: {
+    gap: 12,
+  },
+});

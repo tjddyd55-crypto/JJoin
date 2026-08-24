@@ -82,6 +82,22 @@ enum CoinTxType {
   JOIN_REWARD_TRANSFER
   JOIN_REWARD_REFUND
   ADMIN_ADJUSTMENT
+  COIN_ISSUANCE
+}
+
+enum CoinIssuanceType {
+  PURCHASE
+  EVENT_REWARD
+  SIGNUP_BONUS
+  PROMOTION
+  ADMIN_GRANT
+  CUSTOMER_SUPPORT
+  DEV_SEED
+  OTHER
+}
+
+enum CoinIssuanceStatus {
+  COMPLETED
 }
 
 enum CoinTxDirection {
@@ -187,6 +203,8 @@ model User {
   consents              UserConsent[]
   pushDevices           PushDevice[]
   notifications         AppNotification[]
+  coinIssuancesReceived CoinIssuance[]         @relation("IssuanceRecipient")
+  coinIssuancesCreated  CoinIssuance[]         @relation("IssuanceCreatedBy")
   pushNotificationsEnabled Boolean @default(true) @map("push_notifications_enabled")
 
   @@map("users")
@@ -564,6 +582,7 @@ model CoinAsset {
   holds        CoinHold[]
   joins        Join[]
   settlements  RewardSettlement[]
+  issuances    CoinIssuance[]
 
   @@map("coin_assets")
 }
@@ -603,10 +622,45 @@ model CoinTransaction {
   wallet      Wallet             @relation(fields: [walletId], references: [id], onDelete: Cascade)
   coinAsset   CoinAsset          @relation(fields: [coinAssetId], references: [id])
   settlements RewardSettlement[]
+  issuance    CoinIssuance?
 
   @@index([walletId, createdAt])
   @@index([refType, refId])
+  @@index([type, createdAt])
   @@map("coin_transactions")
+}
+
+/**
+ * Audit / taxonomy for new Coin mints.
+ * Balance SSOT remains CoinTransaction; this row never replaces the ledger.
+ * PURCHASE / EVENT / ADMIN grant must create both rows in one transaction.
+ */
+model CoinIssuance {
+  id              String             @id @default(uuid()) @db.Uuid
+  userId          String             @map("user_id") @db.Uuid
+  coinAssetId     String             @map("coin_asset_id") @db.Uuid
+  amount          Decimal            @db.Decimal(18, 4)
+  issuanceType    CoinIssuanceType   @map("issuance_type")
+  reason          String?
+  referenceType   String?            @map("reference_type")
+  referenceId     String?            @map("reference_id")
+  createdByUserId String?            @map("created_by_user_id") @db.Uuid
+  ledgerTxId      String             @unique @map("ledger_tx_id") @db.Uuid
+  idempotencyKey  String             @unique @map("idempotency_key")
+  status          CoinIssuanceStatus @default(COMPLETED)
+  metadata        Json?
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user      User            @relation("IssuanceRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy User?           @relation("IssuanceCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  coinAsset CoinAsset       @relation(fields: [coinAssetId], references: [id])
+  ledgerTx  CoinTransaction @relation(fields: [ledgerTxId], references: [id], onDelete: Restrict)
+
+  @@index([createdAt])
+  @@index([issuanceType, createdAt])
+  @@index([userId, createdAt])
+  @@index([referenceType, referenceId])
+  @@map("coin_issuances")
 }
 
 model CoinHold {

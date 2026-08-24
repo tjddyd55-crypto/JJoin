@@ -110,7 +110,26 @@ export enum CoinTxType {
   JOIN_REWARD_RELEASE = 'JOIN_REWARD_RELEASE',
   JOIN_REWARD_TRANSFER = 'JOIN_REWARD_TRANSFER',
   JOIN_REWARD_REFUND = 'JOIN_REWARD_REFUND',
+  /** @deprecated Prefer COIN_ISSUANCE + CoinIssuance row. Still counts as ISSUANCE for supply. */
   ADMIN_ADJUSTMENT = 'ADMIN_ADJUSTMENT',
+  /** New Coin mint — must pair with CoinIssuance (balance SSOT remains CoinTransaction). */
+  COIN_ISSUANCE = 'COIN_ISSUANCE',
+}
+
+/** Why new Coin entered supply. Transfer/hold/refund must NEVER use these. */
+export enum CoinIssuanceType {
+  PURCHASE = 'PURCHASE',
+  EVENT_REWARD = 'EVENT_REWARD',
+  SIGNUP_BONUS = 'SIGNUP_BONUS',
+  PROMOTION = 'PROMOTION',
+  ADMIN_GRANT = 'ADMIN_GRANT',
+  CUSTOMER_SUPPORT = 'CUSTOMER_SUPPORT',
+  DEV_SEED = 'DEV_SEED',
+  OTHER = 'OTHER',
+}
+
+export enum CoinIssuanceStatus {
+  COMPLETED = 'COMPLETED',
 }
 
 /** Actions that require identity verification (POLICY_TBD for final list). */
@@ -186,6 +205,8 @@ export type JoinCoinPreviewDto = {
   rewardHoldTotal: string;
   totalRequiredCoin: string;
   walletAvailable: string;
+  /** available − totalRequired when affordable; else walletAvailable unchanged. */
+  walletAfterCreation: string;
   canCreate: boolean;
 };
 
@@ -646,3 +667,103 @@ export type NotificationPreferenceDto = {
 /** Aliases used by API services */
 export type AppNotificationDtoAlias = AppNotificationDto;
 export type NotificationListResponseAlias = NotificationListResponse;
+
+/* ─── HQ Coin Supply / Issuance ─── */
+
+export type CoinSupplyKpiDto = {
+  /** Historical mint total (includes DEV_SEED). */
+  totalIssued: string;
+  /** totalIssued − DEV_SEED (ops view). */
+  productionIssued: string;
+  currentSupply: string;
+  totalAvailable: string;
+  totalHeld: string;
+  totalBurned: string;
+  todayIssued: string;
+  monthIssued: string;
+  /** When true, today/month/breakdown omit DEV_SEED. */
+  excludeDevSeed: boolean;
+  /** Always computed with full issued (include DEV_SEED). */
+  identityOk: boolean;
+  identityDelta: string;
+};
+
+export type CoinIssuanceBreakdownItemDto = {
+  issuanceType: CoinIssuanceType;
+  amount: string;
+};
+
+export type CoinSupplyDashboardDto = {
+  kpi: CoinSupplyKpiDto;
+  breakdown: CoinIssuanceBreakdownItemDto[];
+};
+
+export type CoinIssuanceListItemDto = {
+  issuanceId: string;
+  createdAt: string;
+  userId: string;
+  userNickname: string | null;
+  amount: string;
+  issuanceType: CoinIssuanceType;
+  reason: string | null;
+  referenceType: string | null;
+  referenceId: string | null;
+  createdByUserId: string | null;
+  createdByLabel: string;
+  status: CoinIssuanceStatus;
+  ledgerTxId: string;
+};
+
+export type CoinIssuanceListResponse = {
+  items: CoinIssuanceListItemDto[];
+  nextCursor: string | null;
+};
+
+export type CoinIssuanceDetailDto = CoinIssuanceListItemDto & {
+  metadata: Record<string, unknown> | null;
+};
+
+export type AdminManualIssuanceRequest = {
+  userId: string;
+  amount: string;
+  issuanceType: CoinIssuanceType.ADMIN_GRANT | CoinIssuanceType.CUSTOMER_SUPPORT | CoinIssuanceType.OTHER | CoinIssuanceType.PROMOTION | CoinIssuanceType.EVENT_REWARD;
+  reason: string;
+  idempotencyKey: string;
+  referenceType?: string;
+  referenceId?: string;
+};
+
+export type AdminManualIssuanceResponse = {
+  issuanceId: string;
+  ledgerTxId: string;
+  amount: string;
+  alreadyExists: boolean;
+};
+
+export type CoinSupplyReconciliationDto = {
+  ok: boolean;
+  totalIssued: string;
+  totalBurned: string;
+  currentSupplyFromBooks: string;
+  totalAvailable: string;
+  totalHeld: string;
+  currentSupplyFromWallets: string;
+  delta: string;
+  excludeDevSeed: boolean;
+  /** Never auto-fix — operator must investigate. */
+  autoFixAllowed: false;
+};
+
+export type AdminUserCoinHistoryDto = {
+  userId: string;
+  nickname: string | null;
+  availableCoin: string;
+  heldCoin: string;
+  /** Sum of CoinIssuance to this user (new mints only). */
+  lifetimeIssuedReceived: string;
+  /** Sum of JOIN_REWARD_TRANSFER credits (not issuance). */
+  lifetimeTransferReceived: string;
+  /** Sum of ROOM_CREATION_FEE debits (burn contribution). */
+  lifetimeBurnContributed: string;
+  recentTransactions: WalletTransactionDto[];
+};

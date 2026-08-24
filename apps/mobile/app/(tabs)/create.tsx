@@ -1,20 +1,23 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import {
-  AppText,
-  BottomActionBar,
+  Text,
   Button,
-  ScreenContainer,
+  Chip,
+  FormScreenFrame,
+  StickyActionFrame,
   Stack,
-  colors,
-  spacing,
+  useTheme,
 } from '@jjoin/design-system';
+import { computeCoinShortfall, computeRewardEligibleSlots } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
-import { JoinMethod, SCREEN_GOLF_CODE, type JoinCoinPreviewDto } from '@jjoin/types';
-import { useSession } from '../../src/session/SessionContext';
+import { JoinMethod, SCREEN_GOLF_CODE, IdentityStatus } from '@jjoin/types';
+import { RewardCoinInput } from '../../src/ui/patterns/RewardCoinInput';
+import { CoinSummaryCard } from '../../src/ui/patterns/CoinSummaryCard';
+import { useJoinCoinPreview } from '../../src/features/create/useJoinCoinPreview';
+import { getSecureSessionStore, useSession } from '../../src/session/SessionContext';
 import { getApiClient } from '../../src/lib/api';
-import { getSecureSessionStore } from '../../src/session/SessionContext';
 
 const VENUE_FIXTURES = [
   {
@@ -50,6 +53,7 @@ function newIdempotencyKey() {
 export default function CreateScreen() {
   const { requestGatedAction, me } = useSession();
   const router = useRouter();
+  const theme = useTheme();
   const params = useLocalSearchParams<{
     venueId?: string;
     venueName?: string;
@@ -63,25 +67,34 @@ export default function CreateScreen() {
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [venueIndex, setVenueIndex] = useState(0);
   const [players, setPlayers] = useState(4);
-  const [preview, setPreview] = useState<JoinCoinPreviewDto | null>(null);
+  const [rewardPerParticipant, setRewardPerParticipant] = useState('0');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [doneJoinId, setDoneJoinId] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const next = await api.previewJoinCoin({ plannedPlayerCount: players });
-        if (!cancelled) setPreview(next);
-      } catch {
-        if (!cancelled) setPreview(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [api, players, me?.userId]);
+  const rewardEligibleSlots = useMemo(() => computeRewardEligibleSlots(players), [players]);
+  const previewEnabled = Boolean(me?.userId);
+  const {
+    preview,
+    loading: previewLoading,
+    error: previewError,
+  } = useJoinCoinPreview(api, players, rewardPerParticipant, previewEnabled);
+
+  const shortfall = useMemo(() => {
+    if (!preview) return null;
+    return computeCoinShortfall(preview.walletAvailable, preview.totalRequiredCoin);
+  }, [preview]);
+
+  const canCreate = preview?.canCreate ?? false;
+  const walletAfterDisplay = preview?.walletAfterCreation ?? preview?.walletAvailable ?? '—';
+  const identityVerified = me?.identity.verificationStatus === IdentityStatus.VERIFIED;
+  // Unverified users must reach the deferred Identity Gate even when coin is short.
+  const createDisabled = identityVerified && (!canCreate || previewLoading);
+  const createLabel = identityVerified
+    ? canCreate
+      ? '조인 생성'
+      : t('create.coin.insufficientCta')
+    : '조인 생성';
 
   const onCreate = useCallback(async () => {
     const gate = requestGatedAction({ type: 'CREATE_JOIN' });
@@ -90,8 +103,12 @@ export default function CreateScreen() {
       return;
     }
     if (submitting) return;
-    if (preview && !preview.canCreate) {
-      setError(t('create.coin.insufficient'));
+    if (!canCreate) {
+      setError(
+        shortfall
+          ? t('create.coin.insufficientAmount').replace('{amount}', shortfall)
+          : t('create.coin.insufficient'),
+      );
       return;
     }
     setSubmitting(true);
@@ -107,6 +124,7 @@ export default function CreateScreen() {
         plannedPlayerCount: players,
         joinMethod: JoinMethod.APPROVAL,
         title: `${activatedVenueName ?? fixture.name} 스크린골프`,
+        rewardPerParticipant,
         idempotencyKey: newIdempotencyKey(),
       });
       setDoneJoinId(detail.joinId);
@@ -119,16 +137,30 @@ export default function CreateScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [activatedVenueAddress, activatedVenueId, activatedVenueName, api, players, preview, requestGatedAction, router, submitting, venueIndex]);
+  }, [
+    activatedVenueId,
+    activatedVenueName,
+    api,
+    canCreate,
+    players,
+    requestGatedAction,
+    rewardPerParticipant,
+    router,
+    shortfall,
+    submitting,
+    venueIndex,
+  ]);
 
   if (doneJoinId) {
     return (
-      <ScreenContainer>
-        <Stack gap="md" style={styles.body}>
-          <AppText variant="subtitle">조인 생성 완료</AppText>
-          <AppText variant="body" color="textSecondary">
+      <FormScreenFrame>
+        <Stack gap="md">
+          <Text variant="sectionTitle" tone="primary">
+            조인 생성 완료
+          </Text>
+          <Text variant="body" tone="secondary">
             방 생성 수수료와 참가 보상 보류가 Ledger에 기록되었습니다.
-          </AppText>
+          </Text>
           <Button
             label="조인 상세"
             onPress={() =>
@@ -142,125 +174,116 @@ export default function CreateScreen() {
           />
           <Button label="월렛" variant="secondary" onPress={() => router.push('/my/wallet')} />
         </Stack>
-      </ScreenContainer>
+      </FormScreenFrame>
     );
   }
 
   return (
-    <ScreenContainer>
-      <Stack gap="md" style={styles.body}>
-        <AppText variant="subtitle">조인 만들기</AppText>
-        <AppText variant="caption" color="textSecondary">
+    <FormScreenFrame
+      footer={
+        <StickyActionFrame>
+          <Button
+            disabled={createDisabled}
+            label={createLabel}
+            loading={submitting}
+            onPress={() => void onCreate()}
+          />
+        </StickyActionFrame>
+      }
+    >
+      <Stack gap="md">
+        <Text variant="screenTitle" tone="primary">
+          조인 만들기
+        </Text>
+        <Text variant="caption" tone="secondary">
           {me?.publicProfile?.nickname
             ? `호스트: ${me.publicProfile.nickname}`
-            : 'DEV_A로 로그인한 뒤 생성하세요'}
-        </AppText>
+            : '로그인한 뒤 생성하세요'}
+        </Text>
 
-        <AppText variant="body">장소</AppText>
+        <Text variant="sectionTitle" tone="primary">
+          장소
+        </Text>
         {activatedVenueId ? (
-          <View style={styles.summary}>
-            <AppText variant="body">{activatedVenueName ?? '선택된 장소'}</AppText>
+          <View
+            style={[
+              styles.summary,
+              {
+                backgroundColor: theme.colors.surface.card,
+                borderColor: theme.colors.border.subtle,
+                borderRadius: theme.radius.md,
+              },
+            ]}
+          >
+            <Text variant="venueTitle" tone="primary">
+              {activatedVenueName ?? '선택된 장소'}
+            </Text>
             {activatedVenueAddress ? (
-              <AppText variant="caption" color="textSecondary">
+              <Text variant="caption" tone="secondary">
                 {activatedVenueAddress}
-              </AppText>
+              </Text>
             ) : null}
           </View>
         ) : (
           <View style={styles.row}>
             {VENUE_FIXTURES.map((v, i) => (
-              <Pressable
+              <Chip
                 key={v.providerPlaceId}
+                label={v.name}
+                selected={venueIndex === i}
                 onPress={() => setVenueIndex(i)}
-                style={[styles.chip, venueIndex === i && styles.chipOn]}
-              >
-                <AppText variant="caption">{v.name}</AppText>
-              </Pressable>
+              />
             ))}
           </View>
         )}
 
-        <AppText variant="body">인원 {players}명</AppText>
+        <Text variant="sectionTitle" tone="primary">
+          모집 인원 {players}명
+        </Text>
+        <Text variant="caption" tone="secondary">
+          {t('create.players.hint')} · 보상 대상 {rewardEligibleSlots}명
+        </Text>
         <View style={styles.row}>
           {[2, 3, 4].map((n) => (
-            <Pressable
+            <Chip
               key={n}
+              label={`${n}명`}
+              selected={players === n}
               onPress={() => setPlayers(n)}
-              style={[styles.chip, players === n && styles.chipOn]}
-            >
-              <AppText variant="caption">{n}명</AppText>
-            </Pressable>
+            />
           ))}
         </View>
 
-        <AppText variant="subtitle">코인 요약 (서버 계산)</AppText>
-        {preview ? (
-          <View style={styles.summary}>
-            <SummaryRow
-              label={t('create.coin.fee')}
-              value={`${preview.roomCreationFee} Coin`}
-            />
-            <SummaryRow
-              label={t('create.coin.reward')}
-              value={`${preview.rewardPerParticipant} Coin × ${preview.rewardEligibleSlots}명`}
-            />
-            <SummaryRow label={t('create.coin.hold')} value={`${preview.rewardHoldTotal} Coin`} />
-            <SummaryRow label={t('create.coin.total')} value={`${preview.totalRequiredCoin} Coin`} />
-            <SummaryRow
-              label={t('create.coin.available')}
-              value={`${preview.walletAvailable} Coin`}
-            />
-          </View>
-        ) : (
-          <AppText variant="caption" color="textSecondary">
-            코인 preview 로딩 중…
-          </AppText>
-        )}
+        <RewardCoinInput
+          onChange={setRewardPerParticipant}
+          rewardEligibleSlots={rewardEligibleSlots}
+          value={rewardPerParticipant}
+        />
 
-        <AppText variant="caption" color="textSecondary">
-          참가 방식: 승인제 · 수수료와 보상 보류는 별도 회계 (TEST ONLY / POLICY_TBD)
-        </AppText>
+        <CoinSummaryCard
+          roomCreationFee={preview?.roomCreationFee}
+          rewardPerParticipant={preview?.rewardPerParticipant}
+          rewardEligibleSlots={preview?.rewardEligibleSlots}
+          rewardHoldTotal={preview?.rewardHoldTotal}
+          totalRequiredCoin={preview?.totalRequiredCoin}
+          walletAvailable={preview?.walletAvailable}
+          walletAfterCreation={walletAfterDisplay}
+          loading={previewLoading && !preview}
+          error={previewError}
+          shortfall={shortfall}
+        />
 
         {error ? (
-          <AppText variant="body" color="danger">
+          <Text variant="body" tone="error">
             {error}
-          </AppText>
+          </Text>
         ) : null}
       </Stack>
-
-      <BottomActionBar>
-        <Button label="조인 생성" loading={submitting} onPress={() => void onCreate()} />
-      </BottomActionBar>
-    </ScreenContainer>
-  );
-}
-
-function SummaryRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.summaryRow}>
-      <AppText variant="body" color="textSecondary">
-        {label}
-      </AppText>
-      <AppText variant="bodyStrong">{value}</AppText>
-    </View>
+    </FormScreenFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  body: { paddingBottom: spacing.lg },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  chip: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  chipOn: { borderColor: colors.primary, backgroundColor: colors.surface },
-  summary: { gap: spacing.xs },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.xs,
-  },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  summary: { gap: 4, padding: 14, borderWidth: 1 },
 });

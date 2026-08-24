@@ -19,7 +19,7 @@ import {
   type PresenceDurationOption,
 } from '@jjoin/types';
 import { defaultVenueSearchQuery } from '@jjoin/domain';
-import { AppText, colors, spacing } from '@jjoin/design-system';
+import { Text, spacing, useTheme } from '@jjoin/design-system';
 import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
 import { getApiClient } from '../../../lib/api';
 import { fetchExploreMap, REGION_SEARCH_FIXTURES } from '../api/explore-api';
@@ -47,6 +47,7 @@ import {
 export function ExploreMapScreen() {
   const router = useRouter();
   const { requestGatedAction } = useSession();
+  const theme = useTheme();
   const store = getSecureSessionStore();
   const mapRef = useRef<MapCameraHandle | null>(null);
   const sheetRef = useRef<BottomSheet>(null);
@@ -328,7 +329,7 @@ export function ExploreMapScreen() {
     );
 
   return (
-    <GestureHandlerRootView style={styles.root}>
+    <GestureHandlerRootView style={[styles.root, { backgroundColor: theme.colors.app.background }]}>
       <View style={styles.mapArea}>
         {mapNode}
 
@@ -343,19 +344,19 @@ export function ExploreMapScreen() {
             }}
           />
           {locationDenied ? (
-            <AppText variant="caption" color="warning">
+            <Text variant="caption" tone="warning">
               위치 권한 없음 · 지역 검색은 가능합니다
-            </AppText>
+            </Text>
           ) : null}
           {error ? (
-            <AppText variant="caption" color="danger">
+            <Text variant="caption" tone="error">
               검색 오류 · 지도는 유지됩니다
-            </AppText>
+            </Text>
           ) : null}
           {loading ? (
-            <AppText variant="caption" color="textSecondary">
+            <Text variant="caption" tone="tertiary">
               주변 불러오는 중…
-            </AppText>
+            </Text>
           ) : null}
         </View>
 
@@ -372,6 +373,8 @@ export function ExploreMapScreen() {
         index={0}
         snapPoints={snapPoints}
         enablePanDownToClose={false}
+        backgroundStyle={{ backgroundColor: theme.colors.surface.elevated }}
+        handleIndicatorStyle={{ backgroundColor: theme.colors.border.strong }}
       >
         <BottomSheetScrollView contentContainerStyle={styles.sheetContent}>
           <ExploreBottomSheetBody
@@ -467,49 +470,66 @@ export function ExploreMapScreen() {
       </BottomSheet>
 
       <Modal visible={searchOpen} animationType="slide" onRequestClose={() => setSearchOpen(false)}>
-        <View style={styles.searchModal}>
-          <AppText variant="subtitle">장소 / 지역 검색</AppText>
-          <AppText variant="caption" color="textSecondary">
+        <View style={[styles.searchModal, { backgroundColor: theme.colors.app.background }]}>
+          <Text variant="sectionTitle" tone="primary">
+            장소 / 지역 검색
+          </Text>
+          <Text variant="caption" tone="secondary">
             예: 스크린골프, 골프존, SG골프, 서울 스크린골프 · 지역 단축: 거제/부산/서울
-          </AppText>
+          </Text>
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder="검색어 입력 후 검색"
-            style={styles.input}
+            placeholderTextColor={theme.colors.text.tertiary}
+            style={[
+              styles.input,
+              {
+                borderColor: theme.colors.border.subtle,
+                backgroundColor: theme.colors.surface.card,
+                color: theme.colors.text.primary,
+                borderRadius: theme.radius.md,
+              },
+            ]}
             autoFocus
             returnKeyType="search"
             onSubmitEditing={() => applyKeywordSearch(searchQuery)}
           />
           <Pressable
-            style={styles.searchRow}
+            style={[styles.searchRow, { borderBottomColor: theme.colors.border.subtle }]}
             onPress={() => applyKeywordSearch(searchQuery)}
             disabled={loading}
           >
-            <AppText variant="body" color="primary">
+            <Text variant="body" style={{ color: theme.colors.action.primary }}>
               검색
-            </AppText>
+            </Text>
           </Pressable>
           {['거제', '부산', '서울', '골프존', 'SG골프', '스크린골프'].map((k) => (
-            <Pressable key={k} style={styles.searchRow} onPress={() => applyKeywordSearch(k)}>
-              <AppText variant="body">{k}</AppText>
+            <Pressable
+              key={k}
+              style={[styles.searchRow, { borderBottomColor: theme.colors.border.subtle }]}
+              onPress={() => applyKeywordSearch(k)}
+            >
+              <Text variant="body" tone="primary">
+                {k}
+              </Text>
             </Pressable>
           ))}
           <Pressable
-            style={styles.searchRow}
+            style={[styles.searchRow, { borderBottomColor: theme.colors.border.subtle }]}
             onPress={() => {
               setSearchOpen(false);
               goMyLocation();
             }}
           >
-            <AppText variant="body" color="primary">
+            <Text variant="body" style={{ color: theme.colors.action.primary }}>
               현재 위치로
-            </AppText>
+            </Text>
           </Pressable>
           <Pressable onPress={() => setSearchOpen(false)}>
-            <AppText variant="body" color="textSecondary">
+            <Text variant="body" tone="secondary">
               닫기
-            </AppText>
+            </Text>
           </Pressable>
         </View>
       </Modal>
@@ -518,7 +538,7 @@ export function ExploreMapScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
+  root: { flex: 1 },
   // Transparent so Kakao SurfaceView punch-through can show base tiles.
   mapArea: { flex: 1, backgroundColor: 'transparent' },
   topChrome: {
@@ -536,26 +556,20 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   sheetContent: {
-    paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
   },
   searchModal: {
     flex: 1,
-    backgroundColor: colors.background,
     paddingTop: 64,
     paddingHorizontal: spacing.lg,
     gap: spacing.sm,
   },
   input: {
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
     padding: spacing.md,
-    backgroundColor: colors.surface,
   },
   searchRow: {
     paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
 });

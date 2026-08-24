@@ -1,7 +1,13 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useFocusEffect, useRouter, type Href } from 'expo-router';
-import { AppText, colors, spacing } from '@jjoin/design-system';
+import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import {
+  Card,
+  ScrollScreenFrame,
+  Section,
+  Spacer,
+  Text,
+} from '@jjoin/design-system';
 import { t } from '@jjoin/i18n';
 import type { JoinListItemDto, MyJoinsResponse } from '@jjoin/types';
 import { getApiClient } from '../../src/lib/api';
@@ -10,25 +16,38 @@ import { getSecureSessionStore } from '../../src/session/SessionContext';
 function joinDetailHref(joinId: string): Href {
   return { pathname: '/join/[joinId]', params: { joinId } } as Href;
 }
+
 function JoinRow({ item, onPress }: { item: JoinListItemDto; onPress: () => void }) {
   const start = new Date(item.startAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
   return (
-    <Pressable onPress={onPress} style={styles.card}>
-      <AppText variant="body">{item.venueName}</AppText>
-      <AppText variant="caption" color="textSecondary">
-        {start}
-      </AppText>
-      <AppText variant="caption">
-        {item.confirmedPlayerCount}/{item.plannedPlayerCount} · {item.status}
-        {item.myParticipationStatus ? ` · 나: ${item.myParticipationStatus}` : ''}
-        {item.pendingApplicantCount > 0 ? ` · 신청 ${item.pendingApplicantCount}` : ''}
-      </AppText>
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}
+    >
+      <Card variant="interactive" padding="md" style={styles.joinCard}>
+        <Text variant="body" tone="primary">
+          {item.venueName}
+        </Text>
+        <Text variant="caption" tone="secondary">
+          {start}
+        </Text>
+        <Text variant="caption" tone="tertiary">
+          {item.confirmedPlayerCount}/{item.plannedPlayerCount} · {item.status}
+          {item.myParticipationStatus ? ` · 나: ${item.myParticipationStatus}` : ''}
+          {item.pendingApplicantCount > 0 ? ` · 신청 ${item.pendingApplicantCount}` : ''}
+        </Text>
+      </Card>
     </Pressable>
   );
 }
 
 export default function MyJoinsScreen() {
   const router = useRouter();
+  const { section } = useLocalSearchParams<{ section?: string }>();
+  const scrollRef = useRef<ScrollView>(null);
+  const [hostedY, setHostedY] = useState(0);
+  const [participatingY, setParticipatingY] = useState(0);
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [data, setData] = useState<MyJoinsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,62 +68,73 @@ export default function MyJoinsScreen() {
     }, [load]),
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      if (section === 'hosted' && hostedY > 0) {
+        scrollRef.current?.scrollTo({ y: hostedY, animated: true });
+      } else if (section === 'participating' && participatingY > 0) {
+        scrollRef.current?.scrollTo({ y: participatingY, animated: true });
+      }
+    }, [section, hostedY, participatingY]),
+  );
+
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content}>
-      <AppText variant="subtitle">{t('nav.myJoins')}</AppText>
+    <ScrollScreenFrame ref={scrollRef}>
+      <Text variant="screenTitle" tone="primary">
+        {t('nav.myJoins')}
+      </Text>
       {error ? (
-        <AppText variant="body" color="danger">
-          {error}
-        </AppText>
+        <>
+          <Spacer size="sm" />
+          <Text variant="body" tone="error">
+            {error}
+          </Text>
+        </>
       ) : null}
 
-      <AppText variant="body" style={styles.section}>
-        내가 만든 조인
-      </AppText>
-      {(data?.hosted ?? []).length === 0 ? (
-        <AppText variant="caption" color="textSecondary">
-          없음
-        </AppText>
-      ) : (
-        data?.hosted.map((item) => (
-          <JoinRow
-            key={item.joinId}
-            item={item}
-            onPress={() => router.push(joinDetailHref(item.joinId))}
-          />
-        ))
-      )}
+      <Spacer size="md" />
 
-      <AppText variant="body" style={styles.section}>
-        내가 참가한 조인
-      </AppText>
-      {(data?.participating ?? []).length === 0 ? (
-        <AppText variant="caption" color="textSecondary">
-          없음
-        </AppText>
-      ) : (
-        data?.participating.map((item) => (
-          <JoinRow
-            key={item.joinId}
-            item={item}
-            onPress={() => router.push(joinDetailHref(item.joinId))}
-          />
-        ))
-      )}
-    </ScrollView>
+      <View onLayout={(e) => setHostedY(e.nativeEvent.layout.y)}>
+        <Section title="내가 만든 조인">
+          {(data?.hosted ?? []).length === 0 ? (
+            <Text variant="caption" tone="tertiary">
+              없음
+            </Text>
+          ) : (
+            data?.hosted.map((item) => (
+              <JoinRow
+                key={item.joinId}
+                item={item}
+                onPress={() => router.push(joinDetailHref(item.joinId))}
+              />
+            ))
+          )}
+        </Section>
+      </View>
+
+      <View onLayout={(e) => setParticipatingY(e.nativeEvent.layout.y)}>
+        <Section title="내가 참가한 조인">
+          {(data?.participating ?? []).length === 0 ? (
+            <Text variant="caption" tone="tertiary">
+              없음
+            </Text>
+          ) : (
+            data?.participating.map((item) => (
+              <JoinRow
+                key={item.joinId}
+                item={item}
+                onPress={() => router.push(joinDetailHref(item.joinId))}
+              />
+            ))
+          )}
+        </Section>
+      </View>
+    </ScrollScreenFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xxl },
-  section: { marginTop: spacing.md },
-  card: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    padding: spacing.md,
-    gap: spacing.xs,
-    backgroundColor: colors.surface,
+  joinCard: {
+    marginBottom: 8,
   },
 });

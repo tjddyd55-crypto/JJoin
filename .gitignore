@@ -23,3 +23,14 @@ apps/mobile/ios/
 *.pem
 *.p12
 *.keystore
+
+# Firebase / FCM (local native config + secrets — do not commit)
+apps/mobile/google-services.json
+**/google-services.json
+*firebase-adminsdk*.json
+*-firebase-adminsdk-*.json
+**/fcm-service-account*.json
+**/service-account*.json
+
+# Local OpenAPI snapshots (large operational extracts — do not commit by default)
+data/golf-practice-ranges/

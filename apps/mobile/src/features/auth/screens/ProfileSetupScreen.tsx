@@ -1,21 +1,20 @@
-import { useState } from 'react';
-import { ScrollView, StyleSheet, Pressable, View } from 'react-native';
-import { useRouter } from 'expo-router';
+﻿import { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import {
-  AppText,
-  BottomActionBar,
   Button,
-  FormField,
-  ScreenContainer,
-  Stack,
-  colors,
-  radius,
-  spacing,
+  Card,
+  Chip,
+  FormScreenFrame,
+  Input,
+  StickyActionFrame,
+  Text,
 } from '@jjoin/design-system';
 import { t } from '@jjoin/i18n';
 import { profileSetupSchema } from '@jjoin/validation';
 import { AgeBand, Gender, SportSkillLevel } from '@jjoin/types';
+import { useRouter } from 'expo-router';
 import { useSession } from '../../../session/SessionContext';
+import { OnboardingHeader } from '../../../ui/patterns';
 
 export function ProfileSetupScreen() {
   const { setupProfile } = useSession();
@@ -26,7 +25,8 @@ export function ProfileSetupScreen() {
   const [regionLabel, setRegionLabel] = useState('');
   const [bio, setBio] = useState('');
   const [skillLevel, setSkillLevel] = useState<SportSkillLevel>(SportSkillLevel.BEGINNER);
-  const [fieldError, setFieldError] = useState<string | null>(null);
+  const [nicknameError, setNicknameError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function onNext() {
@@ -39,37 +39,78 @@ export function ProfileSetupScreen() {
       sportCode: 'SCREEN_GOLF',
       skillLevel,
     });
+
     if (!parsed.success) {
-      setFieldError(parsed.error.issues[0]?.message ?? t('common.error'));
+      const issue = parsed.error.issues[0];
+      const field = String(issue?.path?.[0] ?? '');
+      if (field === 'nickname') {
+        setNicknameError(
+          issue?.message === 'invalid_nickname'
+            ? t('auth.profileSetup.invalidNickname')
+            : t('auth.profileSetup.invalidField'),
+        );
+      } else {
+        setNicknameError(null);
+        setFormError(t('auth.profileSetup.invalidField'));
+      }
       return;
     }
+
     setLoading(true);
-    setFieldError(null);
+    setNicknameError(null);
+    setFormError(null);
     try {
       await setupProfile(parsed.data);
       router.replace('/auth/profile-photo');
-    } catch {
-      setFieldError(t('common.error'));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (message.includes('nickname_taken')) {
+        setNicknameError(t('auth.profileSetup.nicknameTaken'));
+      } else if (message.includes('profile_invalid')) {
+        setFormError(t('auth.profileSetup.invalidField'));
+      } else {
+        setFormError(t('common.error'));
+      }
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <ScreenContainer padded={false}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Stack gap="md">
-          <AppText variant="title">{t('auth.profileSetup.title')}</AppText>
-          <FormField
-            label={t('field.nickname')}
-            value={nickname}
-            onChangeText={setNickname}
-            autoCapitalize="none"
+    <FormScreenFrame
+      footer={
+        <StickyActionFrame>
+          <Button
+            label={t('auth.profileSetup.next')}
+            loading={loading}
+            onPress={() => void onNext()}
           />
-          <AppText variant="label" color="textSecondary">
-            {t('field.gender')}
-          </AppText>
-          <OptionRow
+        </StickyActionFrame>
+      }
+    >
+      <OnboardingHeader
+        step={2}
+        title={t('auth.profileSetup.title')}
+        description={t('auth.profileSetup.subtitle')}
+      />
+
+      <View style={styles.fields}>
+        <Input
+          label={t('field.nickname')}
+          value={nickname}
+          onChangeText={(value) => {
+            setNickname(value);
+            if (nicknameError) setNicknameError(null);
+          }}
+          autoCapitalize="none"
+          autoCorrect={false}
+          maxLength={20}
+          helper={nicknameError ? undefined : t('auth.profileSetup.nicknameHelper')}
+          error={nicknameError ?? undefined}
+        />
+
+        <FieldSection label={t('field.gender')}>
+          <ChoiceGroup
             options={[
               { value: Gender.MALE, label: '남성' },
               { value: Gender.FEMALE, label: '여성' },
@@ -78,99 +119,114 @@ export function ProfileSetupScreen() {
             value={gender}
             onChange={setGender}
           />
-          <AppText variant="label" color="textSecondary">
-            {t('field.ageBand')}
-          </AppText>
-          <OptionRow
+        </FieldSection>
+
+        <FieldSection label={t('field.ageBand')}>
+          <ChoiceGroup
             options={[
               { value: AgeBand.TWENTIES, label: '20대' },
               { value: AgeBand.THIRTIES, label: '30대' },
               { value: AgeBand.FORTIES, label: '40대' },
+              { value: AgeBand.FIFTIES_PLUS, label: '50대+' },
               { value: AgeBand.UNSPECIFIED, label: '미지정' },
             ]}
             value={ageBand}
             onChange={setAgeBand}
           />
-          <FormField
-            label={t('field.region')}
-            value={regionLabel}
-            onChangeText={setRegionLabel}
-            placeholder="예: 거제"
-          />
-          <FormField
-            label={t('field.bio')}
-            value={bio}
-            onChangeText={setBio}
-            multiline
-            style={{ minHeight: 80 }}
-          />
-          <AppText variant="label" color="textSecondary">
-            {t('field.skill')}
-          </AppText>
-          <OptionRow
-            options={[
-              { value: SportSkillLevel.BEGINNER, label: 'BEGINNER' },
-              { value: SportSkillLevel.INTERMEDIATE, label: 'INTERMEDIATE' },
-              { value: SportSkillLevel.ADVANCED, label: 'ADVANCED' },
-            ]}
-            value={skillLevel}
-            onChange={setSkillLevel}
-          />
-          {fieldError ? (
-            <AppText variant="body" color="danger">
-              {fieldError}
-            </AppText>
-          ) : null}
-        </Stack>
-      </ScrollView>
-      <BottomActionBar>
-        <Button
-          label={t('auth.profileSetup.next')}
-          loading={loading}
-          onPress={() => void onNext()}
+        </FieldSection>
+
+        <Input
+          label={t('field.region')}
+          value={regionLabel}
+          onChangeText={setRegionLabel}
+          placeholder="예: 거제"
+          maxLength={80}
         />
-      </BottomActionBar>
-    </ScreenContainer>
+
+        <Input
+          label={t('field.bio')}
+          value={bio}
+          onChangeText={setBio}
+          placeholder="같이 운동할 사람들에게 나를 소개해 주세요."
+          multiline
+          numberOfLines={4}
+          style={styles.bioInput}
+          maxLength={200}
+        />
+
+        <FieldSection label={t('field.skill')}>
+          <Card variant="base" padding="md">
+            <ChoiceGroup
+              options={[
+                { value: SportSkillLevel.BEGINNER, label: 'BEGINNER' },
+                { value: SportSkillLevel.INTERMEDIATE, label: 'INTERMEDIATE' },
+                { value: SportSkillLevel.ADVANCED, label: 'ADVANCED' },
+                { value: SportSkillLevel.PRO, label: 'PRO' },
+              ]}
+              value={skillLevel}
+              onChange={setSkillLevel}
+            />
+          </Card>
+        </FieldSection>
+
+        {formError ? (
+          <Text variant="body" tone="error">
+            {formError}
+          </Text>
+        ) : null}
+      </View>
+    </FormScreenFrame>
   );
 }
 
-function OptionRow<T extends string>({
+function FieldSection({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <View style={styles.fieldSection}>
+      <Text variant="meta" tone="secondary">
+        {label}
+      </Text>
+      {children}
+    </View>
+  );
+}
+
+function ChoiceGroup<T extends string>({
   options,
   value,
   onChange,
 }: {
   options: Array<{ value: T; label: string }>;
   value: T;
-  onChange: (v: T) => void;
+  onChange: (value: T) => void;
 }) {
   return (
-    <View style={styles.options}>
-      {options.map((opt) => (
-        <Pressable
-          key={opt.value}
-          accessibilityRole="button"
-          onPress={() => onChange(opt.value)}
-          style={[styles.opt, value === opt.value && styles.optOn]}
-        >
-          <AppText variant="caption">{opt.label}</AppText>
-        </Pressable>
+    <View style={styles.choiceWrap}>
+      {options.map((option) => (
+        <Chip
+          key={option.value}
+          label={option.label}
+          selected={value === option.value}
+          onPress={() => onChange(option.value)}
+        />
       ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
-  options: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-  opt: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    minHeight: 44,
-    justifyContent: 'center',
+  fields: {
+    gap: 24,
   },
-  optOn: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  fieldSection: {
+    gap: 8,
+  },
+  choiceWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  bioInput: {
+    minHeight: 84,
+    textAlignVertical: 'top',
+  },
 });

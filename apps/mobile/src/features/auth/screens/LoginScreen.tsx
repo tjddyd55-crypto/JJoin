@@ -2,26 +2,26 @@ import { useState } from 'react';
 import { StyleSheet, View, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
-  AppText,
-  BottomActionBar,
-  Button,
-  ScreenContainer,
-  Stack,
-  colors,
-  spacing,
+  Text,
+  ScreenFrame,
+  StickyActionFrame,
+  Spacer,
+  useTheme,
 } from '@jjoin/design-system';
 import { t } from '@jjoin/i18n';
 import { MockAuthPersona, MockAuthScenario, SocialProvider } from '@jjoin/types';
 import { useSession } from '../../../session/SessionContext';
 import { SocialLoginCancelledError } from '../social/social-auth-errors';
 import { useMockSocialAuthFlow } from '../social/social-auth-config';
+import { SocialLoginButton } from '../../../ui/patterns/SocialLoginButton';
 
 function routeForNextStep(nextStep: string) {
   switch (nextStep) {
     case 'TERMS':
       return '/auth/terms';
     case 'IDENTITY':
-      return '/auth/identity';
+      // Identity is deferred — browse Home; gate opens on protected actions.
+      return '/(tabs)';
     case 'PROFILE_SETUP':
       return '/auth/profile-setup';
     case 'PROFILE_PHOTO':
@@ -43,6 +43,7 @@ export function LoginScreen() {
     error,
   } = useSession();
   const router = useRouter();
+  const theme = useTheme();
   const [loading, setLoading] = useState<SocialProvider | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
   const mockSocialAuthEnabled = __DEV__ && useMockSocialAuthFlow();
@@ -73,128 +74,168 @@ export function LoginScreen() {
   }
 
   return (
-    <ScreenContainer>
-      <Stack gap="lg" style={styles.body}>
-        <AppText variant="title">{t('app.name')}</AppText>
-        <AppText variant="body" color="textSecondary">
-          {t('auth.login.title')}
-        </AppText>
-        <AppText variant="caption" color="textSecondary">
-          {t('auth.login.subtitle')}
-        </AppText>
+    <ScreenFrame>
+      <View style={styles.body}>
+        <View style={styles.hero}>
+          <View
+            style={[
+              styles.arc,
+              { borderColor: theme.colors.action.primary },
+            ]}
+            pointerEvents="none"
+          />
+          <Text variant="display" style={{ color: theme.colors.action.primary }}>
+            {t('app.name')}
+          </Text>
+          <Spacer size="sm" />
+          <Text variant="sectionTitle" tone="primary">
+            {t('auth.login.title')}
+          </Text>
+          <Spacer size="xs" />
+          <Text variant="body" tone="secondary">
+            {t('auth.login.subtitle')}
+          </Text>
+        </View>
 
         {__DEV__ ? (
           <View style={styles.devBlock}>
-            <AppText variant="caption" color="textSecondary">
-              DEV USER (mock only — production UI 숨김)
-            </AppText>
+            <Text variant="caption" tone="tertiary">
+              DEV USER (mock only)
+            </Text>
             <View style={styles.devBtns}>
-              <Pressable
-                accessibilityRole="button"
+              <DevChip
+                label="A 김진우"
+                active={mockPersona === MockAuthPersona.DEV_A}
                 onPress={() => {
                   setMockPersona(MockAuthPersona.DEV_A);
                   setMockScenario(MockAuthScenario.RETURNING_USER);
                 }}
-                style={[styles.devChip, mockPersona === MockAuthPersona.DEV_A && styles.devChipOn]}
-              >
-                <AppText variant="caption">A 김진우</AppText>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
+              />
+              <DevChip
+                label="B 박민수"
+                active={mockPersona === MockAuthPersona.DEV_B}
                 onPress={() => {
                   setMockPersona(MockAuthPersona.DEV_B);
                   setMockScenario(MockAuthScenario.RETURNING_USER);
                 }}
-                style={[styles.devChip, mockPersona === MockAuthPersona.DEV_B && styles.devChipOn]}
-              >
-                <AppText variant="caption">B 박민수</AppText>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
+              />
+              <DevChip
+                label="시나리오"
+                active={mockPersona == null}
                 onPress={() => setMockPersona(null)}
-                style={[styles.devChip, mockPersona == null && styles.devChipOn]}
-              >
-                <AppText variant="caption">시나리오</AppText>
-              </Pressable>
+              />
             </View>
 
             {mockPersona == null && mockSocialAuthEnabled ? (
               <View style={styles.devBtns}>
-                <Pressable
-                  accessibilityRole="button"
+                <DevChip
+                  label="NEW"
+                  active={mockScenario === MockAuthScenario.NEW_USER}
                   onPress={() => setMockScenario(MockAuthScenario.NEW_USER)}
-                  style={[
-                    styles.devChip,
-                    mockScenario === MockAuthScenario.NEW_USER && styles.devChipOn,
-                  ]}
-                >
-                  <AppText variant="caption">NEW</AppText>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
+                />
+                <DevChip
+                  label="RETURNING"
+                  active={mockScenario === MockAuthScenario.RETURNING_USER}
                   onPress={() => setMockScenario(MockAuthScenario.RETURNING_USER)}
-                  style={[
-                    styles.devChip,
-                    mockScenario === MockAuthScenario.RETURNING_USER && styles.devChipOn,
-                  ]}
-                >
-                  <AppText variant="caption">RETURNING</AppText>
-                </Pressable>
+                />
               </View>
             ) : mockPersona == null ? (
-              <AppText variant="caption" color="textSecondary">
-                소셜 버튼 = 실제 OAuth (mock env 미설정)
-              </AppText>
+              <Text variant="caption" tone="tertiary">
+                소셜 버튼 = 실제 OAuth
+              </Text>
             ) : (
-              <AppText variant="caption" color="textSecondary">
+              <Text variant="caption" tone="tertiary">
                 {mockPersona === MockAuthPersona.DEV_A
                   ? '안정 DB 유저 A (Host 테스트용)'
                   : '안정 DB 유저 B (Participant 테스트용)'}
-              </AppText>
+              </Text>
             )}
           </View>
         ) : null}
 
         {(localError || error) && (
-          <AppText variant="body" color="danger">
+          <Text variant="body" tone="error">
             {localError ?? error}
-          </AppText>
+          </Text>
         )}
-      </Stack>
+      </View>
 
-      <BottomActionBar>
-        <Button
+      <StickyActionFrame>
+        <SocialLoginButton
+          provider={SocialProvider.KAKAO}
           label={t('auth.login.kakao')}
           loading={loading === SocialProvider.KAKAO}
           onPress={() => void handleProvider(SocialProvider.KAKAO)}
         />
-        <Button
+        <SocialLoginButton
+          provider={SocialProvider.NAVER}
           label={t('auth.login.naver')}
-          variant="secondary"
           loading={loading === SocialProvider.NAVER}
           onPress={() => void handleProvider(SocialProvider.NAVER)}
         />
-        <Button
+        <SocialLoginButton
+          provider={SocialProvider.GOOGLE}
           label={t('auth.login.google')}
-          variant="secondary"
           loading={loading === SocialProvider.GOOGLE}
           onPress={() => void handleProvider(SocialProvider.GOOGLE)}
         />
-      </BottomActionBar>
-    </ScreenContainer>
+        <Text variant="caption" tone="tertiary" style={styles.legal}>
+          계속하면 서비스 이용약관 및 개인정보 처리방침에 동의하게 됩니다.
+        </Text>
+      </StickyActionFrame>
+    </ScreenFrame>
+  );
+}
+
+function DevChip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={[
+        styles.devChip,
+        {
+          borderColor: active ? theme.colors.action.primary : theme.colors.border.subtle,
+          backgroundColor: active ? theme.colors.surface.floating : theme.colors.surface.card,
+          borderRadius: theme.radius.sm,
+        },
+      ]}
+    >
+      <Text variant="caption" tone={active ? 'primary' : 'secondary'}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  body: { flex: 1, paddingBottom: spacing.lg },
-  devBlock: { gap: spacing.sm },
-  devBtns: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  body: { flex: 1, justifyContent: 'center' },
+  hero: { alignItems: 'flex-start', paddingTop: 24 },
+  arc: {
+    position: 'absolute',
+    right: -40,
+    top: -20,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    borderWidth: 1.5,
+    opacity: 0.35,
+  },
+  devBlock: { gap: 8, marginTop: 24 },
+  devBtns: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   devChip: {
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  devChipOn: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  legal: { textAlign: 'center', marginTop: 4 },
 });

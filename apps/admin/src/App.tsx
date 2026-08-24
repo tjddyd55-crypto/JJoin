@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { Link, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
+  CoinIssuanceType,
   DisputeResolution,
   DisputeStatus,
   MockAuthPersona,
   SocialProvider,
   type AdminDisputeDetailDto,
   type AdminDisputeListItemDto,
+  type AdminUserCoinHistoryDto,
+  type CoinIssuanceDetailDto,
+  type CoinIssuanceListItemDto,
+  type CoinSupplyDashboardDto,
+  type CoinSupplyReconciliationDto,
 } from '@jjoin/types';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:3000';
@@ -26,6 +32,12 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const raw = await res.text();
   if (!res.ok) throw new Error(`${res.status}:${raw.slice(0, 160)}`);
   return JSON.parse(raw) as T;
+}
+
+function formatCoin(v: string | number) {
+  const n = Number(v);
+  if (Number.isNaN(n)) return String(v);
+  return n.toLocaleString('ko-KR');
 }
 
 function LoginBar() {
@@ -53,9 +65,31 @@ function LoginBar() {
   );
 }
 
+function Shell({ children }: { children: React.ReactNode }) {
+  const token = useMemo(() => localStorage.getItem(TOKEN_KEY), []);
+  const loc = useLocation();
+  const coinActive = loc.pathname === '/' || loc.pathname.startsWith('/coin');
+  const disputeActive = loc.pathname.startsWith('/disputes');
+  return (
+    <div className="layout layout-wide">
+      <header className="admin-nav card row">
+        <strong>JJOIN HQ</strong>
+        <Link to="/coin" className={coinActive ? 'nav-active' : undefined}>
+          코인 관리
+        </Link>
+        <Link to="/disputes" className={disputeActive ? 'nav-active' : undefined}>
+          분쟁
+        </Link>
+        {!token ? <LoginBar /> : null}
+      </header>
+      {children}
+    </div>
+  );
+}
+
 function DisputeListPage() {
   const [items, setItems] = useState<AdminDisputeListItemDto[]>([]);
-  const [status, setStatus] = useState<DisputeStatus | ''>('OPEN');
+  const [status, setStatus] = useState<DisputeStatus | ''>(DisputeStatus.OPEN);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -77,7 +111,6 @@ function DisputeListPage() {
   return (
     <div>
       <h1>분쟁 목록</h1>
-      <LoginBar />
       <div className="row" style={{ marginBottom: 12 }}>
         <select value={status} onChange={(e) => setStatus(e.target.value as DisputeStatus | '')}>
           <option value="">ALL</option>
@@ -145,7 +178,7 @@ function DisputeDetailPage() {
 
   return (
     <div>
-      <button onClick={() => navigate('/')}>← 목록</button>
+      <button onClick={() => navigate('/disputes')}>← 목록</button>
       <h1>분쟁 상세</h1>
       <div className="card">
         <div>{detail.venueName}</div>
@@ -189,9 +222,7 @@ function DisputeDetailPage() {
         <div className="modal-backdrop">
           <div className="modal">
             <h3>판정 확정</h3>
-            <p>
-              {confirm === DisputeResolution.PAY_PARTICIPANT ? payLabel : refundLabel}
-            </p>
+            <p>{confirm === DisputeResolution.PAY_PARTICIPANT ? payLabel : refundLabel}</p>
             <p>확정 후 변경할 수 없습니다.</p>
             <div className="row">
               <button disabled={busy} onClick={() => setConfirm(null)}>
@@ -208,15 +239,455 @@ function DisputeDetailPage() {
   );
 }
 
-export function App() {
-  const token = useMemo(() => localStorage.getItem(TOKEN_KEY), []);
+function ManualIssuanceDialog(props: {
+  open: boolean;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [userId, setUserId] = useState('');
+  const [amount, setAmount] = useState('');
+  const [issuanceType, setIssuanceType] = useState<CoinIssuanceType>(CoinIssuanceType.ADMIN_GRANT);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!props.open) return null;
+
+  async function submit() {
+    setBusy(true);
+    setError(null);
+    try {
+      const idempotencyKey = `admin-manual:${userId}:${amount}:${Date.now()}`;
+      await api('/admin/coin/issuances', {
+        method: 'POST',
+        body: JSON.stringify({
+          userId: userId.trim(),
+          amount: amount.trim(),
+          issuanceType,
+          reason: reason.trim(),
+          idempotencyKey,
+        }),
+      });
+      props.onDone();
+      props.onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'issue_failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <div className="layout">
-      {!token ? <LoginBar /> : null}
+    <div className="modal-backdrop">
+      <div className="modal">
+        <h3>수동 발행</h3>
+        <p>신규 Coin 생성 (ISSUANCE). Transfer가 아닙니다.</p>
+        <label>
+          사용자 ID
+          <input value={userId} onChange={(e) => setUserId(e.target.value)} />
+        </label>
+        <label>
+          수량
+          <input value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </label>
+        <label>
+          유형
+          <select
+            value={issuanceType}
+            onChange={(e) => setIssuanceType(e.target.value as CoinIssuanceType)}
+          >
+            <option value={CoinIssuanceType.ADMIN_GRANT}>ADMIN_GRANT</option>
+            <option value={CoinIssuanceType.CUSTOMER_SUPPORT}>CUSTOMER_SUPPORT</option>
+            <option value={CoinIssuanceType.EVENT_REWARD}>EVENT_REWARD</option>
+            <option value={CoinIssuanceType.PROMOTION}>PROMOTION</option>
+            <option value={CoinIssuanceType.OTHER}>OTHER</option>
+          </select>
+        </label>
+        <label>
+          사유
+          <input value={reason} onChange={(e) => setReason(e.target.value)} />
+        </label>
+        {error ? <p>{error}</p> : null}
+        <div className="row">
+          <button disabled={busy} onClick={props.onClose}>
+            취소
+          </button>
+          <button className="primary" disabled={busy} onClick={() => void submit()}>
+            발행
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CoinSupplyPage() {
+  const [excludeDevSeed, setExcludeDevSeed] = useState(false);
+  const [dash, setDash] = useState<CoinSupplyDashboardDto | null>(null);
+  const [recon, setRecon] = useState<CoinSupplyReconciliationDto | null>(null);
+  const [items, setItems] = useState<CoinIssuanceListItemDto[]>([]);
+  const [issuanceType, setIssuanceType] = useState<CoinIssuanceType | ''>('');
+  const [range, setRange] = useState<'today' | '7d' | '30d' | 'month' | 'all'>('30d');
+  const [error, setError] = useState<string | null>(null);
+  const [grantOpen, setGrantOpen] = useState(false);
+  const [userLookup, setUserLookup] = useState('');
+  const [userHistory, setUserHistory] = useState<AdminUserCoinHistoryDto | null>(null);
+
+  const rangeParams = useMemo(() => {
+    const now = new Date();
+    if (range === 'all') return {};
+    if (range === 'today') {
+      const from = new Date(now);
+      from.setHours(0, 0, 0, 0);
+      return { from: from.toISOString() };
+    }
+    if (range === 'month') {
+      const from = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { from: from.toISOString() };
+    }
+    const days = range === '7d' ? 7 : 30;
+    const from = new Date(now.getTime() - days * 24 * 60 * 60_000);
+    return { from: from.toISOString() };
+  }, [range]);
+
+  const load = useCallback(async () => {
+    try {
+      const qs = excludeDevSeed ? '?excludeDevSeed=1' : '';
+      const [d, r, list] = await Promise.all([
+        api<CoinSupplyDashboardDto>(`/admin/coin/supply${qs}`),
+        api<CoinSupplyReconciliationDto>('/admin/coin/supply/reconcile'),
+        api<{ items: CoinIssuanceListItemDto[] }>(
+          `/admin/coin/issuances?${new URLSearchParams({
+            ...(issuanceType ? { issuanceType } : {}),
+            ...(excludeDevSeed ? { excludeDevSeed: '1' } : {}),
+            ...(rangeParams.from ? { from: rangeParams.from } : {}),
+            limit: '50',
+          }).toString()}`,
+        ),
+      ]);
+      setDash(d);
+      setRecon(r);
+      setItems(list.items);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'load_failed');
+    }
+  }, [excludeDevSeed, issuanceType, rangeParams.from]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function lookupUser() {
+    if (!userLookup.trim()) return;
+    try {
+      const res = await api<AdminUserCoinHistoryDto>(`/admin/coin/users/${userLookup.trim()}`);
+      setUserHistory(res);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'user_lookup_failed');
+      setUserHistory(null);
+    }
+  }
+
+  const kpi = dash?.kpi;
+
+  return (
+    <div>
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1>코인 관리</h1>
+        <div className="row">
+          <label className="row" style={{ alignItems: 'center' }}>
+            <input
+              type="checkbox"
+              checked={excludeDevSeed}
+              onChange={(e) => setExcludeDevSeed(e.target.checked)}
+            />
+            DEV_SEED 제외(기간/breakdown)
+          </label>
+          <button onClick={() => void load()}>새로고침</button>
+          <button className="primary" onClick={() => setGrantOpen(true)}>
+            수동 발행
+          </button>
+        </div>
+      </div>
+
+      {error ? <p className="error-text">{error}</p> : null}
+
+      {kpi ? (
+        <div className="kpi-grid">
+          <div className="card kpi">
+            <div className="kpi-label">총 누적 발행</div>
+            <div className="kpi-value">{formatCoin(kpi.totalIssued)}</div>
+            <div className="kpi-sub">운영 발행 {formatCoin(kpi.productionIssued)}</div>
+          </div>
+          <div className="card kpi">
+            <div className="kpi-label">현재 유통</div>
+            <div className="kpi-value">{formatCoin(kpi.currentSupply)}</div>
+          </div>
+          <div className="card kpi">
+            <div className="kpi-label">Available</div>
+            <div className="kpi-value">{formatCoin(kpi.totalAvailable)}</div>
+          </div>
+          <div className="card kpi">
+            <div className="kpi-label">Held</div>
+            <div className="kpi-value">{formatCoin(kpi.totalHeld)}</div>
+          </div>
+          <div className="card kpi">
+            <div className="kpi-label">누적 소멸</div>
+            <div className="kpi-value">{formatCoin(kpi.totalBurned)}</div>
+          </div>
+          <div className="card kpi">
+            <div className="kpi-label">오늘 / 이번 달 발행</div>
+            <div className="kpi-value">
+              {formatCoin(kpi.todayIssued)} / {formatCoin(kpi.monthIssued)}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="card">
+        <strong>발행 유형별 Breakdown</strong>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>유형</th>
+              <th>수량</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(dash?.breakdown ?? []).map((b) => (
+              <tr key={b.issuanceType}>
+                <td>{b.issuanceType}</td>
+                <td>{formatCoin(b.amount)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="card">
+        <strong>Supply Reconciliation</strong>
+        {recon ? (
+          <div>
+            <p>
+              Issued {formatCoin(recon.totalIssued)} − Burned {formatCoin(recon.totalBurned)} ={' '}
+              {formatCoin(recon.currentSupplyFromBooks)}
+            </p>
+            <p>
+              Available {formatCoin(recon.totalAvailable)} + Held {formatCoin(recon.totalHeld)} ={' '}
+              {formatCoin(recon.currentSupplyFromWallets)}
+            </p>
+            <p className={recon.ok ? 'ok-text' : 'error-text'}>
+              {recon.ok ? 'IDENTITY OK' : `MISMATCH delta=${formatCoin(recon.delta)} (자동 수정 금지)`}
+            </p>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="card">
+        <div className="row" style={{ marginBottom: 12 }}>
+          <strong>발행 내역</strong>
+          <select value={range} onChange={(e) => setRange(e.target.value as typeof range)}>
+            <option value="today">오늘</option>
+            <option value="7d">7일</option>
+            <option value="30d">30일</option>
+            <option value="month">이번 달</option>
+            <option value="all">전체</option>
+          </select>
+          <select
+            value={issuanceType}
+            onChange={(e) => setIssuanceType(e.target.value as CoinIssuanceType | '')}
+          >
+            <option value="">전체 유형</option>
+            {Object.values(CoinIssuanceType).map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </div>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>일시</th>
+              <th>사용자</th>
+              <th>수량</th>
+              <th>유형</th>
+              <th>사유</th>
+              <th>Reference</th>
+              <th>처리자</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((row) => (
+              <tr key={row.issuanceId}>
+                <td>{new Date(row.createdAt).toLocaleString('ko-KR')}</td>
+                <td>
+                  <Link to={`/coin/users/${row.userId}`}>
+                    {row.userNickname ?? row.userId.slice(0, 8)}
+                  </Link>
+                </td>
+                <td>+{formatCoin(row.amount)}</td>
+                <td>{row.issuanceType}</td>
+                <td>{row.reason ?? '—'}</td>
+                <td>
+                  {row.referenceType ?? '—'}
+                  {row.referenceId ? ` / ${row.referenceId.slice(0, 12)}` : ''}
+                </td>
+                <td>{row.createdByLabel}</td>
+                <td>
+                  <Link to={`/coin/issuances/${row.issuanceId}`}>상세</Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="card">
+        <strong>사용자 Coin History</strong>
+        <div className="row">
+          <input
+            placeholder="userId"
+            value={userLookup}
+            onChange={(e) => setUserLookup(e.target.value)}
+            style={{ maxWidth: 360 }}
+          />
+          <button onClick={() => void lookupUser()}>조회</button>
+        </div>
+        {userHistory ? (
+          <div style={{ marginTop: 12 }}>
+            <p>
+              {userHistory.nickname ?? userHistory.userId} · Available{' '}
+              {formatCoin(userHistory.availableCoin)} · Held {formatCoin(userHistory.heldCoin)}
+            </p>
+            <p>
+              누적 발행 수령 {formatCoin(userHistory.lifetimeIssuedReceived)} · Transfer 수령{' '}
+              {formatCoin(userHistory.lifetimeTransferReceived)} · Burn 기여{' '}
+              {formatCoin(userHistory.lifetimeBurnContributed)}
+            </p>
+          </div>
+        ) : null}
+      </div>
+
+      <ManualIssuanceDialog open={grantOpen} onClose={() => setGrantOpen(false)} onDone={() => void load()} />
+    </div>
+  );
+}
+
+function IssuanceDetailPage() {
+  const { issuanceId } = useParams();
+  const navigate = useNavigate();
+  const [detail, setDetail] = useState<CoinIssuanceDetailDto | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!issuanceId) return;
+    void api<CoinIssuanceDetailDto>(`/admin/coin/issuances/${issuanceId}`)
+      .then(setDetail)
+      .catch((e) => setError(e instanceof Error ? e.message : 'load_failed'));
+  }, [issuanceId]);
+
+  if (!detail) return <p>{error ?? '불러오는 중…'}</p>;
+
+  return (
+    <div>
+      <button onClick={() => navigate('/coin')}>← 코인 관리</button>
+      <h1>발행 상세</h1>
+      <div className="card">
+        <p>ID {detail.issuanceId}</p>
+        <p>
+          {detail.userNickname ?? detail.userId} · +{formatCoin(detail.amount)} · {detail.issuanceType}
+        </p>
+        <p>사유: {detail.reason ?? '—'}</p>
+        <p>
+          Reference: {detail.referenceType ?? '—'} / {detail.referenceId ?? '—'}
+        </p>
+        <p>
+          처리자: {detail.createdByLabel} · {new Date(detail.createdAt).toLocaleString('ko-KR')}
+        </p>
+        <p>Ledger TX: {detail.ledgerTxId}</p>
+        <p>Status: {detail.status}</p>
+        {detail.metadata ? <pre>{JSON.stringify(detail.metadata, null, 2)}</pre> : null}
+      </div>
+    </div>
+  );
+}
+
+function UserCoinPage() {
+  const { userId } = useParams();
+  const navigate = useNavigate();
+  const [detail, setDetail] = useState<AdminUserCoinHistoryDto | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!userId) return;
+    void api<AdminUserCoinHistoryDto>(`/admin/coin/users/${userId}`)
+      .then(setDetail)
+      .catch((e) => setError(e instanceof Error ? e.message : 'load_failed'));
+  }, [userId]);
+
+  if (!detail) return <p>{error ?? '불러오는 중…'}</p>;
+
+  return (
+    <div>
+      <button onClick={() => navigate('/coin')}>← 코인 관리</button>
+      <h1>사용자 Coin</h1>
+      <div className="card">
+        <p>
+          {detail.nickname ?? detail.userId}
+        </p>
+        <p>
+          Available {formatCoin(detail.availableCoin)} · Held {formatCoin(detail.heldCoin)}
+        </p>
+        <p>
+          누적 발행 수령 {formatCoin(detail.lifetimeIssuedReceived)} (신규 mint만)
+        </p>
+        <p>
+          누적 Transfer 수령 {formatCoin(detail.lifetimeTransferReceived)} (발행 아님)
+        </p>
+        <p>Burn 기여 {formatCoin(detail.lifetimeBurnContributed)}</p>
+      </div>
+      <div className="card">
+        <strong>최근 Ledger</strong>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>일시</th>
+              <th>유형</th>
+              <th>금액</th>
+              <th>라벨</th>
+            </tr>
+          </thead>
+          <tbody>
+            {detail.recentTransactions.map((tx) => (
+              <tr key={tx.id}>
+                <td>{new Date(tx.createdAt).toLocaleString('ko-KR')}</td>
+                <td>{tx.type}</td>
+                <td>{tx.amount}</td>
+                <td>{tx.label}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+export function App() {
+  return (
+    <Shell>
       <Routes>
-        <Route path="/" element={<DisputeListPage />} />
+        <Route path="/" element={<CoinSupplyPage />} />
+        <Route path="/coin" element={<CoinSupplyPage />} />
+        <Route path="/coin/issuances/:issuanceId" element={<IssuanceDetailPage />} />
+        <Route path="/coin/users/:userId" element={<UserCoinPage />} />
+        <Route path="/disputes" element={<DisputeListPage />} />
         <Route path="/disputes/:disputeId" element={<DisputeDetailPage />} />
       </Routes>
-    </div>
+    </Shell>
   );
 }

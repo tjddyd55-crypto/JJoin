@@ -32,6 +32,7 @@ import {
   estimateEndAt,
   mapGenderDisplay,
   nextJoinStatusAfterRoster,
+  subCoinAmounts,
 } from '@jjoin/domain';
 import { createJoinSchema, joinCoinPreviewSchema } from '@jjoin/validation';
 import { Prisma } from '@prisma/client';
@@ -101,6 +102,10 @@ export class JoinsService {
     const { coinAsset } = await ensureFoundation(this.prisma);
     const wallet = await this.ledger.getOrCreateWallet(hostUserId, coinAsset.id);
     const walletAvailable = String(wallet.availableBalance);
+    const canCreate = canAffordJoinCreate(walletAvailable, requirement.totalRequiredCoin);
+    const walletAfterCreation = canCreate
+      ? subCoinAmounts(walletAvailable, requirement.totalRequiredCoin)
+      : walletAvailable;
     return {
       roomCreationFee: requirement.roomCreationFee,
       rewardPerParticipant: requirement.rewardPerParticipant,
@@ -108,7 +113,8 @@ export class JoinsService {
       rewardHoldTotal: requirement.rewardHoldTotal,
       totalRequiredCoin: requirement.totalRequiredCoin,
       walletAvailable,
-      canCreate: canAffordJoinCreate(walletAvailable, requirement.totalRequiredCoin),
+      walletAfterCreation,
+      canCreate,
     };
   }
 

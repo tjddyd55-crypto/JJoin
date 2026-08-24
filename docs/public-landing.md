@@ -31,7 +31,7 @@ Do **not** apply root `nixpacks.toml` (API) or `prisma migrate` to this service.
 
 ## NAVER Developers
 
-**Android → 다운로드 URL:** use the deployed `https://…` landing URL (see `docs/public-landing-report.md` after deploy).
+**Android → 다운로드 URL:** https://landing-production-0d39.up.railway.app
 
 Package: `com.jjoin.app`
 

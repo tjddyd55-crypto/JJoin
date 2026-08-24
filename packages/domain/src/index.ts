@@ -131,13 +131,12 @@ export function resolveAuthAppState(me: MeDto | null, hasSession: boolean): Auth
   return AuthAppState.READY;
 }
 
-/** Onboarding path for new users. */
+/** Onboarding path for new users. Identity stays deferred after Home access. */
 export function resolveOnboardingStep(me: MeDto): SocialSignInNextStep {
   if (!me.authAppHints.termsAccepted) return 'TERMS';
   if (!me.authAppHints.profileComplete || !me.publicProfile) return 'PROFILE_SETUP';
   if (!me.authAppHints.hasAvatar) return 'PROFILE_PHOTO';
   if (!me.authAppHints.locationOnboardingComplete) return 'LOCATION';
-  if (me.identity.verificationStatus !== IdentityStatus.VERIFIED) return 'IDENTITY';
   return 'HOME';
 }
 
@@ -223,3 +222,23 @@ export {
   computeRewardEligibleSlots,
   type JoinCoinRequirement,
 } from './coin-join';
+
+export {
+  REWARD_QUICK_ADD_DENOMINATIONS,
+  addRewardQuickIncrement,
+  computeCoinShortfall,
+  computeWalletAfterCreation,
+  normalizeRewardPerParticipantInput,
+} from './reward-input';
+
+export {
+  classifyCoinSupplyEffect,
+  currentSupply,
+  isBurnLedgerType,
+  isIssuanceLedgerType,
+  sumIssuanceByType,
+  verifySupplyIdentity,
+  type CoinSupplyEffect,
+  type SupplyIdentityResult,
+  type SupplyTotals,
+} from './coin-supply';

@@ -1,8 +1,15 @@
-﻿import { Injectable } from '@nestjs/common';
-import { SportSkillLevel } from '@jjoin/types';
+﻿import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { AgeBand, SportSkillLevel, type MeDto } from '@jjoin/types';
+import { profileSetupSchema, termsConsentSchema } from '@jjoin/validation';
+import { mockUserStore } from '../../mock/mock-user.store';
 import { UserAccountService } from './user-account.service';
 import { WalletService } from '../wallet/wallet.service';
 
+/**
+ * Users facade — DB-backed accounts first.
+ * Pure in-memory mock users (mock-sign-in) use MockUserStore so local
+ * onboarding QA works without a second auth architecture.
+ */
 @Injectable()
 export class UsersService {
   constructor(
@@ -14,31 +21,75 @@ export class UsersService {
     return { module: 'users', status: 'ready' };
   }
 
-  getMe(userId: string) {
+  async getMe(userId: string): Promise<MeDto> {
+    if (mockUserStore.isMemoryOnlyUser(userId)) {
+      const me = mockUserStore.getMe(userId);
+      if (!me) throw new NotFoundException('user_not_found');
+      return me;
+    }
     return this.accounts.getMe(userId);
   }
 
-  acceptTerms(userId: string, body: unknown) {
+  async acceptTerms(userId: string, body: unknown): Promise<MeDto> {
+    if (mockUserStore.isMemoryOnlyUser(userId)) {
+      const parsed = termsConsentSchema.safeParse(body);
+      if (!parsed.success) {
+        throw new BadRequestException({ code: 'terms_incomplete', issues: parsed.error.issues });
+      }
+      return mockUserStore.acceptTerms(userId);
+    }
     return this.accounts.acceptTerms(userId, body);
   }
 
-  setupProfile(userId: string, body: unknown) {
+  async setupProfile(userId: string, body: unknown): Promise<MeDto> {
+    if (mockUserStore.isMemoryOnlyUser(userId)) {
+      const parsed = profileSetupSchema.safeParse(body);
+      if (!parsed.success) {
+        throw new BadRequestException({ code: 'profile_invalid', issues: parsed.error.issues });
+      }
+      const data = parsed.data;
+      return mockUserStore.updateProfile(userId, {
+        nickname: data.nickname,
+        gender: data.gender,
+        ageBand: data.ageBand as AgeBand,
+        regionLabel: data.regionLabel,
+        bio: data.bio,
+        skillLevel: data.skillLevel as SportSkillLevel,
+      });
+    }
     return this.accounts.setupProfile(userId, body);
   }
 
   editProfile(userId: string, body: unknown) {
+    if (mockUserStore.isMemoryOnlyUser(userId)) {
+      return this.setupProfile(userId, body);
+    }
     return this.accounts.editProfile(userId, body);
   }
 
-  setAvatar(userId: string, body: { localUri?: string | null; skip?: boolean }) {
+  async setAvatar(
+    userId: string,
+    body: { localUri?: string | null; skip?: boolean },
+  ): Promise<MeDto> {
+    if (mockUserStore.isMemoryOnlyUser(userId)) {
+      return mockUserStore.setAvatarMock(userId, body.localUri ?? null, Boolean(body.skip));
+    }
     return this.accounts.setAvatar(userId, body);
   }
 
-  completeLocationOnboarding(userId: string) {
+  async completeLocationOnboarding(userId: string): Promise<MeDto> {
+    if (mockUserStore.isMemoryOnlyUser(userId)) {
+      return mockUserStore.completeLocationOnboarding(userId);
+    }
     return this.accounts.completeLocationOnboarding(userId);
   }
 
-  getPublicProfile(userId: string) {
+  async getPublicProfile(userId: string) {
+    if (mockUserStore.isMemoryOnlyUser(userId)) {
+      const profile = mockUserStore.getPublicProfile(userId);
+      if (!profile) throw new NotFoundException('user_not_found');
+      return profile;
+    }
     return this.accounts.getPublicProfile(userId);
   }
 
@@ -47,10 +98,15 @@ export class UsersService {
   }
 
   patchSportProfile(userId: string, sportCode: string, body: { skillLevel: SportSkillLevel }) {
-    return this.accounts.editProfile(userId, { sportCode, skillLevel: body.skillLevel });
+    return this.editProfile(userId, { sportCode, skillLevel: body.skillLevel });
   }
 
   getWalletSummary(userId: string) {
+    if (mockUserStore.isMemoryOnlyUser(userId)) {
+      const me = mockUserStore.getMe(userId);
+      if (!me) throw new NotFoundException('user_not_found');
+      return Promise.resolve(me.walletSummary);
+    }
     return this.wallet.getSummary(userId);
   }
 }

@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AppState, StyleSheet, TextInput, View } from 'react-native';
+import { AppState, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
-  AppText,
-  BottomActionBar,
+  Text,
+  Badge,
   Button,
-  ScreenContainer,
+  Card,
+  Input,
+  ScrollScreenFrame,
+  Section,
+  StickyActionFrame,
   Stack,
-  colors,
-  spacing,
+  useTheme,
+  type BadgeVariant,
 } from '@jjoin/design-system';
 import {
   ParticipationStatus,
@@ -38,6 +42,21 @@ function rewardStatusLabel(status: RewardStatus): string {
       return '지급 대상 아님';
     default:
       return status;
+  }
+}
+
+function rewardBadgeVariant(status: RewardStatus): BadgeVariant {
+  switch (status) {
+    case RewardStatus.PAID:
+    case RewardStatus.AUTO_PAID:
+      return 'success';
+    case RewardStatus.DISPUTED:
+      return 'error';
+    case RewardStatus.PENDING_CONFIRMATION:
+    case RewardStatus.HELD:
+      return 'warning';
+    default:
+      return 'neutral';
   }
 }
 
@@ -76,45 +95,54 @@ function SettlementRowHost(props: {
     props.row.rewardStatus === RewardStatus.PENDING_CONFIRMATION && countdownMs > 0;
 
   return (
-    <View style={styles.settlementRow}>
-      <View style={styles.settlementMeta}>
-        <AppText variant="body">{props.row.nickname}</AppText>
-        <AppText variant="caption" color="textSecondary">
+    <Card variant="elevated" padding="md">
+      <Stack gap="sm">
+        <Text variant="bodyStrong" tone="primary">
+          {props.row.nickname}
+        </Text>
+        <Text variant="caption" tone="secondary">
           {props.row.rewardAmount} Coin ·{' '}
           {props.row.dispute?.userFacingMessage ?? rewardStatusLabel(props.row.rewardStatus)}
-        </AppText>
+        </Text>
+        <Badge
+          label={rewardStatusLabel(props.row.rewardStatus)}
+          variant={rewardBadgeVariant(props.row.rewardStatus)}
+        />
         {showCountdown ? (
-          <AppText variant="caption" color="textSecondary">
+          <Text variant="caption" tone="tertiary">
             자동 지급까지 {formatCountdown(countdownMs)}
-          </AppText>
+          </Text>
         ) : null}
-      </View>
-      {props.row.canHostPay ? (
-        <View style={styles.settlementActions}>
-          <Button label="보상 지급" loading={props.busy} onPress={props.onPay} />
-          <View style={styles.issueRow}>
-            <Button
-              label="불참"
-              variant="secondary"
-              loading={props.busy}
-              onPress={() => props.onIssue('NO_SHOW')}
-            />
-            <Button
-              label="조퇴"
-              variant="secondary"
-              loading={props.busy}
-              onPress={() => props.onIssue('LEFT_EARLY')}
-            />
-            <Button
-              label="분쟁"
-              variant="secondary"
-              loading={props.busy}
-              onPress={() => props.onIssue('DISPUTE')}
-            />
-          </View>
-        </View>
-      ) : null}
-    </View>
+        {props.row.canHostPay ? (
+          <Stack gap="sm">
+            <Button label="보상 지급" loading={props.busy} onPress={props.onPay} />
+            <View style={styles.issueRow}>
+              <Button
+                label="불참"
+                variant="secondary"
+                loading={props.busy}
+                onPress={() => props.onIssue('NO_SHOW')}
+                fullWidth={false}
+              />
+              <Button
+                label="조퇴"
+                variant="secondary"
+                loading={props.busy}
+                onPress={() => props.onIssue('LEFT_EARLY')}
+                fullWidth={false}
+              />
+              <Button
+                label="분쟁"
+                variant="secondary"
+                loading={props.busy}
+                onPress={() => props.onIssue('DISPUTE')}
+                fullWidth={false}
+              />
+            </View>
+          </Stack>
+        ) : null}
+      </Stack>
+    </Card>
   );
 }
 
@@ -122,6 +150,7 @@ export default function JoinDetailScreen() {
   const { joinId } = useLocalSearchParams<{ joinId: string }>();
   const { me, requestGatedAction } = useSession();
   const router = useRouter();
+  const theme = useTheme();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [detail, setDetail] = useState<JoinDetailDto | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -250,10 +279,10 @@ export default function JoinDetailScreen() {
 
   if (!detail) {
     return (
-      <ScreenContainer>
-        <AppText>{error ?? '불러오는 중…'}</AppText>
+      <ScrollScreenFrame>
+        <Text tone="secondary">{error ?? '불러오는 중…'}</Text>
         <Button label="뒤로" variant="secondary" onPress={() => router.back()} />
-      </ScreenContainer>
+      </ScrollScreenFrame>
     );
   }
 
@@ -262,65 +291,88 @@ export default function JoinDetailScreen() {
   });
 
   return (
-    <ScreenContainer>
-      <Stack gap="md" style={styles.body}>
-        <AppText variant="subtitle">{detail.venue.name}</AppText>
-        <AppText variant="body" color="textSecondary">
-          {startLabel}
-        </AppText>
-        <AppText variant="body">
-          {detail.confirmedPlayerCount}/{detail.plannedPlayerCount}명 · {detail.status}
-        </AppText>
-        <AppText variant="body">
-          방장 {detail.host.nickname}
-          {detail.host.verifiedBadge ? ' · 인증' : ''}
-        </AppText>
-        <AppText variant="caption" color="textSecondary">
-          참가 방식: {detail.joinMethod} · 보상 {detail.rewardPerParticipant} Coin
-        </AppText>
+    <View style={styles.root}>
+      <ScrollScreenFrame contentPaddingBottom={24}>
+        <Section title={detail.venue.name} subtitle={startLabel}>
+          <Badge label={detail.status} variant="gold" />
+          <Text variant="body" tone="secondary">
+            {detail.confirmedPlayerCount}/{detail.plannedPlayerCount}명
+          </Text>
+        </Section>
 
-        {detail.myParticipation ? (
-          <AppText variant="body">
-            내 상태: {detail.myParticipation.participationStatus} ({detail.myParticipation.role})
-          </AppText>
-        ) : null}
+        <Section title="호스트">
+          <Text variant="bodyStrong" tone="primary">
+            {detail.host.nickname}
+            {detail.host.verifiedBadge ? ' · 인증' : ''}
+          </Text>
+        </Section>
+
+        <Section title="참가자">
+          <Text variant="body" tone="secondary">
+            {detail.confirmedPlayerCount}/{detail.plannedPlayerCount}명 · 참가 방식{' '}
+            {detail.joinMethod}
+          </Text>
+          {detail.myParticipation ? (
+            <Text variant="meta" tone="secondary">
+              내 상태: {detail.myParticipation.participationStatus} (
+              {detail.myParticipation.role})
+            </Text>
+          ) : null}
+        </Section>
+
+        <Section title="보상">
+          <Text variant="coinMedium" style={{ color: theme.colors.reward.primary }}>
+            {detail.rewardPerParticipant} Coin
+          </Text>
+          <Text variant="caption" tone="tertiary">
+            1인당 참가 보상
+          </Text>
+        </Section>
 
         {mySettlement ? (
-          <View style={styles.rewardBox}>
-            <AppText variant="body">보상 {mySettlement.rewardAmount} Coin</AppText>
-            <AppText variant="body">
-              {mySettlement.dispute?.userFacingMessage ??
-                rewardStatusLabel(mySettlement.rewardStatus)}
-            </AppText>
-            {mySettlement.rewardStatus === RewardStatus.PENDING_CONFIRMATION &&
-            myCountdownMs > 0 ? (
-              <AppText variant="caption" color="textSecondary">
-                자동 지급까지 {formatCountdown(myCountdownMs)}
-              </AppText>
-            ) : null}
-            {mySettlement.dispute?.canSubmitStatement ? (
-              <View style={styles.statementBox}>
-                <TextInput
-                  style={styles.statementInput}
-                  placeholder="상황 설명을 입력해 주세요"
-                  value={statement}
-                  onChangeText={setStatement}
-                  multiline
-                  maxLength={1000}
+          <Section title="내 정산">
+            <Card variant="elevated" padding="md">
+              <Stack gap="sm">
+                <Text variant="bodyStrong" tone="primary">
+                  보상 {mySettlement.rewardAmount} Coin
+                </Text>
+                <Badge
+                  label={
+                    mySettlement.dispute?.userFacingMessage ??
+                    rewardStatusLabel(mySettlement.rewardStatus)
+                  }
+                  variant={rewardBadgeVariant(mySettlement.rewardStatus)}
                 />
-                <Button
-                  label="설명 제출"
-                  loading={busy}
-                  onPress={() => void onSubmitStatement()}
-                />
-              </View>
-            ) : null}
-          </View>
+                {mySettlement.rewardStatus === RewardStatus.PENDING_CONFIRMATION &&
+                myCountdownMs > 0 ? (
+                  <Text variant="caption" tone="tertiary">
+                    자동 지급까지 {formatCountdown(myCountdownMs)}
+                  </Text>
+                ) : null}
+                {mySettlement.dispute?.canSubmitStatement ? (
+                  <Stack gap="sm">
+                    <Input
+                      label="상황 설명"
+                      value={statement}
+                      onChangeText={setStatement}
+                      multiline
+                      maxLength={1000}
+                      placeholder="상황 설명을 입력해 주세요"
+                    />
+                    <Button
+                      label="설명 제출"
+                      loading={busy}
+                      onPress={() => void onSubmitStatement()}
+                    />
+                  </Stack>
+                ) : null}
+              </Stack>
+            </Card>
+          </Section>
         ) : null}
 
         {isHost && detail.settlement?.settlementOpen ? (
-          <View style={styles.settlementSection}>
-            <AppText variant="body">참가자 정산</AppText>
+          <Section title="참가자 정산">
             {detail.settlement.settlements.map((row) => (
               <SettlementRowHost
                 key={row.participantId}
@@ -349,118 +401,83 @@ export default function JoinDetailScreen() {
                 }}
               />
             ) : null}
-          </View>
+          </Section>
         ) : null}
 
         {isHost && pending && pending.length > 0 ? (
-          <View style={styles.pending}>
-            <AppText variant="body">참가 신청</AppText>
+          <Section title="참가 신청">
             {pending.map((p) => (
-              <View key={p.participantId} style={styles.pendingRow}>
-                <AppText variant="body">{p.nickname}</AppText>
-                <Button
-                  label="승인"
-                  loading={busy}
-                  onPress={() => void onApprove(p.participantId)}
-                />
-              </View>
+              <Card key={p.participantId} variant="base" padding="md">
+                <View style={styles.pendingRow}>
+                  <Text variant="body" tone="primary">
+                    {p.nickname}
+                  </Text>
+                  <Button
+                    label="승인"
+                    loading={busy}
+                    fullWidth={false}
+                    onPress={() => void onApprove(p.participantId)}
+                  />
+                </View>
+              </Card>
             ))}
-          </View>
+          </Section>
         ) : null}
 
         {__DEV__ && isHost && detail.settlement && !detail.settlement.settlementOpen ? (
-          <View style={styles.qaBox}>
-            <AppText variant="caption" color="textSecondary">
-              DEV QA — 정산 시각 이동
-            </AppText>
+          <Section title="DEV QA">
             <View style={styles.issueRow}>
               <Button
                 label="종료(open)"
                 variant="secondary"
                 loading={busy}
+                fullWidth={false}
                 onPress={() => void onQaAdvance('open')}
               />
               <Button
                 label="자동지급(autopay)"
                 variant="secondary"
                 loading={busy}
+                fullWidth={false}
                 onPress={() => void onQaAdvance('autopay')}
               />
             </View>
-          </View>
+          </Section>
         ) : null}
 
         {error ? (
-          <AppText variant="body" color="danger">
+          <Text variant="body" tone="error">
             {error}
-          </AppText>
+          </Text>
         ) : null}
-      </Stack>
+      </ScrollScreenFrame>
 
-      <BottomActionBar>
+      <StickyActionFrame>
         {!isHost && !detail.myParticipation ? (
           <Button label="참가 신청" loading={busy} onPress={() => void onApply()} />
         ) : null}
-        <Button label="내 조인" variant="secondary" onPress={() => router.push('/(tabs)/my-joins')} />
-        <Button label="닫기" variant="secondary" onPress={() => router.back()} />
-      </BottomActionBar>
-    </ScreenContainer>
+        <Button
+          label="내 조인"
+          variant="secondary"
+          onPress={() => router.push('/(tabs)/my-joins')}
+        />
+        <Button label="닫기" variant="ghost" onPress={() => router.back()} />
+      </StickyActionFrame>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  body: { paddingBottom: spacing.lg },
-  pending: {
-    gap: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: spacing.md,
-  },
+  root: { flex: 1 },
   pendingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.sm,
+    gap: 12,
   },
-  rewardBox: {
-    gap: spacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: spacing.md,
-  },
-  settlementSection: {
-    gap: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: spacing.md,
-  },
-  settlementRow: {
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  settlementMeta: { gap: spacing.xs },
-  settlementActions: { gap: spacing.sm },
   issueRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  qaBox: {
-    gap: spacing.sm,
-    paddingTop: spacing.sm,
-  },
-  statementBox: {
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  statementInput: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    padding: spacing.sm,
-    minHeight: 80,
-    textAlignVertical: 'top',
+    gap: 8,
   },
 });

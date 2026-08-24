@@ -21,6 +21,7 @@ const TX_LABELS: Record<string, string> = {
   JOIN_REWARD_TRANSFER: '참가 보상 지급',
   JOIN_REWARD_REFUND: '참가 보상 환불',
   ADMIN_ADJUSTMENT: '테스트 코인 조정',
+  COIN_ISSUANCE: 'Coin 발행',
 };
 
 @Injectable()

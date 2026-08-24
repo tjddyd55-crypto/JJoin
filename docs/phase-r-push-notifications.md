@@ -55,10 +55,10 @@ Business COMMIT
 
 ### USER_ACTION_REQUIRED
 
-1. `eas init` / Expo 대시보드에서 project 생성 → `EXPO_PUBLIC_EAS_PROJECT_ID` 설정
+1. ~~`eas init` / Expo 대시보드에서 project 생성 → `EXPO_PUBLIC_EAS_PROJECT_ID` 설정~~ → **DONE** (`@tjddyd55/jjoin`, see `docs/phase-r-eas-fcm-user-action.md`)
 2. Firebase 프로젝트 + Android app `com.jjoin.app` + FCM V1 service account → EAS Credentials 업로드
-3. (권장) `google-services.json` → `android.googleServicesFile`
-4. `expo-notifications` plugin 반영을 위한 **dev client rebuild**
+3. (권장) `google-services.json` → `apps/mobile/google-services.json` (config auto-wires)
+4. `expo-notifications` plugin 반영을 위한 **dev client rebuild** (FCM 완료 후 agent 수행)
 5. (선택) Railway에서 `POST /notifications/deliver-pending` 주기 호출 — 신규 cron service는 필수 아님 (enqueue 직후 kick 존재)
 
 ## Security
