@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Batch EPSG:5174 → EPSG:4326 using temporary proj4 under /tmp.
+ * Batch EPSG:5174 → EPSG:4326 via proj4 (workspace dependency).
  * Usage: node batch-tm-to-wgs84.cjs <input.json> <output.json>
- * Does not call NAVER APIs. Not added to package.json dependencies.
+ * Does not call NAVER APIs.
  */
 const fs = require('fs');
 
-const PROJ4_PATH = '/tmp/proj4-tmp/package';
+const proj4 = require('proj4');
 const KR_LAT = [33, 39];
 const KR_LNG = [124, 132];
 
@@ -17,7 +17,6 @@ function main() {
     process.exit(1);
   }
 
-  const proj4 = require(PROJ4_PATH);
   proj4.defs(
     'EPSG:5174',
     '+proj=tmerc +lat_0=38 +lon_0=127 +k=1 +x_0=200000 +y_0=500000 +ellps=bessel +units=m +no_defs +towgs84=-115.80,474.99,674.11,1.16,-2.31,-1.63,6.43',

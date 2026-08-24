@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
-"""Rebuild golf-practice-ranges baseline snapshots from LOCALDATA CSV.
+"""Rebuild golf-practice-ranges baseline snapshots from LOCALDATA CSV or API JSON.
 
-Does not overwrite existing baseline files. Fresh download is used only when
-targets are missing (this workspace had no prior snapshots).
+Does not overwrite existing baseline files unless --force is set.
 """
 
 from __future__ import annotations
 
+import argparse
 import csv
 import json
+import os
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT_DIR = ROOT / "data" / "golf-practice-ranges"
-SOURCE_CSV = Path("/tmp/golf_download.bin")
+DEFAULT_SOURCE = OUT_DIR / "source" / "golf_download.bin"
 
 BASELINE_FILES = [
     "raw-active.json",
@@ -24,6 +25,29 @@ BASELINE_FILES = [
     "screen-golf-candidates.json",
     "screen-golf-candidates.csv",
 ]
+
+# LOCALDATA open API field code -> CSV column (build-facility-master-staging raw schema)
+API_FIELD_TO_CSV: dict[str, str] = {
+    "OPN_ATMY_GRP_CD": "개방자치단체코드",
+    "MNG_NO": "관리번호",
+    "BPLC_NM": "사업장명",
+    "SALS_STTS_NM": "영업상태명",
+    "SALS_STTS_CD": "영업상태코드",
+    "DTL_SALS_STTS_NM": "상세영업상태명",
+    "DTL_SALS_STTS_CD": "상세영업상태코드",
+    "CULTR_SPTS_TPBIZ_NM": "문화체육업종명",
+    "ROAD_NM_ADDR": "도로명주소",
+    "LOTNO_ADDR": "지번주소",
+    "TELNO": "전화번호",
+    "CRD_INFO_X": "좌표정보(X)",
+    "CRD_INFO_Y": "좌표정보(Y)",
+    "LCPMT_YMD": "인허가일자",
+    "CLSBIZ_YMD": "폐업일자",
+    "DAT_UPDT_PNT": "데이터갱신시점",
+    "LAST_MDFCN_PNT": "최종수정시점",
+    "ROAD_NM_ZIP": "도로명우편번호",
+    "LCTN_ZIP": "소재지우편번호",
+}
 
 STRONG_PATTERNS: list[tuple[str, int, str]] = [
     ("스크린골프", 50, "NAME_SCREEN_GOLF"),
@@ -116,6 +140,31 @@ def write_json(path: Path, payload: object) -> None:
     )
 
 
+def resolve_source_path(cli_input: str | None) -> Path:
+    if cli_input:
+        return Path(cli_input).expanduser()
+
+    env_path = os.environ.get("GOLF_PRACTICE_RANGES_SOURCE_FILE", "").strip()
+    if env_path:
+        return Path(env_path).expanduser()
+
+    if DEFAULT_SOURCE.exists():
+        return DEFAULT_SOURCE
+
+    legacy_candidates = [
+        Path("/tmp/golf_download.bin"),
+    ]
+    temp_dir = os.environ.get("TEMP") or os.environ.get("TMP")
+    if temp_dir:
+        legacy_candidates.append(Path(temp_dir) / "golf_download.bin")
+
+    for candidate in legacy_candidates:
+        if candidate.exists():
+            return candidate
+
+    return DEFAULT_SOURCE
+
+
 def write_csv(path: Path, rows: list[dict], fieldnames: list[str]) -> None:
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
@@ -127,25 +176,59 @@ def write_csv(path: Path, rows: list[dict], fieldnames: list[str]) -> None:
             writer.writerow(out)
 
 
-def main() -> int:
-    existing = [name for name in BASELINE_FILES if (OUT_DIR / name).exists()]
-    if existing:
-        print("Baseline already present — refusing overwrite:")
-        for name in existing:
-            print(f"  - {name}")
-        return 0
+def is_active_csv_row(row: dict[str, str]) -> bool:
+    status = (row.get("영업상태명") or "").strip()
+    code = (row.get("영업상태코드") or "").strip()
+    return status == "영업/정상" or code == "01"
 
-    if not SOURCE_CSV.exists():
-        print(f"Missing source CSV: {SOURCE_CSV}", file=sys.stderr)
-        return 1
 
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+def api_item_to_csv_row(item: dict) -> dict[str, str]:
+    row: dict[str, str] = {}
+    for api_key, csv_key in API_FIELD_TO_CSV.items():
+        value = item.get(api_key)
+        row[csv_key] = "" if value is None else str(value).strip()
+    return row
 
-    with SOURCE_CSV.open("r", encoding="cp949", newline="") as handle:
-        raw_rows = list(csv.DictReader(handle))
 
-    active_raw = [row_to_raw(row) for row in raw_rows if (row.get("영업상태명") or "").strip() == "영업/정상"]
-    normalized = [row_to_normalized(row) for row in raw_rows if (row.get("영업상태명") or "").strip() == "영업/정상"]
+def load_csv_rows(path: Path) -> list[dict[str, str]]:
+    with path.open("r", encoding="cp949", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def load_api_json_rows(path: Path) -> list[dict[str, str]]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(payload, list):
+        items = payload
+    elif isinstance(payload, dict) and isinstance(payload.get("items"), list):
+        items = payload["items"]
+    else:
+        raise ValueError(
+            "API JSON must be an array or an object with an 'items' array"
+        )
+    return [api_item_to_csv_row(item) for item in items]
+
+
+def detect_input_format(path: Path, fmt: str) -> str:
+    if fmt != "auto":
+        return fmt
+    if path.suffix.lower() == ".json":
+        return "api-json"
+    head = path.read_bytes()[:4096].lstrip()
+    if head.startswith(b"{") or head.startswith(b"["):
+        return "api-json"
+    return "csv"
+
+
+def load_source_rows(path: Path, fmt: str) -> tuple[list[dict[str, str]], str]:
+    resolved = detect_input_format(path, fmt)
+    if resolved == "api-json":
+        return load_api_json_rows(path), "api-json"
+    return load_csv_rows(path), "csv"
+
+
+def build_baseline_outputs(raw_rows: list[dict[str, str]]) -> tuple[list[dict], list[dict], list[dict]]:
+    active_raw = [row_to_raw(row) for row in raw_rows if is_active_csv_row(row)]
+    normalized = [row_to_normalized(row) for row in raw_rows if is_active_csv_row(row)]
 
     candidates: list[dict] = []
     for item in normalized:
@@ -161,7 +244,11 @@ def main() -> int:
         )
 
     candidates.sort(key=lambda row: (-row["screenGolfScore"], row["name"], row["managementNo"]))
+    return active_raw, normalized, candidates
 
+
+def write_baseline_artifacts(active_raw: list[dict], normalized: list[dict], candidates: list[dict]) -> None:
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
     write_json(OUT_DIR / "raw-active.json", active_raw)
     write_json(OUT_DIR / "normalized-active.json", normalized)
     write_csv(
@@ -212,8 +299,72 @@ def main() -> int:
         ],
     )
 
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Rebuild golf-practice-ranges baseline snapshots from LOCALDATA CSV or API JSON.",
+    )
+    parser.add_argument(
+        "--input",
+        dest="input_path",
+        help=(
+            "LOCALDATA source path (CSV cp949 or API JSON wrapper). "
+            f"Default: {DEFAULT_SOURCE} or GOLF_PRACTICE_RANGES_SOURCE_FILE."
+        ),
+    )
+    parser.add_argument(
+        "--format",
+        choices=("auto", "csv", "api-json"),
+        default="auto",
+        help="Input format (default: auto-detect from extension/content).",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing baseline artifacts in data/golf-practice-ranges/.",
+    )
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    source_path = resolve_source_path(args.input_path)
+
+    existing = [name for name in BASELINE_FILES if (OUT_DIR / name).exists()]
+    if existing and not args.force:
+        print("Baseline already present - refusing overwrite:")
+        for name in existing:
+            print(f"  - {name}")
+        print("Re-run with --force to replace baseline artifacts.", file=sys.stderr)
+        return 0
+
+    if not source_path.exists():
+        print(f"Missing source file: {source_path}", file=sys.stderr)
+        print(
+            "Provide LOCALDATA export via --input <path> or copy to "
+            f"{DEFAULT_SOURCE}",
+            file=sys.stderr,
+        )
+        print(
+            "Optional env: GOLF_PRACTICE_RANGES_SOURCE_FILE=<path>",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        raw_rows, detected_format = load_source_rows(source_path, args.format)
+    except (json.JSONDecodeError, ValueError, UnicodeDecodeError) as err:
+        print(f"Failed to parse source ({source_path}): {err}", file=sys.stderr)
+        return 1
+
+    active_raw, normalized, candidates = build_baseline_outputs(raw_rows)
+    write_baseline_artifacts(active_raw, normalized, candidates)
+
     with_coords = sum(1 for row in normalized if row["tmX"] is not None and row["tmY"] is not None)
     print("Baseline created:")
+    print(f"  source: {source_path}")
+    print(f"  format: {detected_format}")
+    print(f"  input rows: {len(raw_rows)}")
     print(f"  active: {len(normalized)}")
     print(f"  with TM coords: {with_coords}")
     print(f"  screen candidates: {len(candidates)}")
