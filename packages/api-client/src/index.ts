@@ -1,12 +1,16 @@
 import {
   MockAuthScenario,
   SocialProvider,
+  type ActivateGolfFacilityVenueResponse,
   type ActivateVenueRequest,
   type ActivateVenueResponse,
   type AuthSessionDto,
   type CreateJoinRequest,
   type ExploreFilter,
   type ExploreMapResponse,
+  type GolfFacilityBoundsResponse,
+  type GolfFacilityMapDto,
+  type GolfFacilitySearchResponse,
   type JoinCoinPreviewDto,
   type JoinCoinPreviewRequest,
   type JoinDetailDto,
@@ -325,6 +329,65 @@ export class ApiClient {
       headers: await this.headers(true),
       body: JSON.stringify(body),
     });
+    return parseJson(res);
+  }
+
+  /** Viewport GolfFacility markers — no Venue side effects. */
+  async getGolfFacilitiesInBounds(query: {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+    limit?: number;
+  }): Promise<GolfFacilityBoundsResponse> {
+    const params = new URLSearchParams();
+    params.set('north', String(query.north));
+    params.set('south', String(query.south));
+    params.set('east', String(query.east));
+    params.set('west', String(query.west));
+    if (query.limit != null) params.set('limit', String(query.limit));
+    const res = await request(
+      `${this.config.baseUrl}/golf-facilities?${params.toString()}`,
+      { headers: await this.headers(true) },
+    );
+    return parseJson(res);
+  }
+
+  /** Search GolfFacility master — no Venue side effects. */
+  async searchGolfFacilities(query: {
+    q: string;
+    limit?: number;
+    cursor?: string;
+  }): Promise<GolfFacilitySearchResponse> {
+    const params = new URLSearchParams();
+    Object.entries(query).forEach(([k, v]) => {
+      if (v != null && v !== '') params.set(k, String(v));
+    });
+    const res = await request(
+      `${this.config.baseUrl}/golf-facilities/search?${params.toString()}`,
+      { headers: await this.headers(true) },
+    );
+    return parseJson(res);
+  }
+
+  async getGolfFacility(id: string): Promise<GolfFacilityMapDto> {
+    const res = await request(`${this.config.baseUrl}/golf-facilities/${id}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  /** Explicit Join place activation from GolfFacility (writes Venue once). */
+  async activateGolfFacilityVenue(
+    golfFacilityId: string,
+  ): Promise<ActivateGolfFacilityVenueResponse> {
+    const res = await request(
+      `${this.config.baseUrl}/golf-facilities/${golfFacilityId}/activate-venue`,
+      {
+        method: 'POST',
+        headers: await this.headers(true),
+      },
+    );
     return parseJson(res);
   }
 

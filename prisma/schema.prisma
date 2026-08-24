@@ -407,6 +407,8 @@ model Venue {
   sportId          String   @map("sport_id") @db.Uuid
   provider         String
   providerPlaceId  String   @map("provider_place_id")
+  /// Optional link to nationwide GolfFacility master (LOCALDATA activation only).
+  golfFacilityId   String?  @unique @map("golf_facility_id") @db.Uuid
   name             String
   address          String?
   roadAddress      String?  @map("road_address")
@@ -420,8 +422,9 @@ model Venue {
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  sport Sport  @relation(fields: [sportId], references: [id])
-  joins Join[]
+  sport         Sport          @relation(fields: [sportId], references: [id])
+  golfFacility  GolfFacility?  @relation(fields: [golfFacilityId], references: [id], onDelete: SetNull)
+  joins         Join[]
 
   @@unique([provider, providerPlaceId])
   @@index([sportId, latitude, longitude])
@@ -679,4 +682,186 @@ model DisputeCase {
   @@index([status, openedAt])
   @@index([joinId])
   @@map("dispute_cases")
+}
+
+// ---------------------------------------------------------------------------
+// GolfFacility — nationwide LOCALDATA golf practice master (design draft)
+// Not applied via migration yet. Do not prisma db push / migrate deploy.
+// Distinct from Venue (Kakao live activation for Join FK).
+// ---------------------------------------------------------------------------
+
+enum GolfFacilitySource {
+  LOCALDATA_GOLF_PRACTICE_RANGE
+  MANUAL
+  OWNER_REGISTERED
+  OTHER
+}
+
+enum GolfFacilityType {
+  SCREEN_GOLF
+  MIXED_GOLF_FACILITY
+  PRACTICE_RANGE
+  GOLF_ACADEMY
+  INDOOR_PRACTICE
+  OUTDOOR_PRACTICE
+  OTHER_GOLF_FACILITY
+  UNKNOWN
+}
+
+/// Facility sport classification (not the same as Sport catalog used by Join).
+enum GolfFacilitySportType {
+  GOLF
+  PARK_GOLF
+}
+
+enum HasScreenGolf {
+  YES
+  NO
+  UNKNOWN
+}
+
+enum ScreenStatus {
+  CONFIRMED
+  POSSIBLE
+  UNKNOWN
+  NON_SCREEN
+}
+
+enum ScreenConfidence {
+  HIGH
+  MEDIUM
+  LOW
+  UNKNOWN
+}
+
+enum GolfFacilityBrand {
+  GOLFZON
+  SG_GOLF
+  FRIENDS_SCREEN
+  OTHER
+  UNKNOWN
+}
+
+enum GolfFacilityPhoneStatus {
+  PRESENT
+  EMPTY
+  INVALID
+}
+
+enum CoordinateSource {
+  GOV_TM_CONVERTED
+  NAVER_GEOCODED
+  MANUAL
+  UNKNOWN
+}
+
+enum CoordinateStatus {
+  VALID
+  INVALID
+  MISSING
+}
+
+/// Nationwide golf facility master from LOCALDATA (and future owner/manual).
+/// Screen availability is orthogonal to facilityType.
+/// Soft-retain rows (isActive=false) so historical Join FKs remain valid later.
+model GolfFacility {
+  id String @id @default(uuid()) @db.Uuid
+
+  source              GolfFacilitySource
+  governmentSourceKey String             @map("government_source_key")
+  managementNo        String             @map("management_no")
+  localGovernmentCode String             @map("local_government_code")
+
+  /// LOCALDATA original name — refreshed on sync.
+  sourceName            String  @map("source_name")
+  /// Service display name — protected from source overwrite after override.
+  displayName           String  @map("display_name")
+  normalizedName        String  @map("normalized_name")
+  displayNameOverridden Boolean @default(false) @map("display_name_overridden")
+
+  sourcePhone     String?                 @map("source_phone")
+  phone           String?
+  phoneStatus     GolfFacilityPhoneStatus @default(EMPTY) @map("phone_status")
+  phoneOverridden Boolean                 @default(false) @map("phone_overridden")
+
+  sourceRoadAddress     String? @map("source_road_address")
+  roadAddress           String? @map("road_address")
+  roadAddressOverridden Boolean @default(false) @map("road_address_overridden")
+
+  sourceLotAddress     String? @map("source_lot_address")
+  lotAddress           String? @map("lot_address")
+  lotAddressOverridden Boolean @default(false) @map("lot_address_overridden")
+
+  postalCode String? @map("postal_code")
+  sido       String?
+  sigungu    String?
+
+  /// Original government TM (EPSG:5174) — retained for re-projection / audit.
+  sourceTmX Decimal? @map("source_tm_x") @db.Decimal(18, 6)
+  sourceTmY Decimal? @map("source_tm_y") @db.Decimal(18, 6)
+
+  /// WGS84 — nullable; missing coords do not block import.
+  latitude  Decimal? @db.Decimal(10, 7)
+  longitude Decimal? @db.Decimal(10, 7)
+
+  coordinateSource     CoordinateSource @default(UNKNOWN) @map("coordinate_source")
+  coordinateStatus     CoordinateStatus @default(MISSING) @map("coordinate_status")
+  coordinateVerifiedAt DateTime?        @map("coordinate_verified_at") @db.Timestamptz(6)
+
+  facilityType GolfFacilityType      @map("facility_type")
+  sportType    GolfFacilitySportType @default(GOLF) @map("sport_type")
+
+  hasScreenGolf    HasScreenGolf    @default(UNKNOWN) @map("has_screen_golf")
+  screenStatus     ScreenStatus     @default(UNKNOWN) @map("screen_status")
+  screenConfidence ScreenConfidence @default(UNKNOWN) @map("screen_confidence")
+  /// Audit / verification evidence tags (e.g. NAME_SCREEN_GOLF, BRAND_GOLFZON).
+  screenEvidence   String[]         @default([]) @map("screen_evidence")
+  screenGolfScore  Int?             @map("screen_golf_score")
+  /// First-pass screen-name candidate flag (not the same as hasScreenGolf=NO).
+  screenCandidate  Boolean          @default(false) @map("screen_candidate")
+
+  /// MVP primary brand label; multi-system detail can expand later.
+  primaryBrand GolfFacilityBrand @default(UNKNOWN) @map("primary_brand")
+  screenBrands String[]          @default([]) @map("screen_brands")
+
+  businessStatusCode String? @map("business_status_code")
+  businessStatusName String? @map("business_status_name")
+  detailStatusCode   String? @map("detail_status_code")
+  detailStatusName   String? @map("detail_status_name")
+
+  licenseDate DateTime? @map("license_date") @db.Date
+  closureDate DateTime? @map("closure_date") @db.Date
+
+  /// Government-data active (영업/정상). Do not hard-delete when false.
+  isActive             Boolean @default(true) @map("is_active")
+  /// JJOIN screen-join place eligibility (operator may override later).
+  isScreenJoinEligible Boolean @default(false) @map("is_screen_join_eligible")
+
+  exclusionReason String? @map("exclusion_reason")
+
+  sourceLastModifiedAt DateTime? @map("source_last_modified_at") @db.Timestamptz(6)
+  sourceDataUpdatedAt  DateTime? @map("source_data_updated_at") @db.Timestamptz(6)
+  sourceSyncedAt       DateTime? @map("source_synced_at") @db.Timestamptz(6)
+
+  /// Reserved for future FacilityVerification without blocking MVP.
+  verifiedAt       DateTime? @map("verified_at") @db.Timestamptz(6)
+  verifiedByUserId String?   @map("verified_by_user_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  /// At most one LOCALDATA-backed Venue (via Venue.golfFacilityId unique).
+  venue Venue?
+
+  @@unique([source, governmentSourceKey])
+  @@index([isActive, isScreenJoinEligible])
+  @@index([isActive, isScreenJoinEligible, coordinateStatus])
+  @@index([latitude, longitude])
+  @@index([sido, sigungu])
+  @@index([facilityType])
+  @@index([screenStatus])
+  @@index([hasScreenGolf])
+  @@index([sportType])
+  @@index([normalizedName])
+  @@map("golf_facilities")
 }
