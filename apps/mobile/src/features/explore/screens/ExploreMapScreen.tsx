@@ -16,13 +16,17 @@ import {
   PresenceVisibility,
   type ExploreFilter,
   type ExploreMapResponse,
+  type GolfFacilityMapDto,
   type PresenceDurationOption,
 } from '@jjoin/types';
-import { defaultVenueSearchQuery } from '@jjoin/domain';
 import { Text, spacing, useTheme } from '@jjoin/design-system';
 import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
 import { getApiClient } from '../../../lib/api';
 import { fetchExploreMap, REGION_SEARCH_FIXTURES } from '../api/explore-api';
+import {
+  fetchGolfFacilitiesInRegion,
+  searchGolfFacilitiesForExplore,
+} from '../api/golf-facility-explore';
 import {
   CurrentLocationButton,
   MapFilterBar,
@@ -44,6 +48,13 @@ import {
   type SheetMode,
 } from '../model/map-types';
 
+/** GolfFacility DB is default place SoT; Kakao Local remains as fallback. */
+type PlaceSource = 'GOLF_FACILITY' | 'KAKAO';
+
+const VIEWPORT_DEBOUNCE_MS = 350;
+const SEARCH_DEBOUNCE_MS = 300;
+const MIN_SEARCH_CHARS = 1;
+
 export function ExploreMapScreen() {
   const router = useRouter();
   const { requestGatedAction } = useSession();
@@ -52,11 +63,14 @@ export function ExploreMapScreen() {
   const mapRef = useRef<MapCameraHandle | null>(null);
   const sheetRef = useRef<BottomSheet>(null);
   const requestSeq = useRef(0);
+  const viewportTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
+  const [placeSource, setPlaceSource] = useState<PlaceSource>('GOLF_FACILITY');
   const [filter, setFilter] = useState<ExploreFilterId>('ALL');
   const [data, setData] = useState<ExploreMapResponse | null>(null);
   const [searchRegion, setSearchRegion] = useState<MapRegion>(GEOJE_DEMO_REGION);
-  const [venueQuery, setVenueQuery] = useState(defaultVenueSearchQuery('SCREEN_GOLF'));
   const [deviceLocation, setDeviceLocation] = useState<MapCoordinate | null>(null);
   const [locationDenied, setLocationDenied] = useState(false);
   const [cameraDirty, setCameraDirty] = useState(false);
@@ -70,17 +84,54 @@ export function ExploreMapScreen() {
   const [presence, setPresence] = useState<PresenceVisibility>(PresenceVisibility.HIDDEN);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchHits, setSearchHits] = useState<ExploreMapResponse['venues']>([]);
+  const [searchUnavailable, setSearchUnavailable] = useState<GolfFacilityMapDto[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const runtime = getMapRuntimeStatus();
   const snapPoints = useMemo(() => ['28%', '52%', '88%'], []);
 
-  const loadMap = useCallback(
+  const loadGolfFacilityMap = useCallback(
+    async (center: MapCoordinate, region: MapRegion = searchRegion) => {
+      const seq = ++requestSeq.current;
+      abortRef.current?.abort();
+      const ac = new AbortController();
+      abortRef.current = ac;
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await fetchGolfFacilitiesInRegion({
+          store,
+          center,
+          region: {
+            ...region,
+            latitude: center.latitude,
+            longitude: center.longitude,
+          },
+          signal: ac.signal,
+        });
+        if (seq !== requestSeq.current) return;
+        setData(result);
+      } catch (e) {
+        if (ac.signal.aborted) return;
+        if (seq !== requestSeq.current) return;
+        const msg = e instanceof Error ? e.message : '';
+        if (msg === 'Aborted') return;
+        setError(msg || 'explore_error');
+      } finally {
+        if (seq === requestSeq.current) setLoading(false);
+      }
+    },
+    [store, searchRegion],
+  );
+
+  const loadKakaoMap = useCallback(
     async (
       center: MapCoordinate,
       nextFilter: ExploreFilterId = filter,
-      nextQuery: string = venueQuery,
+      nextQuery: string,
       region: MapRegion = searchRegion,
     ) => {
       const seq = ++requestSeq.current;
@@ -128,7 +179,24 @@ export function ExploreMapScreen() {
         if (seq === requestSeq.current) setLoading(false);
       }
     },
-    [filter, store, venueQuery, searchRegion],
+    [filter, store, searchRegion],
+  );
+
+  const loadMap = useCallback(
+    async (
+      center: MapCoordinate,
+      nextFilter: ExploreFilterId = filter,
+      region: MapRegion = searchRegion,
+      source: PlaceSource = placeSource,
+      kakaoQuery?: string,
+    ) => {
+      if (source === 'GOLF_FACILITY') {
+        await loadGolfFacilityMap(center, region);
+        return;
+      }
+      await loadKakaoMap(center, nextFilter, kakaoQuery ?? '스크린골프', region);
+    },
+    [filter, placeSource, searchRegion, loadGolfFacilityMap, loadKakaoMap],
   );
 
   useEffect(() => {
@@ -143,12 +211,24 @@ export function ExploreMapScreen() {
         const pos = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
         });
-        setDeviceLocation({
+        const here = {
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
+        };
+        setDeviceLocation(here);
+        setLastCameraCenter(here);
+        setSearchRegion((r) => ({
+          ...r,
+          latitude: here.latitude,
+          longitude: here.longitude,
+        }));
+        setCameraTarget(here);
+        setCameraKey((k) => k + 1);
+        await loadMap(here, filter, {
+          ...GEOJE_DEMO_REGION,
+          latitude: here.latitude,
+          longitude: here.longitude,
         });
-        setLastCameraCenter(GEOJE_DEMO_REGION);
-        await loadMap(GEOJE_DEMO_REGION);
       } catch {
         await loadMap(GEOJE_DEMO_REGION);
       }
@@ -167,6 +247,14 @@ export function ExploreMapScreen() {
     })();
   }, [store]);
 
+  useEffect(() => {
+    return () => {
+      if (viewportTimer.current) clearTimeout(viewportTimer.current);
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+      abortRef.current?.abort();
+    };
+  }, []);
+
   const selectedVenue = useMemo(
     () => data?.venues.find((v) => v.venueId === selectedVenueId) ?? null,
     [data, selectedVenueId],
@@ -175,6 +263,15 @@ export function ExploreMapScreen() {
     () => data?.users.find((u) => u.userId === selectedUserId) ?? null,
     [data, selectedUserId],
   );
+
+  useEffect(() => {
+    if (!selectedVenueId) return;
+    if (!data?.venues.some((v) => v.venueId === selectedVenueId)) {
+      setSelectedVenueId(null);
+      setSheetMode((m) => (m === 'VENUE' ? 'PEEK' : m));
+      sheetRef.current?.snapToIndex(0);
+    }
+  }, [data, selectedVenueId]);
 
   const onVenuePress = (venueId: string) => {
     setSelectedVenueId(venueId);
@@ -199,9 +296,21 @@ export function ExploreMapScreen() {
       longitude: center.longitude,
     };
     setSearchRegion(nextRegion);
-    await loadMap(center, filter, venueQuery, nextRegion);
+    await loadMap(center, filter, nextRegion);
     setCameraDirty(false);
   };
+
+  const scheduleViewportFetch = useCallback(
+    (center: MapCoordinate, region: MapRegion) => {
+      if (placeSource !== 'GOLF_FACILITY') return;
+      if (viewportTimer.current) clearTimeout(viewportTimer.current);
+      viewportTimer.current = setTimeout(() => {
+        void loadGolfFacilityMap(center, region);
+        setCameraDirty(false);
+      }, VIEWPORT_DEBOUNCE_MS);
+    },
+    [placeSource, loadGolfFacilityMap],
+  );
 
   const goMyLocation = () => {
     if (!deviceLocation) {
@@ -215,7 +324,102 @@ export function ExploreMapScreen() {
     }
     setCameraTarget(deviceLocation);
     setCameraKey((k) => k + 1);
+    setLastCameraCenter(deviceLocation);
     setCameraDirty(false);
+    const nextRegion = {
+      ...searchRegion,
+      latitude: deviceLocation.latitude,
+      longitude: deviceLocation.longitude,
+    };
+    setSearchRegion(nextRegion);
+    void loadMap(deviceLocation, filter, nextRegion);
+  };
+
+  const runGolfFacilitySearch = async (keyword: string) => {
+    const trimmed = keyword.trim();
+    if (trimmed.length < MIN_SEARCH_CHARS) {
+      Alert.alert('검색', '검색어를 입력해 주세요.');
+      return;
+    }
+    setSearchLoading(true);
+    try {
+      const { venues, unavailable } = await searchGolfFacilitiesForExplore({
+        store,
+        q: trimmed,
+        center: lastCameraCenter,
+      });
+      setSearchHits(venues);
+      setSearchUnavailable(unavailable);
+      if (venues.length === 0 && unavailable.length === 0) {
+        Alert.alert(
+          '검색 결과 없음',
+          '등록된 스크린골프장을 찾지 못했습니다. 카카오 장소 검색으로 전환할 수 있습니다.',
+        );
+        return;
+      }
+      if (venues.length > 0) {
+        setPlaceSource('GOLF_FACILITY');
+        setData({
+          venues,
+          users: data?.users ?? [],
+          metadata: {
+            sportCode: 'SCREEN_GOLF',
+            filter: 'VENUE',
+            source: 'live',
+            venueCount: venues.length,
+            userCount: data?.users.length ?? 0,
+          },
+        });
+        const first = venues[0];
+        const fitted = { latitude: first.latitude, longitude: first.longitude };
+        setLastCameraCenter(fitted);
+        setCameraTarget(fitted);
+        setCameraKey((k) => k + 1);
+        setSearchRegion((r) => ({
+          ...r,
+          latitude: fitted.latitude,
+          longitude: fitted.longitude,
+        }));
+        setSelectedVenueId(first.venueId);
+        setSheetMode('VENUE');
+        sheetRef.current?.snapToIndex(1);
+        setSearchOpen(false);
+      }
+    } catch {
+      Alert.alert('검색', '검색에 실패했습니다. 다시 시도해 주세요.');
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const onSearchQueryChange = (text: string) => {
+    setSearchQuery(text);
+    if (placeSource !== 'GOLF_FACILITY') return;
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    const trimmed = text.trim();
+    if (trimmed.length < MIN_SEARCH_CHARS) {
+      setSearchHits([]);
+      setSearchUnavailable([]);
+      return;
+    }
+    searchTimer.current = setTimeout(() => {
+      void (async () => {
+        setSearchLoading(true);
+        try {
+          const { venues, unavailable } = await searchGolfFacilitiesForExplore({
+            store,
+            q: trimmed,
+            center: lastCameraCenter,
+          });
+          setSearchHits(venues);
+          setSearchUnavailable(unavailable);
+        } catch {
+          /* keep previous */
+        } finally {
+          setSearchLoading(false);
+        }
+      })();
+    }, SEARCH_DEBOUNCE_MS);
   };
 
   const applyKeywordSearch = (keyword: string) => {
@@ -227,21 +431,33 @@ export function ExploreMapScreen() {
     if (loading) return;
     const regionHit = REGION_SEARCH_FIXTURES[trimmed];
     if (regionHit) {
-      const defaultQ = defaultVenueSearchQuery('SCREEN_GOLF');
       setSearchRegion(regionHit);
       setLastCameraCenter(regionHit);
       setCameraTarget(regionHit);
       setCameraKey((k) => k + 1);
-      setVenueQuery(defaultQ);
       setSearchOpen(false);
       setCameraDirty(false);
-      void loadMap(regionHit, filter, defaultQ, regionHit);
+      void loadMap(regionHit, filter, regionHit);
       return;
     }
-    setVenueQuery(trimmed);
+    if (placeSource === 'GOLF_FACILITY') {
+      void runGolfFacilitySearch(trimmed);
+      return;
+    }
     setSearchOpen(false);
     setCameraDirty(false);
-    void loadMap(lastCameraCenter, filter, trimmed, searchRegion);
+    void loadKakaoMap(lastCameraCenter, filter, trimmed, searchRegion);
+  };
+
+  const switchToKakaoPlaces = () => {
+    setPlaceSource('KAKAO');
+    setSearchOpen(false);
+    void loadKakaoMap(lastCameraCenter, filter, '스크린골프', searchRegion);
+  };
+
+  const switchToGolfFacility = () => {
+    setPlaceSource('GOLF_FACILITY');
+    void loadGolfFacilityMap(lastCameraCenter, searchRegion);
   };
 
   const activatePresence = async (duration: PresenceDurationOption) => {
@@ -279,22 +495,25 @@ export function ExploreMapScreen() {
 
   const onCameraGesture = (center: MapCoordinate, bounds?: MapBounds) => {
     setLastCameraCenter(center);
+    let nextRegion: MapRegion;
     if (bounds) {
-      const next = regionFromBounds({
+      nextRegion = regionFromBounds({
         west: bounds.southWest.longitude,
         south: bounds.southWest.latitude,
         east: bounds.northEast.longitude,
         north: bounds.northEast.latitude,
       });
-      setSearchRegion(next);
+      setSearchRegion(nextRegion);
     } else {
-      setSearchRegion((prev) => ({
-        ...prev,
+      nextRegion = {
+        ...searchRegion,
         latitude: center.latitude,
         longitude: center.longitude,
-      }));
+      };
+      setSearchRegion(nextRegion);
     }
     setCameraDirty(true);
+    scheduleViewportFetch(center, nextRegion);
   };
 
   const mapUnavailable =
@@ -327,6 +546,8 @@ export function ExploreMapScreen() {
         onUserPress={onUserPress}
       />
     );
+
+  const rowBorder = { borderBottomColor: theme.colors.border.subtle };
 
   return (
     <GestureHandlerRootView style={[styles.root, { backgroundColor: theme.colors.app.background }]}>
@@ -361,7 +582,7 @@ export function ExploreMapScreen() {
         </View>
 
         <View style={styles.fabCol} pointerEvents="box-none">
-          {cameraDirty ? (
+          {cameraDirty && placeSource === 'KAKAO' ? (
             <ReSearchAreaButton onPress={() => void onReSearch()} />
           ) : null}
           <CurrentLocationButton onPress={goMyLocation} />
@@ -403,6 +624,16 @@ export function ExploreMapScreen() {
             onCreateJoin={() => {
               void (async () => {
                 if (!selectedVenue?.canCreateJoin) {
+                  if (
+                    selectedVenue?.source === 'GOLF_FACILITY' &&
+                    !selectedVenue.canCreateJoin
+                  ) {
+                    Alert.alert(
+                      '조인 장소',
+                      '위치 정보 확인 중인 시설입니다. 다른 장소를 선택해 주세요.',
+                    );
+                    return;
+                  }
                   Alert.alert('조인 만들기', '이 장소에서는 조인을 만들 수 없습니다.');
                   return;
                 }
@@ -415,30 +646,78 @@ export function ExploreMapScreen() {
                 setActivatingVenue(true);
                 try {
                   const api = getApiClient(getSecureSessionStore());
-                  const provider =
-                    selectedVenue.source === 'MOCK' || selectedVenue.provider === 'MOCK'
-                      ? 'MOCK'
-                      : 'KAKAO';
-                  const providerPlaceId =
-                    selectedVenue.providerPlaceId ?? selectedVenue.venueId;
-                  const activated = selectedVenue.jjoinVenueId
-                    ? await api.getVenue(selectedVenue.jjoinVenueId)
-                    : await api.activateVenue({
-                        provider,
-                        providerPlaceId,
-                        resolveHint: {
-                          latitude: selectedVenue.latitude,
-                          longitude: selectedVenue.longitude,
-                          query: selectedVenue.name,
-                        },
-                      });
+                  let venueId: string;
+                  let venueName: string;
+                  let venueAddress: string;
+
+                  if (
+                    selectedVenue.source === 'GOLF_FACILITY' ||
+                    selectedVenue.golfFacilityId
+                  ) {
+                    const facilityId =
+                      selectedVenue.golfFacilityId ?? selectedVenue.venueId;
+                    try {
+                      const activated = await api.activateGolfFacilityVenue(facilityId);
+                      venueId = activated.venueId;
+                      venueName = activated.name;
+                      venueAddress =
+                        selectedVenue.roadAddress ?? selectedVenue.address ?? '';
+                    } catch (e) {
+                      const msg = e instanceof Error ? e.message : '';
+                      if (msg.includes('FACILITY_NOT_JOIN_ELIGIBLE')) {
+                        Alert.alert(
+                          '조인 장소',
+                          '현재 조인 장소로 사용할 수 없는 시설입니다.',
+                        );
+                        return;
+                      }
+                      if (msg.includes('FACILITY_COORDINATE_REQUIRED')) {
+                        Alert.alert(
+                          '조인 장소',
+                          '위치 정보 확인 중인 시설입니다.',
+                        );
+                        return;
+                      }
+                      if (msg.includes('FACILITY_NOT_FOUND') || msg.includes('404')) {
+                        Alert.alert('조인 장소', '장소를 찾을 수 없습니다.');
+                        return;
+                      }
+                      throw e;
+                    }
+                  } else if (selectedVenue.jjoinVenueId) {
+                    const activated = await api.getVenue(selectedVenue.jjoinVenueId);
+                    venueId = activated.venueId;
+                    venueName = activated.name;
+                    venueAddress =
+                      activated.roadAddress ?? activated.address ?? '';
+                  } else {
+                    const provider =
+                      selectedVenue.source === 'MOCK' || selectedVenue.provider === 'MOCK'
+                        ? 'MOCK'
+                        : 'KAKAO';
+                    const providerPlaceId =
+                      selectedVenue.providerPlaceId ?? selectedVenue.venueId;
+                    const activated = await api.activateVenue({
+                      provider,
+                      providerPlaceId,
+                      resolveHint: {
+                        latitude: selectedVenue.latitude,
+                        longitude: selectedVenue.longitude,
+                        query: selectedVenue.name,
+                      },
+                    });
+                    venueId = activated.venueId;
+                    venueName = activated.name;
+                    venueAddress =
+                      activated.roadAddress ?? activated.address ?? '';
+                  }
+
                   router.push({
                     pathname: '/(tabs)/create',
                     params: {
-                      venueId: activated.venueId,
-                      venueName: activated.name,
-                      venueAddress:
-                        activated.roadAddress ?? activated.address ?? '',
+                      venueId,
+                      venueName,
+                      venueAddress,
                     },
                   } as Href);
                 } catch {
@@ -479,7 +758,7 @@ export function ExploreMapScreen() {
           </Text>
           <TextInput
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={onSearchQueryChange}
             placeholder="검색어 입력 후 검색"
             placeholderTextColor={theme.colors.text.tertiary}
             style={[
@@ -496,18 +775,69 @@ export function ExploreMapScreen() {
             onSubmitEditing={() => applyKeywordSearch(searchQuery)}
           />
           <Pressable
-            style={[styles.searchRow, { borderBottomColor: theme.colors.border.subtle }]}
+            style={[styles.searchRow, rowBorder]}
             onPress={() => applyKeywordSearch(searchQuery)}
-            disabled={loading}
+            disabled={loading || searchLoading}
           >
             <Text variant="body" style={{ color: theme.colors.action.primary }}>
-              검색
+              {searchLoading ? '검색 중…' : '검색'}
             </Text>
           </Pressable>
+          {searchHits.map((v) => (
+            <Pressable
+              key={v.venueId}
+              style={[styles.searchRow, rowBorder]}
+              onPress={() => {
+                setPlaceSource('GOLF_FACILITY');
+                setData({
+                  venues: searchHits,
+                  users: data?.users ?? [],
+                  metadata: {
+                    sportCode: 'SCREEN_GOLF',
+                    filter: 'VENUE',
+                    source: 'live',
+                    venueCount: searchHits.length,
+                    userCount: data?.users.length ?? 0,
+                  },
+                });
+                const fitted = { latitude: v.latitude, longitude: v.longitude };
+                setLastCameraCenter(fitted);
+                setCameraTarget(fitted);
+                setCameraKey((k) => k + 1);
+                setSelectedVenueId(v.venueId);
+                setSheetMode('VENUE');
+                sheetRef.current?.snapToIndex(1);
+                setSearchOpen(false);
+              }}
+            >
+              <Text variant="body" tone="primary">
+                {v.name}
+              </Text>
+              <Text variant="caption" tone="secondary">
+                {v.categoryName ?? ''} · {v.roadAddress ?? v.regionLabel ?? ''}
+              </Text>
+            </Pressable>
+          ))}
+          {searchUnavailable.map((f) => (
+            <Pressable
+              key={f.id}
+              style={[styles.searchRow, rowBorder]}
+              onPress={() =>
+                Alert.alert('위치 정보', '위치 정보 확인 중인 시설입니다.')
+              }
+            >
+              <Text variant="body" tone="secondary">
+                {f.displayName}
+              </Text>
+              <Text variant="caption" tone="warning">
+                위치 정보 확인 중 · 선택 불가
+              </Text>
+            </Pressable>
+          ))}
           {['거제', '부산', '서울', '골프존', 'SG골프', '스크린골프'].map((k) => (
             <Pressable
               key={k}
-              style={[styles.searchRow, { borderBottomColor: theme.colors.border.subtle }]}
+              style={[styles.searchRow, rowBorder]}
               onPress={() => applyKeywordSearch(k)}
             >
               <Text variant="body" tone="primary">
@@ -515,8 +845,21 @@ export function ExploreMapScreen() {
               </Text>
             </Pressable>
           ))}
+          {placeSource === 'GOLF_FACILITY' ? (
+            <Pressable style={[styles.searchRow, rowBorder]} onPress={switchToKakaoPlaces}>
+              <Text variant="body" style={{ color: theme.colors.action.primary }}>
+                찾는 장소가 없나요? · 카카오 장소 검색
+              </Text>
+            </Pressable>
+          ) : (
+            <Pressable style={[styles.searchRow, rowBorder]} onPress={switchToGolfFacility}>
+              <Text variant="body" style={{ color: theme.colors.action.primary }}>
+                스크린골프장 DB로 돌아가기
+              </Text>
+            </Pressable>
+          )}
           <Pressable
-            style={[styles.searchRow, { borderBottomColor: theme.colors.border.subtle }]}
+            style={[styles.searchRow, rowBorder]}
             onPress={() => {
               setSearchOpen(false);
               goMyLocation();
@@ -539,7 +882,6 @@ export function ExploreMapScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  // Transparent so Kakao SurfaceView punch-through can show base tiles.
   mapArea: { flex: 1, backgroundColor: 'transparent' },
   topChrome: {
     position: 'absolute',
