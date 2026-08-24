@@ -1,41 +1,75 @@
-import { StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
+﻿import { StyleSheet, View } from 'react-native';
 import {
-  AppText,
-  BottomActionBar,
+  Badge,
   Button,
-  ScreenContainer,
-  Stack,
-  StatusBadge,
-  colors,
-  spacing,
+  Card,
+  Row,
+  ScreenFrame,
+  StickyActionFrame,
+  Text,
+  useTheme,
 } from '@jjoin/design-system';
 import { t } from '@jjoin/i18n';
-import { SocialLinkStatus } from '@jjoin/types';
+import { useRouter } from 'expo-router';
+import { SocialLinkStatus, SocialProvider } from '@jjoin/types';
 import { useSession } from '../../../session/SessionContext';
+
+const PROVIDER_LABELS: Record<SocialProvider, string> = {
+  KAKAO: 'Kakao',
+  NAVER: 'Naver',
+  GOOGLE: 'Google',
+};
 
 export function AccountScreen() {
   const { me, logout } = useSession();
   const router = useRouter();
+  const theme = useTheme();
 
   return (
-    <ScreenContainer>
-      <Stack gap="md" style={{ flex: 1 }}>
-        <AppText variant="title">{t('my.account.title')}</AppText>
-        <AppText variant="caption" color="textSecondary">
-          {t('my.account.linkingTbd')}
-        </AppText>
-        {(me?.socialLinks ?? []).map((link) => (
-          <View key={link.provider} style={styles.row}>
-            <AppText variant="bodyStrong">{link.provider}</AppText>
-            <StatusBadge
-              label={link.status}
-              tone={link.status === SocialLinkStatus.CONNECTED ? 'success' : 'neutral'}
-            />
-          </View>
-        ))}
-      </Stack>
-      <BottomActionBar>
+    <ScreenFrame>
+      <View style={styles.body}>
+        <Text variant="screenTitle" tone="primary">
+          {t('my.account.title')}
+        </Text>
+        <Text variant="body" tone="secondary">
+          {t('auth.account.subtitle')}
+        </Text>
+
+        <Card variant="base" padding="md" style={styles.card}>
+          {(me?.socialLinks ?? []).map((link, index, array) => (
+            <View
+              key={link.provider}
+              style={[
+                styles.row,
+                {
+                  borderBottomWidth: index < array.length - 1 ? StyleSheet.hairlineWidth : 0,
+                  borderBottomColor: theme.colors.border.subtle,
+                },
+              ]}
+            >
+              <Row justify="space-between" align="center" style={styles.rowInner}>
+                <View style={styles.providerBlock}>
+                  <Text variant="bodyStrong" tone="primary">
+                    {PROVIDER_LABELS[link.provider]}
+                  </Text>
+                  <Text variant="caption" tone="tertiary">
+                    {link.provider}
+                  </Text>
+                </View>
+                <Badge
+                  label={
+                    link.status === SocialLinkStatus.CONNECTED
+                      ? t('auth.account.connected')
+                      : t('auth.account.notConnected')
+                  }
+                  variant={link.status === SocialLinkStatus.CONNECTED ? 'success' : 'neutral'}
+                />
+              </Row>
+            </View>
+          ))}
+        </Card>
+      </View>
+      <StickyActionFrame>
         <Button
           label={t('my.logout')}
           variant="danger"
@@ -43,19 +77,28 @@ export function AccountScreen() {
             void logout().then(() => router.replace('/auth/login'));
           }}
         />
-      </BottomActionBar>
-    </ScreenContainer>
+      </StickyActionFrame>
+    </ScreenFrame>
   );
 }
 
 const styles = StyleSheet.create({
+  body: {
+    flex: 1,
+    gap: 12,
+  },
+  card: {
+    marginTop: 12,
+    paddingVertical: 0,
+  },
   row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    minHeight: 44,
+    minHeight: 56,
+    justifyContent: 'center',
+  },
+  rowInner: {
+    flex: 1,
+  },
+  providerBlock: {
+    gap: 2,
   },
 });

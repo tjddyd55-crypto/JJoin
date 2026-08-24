@@ -38,6 +38,14 @@ import {
   type NotificationListResponse,
   type AppNotificationDto,
   type NotificationPreferenceDto,
+  type CoinSupplyDashboardDto,
+  type CoinSupplyReconciliationDto,
+  type CoinIssuanceListResponse,
+  type CoinIssuanceDetailDto,
+  type AdminManualIssuanceRequest,
+  type AdminManualIssuanceResponse,
+  type AdminUserCoinHistoryDto,
+  type CoinIssuanceType,
 } from '@jjoin/types';
 
 export type ApiClientConfig = {
@@ -553,6 +561,74 @@ export class ApiClient {
       method: 'POST',
       headers: await this.headers(true),
       body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async getAdminCoinSupply(query?: {
+    excludeDevSeed?: boolean;
+  }): Promise<CoinSupplyDashboardDto> {
+    const params = new URLSearchParams();
+    if (query?.excludeDevSeed) params.set('excludeDevSeed', '1');
+    const qs = params.toString();
+    const res = await request(`${this.config.baseUrl}/admin/coin/supply${qs ? `?${qs}` : ''}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async reconcileAdminCoinSupply(): Promise<CoinSupplyReconciliationDto> {
+    const res = await request(`${this.config.baseUrl}/admin/coin/supply/reconcile`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async listAdminCoinIssuances(query?: {
+    issuanceType?: CoinIssuanceType;
+    from?: string;
+    to?: string;
+    userId?: string;
+    excludeDevSeed?: boolean;
+    cursor?: string;
+    limit?: number;
+  }): Promise<CoinIssuanceListResponse> {
+    const params = new URLSearchParams();
+    if (query?.issuanceType) params.set('issuanceType', query.issuanceType);
+    if (query?.from) params.set('from', query.from);
+    if (query?.to) params.set('to', query.to);
+    if (query?.userId) params.set('userId', query.userId);
+    if (query?.excludeDevSeed) params.set('excludeDevSeed', '1');
+    if (query?.cursor) params.set('cursor', query.cursor);
+    if (query?.limit != null) params.set('limit', String(query.limit));
+    const qs = params.toString();
+    const res = await request(`${this.config.baseUrl}/admin/coin/issuances${qs ? `?${qs}` : ''}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getAdminCoinIssuance(issuanceId: string): Promise<CoinIssuanceDetailDto> {
+    const res = await request(`${this.config.baseUrl}/admin/coin/issuances/${issuanceId}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async createAdminCoinIssuance(
+    body: AdminManualIssuanceRequest,
+  ): Promise<AdminManualIssuanceResponse> {
+    const res = await request(`${this.config.baseUrl}/admin/coin/issuances`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async getAdminUserCoinHistory(userId: string): Promise<AdminUserCoinHistoryDto> {
+    const res = await request(`${this.config.baseUrl}/admin/coin/users/${userId}`, {
+      headers: await this.headers(true),
     });
     return parseJson(res);
   }

@@ -7,6 +7,7 @@ import {
   subCoinAmounts,
   zeroCoinAmount,
 } from '@jjoin/domain';
+import type { CoinIssuanceType } from '@jjoin/types';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ensureFoundation } from '../../foundation/ensure-foundation';
@@ -25,9 +26,25 @@ export class InsufficientBalanceError extends Error {
   }
 }
 
+export type IssueCoinsParams = {
+  userId: string;
+  amount: string;
+  issuanceType: CoinIssuanceType | `${CoinIssuanceType}`;
+  reason?: string | null;
+  referenceType?: string | null;
+  referenceId?: string | null;
+  createdByUserId?: string | null;
+  idempotencyKey: string;
+  metadata?: Prisma.InputJsonValue;
+  coinAssetId?: string;
+};
+
 /**
  * Immutable ledger writer + wallet projection updates.
  * Never expose update/delete for CoinTransaction rows.
+ *
+ * New Coin mints MUST go through issueCoins (COIN_ISSUANCE + CoinIssuance).
+ * Transfer / Hold / Release / Refund never mint.
  */
 @Injectable()
 export class CoinLedgerService {
@@ -71,8 +88,104 @@ export class CoinLedgerService {
   }
 
   /**
+   * Mint new Coin into a user wallet (supply ↑).
+   * Creates CoinTransaction(COIN_ISSUANCE) + CoinIssuance atomically.
+   * Idempotent on idempotencyKey — retries return the existing issuance.
+   *
+   * Architecture note: PURCHASE must call this only AFTER payment success (PG Phase).
+   */
+  async issueCoins(
+    params: IssueCoinsParams,
+    outerTx?: PrismaTx,
+  ): Promise<{
+    issuanceId: string;
+    ledgerTxId: string;
+    amount: string;
+    alreadyExists: boolean;
+  }> {
+    if (!isCoinAmountPositive(params.amount)) {
+      throw new Error('invalid_issuance_amount');
+    }
+
+    const run = async (tx: PrismaTx) => {
+      const existingIssuance = await tx.coinIssuance.findUnique({
+        where: { idempotencyKey: params.idempotencyKey },
+      });
+      if (existingIssuance) {
+        return {
+          issuanceId: existingIssuance.id,
+          ledgerTxId: existingIssuance.ledgerTxId,
+          amount: String(existingIssuance.amount),
+          alreadyExists: true,
+        };
+      }
+
+      const existingTx = await tx.coinTransaction.findUnique({
+        where: { idempotencyKey: params.idempotencyKey },
+      });
+      if (existingTx) {
+        throw new ConflictException('issuance_ledger_key_conflict');
+      }
+
+      const { coinAsset } = await ensureFoundation(this.prisma);
+      const assetId = params.coinAssetId ?? coinAsset.id;
+      const wallet = await this.getOrCreateWallet(params.userId, assetId, tx);
+      const locked = await this.lockWallet(tx, wallet.id);
+      const available = String(locked.availableBalance);
+      const held = String(locked.heldBalance);
+
+      const ledgerTx = await this.appendCredit(tx, {
+        walletId: locked.id,
+        coinAssetId: assetId,
+        type: 'COIN_ISSUANCE',
+        amount: params.amount,
+        availableBefore: available,
+        heldBefore: held,
+        idempotencyKey: params.idempotencyKey,
+        refType: params.referenceType ?? undefined,
+        refId: params.referenceId ?? undefined,
+        metadata: {
+          issuanceType: params.issuanceType,
+          reason: params.reason ?? null,
+          ...(params.metadata && typeof params.metadata === 'object' && !Array.isArray(params.metadata)
+            ? (params.metadata as Record<string, unknown>)
+            : {}),
+        },
+      });
+
+      const issuance = await tx.coinIssuance.create({
+        data: {
+          userId: params.userId,
+          coinAssetId: assetId,
+          amount: new Prisma.Decimal(params.amount),
+          issuanceType: params.issuanceType as never,
+          reason: params.reason ?? null,
+          referenceType: params.referenceType ?? null,
+          referenceId: params.referenceId ?? null,
+          createdByUserId: params.createdByUserId ?? null,
+          ledgerTxId: ledgerTx.id,
+          idempotencyKey: params.idempotencyKey,
+          status: 'COMPLETED',
+          metadata: params.metadata ?? undefined,
+        },
+      });
+
+      return {
+        issuanceId: issuance.id,
+        ledgerTxId: ledgerTx.id,
+        amount: params.amount,
+        alreadyExists: false,
+      };
+    };
+
+    if (outerTx) return run(outerTx);
+    return this.prisma.$transaction((tx) => run(tx));
+  }
+
+  /**
    * Idempotent DEV/TEST top-up to funding target. Ledger-only — never raw balance UPDATE.
    * Guarded: mock auth + COIN_POLICY_MODE=dev only.
+   * Counted as DEV_SEED issuance (supply ↑).
    */
   async ensureDevFundingTarget(userId: string, personaLabel: string): Promise<void> {
     if (!isDevCoinFundingAllowed()) {
@@ -90,24 +203,26 @@ export class CoinLedgerService {
       }
       const creditAmount = subCoinAmounts(target, available);
       let idempotencyKey = `dev-funding:${personaLabel}:${coinAsset.code}:to-${target}:from-${available}`;
-      const existing = await tx.coinTransaction.findUnique({ where: { idempotencyKey } });
+      const existing = await tx.coinIssuance.findUnique({ where: { idempotencyKey } });
       if (existing) {
         // Same available balance can recur after spend — allow another TEST top-up.
         idempotencyKey = `dev-funding:${personaLabel}:${coinAsset.code}:${randomUUID()}`;
       }
 
-      await this.appendCredit(tx, {
-        walletId: locked.id,
-        coinAssetId: coinAsset.id,
-        type: 'ADMIN_ADJUSTMENT',
-        amount: creditAmount,
-        availableBefore: available,
-        heldBefore: String(locked.heldBalance),
-        idempotencyKey,
-        refType: 'DEV_FUNDING',
-        refId: userId,
-        metadata: { policy: 'TEST_ONLY', persona: personaLabel },
-      });
+      await this.issueCoins(
+        {
+          userId,
+          amount: creditAmount,
+          issuanceType: 'DEV_SEED',
+          reason: `DEV funding to ${target}`,
+          referenceType: 'DEV_FUNDING',
+          referenceId: userId,
+          idempotencyKey,
+          metadata: { policy: 'TEST_ONLY', persona: personaLabel },
+          coinAssetId: coinAsset.id,
+        },
+        tx,
+      );
     });
   }
 
@@ -428,7 +543,10 @@ export class CoinLedgerService {
 
     for (const row of txs) {
       const amount = String(row.amount);
-      if (row.type === 'ADMIN_ADJUSTMENT' && row.direction === 'CREDIT') {
+      if (
+        (row.type === 'ADMIN_ADJUSTMENT' || row.type === 'COIN_ISSUANCE') &&
+        row.direction === 'CREDIT'
+      ) {
         available = addCoinAmounts(available, amount);
         continue;
       }
@@ -476,7 +594,7 @@ export class CoinLedgerService {
     params: {
       walletId: string;
       coinAssetId: string;
-      type: 'ADMIN_ADJUSTMENT';
+      type: 'ADMIN_ADJUSTMENT' | 'COIN_ISSUANCE';
       amount: string;
       availableBefore: string;
       heldBefore: string;

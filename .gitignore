@@ -24,5 +24,13 @@ apps/mobile/ios/
 *.p12
 *.keystore
 
+# Firebase / FCM (local native config + secrets — do not commit)
+apps/mobile/google-services.json
+**/google-services.json
+*firebase-adminsdk*.json
+*-firebase-adminsdk-*.json
+**/fcm-service-account*.json
+**/service-account*.json
+
 # LOCALDATA golf facility research snapshots / staging (do not commit)
 data/golf-practice-ranges/

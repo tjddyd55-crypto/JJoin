@@ -1,5 +1,5 @@
-import { StyleSheet, View } from 'react-native';
-import { AppText } from '@jjoin/design-system';
+import { Text, useTheme } from '@jjoin/design-system';
+import { View, StyleSheet } from 'react-native';
 
 export function MapUnavailablePanel({
   title,
@@ -8,22 +8,30 @@ export function MapUnavailablePanel({
   title: string;
   body: string;
 }) {
+  const theme = useTheme();
   return (
-    <View style={styles.fallback}>
-      <AppText variant="subtitle">{title}</AppText>
-      <AppText variant="body" color="textSecondary">
+    <View
+      style={[
+        styles.root,
+        { backgroundColor: theme.colors.surface.card },
+      ]}
+    >
+      <Text variant="sectionTitle" tone="primary">
+        {title}
+      </Text>
+      <Text variant="caption" tone="secondary">
         {body}
-      </AppText>
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  fallback: {
+  root: {
     flex: 1,
-    backgroundColor: '#DCE8E3',
-    padding: 24,
+    alignItems: 'center',
     justifyContent: 'center',
+    padding: 24,
     gap: 8,
   },
 });

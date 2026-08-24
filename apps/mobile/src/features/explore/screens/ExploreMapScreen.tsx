@@ -19,7 +19,7 @@ import {
   type GolfFacilityMapDto,
   type PresenceDurationOption,
 } from '@jjoin/types';
-import { AppText, colors, spacing } from '@jjoin/design-system';
+import { Text, spacing, useTheme } from '@jjoin/design-system';
 import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
 import { getApiClient } from '../../../lib/api';
 import { fetchExploreMap, REGION_SEARCH_FIXTURES } from '../api/explore-api';
@@ -58,6 +58,7 @@ const MIN_SEARCH_CHARS = 1;
 export function ExploreMapScreen() {
   const router = useRouter();
   const { requestGatedAction } = useSession();
+  const theme = useTheme();
   const store = getSecureSessionStore();
   const mapRef = useRef<MapCameraHandle | null>(null);
   const sheetRef = useRef<BottomSheet>(null);
@@ -119,7 +120,6 @@ export function ExploreMapScreen() {
         const msg = e instanceof Error ? e.message : '';
         if (msg === 'Aborted') return;
         setError(msg || 'explore_error');
-        // Keep existing markers on transient failure — do not wipe the map.
       } finally {
         if (seq === requestSeq.current) setLoading(false);
       }
@@ -264,7 +264,6 @@ export function ExploreMapScreen() {
     [data, selectedUserId],
   );
 
-  /** Clear selection when bounds refresh drops the selected facility (id-based, not index). */
   useEffect(() => {
     if (!selectedVenueId) return;
     if (!data?.venues.some((v) => v.venueId === selectedVenueId)) {
@@ -548,8 +547,10 @@ export function ExploreMapScreen() {
       />
     );
 
+  const rowBorder = { borderBottomColor: theme.colors.border.subtle };
+
   return (
-    <GestureHandlerRootView style={styles.root}>
+    <GestureHandlerRootView style={[styles.root, { backgroundColor: theme.colors.app.background }]}>
       <View style={styles.mapArea}>
         {mapNode}
 
@@ -563,25 +564,20 @@ export function ExploreMapScreen() {
               void loadMap(lastCameraCenter, next);
             }}
           />
-          <AppText variant="caption" color="textSecondary">
-            {placeSource === 'GOLF_FACILITY'
-              ? '스크린골프장 (JJOIN DB)'
-              : '카카오 장소 검색'}
-          </AppText>
           {locationDenied ? (
-            <AppText variant="caption" color="warning">
+            <Text variant="caption" tone="warning">
               위치 권한 없음 · 지역 검색은 가능합니다
-            </AppText>
+            </Text>
           ) : null}
           {error ? (
-            <AppText variant="caption" color="danger">
+            <Text variant="caption" tone="error">
               검색 오류 · 지도는 유지됩니다
-            </AppText>
+            </Text>
           ) : null}
           {loading ? (
-            <AppText variant="caption" color="textSecondary">
+            <Text variant="caption" tone="tertiary">
               주변 불러오는 중…
-            </AppText>
+            </Text>
           ) : null}
         </View>
 
@@ -598,6 +594,8 @@ export function ExploreMapScreen() {
         index={0}
         snapPoints={snapPoints}
         enablePanDownToClose={false}
+        backgroundStyle={{ backgroundColor: theme.colors.surface.elevated }}
+        handleIndicatorStyle={{ backgroundColor: theme.colors.border.strong }}
       >
         <BottomSheetScrollView contentContainerStyle={styles.sheetContent}>
           <ExploreBottomSheetBody
@@ -746,47 +744,49 @@ export function ExploreMapScreen() {
             onJoinPress={(joinId) => {
               router.push({ pathname: '/join/[joinId]', params: { joinId } } as Href);
             }}
-            createJoinLabel={
-              selectedVenue?.source === 'GOLF_FACILITY'
-                ? '이 장소로 선택'
-                : '여기서 조인 만들기'
-            }
           />
         </BottomSheetScrollView>
       </BottomSheet>
 
       <Modal visible={searchOpen} animationType="slide" onRequestClose={() => setSearchOpen(false)}>
-        <View style={styles.searchModal}>
-          <AppText variant="subtitle">
-            {placeSource === 'GOLF_FACILITY' ? '스크린골프장 검색' : '카카오 장소 검색'}
-          </AppText>
-          <AppText variant="caption" color="textSecondary">
-            {placeSource === 'GOLF_FACILITY'
-              ? '예: 골프존, 일산, 강남, 프렌즈 · JJOIN 시설 DB 기준'
-              : '예: 스크린골프, 골프존 · 카카오 로컬 검색'}
-          </AppText>
+        <View style={[styles.searchModal, { backgroundColor: theme.colors.app.background }]}>
+          <Text variant="sectionTitle" tone="primary">
+            장소 / 지역 검색
+          </Text>
+          <Text variant="caption" tone="secondary">
+            예: 스크린골프, 골프존, SG골프, 서울 스크린골프 · 지역 단축: 거제/부산/서울
+          </Text>
           <TextInput
             value={searchQuery}
             onChangeText={onSearchQueryChange}
-            placeholder="검색어 입력"
-            style={styles.input}
+            placeholder="검색어 입력 후 검색"
+            placeholderTextColor={theme.colors.text.tertiary}
+            style={[
+              styles.input,
+              {
+                borderColor: theme.colors.border.subtle,
+                backgroundColor: theme.colors.surface.card,
+                color: theme.colors.text.primary,
+                borderRadius: theme.radius.md,
+              },
+            ]}
             autoFocus
             returnKeyType="search"
             onSubmitEditing={() => applyKeywordSearch(searchQuery)}
           />
           <Pressable
-            style={styles.searchRow}
+            style={[styles.searchRow, rowBorder]}
             onPress={() => applyKeywordSearch(searchQuery)}
             disabled={loading || searchLoading}
           >
-            <AppText variant="body" color="primary">
+            <Text variant="body" style={{ color: theme.colors.action.primary }}>
               {searchLoading ? '검색 중…' : '검색'}
-            </AppText>
+            </Text>
           </Pressable>
           {searchHits.map((v) => (
             <Pressable
               key={v.venueId}
-              style={styles.searchRow}
+              style={[styles.searchRow, rowBorder]}
               onPress={() => {
                 setPlaceSource('GOLF_FACILITY');
                 setData({
@@ -810,61 +810,69 @@ export function ExploreMapScreen() {
                 setSearchOpen(false);
               }}
             >
-              <AppText variant="body">{v.name}</AppText>
-              <AppText variant="caption" color="textSecondary">
+              <Text variant="body" tone="primary">
+                {v.name}
+              </Text>
+              <Text variant="caption" tone="secondary">
                 {v.categoryName ?? ''} · {v.roadAddress ?? v.regionLabel ?? ''}
-              </AppText>
+              </Text>
             </Pressable>
           ))}
           {searchUnavailable.map((f) => (
             <Pressable
               key={f.id}
-              style={styles.searchRow}
+              style={[styles.searchRow, rowBorder]}
               onPress={() =>
                 Alert.alert('위치 정보', '위치 정보 확인 중인 시설입니다.')
               }
             >
-              <AppText variant="body" color="textSecondary">
+              <Text variant="body" tone="secondary">
                 {f.displayName}
-              </AppText>
-              <AppText variant="caption" color="warning">
+              </Text>
+              <Text variant="caption" tone="warning">
                 위치 정보 확인 중 · 선택 불가
-              </AppText>
+              </Text>
             </Pressable>
           ))}
-          {['거제', '부산', '서울', '일산', '골프존', '프렌즈'].map((k) => (
-            <Pressable key={k} style={styles.searchRow} onPress={() => applyKeywordSearch(k)}>
-              <AppText variant="body">{k}</AppText>
+          {['거제', '부산', '서울', '골프존', 'SG골프', '스크린골프'].map((k) => (
+            <Pressable
+              key={k}
+              style={[styles.searchRow, rowBorder]}
+              onPress={() => applyKeywordSearch(k)}
+            >
+              <Text variant="body" tone="primary">
+                {k}
+              </Text>
             </Pressable>
           ))}
           {placeSource === 'GOLF_FACILITY' ? (
-            <Pressable style={styles.searchRow} onPress={switchToKakaoPlaces}>
-              <AppText variant="body" color="primary">
+            <Pressable style={[styles.searchRow, rowBorder]} onPress={switchToKakaoPlaces}>
+              <Text variant="body" style={{ color: theme.colors.action.primary }}>
                 찾는 장소가 없나요? · 카카오 장소 검색
-              </AppText>
+              </Text>
             </Pressable>
           ) : (
-            <Pressable style={styles.searchRow} onPress={switchToGolfFacility}>
-              <AppText variant="body" color="primary">
+            <Pressable style={[styles.searchRow, rowBorder]} onPress={switchToGolfFacility}>
+              <Text variant="body" style={{ color: theme.colors.action.primary }}>
                 스크린골프장 DB로 돌아가기
-              </AppText>
+              </Text>
             </Pressable>
           )}
           <Pressable
-            style={styles.searchRow}
+            style={[styles.searchRow, rowBorder]}
             onPress={() => {
               setSearchOpen(false);
               goMyLocation();
             }}
           >
-            <AppText variant="body" color="primary">
+            <Text variant="body" style={{ color: theme.colors.action.primary }}>
               현재 위치로
-            </AppText>
+            </Text>
           </Pressable>
           <Pressable onPress={() => setSearchOpen(false)}>
-            <AppText variant="body" color="textSecondary">
+            <Text variant="body" tone="secondary">
               닫기
-            </AppText>
+            </Text>
           </Pressable>
         </View>
       </Modal>
@@ -873,8 +881,7 @@ export function ExploreMapScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  // Transparent so Kakao SurfaceView punch-through can show base tiles.
+  root: { flex: 1 },
   mapArea: { flex: 1, backgroundColor: 'transparent' },
   topChrome: {
     position: 'absolute',
@@ -891,26 +898,20 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   sheetContent: {
-    paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
   },
   searchModal: {
     flex: 1,
-    backgroundColor: colors.background,
     paddingTop: 64,
     paddingHorizontal: spacing.lg,
     gap: spacing.sm,
   },
   input: {
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
     padding: spacing.md,
-    backgroundColor: colors.surface,
   },
   searchRow: {
     paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
 });

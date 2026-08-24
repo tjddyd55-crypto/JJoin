@@ -82,6 +82,22 @@ enum CoinTxType {
   JOIN_REWARD_TRANSFER
   JOIN_REWARD_REFUND
   ADMIN_ADJUSTMENT
+  COIN_ISSUANCE
+}
+
+enum CoinIssuanceType {
+  PURCHASE
+  EVENT_REWARD
+  SIGNUP_BONUS
+  PROMOTION
+  ADMIN_GRANT
+  CUSTOMER_SUPPORT
+  DEV_SEED
+  OTHER
+}
+
+enum CoinIssuanceStatus {
+  COMPLETED
 }
 
 enum CoinTxDirection {
@@ -187,6 +203,8 @@ model User {
   consents              UserConsent[]
   pushDevices           PushDevice[]
   notifications         AppNotification[]
+  coinIssuancesReceived CoinIssuance[]         @relation("IssuanceRecipient")
+  coinIssuancesCreated  CoinIssuance[]         @relation("IssuanceCreatedBy")
   pushNotificationsEnabled Boolean @default(true) @map("push_notifications_enabled")
 
   @@map("users")
@@ -422,9 +440,9 @@ model Venue {
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  sport         Sport          @relation(fields: [sportId], references: [id])
-  golfFacility  GolfFacility?  @relation(fields: [golfFacilityId], references: [id], onDelete: SetNull)
-  joins         Join[]
+  sport        Sport          @relation(fields: [sportId], references: [id])
+  golfFacility GolfFacility?  @relation(fields: [golfFacilityId], references: [id], onDelete: SetNull)
+  joins        Join[]
 
   @@unique([provider, providerPlaceId])
   @@index([sportId, latitude, longitude])
@@ -567,6 +585,7 @@ model CoinAsset {
   holds        CoinHold[]
   joins        Join[]
   settlements  RewardSettlement[]
+  issuances    CoinIssuance[]
 
   @@map("coin_assets")
 }
@@ -606,10 +625,45 @@ model CoinTransaction {
   wallet      Wallet             @relation(fields: [walletId], references: [id], onDelete: Cascade)
   coinAsset   CoinAsset          @relation(fields: [coinAssetId], references: [id])
   settlements RewardSettlement[]
+  issuance    CoinIssuance?
 
   @@index([walletId, createdAt])
   @@index([refType, refId])
+  @@index([type, createdAt])
   @@map("coin_transactions")
+}
+
+/**
+ * Audit / taxonomy for new Coin mints.
+ * Balance SSOT remains CoinTransaction; this row never replaces the ledger.
+ * PURCHASE / EVENT / ADMIN grant must create both rows in one transaction.
+ */
+model CoinIssuance {
+  id              String             @id @default(uuid()) @db.Uuid
+  userId          String             @map("user_id") @db.Uuid
+  coinAssetId     String             @map("coin_asset_id") @db.Uuid
+  amount          Decimal            @db.Decimal(18, 4)
+  issuanceType    CoinIssuanceType   @map("issuance_type")
+  reason          String?
+  referenceType   String?            @map("reference_type")
+  referenceId     String?            @map("reference_id")
+  createdByUserId String?            @map("created_by_user_id") @db.Uuid
+  ledgerTxId      String             @unique @map("ledger_tx_id") @db.Uuid
+  idempotencyKey  String             @unique @map("idempotency_key")
+  status          CoinIssuanceStatus @default(COMPLETED)
+  metadata        Json?
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user      User            @relation("IssuanceRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy User?           @relation("IssuanceCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  coinAsset CoinAsset       @relation(fields: [coinAssetId], references: [id])
+  ledgerTx  CoinTransaction @relation(fields: [ledgerTxId], references: [id], onDelete: Restrict)
+
+  @@index([createdAt])
+  @@index([issuanceType, createdAt])
+  @@index([userId, createdAt])
+  @@index([referenceType, referenceId])
+  @@map("coin_issuances")
 }
 
 model CoinHold {
@@ -685,9 +739,8 @@ model DisputeCase {
 }
 
 // ---------------------------------------------------------------------------
-// GolfFacility — nationwide LOCALDATA golf practice master (design draft)
-// Not applied via migration yet. Do not prisma db push / migrate deploy.
-// Distinct from Venue (Kakao live activation for Join FK).
+// GolfFacility — nationwide LOCALDATA golf practice master
+// Distinct from Venue (lazy activation for Join FK).
 // ---------------------------------------------------------------------------
 
 enum GolfFacilitySource {
@@ -708,7 +761,6 @@ enum GolfFacilityType {
   UNKNOWN
 }
 
-/// Facility sport classification (not the same as Sport catalog used by Join).
 enum GolfFacilitySportType {
   GOLF
   PARK_GOLF
@@ -761,9 +813,6 @@ enum CoordinateStatus {
   MISSING
 }
 
-/// Nationwide golf facility master from LOCALDATA (and future owner/manual).
-/// Screen availability is orthogonal to facilityType.
-/// Soft-retain rows (isActive=false) so historical Join FKs remain valid later.
 model GolfFacility {
   id String @id @default(uuid()) @db.Uuid
 
@@ -772,9 +821,7 @@ model GolfFacility {
   managementNo        String             @map("management_no")
   localGovernmentCode String             @map("local_government_code")
 
-  /// LOCALDATA original name — refreshed on sync.
   sourceName            String  @map("source_name")
-  /// Service display name — protected from source overwrite after override.
   displayName           String  @map("display_name")
   normalizedName        String  @map("normalized_name")
   displayNameOverridden Boolean @default(false) @map("display_name_overridden")
@@ -796,11 +843,9 @@ model GolfFacility {
   sido       String?
   sigungu    String?
 
-  /// Original government TM (EPSG:5174) — retained for re-projection / audit.
   sourceTmX Decimal? @map("source_tm_x") @db.Decimal(18, 6)
   sourceTmY Decimal? @map("source_tm_y") @db.Decimal(18, 6)
 
-  /// WGS84 — nullable; missing coords do not block import.
   latitude  Decimal? @db.Decimal(10, 7)
   longitude Decimal? @db.Decimal(10, 7)
 
@@ -814,13 +859,10 @@ model GolfFacility {
   hasScreenGolf    HasScreenGolf    @default(UNKNOWN) @map("has_screen_golf")
   screenStatus     ScreenStatus     @default(UNKNOWN) @map("screen_status")
   screenConfidence ScreenConfidence @default(UNKNOWN) @map("screen_confidence")
-  /// Audit / verification evidence tags (e.g. NAME_SCREEN_GOLF, BRAND_GOLFZON).
   screenEvidence   String[]         @default([]) @map("screen_evidence")
   screenGolfScore  Int?             @map("screen_golf_score")
-  /// First-pass screen-name candidate flag (not the same as hasScreenGolf=NO).
   screenCandidate  Boolean          @default(false) @map("screen_candidate")
 
-  /// MVP primary brand label; multi-system detail can expand later.
   primaryBrand GolfFacilityBrand @default(UNKNOWN) @map("primary_brand")
   screenBrands String[]          @default([]) @map("screen_brands")
 
@@ -832,9 +874,7 @@ model GolfFacility {
   licenseDate DateTime? @map("license_date") @db.Date
   closureDate DateTime? @map("closure_date") @db.Date
 
-  /// Government-data active (영업/정상). Do not hard-delete when false.
   isActive             Boolean @default(true) @map("is_active")
-  /// JJOIN screen-join place eligibility (operator may override later).
   isScreenJoinEligible Boolean @default(false) @map("is_screen_join_eligible")
 
   exclusionReason String? @map("exclusion_reason")
@@ -843,14 +883,12 @@ model GolfFacility {
   sourceDataUpdatedAt  DateTime? @map("source_data_updated_at") @db.Timestamptz(6)
   sourceSyncedAt       DateTime? @map("source_synced_at") @db.Timestamptz(6)
 
-  /// Reserved for future FacilityVerification without blocking MVP.
   verifiedAt       DateTime? @map("verified_at") @db.Timestamptz(6)
   verifiedByUserId String?   @map("verified_by_user_id") @db.Uuid
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  /// At most one LOCALDATA-backed Venue (via Venue.golfFacilityId unique).
   venue Venue?
 
   @@unique([source, governmentSourceKey])

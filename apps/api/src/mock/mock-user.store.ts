@@ -16,6 +16,8 @@ type StoredUser = {
   userId: string;
   scenario: MockAuthScenario;
   termsAccepted: boolean;
+  locationOnboardingComplete: boolean;
+  avatarSkipped: boolean;
   identityStatus: IdentityStatus;
   identityProvider: string | null;
   verifiedAt: string | null;
@@ -37,6 +39,12 @@ export class MockUserStore {
   private users = new Map<string, StoredUser>();
   private tokens = new Map<string, string>();
   private identitySessions = new Map<string, { userId: string; status: 'STARTED' | 'CANCELLED' }>();
+  /** Users created via mock-sign-in only — not present in Postgres. */
+  private memoryOnlyUsers = new Set<string>();
+
+  isMemoryOnlyUser(userId: string): boolean {
+    return this.memoryOnlyUsers.has(userId);
+  }
 
   reset() {
     this.users.clear();
@@ -51,6 +59,7 @@ export class MockUserStore {
         : this.createNew(provider);
 
     this.users.set(user.userId, user);
+    this.memoryOnlyUsers.add(user.userId);
     const accessToken = `mock_${randomUUID()}`;
     this.tokens.set(accessToken, user.userId);
 
@@ -80,11 +89,14 @@ export class MockUserStore {
 
   /** Mirror a DB-backed MeDto into memory so existing /me routes keep working. */
   hydrateFromMe(userId: string, me: MeDto, provider: SocialProvider) {
+    this.memoryOnlyUsers.delete(userId);
     const profile = me.publicProfile;
     this.users.set(userId, {
       userId,
       scenario: MockAuthScenario.RETURNING_USER,
       termsAccepted: me.authAppHints.termsAccepted,
+      locationOnboardingComplete: me.authAppHints.locationOnboardingComplete,
+      avatarSkipped: me.authAppHints.hasAvatar && !profile?.avatarUrl,
       identityStatus: me.identity.verificationStatus,
       identityProvider: me.identity.provider,
       verifiedAt: me.identity.verifiedAt,
@@ -184,9 +196,21 @@ export class MockUserStore {
     return this.toMe(user);
   }
 
-  setAvatarMock(userId: string, localUriOrNull: string | null) {
+  setAvatarMock(userId: string, localUriOrNull: string | null, skip = false) {
     const user = this.require(userId);
-    user.avatarUrl = localUriOrNull ?? `mock://avatar/${userId}`;
+    if (skip) {
+      user.avatarSkipped = true;
+      user.avatarUrl = user.avatarUrl ?? null;
+    } else {
+      user.avatarSkipped = false;
+      user.avatarUrl = localUriOrNull ?? `mock://avatar/${userId}`;
+    }
+    return this.toMe(user);
+  }
+
+  completeLocationOnboarding(userId: string) {
+    const user = this.require(userId);
+    user.locationOnboardingComplete = true;
     return this.toMe(user);
   }
 
@@ -200,6 +224,8 @@ export class MockUserStore {
       userId: randomUUID(),
       scenario: MockAuthScenario.NEW_USER,
       termsAccepted: false,
+      locationOnboardingComplete: false,
+      avatarSkipped: false,
       identityStatus: IdentityStatus.UNVERIFIED,
       identityProvider: null,
       verifiedAt: null,
@@ -222,6 +248,8 @@ export class MockUserStore {
       userId: randomUUID(),
       scenario: MockAuthScenario.RETURNING_USER,
       termsAccepted: true,
+      locationOnboardingComplete: true,
+      avatarSkipped: false,
       identityStatus: IdentityStatus.VERIFIED,
       identityProvider: 'MOCK_IDENTITY',
       verifiedAt: new Date().toISOString(),
@@ -269,8 +297,8 @@ export class MockUserStore {
       authAppHints: {
         termsAccepted: user.termsAccepted,
         profileComplete,
-        hasAvatar: Boolean(user.avatarUrl),
-        locationOnboardingComplete: user.termsAccepted,
+        hasAvatar: Boolean(user.avatarUrl) || user.avatarSkipped,
+        locationOnboardingComplete: user.locationOnboardingComplete,
       },
       publicProfile: profileComplete ? this.toPublic(user) : null,
       identity: {
