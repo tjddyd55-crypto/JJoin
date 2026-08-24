@@ -241,6 +241,9 @@ export const DEFAULT_TIMEZONE = 'Asia/Seoul';
 export const DEFAULT_CURRENCY = 'KRW';
 export const SCREEN_GOLF_CODE = 'SCREEN_GOLF';
 
+/** Venue.provider for GolfFacility lazy activation (not Kakao). */
+export const LOCALDATA_GOLF_VENUE_PROVIDER = 'LOCALDATA_GOLF_PRACTICE_RANGE';
+
 /** Presence visibility — OS location permission is a separate concept. */
 export enum PresenceVisibility {
   HIDDEN = 'HIDDEN',
@@ -263,7 +266,7 @@ export type ExploreJoinPreviewDto = {
 };
 
 /** Venue source for Explore — Kakao live search never implies DB persistence. */
-export type ExploreVenueSource = 'KAKAO_LOCAL' | 'MOCK' | 'JJOIN';
+export type ExploreVenueSource = 'KAKAO_LOCAL' | 'MOCK' | 'JJOIN' | 'GOLF_FACILITY';
 
 export type ExploreVenueDto = {
   venueId: string;
@@ -290,6 +293,8 @@ export type ExploreVenueDto = {
   activationRequired?: boolean;
   provider?: string;
   providerPlaceId?: string;
+  /** GolfFacility master id when source is GOLF_FACILITY (activate via golf-facilities API). */
+  golfFacilityId?: string | null;
 };
 
 /**
@@ -375,6 +380,56 @@ export type ActivateVenueResponse = {
   status: 'ACTIVE' | 'UNAVAILABLE';
   created: boolean;
 };
+
+/** Map/list projection for GolfFacility — never dump full source payload. */
+export type GolfFacilityMapDto = {
+  id: string;
+  displayName: string;
+  facilityType: string;
+  screenStatus: string;
+  hasScreenGolf: string;
+  primaryBrand: string;
+  latitude: number | null;
+  longitude: number | null;
+  roadAddress: string | null;
+  sido: string | null;
+  sigungu: string | null;
+  phone?: string | null;
+  coordinateStatus?: string;
+  /** False when coords MISSING — browse/search only, cannot activate for Join. */
+  selectable?: boolean;
+  isScreenJoinEligible: boolean;
+};
+
+/** Bounds query response — eligible + VALID only; no Venue side effects. */
+export type GolfFacilityBoundsResponse = {
+  items: GolfFacilityMapDto[];
+  truncated: boolean;
+  limit: number;
+};
+
+/** Text response — eligible (CONFIRMED) facilities; may include MISSING coords. */
+export type GolfFacilitySearchResponse = {
+  items: GolfFacilityMapDto[];
+  nextCursor: string | null;
+  limit: number;
+};
+
+export type ActivateGolfFacilityVenueResponse = {
+  golfFacilityId: string;
+  venueId: string;
+  provider: string;
+  providerPlaceId: string;
+  name: string;
+  activated: boolean;
+  reused: boolean;
+  created: boolean;
+};
+
+/** Default max markers returned per viewport (server-side guard). */
+export const GOLF_FACILITY_MAP_DEFAULT_LIMIT = 400;
+export const GOLF_FACILITY_MAP_MAX_LIMIT = 500;
+export const GOLF_FACILITY_SEARCH_DEFAULT_LIMIT = 30;
 
 export type CreateJoinRequest = {
   sportCode: string;

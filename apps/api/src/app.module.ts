@@ -5,6 +5,7 @@ import { IdentityModule } from './modules/identity/identity.module';
 import { UsersModule } from './modules/users/users.module';
 import { SportsModule } from './modules/sports/sports.module';
 import { VenuesModule } from './modules/venues/venues.module';
+import { GolfFacilitiesModule } from './modules/golf-facilities/golf-facilities.module';
 import { JoinsModule } from './modules/joins/joins.module';
 import { ParticipationModule } from './modules/participation/participation.module';
 import { WalletModule } from './modules/wallet/wallet.module';
@@ -27,6 +28,7 @@ import { PrismaModule } from './prisma/prisma.module';
     UsersModule,
     SportsModule,
     VenuesModule,
+    GolfFacilitiesModule,
     JoinsModule,
     ParticipationModule,
     WalletModule,

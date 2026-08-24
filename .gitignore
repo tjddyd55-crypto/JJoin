@@ -23,3 +23,6 @@ apps/mobile/ios/
 *.pem
 *.p12
 *.keystore
+
+# LOCALDATA golf facility research snapshots / staging (do not commit)
+data/golf-practice-ranges/
