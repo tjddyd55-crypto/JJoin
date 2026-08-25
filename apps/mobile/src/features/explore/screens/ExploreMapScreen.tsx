@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Linking,
@@ -11,7 +11,7 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import * as Location from 'expo-location';
-import { useRouter, type Href } from 'expo-router';
+import { useRouter, useLocalSearchParams, type Href } from 'expo-router';
 import {
   PresenceVisibility,
   type ExploreFilter,
@@ -39,6 +39,12 @@ import { MapUnavailablePanel } from '../map/MapUnavailablePanel';
 import type { MapCameraHandle } from '../map/map-handle';
 import { regionFromBounds } from '../map/map-geo';
 import { getMapRuntimeStatus } from '../map/map-runtime';
+import { resolveVenueForJoin } from '../../join-create/api/resolve-venue-for-join';
+import {
+  peekJoinCreateDraft,
+  saveJoinCreateDraft,
+} from '../../join-create/model/join-create-draft';
+import { venueSelectionFromVenueDto } from '../../join-create/model/join-create-venue';
 import {
   GEOJE_DEMO_REGION,
   type ExploreFilterId,
@@ -57,6 +63,8 @@ const MIN_SEARCH_CHARS = 1;
 
 export function ExploreMapScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ venuePick?: string }>();
+  const venuePickMode = params.venuePick === '1' || params.venuePick === 'true';
   const { requestGatedAction } = useSession();
   const theme = useTheme();
   const store = getSecureSessionStore();
@@ -637,87 +645,41 @@ export function ExploreMapScreen() {
                   Alert.alert('조인 만들기', '이 장소에서는 조인을 만들 수 없습니다.');
                   return;
                 }
-                const gate = requestGatedAction({ type: 'CREATE_JOIN' });
-                if (!gate.allowed) {
-                  router.push('/auth/gate');
-                  return;
+                if (!venuePickMode) {
+                  const gate = requestGatedAction({ type: 'CREATE_JOIN' });
+                  if (!gate.allowed) {
+                    router.push('/auth/gate');
+                    return;
+                  }
                 }
                 if (activatingVenue) return;
                 setActivatingVenue(true);
                 try {
                   const api = getApiClient(getSecureSessionStore());
-                  let venueId: string;
-                  let venueName: string;
-                  let venueAddress: string;
-
-                  if (
-                    selectedVenue.source === 'GOLF_FACILITY' ||
-                    selectedVenue.golfFacilityId
-                  ) {
-                    const facilityId =
-                      selectedVenue.golfFacilityId ?? selectedVenue.venueId;
-                    try {
-                      const activated = await api.activateGolfFacilityVenue(facilityId);
-                      venueId = activated.venueId;
-                      venueName = activated.name;
-                      venueAddress =
-                        selectedVenue.roadAddress ?? selectedVenue.address ?? '';
-                    } catch (e) {
-                      const msg = e instanceof Error ? e.message : '';
-                      if (msg.includes('FACILITY_NOT_JOIN_ELIGIBLE')) {
-                        Alert.alert(
-                          '조인 장소',
-                          '현재 조인 장소로 사용할 수 없는 시설입니다.',
-                        );
-                        return;
-                      }
-                      if (msg.includes('FACILITY_COORDINATE_REQUIRED')) {
-                        Alert.alert(
-                          '조인 장소',
-                          '위치 정보 확인 중인 시설입니다.',
-                        );
-                        return;
-                      }
-                      if (msg.includes('FACILITY_NOT_FOUND') || msg.includes('404')) {
-                        Alert.alert('조인 장소', '장소를 찾을 수 없습니다.');
-                        return;
-                      }
-                      throw e;
-                    }
-                  } else if (selectedVenue.jjoinVenueId) {
-                    const activated = await api.getVenue(selectedVenue.jjoinVenueId);
-                    venueId = activated.venueId;
-                    venueName = activated.name;
-                    venueAddress =
-                      activated.roadAddress ?? activated.address ?? '';
-                  } else {
-                    const provider =
-                      selectedVenue.source === 'MOCK' || selectedVenue.provider === 'MOCK'
-                        ? 'MOCK'
-                        : 'KAKAO';
-                    const providerPlaceId =
-                      selectedVenue.providerPlaceId ?? selectedVenue.venueId;
-                    const activated = await api.activateVenue({
-                      provider,
-                      providerPlaceId,
-                      resolveHint: {
-                        latitude: selectedVenue.latitude,
-                        longitude: selectedVenue.longitude,
-                        query: selectedVenue.name,
-                      },
+                  const resolved = await resolveVenueForJoin(api, selectedVenue);
+                  if (venuePickMode) {
+                    const draft = peekJoinCreateDraft();
+                    saveJoinCreateDraft({
+                      players: draft?.players ?? 4,
+                      selectedVenue: venueSelectionFromVenueDto({
+                        venueId: resolved.venueId,
+                        name: resolved.name,
+                        address: resolved.address,
+                        roadAddress: resolved.address,
+                        phone: resolved.phone,
+                        latitude: resolved.latitude,
+                        longitude: resolved.longitude,
+                        golfFacilityId: selectedVenue.golfFacilityId,
+                      }),
                     });
-                    venueId = activated.venueId;
-                    venueName = activated.name;
-                    venueAddress =
-                      activated.roadAddress ?? activated.address ?? '';
                   }
 
                   router.push({
                     pathname: '/(tabs)/create',
                     params: {
-                      venueId,
-                      venueName,
-                      venueAddress,
+                      venueId: resolved.venueId,
+                      venueName: resolved.name,
+                      venueAddress: resolved.address,
                     },
                   } as Href);
                 } catch {
@@ -744,6 +706,7 @@ export function ExploreMapScreen() {
             onJoinPress={(joinId) => {
               router.push({ pathname: '/join/[joinId]', params: { joinId } } as Href);
             }}
+            createJoinLabel={venuePickMode ? '이 장소 선택' : '여기서 조인 만들기'}
           />
         </BottomSheetScrollView>
       </BottomSheet>

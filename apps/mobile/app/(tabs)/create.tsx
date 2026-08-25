@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import {
   Text,
   Button,
@@ -8,7 +8,6 @@ import {
   FormScreenFrame,
   StickyActionFrame,
   Stack,
-  useTheme,
 } from '@jjoin/design-system';
 import { computeCoinShortfall, computeRewardEligibleSlots } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
@@ -18,27 +17,17 @@ import { CoinSummaryCard } from '../../src/ui/patterns/CoinSummaryCard';
 import { useJoinCoinPreview } from '../../src/features/create/useJoinCoinPreview';
 import { getSecureSessionStore, useSession } from '../../src/session/SessionContext';
 import { getApiClient } from '../../src/lib/api';
-
-const VENUE_FIXTURES = [
-  {
-    provider: 'MOCK',
-    providerPlaceId: 'venue_sg_geoje',
-    name: 'SG골프 거제점',
-    address: '거제시 고현동',
-    regionLabel: '거제시 고현동',
-    latitude: 34.8805,
-    longitude: 128.6211,
-  },
-  {
-    provider: 'MOCK',
-    providerPlaceId: 'venue_golfzon_gohyeon',
-    name: '골프존 고현점',
-    address: '거제시 고현동',
-    regionLabel: '거제시 고현동',
-    latitude: 34.8785,
-    longitude: 128.6301,
-  },
-] as const;
+import { JoinCreateVenueSection } from '../../src/features/join-create/components/JoinCreateVenueSection';
+import {
+  clearJoinCreateDraft,
+  peekJoinCreateDraft,
+  saveJoinCreateDraft,
+} from '../../src/features/join-create/model/join-create-draft';
+import {
+  type JoinCreateVenueSelection,
+  venueSelectionFromVenueDto,
+  venueSelectionHasPlace,
+} from '../../src/features/join-create/model/join-create-venue';
 
 function defaultStartAtIso() {
   const d = new Date(Date.now() + 2 * 60 * 60_000);
@@ -53,24 +42,67 @@ function newIdempotencyKey() {
 export default function CreateScreen() {
   const { requestGatedAction, me } = useSession();
   const router = useRouter();
-  const theme = useTheme();
   const params = useLocalSearchParams<{
     venueId?: string;
     venueName?: string;
     venueAddress?: string;
   }>();
-  const activatedVenueId = typeof params.venueId === 'string' ? params.venueId : undefined;
-  const activatedVenueName =
-    typeof params.venueName === 'string' ? params.venueName : undefined;
-  const activatedVenueAddress =
-    typeof params.venueAddress === 'string' ? params.venueAddress : undefined;
+  const routeVenueId = typeof params.venueId === 'string' ? params.venueId : undefined;
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
-  const [venueIndex, setVenueIndex] = useState(0);
+
+  const [selectedVenue, setSelectedVenue] = useState<JoinCreateVenueSelection | null>(null);
   const [players, setPlayers] = useState(4);
   const [rewardPerParticipant, setRewardPerParticipant] = useState('0');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [doneJoinId, setDoneJoinId] = useState<string | null>(null);
+  const [resolvingRouteVenue, setResolvingRouteVenue] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      const draft = peekJoinCreateDraft();
+      if (draft) {
+        setPlayers(draft.players);
+        if (draft.selectedVenue && !routeVenueId) {
+          setSelectedVenue(draft.selectedVenue);
+        }
+        clearJoinCreateDraft();
+      }
+    }, [routeVenueId]),
+  );
+
+  useEffect(() => {
+    if (!routeVenueId) return;
+    let cancelled = false;
+    setResolvingRouteVenue(true);
+    void (async () => {
+      try {
+        const v = await api.getVenue(routeVenueId);
+        if (cancelled) return;
+        setSelectedVenue(
+          venueSelectionFromVenueDto({
+            venueId: v.venueId,
+            name: typeof params.venueName === 'string' ? params.venueName : v.name,
+            address: v.address,
+            roadAddress:
+              typeof params.venueAddress === 'string' ? params.venueAddress : v.roadAddress,
+            phone: null,
+            latitude: v.latitude,
+            longitude: v.longitude,
+          }),
+        );
+      } catch {
+        if (!cancelled) {
+          setError('선택한 장소 정보를 불러올 수 없습니다.');
+        }
+      } finally {
+        if (!cancelled) setResolvingRouteVenue(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [api, params.venueAddress, params.venueName, routeVenueId]);
 
   const rewardEligibleSlots = useMemo(() => computeRewardEligibleSlots(players), [players]);
   const previewEnabled = Boolean(me?.userId);
@@ -88,13 +120,22 @@ export default function CreateScreen() {
   const canCreate = preview?.canCreate ?? false;
   const walletAfterDisplay = preview?.walletAfterCreation ?? preview?.walletAvailable ?? '—';
   const identityVerified = me?.identity.verificationStatus === IdentityStatus.VERIFIED;
-  // Unverified users must reach the deferred Identity Gate even when coin is short.
-  const createDisabled = identityVerified && (!canCreate || previewLoading);
+  const venueReady = venueSelectionHasPlace(selectedVenue) && !resolvingRouteVenue;
+  const createDisabled =
+    !venueReady || submitting || (identityVerified && (!canCreate || previewLoading));
   const createLabel = identityVerified
     ? canCreate
       ? '조인 생성'
       : t('create.coin.insufficientCta')
     : '조인 생성';
+
+  const onPickFromMap = useCallback(() => {
+    saveJoinCreateDraft({ players, selectedVenue });
+    router.push({
+      pathname: '/(tabs)/explore',
+      params: { venuePick: '1' },
+    } as Href);
+  }, [players, router, selectedVenue]);
 
   const onCreate = useCallback(async () => {
     const gate = requestGatedAction({ type: 'CREATE_JOIN' });
@@ -103,6 +144,10 @@ export default function CreateScreen() {
       return;
     }
     if (submitting) return;
+    if (!venueSelectionHasPlace(selectedVenue)) {
+      setError('장소를 먼저 선택해주세요.');
+      return;
+    }
     if (!canCreate) {
       setError(
         shortfall
@@ -114,20 +159,18 @@ export default function CreateScreen() {
     setSubmitting(true);
     setError(null);
     try {
-      const fixture = VENUE_FIXTURES[venueIndex];
       const detail = await api.createJoin({
         sportCode: SCREEN_GOLF_CODE,
-        ...(activatedVenueId
-          ? { venueId: activatedVenueId }
-          : { venue: { ...fixture } }),
+        venueId: selectedVenue.venueId,
         startAt: defaultStartAtIso(),
         plannedPlayerCount: players,
         joinMethod: JoinMethod.APPROVAL,
-        title: `${activatedVenueName ?? fixture.name} 스크린골프`,
+        title: `${selectedVenue.name} 스크린골프`,
         rewardPerParticipant,
         idempotencyKey: newIdempotencyKey(),
       });
       setDoneJoinId(detail.joinId);
+      clearJoinCreateDraft();
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'create_failed';
       if (msg.startsWith('network_error')) setError('네트워크 오류 — API 연결을 확인하세요.');
@@ -138,17 +181,15 @@ export default function CreateScreen() {
       setSubmitting(false);
     }
   }, [
-    activatedVenueId,
-    activatedVenueName,
     api,
     canCreate,
     players,
     requestGatedAction,
     rewardPerParticipant,
     router,
+    selectedVenue,
     shortfall,
     submitting,
-    venueIndex,
   ]);
 
   if (doneJoinId) {
@@ -201,41 +242,12 @@ export default function CreateScreen() {
             : '로그인한 뒤 생성하세요'}
         </Text>
 
-        <Text variant="sectionTitle" tone="primary">
-          장소
-        </Text>
-        {activatedVenueId ? (
-          <View
-            style={[
-              styles.summary,
-              {
-                backgroundColor: theme.colors.surface.card,
-                borderColor: theme.colors.border.subtle,
-                borderRadius: theme.radius.md,
-              },
-            ]}
-          >
-            <Text variant="venueTitle" tone="primary">
-              {activatedVenueName ?? '선택된 장소'}
-            </Text>
-            {activatedVenueAddress ? (
-              <Text variant="caption" tone="secondary">
-                {activatedVenueAddress}
-              </Text>
-            ) : null}
-          </View>
-        ) : (
-          <View style={styles.row}>
-            {VENUE_FIXTURES.map((v, i) => (
-              <Chip
-                key={v.providerPlaceId}
-                label={v.name}
-                selected={venueIndex === i}
-                onPress={() => setVenueIndex(i)}
-              />
-            ))}
-          </View>
-        )}
+        <JoinCreateVenueSection
+          api={api}
+          selected={selectedVenue}
+          onChange={setSelectedVenue}
+          onPickFromMap={onPickFromMap}
+        />
 
         <Text variant="sectionTitle" tone="primary">
           모집 인원 {players}명
@@ -273,6 +285,12 @@ export default function CreateScreen() {
           shortfall={shortfall}
         />
 
+        {!venueSelectionHasPlace(selectedVenue) ? (
+          <Text variant="caption" tone="tertiary">
+            장소를 먼저 선택해주세요.
+          </Text>
+        ) : null}
+
         {error ? (
           <Text variant="body" tone="error">
             {error}
@@ -285,5 +303,4 @@ export default function CreateScreen() {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  summary: { gap: 4, padding: 14, borderWidth: 1 },
 });
