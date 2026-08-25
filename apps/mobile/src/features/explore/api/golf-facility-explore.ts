@@ -14,6 +14,15 @@ export function facilityTypeLabel(facilityType: string): string {
       return '스크린골프';
     case 'MIXED_GOLF_FACILITY':
       return '복합 골프시설';
+    case 'PRACTICE_RANGE':
+    case 'INDOOR_PRACTICE':
+    case 'OUTDOOR_PRACTICE':
+      return '골프연습장';
+    case 'GOLF_ACADEMY':
+      return '골프 아카데미';
+    case 'OTHER_GOLF_FACILITY':
+      return '기타 골프시설';
+    case 'UNKNOWN':
     default:
       return '골프시설';
   }
