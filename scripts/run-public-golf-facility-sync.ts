@@ -8,10 +8,14 @@
  *
  * Calendar: without --force, runs only on KST day 1 or 16 (pair with UTC cron 0 19 * * *).
  */
+import dns from 'node:dns';
 import fs from 'node:fs';
 import path from 'node:path';
 import { PrismaClient } from '@prisma/client';
 import { PublicGolfFacilitySyncService } from '../apps/api/src/modules/golf-facilities/sync/public-golf-facility-sync.service.ts';
+
+// Railway (and many hosts) prefer AAAA; without outbound IPv6 that becomes "fetch failed".
+dns.setDefaultResultOrder('ipv4first');
 
 function loadEnvFiles() {
   const root = path.resolve(__dirname, '..');
