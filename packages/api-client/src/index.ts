@@ -4,7 +4,9 @@ import {
   type ActivateGolfFacilityVenueResponse,
   type ActivateVenueRequest,
   type ActivateVenueResponse,
+  type AddUserVenueFavoriteRequest,
   type AuthSessionDto,
+  type CreateCustomVenueRequest,
   type CreateJoinRequest,
   type ExploreFilter,
   type ExploreMapResponse,
@@ -24,6 +26,7 @@ import {
   type SocialSignInResponse,
   type SportSkillLevel,
   type UpsertPresenceRequest,
+  type UserVenueListResponse,
   type WalletSummaryDto,
   type WalletTransactionsResponse,
   type SettlementIssueRequest,
@@ -394,6 +397,54 @@ export class ApiClient {
   async getVenue(venueId: string): Promise<ActivateVenueResponse> {
     const res = await request(`${this.config.baseUrl}/venues/${venueId}`, {
       headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getMyRecentVenues(): Promise<UserVenueListResponse> {
+    const res = await request(`${this.config.baseUrl}/me/venues/recent`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getMyFavoriteVenues(): Promise<UserVenueListResponse> {
+    const res = await request(`${this.config.baseUrl}/me/venues/favorites`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async addVenueFavorite(body: AddUserVenueFavoriteRequest): Promise<{ ok: true }> {
+    const res = await request(`${this.config.baseUrl}/me/venues/favorites`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async removeVenueFavorite(venueId: string): Promise<{ ok: true }> {
+    const res = await request(`${this.config.baseUrl}/me/venues/favorites/${venueId}`, {
+      method: 'DELETE',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async createCustomVenue(body: CreateCustomVenueRequest): Promise<{
+    venueId: string;
+    name: string;
+    address: string | null;
+    roadAddress: string | null;
+    phone: string | null;
+    latitude: number;
+    longitude: number;
+  }> {
+    const res = await request(`${this.config.baseUrl}/me/venues/custom`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
     });
     return parseJson(res);
   }

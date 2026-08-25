@@ -11,7 +11,7 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import * as Location from 'expo-location';
-import { useRouter, type Href } from 'expo-router';
+import { useRouter, useLocalSearchParams, type Href } from 'expo-router';
 import {
   PresenceVisibility,
   type ExploreFilter,
@@ -19,7 +19,8 @@ import {
   type GolfFacilityMapDto,
   type PresenceDurationOption,
 } from '@jjoin/types';
-import { AppText, colors, spacing } from '@jjoin/design-system';
+import { AppText, colors, radius, spacing } from '@jjoin/design-system';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
 import { getApiClient } from '../../../lib/api';
 import { fetchExploreMap, REGION_SEARCH_FIXTURES } from '../api/explore-api';
@@ -39,6 +40,12 @@ import { MapUnavailablePanel } from '../map/MapUnavailablePanel';
 import type { MapCameraHandle } from '../map/map-handle';
 import { regionFromBounds } from '../map/map-geo';
 import { getMapRuntimeStatus } from '../map/map-runtime';
+import { resolveVenueForJoin } from '../../join-create/api/resolve-venue-for-join';
+import {
+  peekJoinCreateDraft,
+  saveJoinCreateDraft,
+} from '../../join-create/model/join-create-draft';
+import { venueSelectionFromVenueDto } from '../../join-create/model/join-create-venue';
 import {
   GEOJE_DEMO_REGION,
   type ExploreFilterId,
@@ -47,7 +54,6 @@ import {
   type MapRegion,
   type SheetMode,
 } from '../model/map-types';
-
 /** GolfFacility DB is default place SoT; Kakao Local remains as fallback. */
 type PlaceSource = 'GOLF_FACILITY' | 'KAKAO';
 
@@ -57,6 +63,8 @@ const MIN_SEARCH_CHARS = 1;
 
 export function ExploreMapScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ venuePick?: string }>();
+  const venuePickMode = params.venuePick === '1' || params.venuePick === 'true';
   const { requestGatedAction } = useSession();
   const store = getSecureSessionStore();
   const mapRef = useRef<MapCameraHandle | null>(null);
@@ -91,6 +99,7 @@ export function ExploreMapScreen() {
 
   const runtime = getMapRuntimeStatus();
   const snapPoints = useMemo(() => ['28%', '52%', '88%'], []);
+  const insets = useSafeAreaInsets();
 
   const loadGolfFacilityMap = useCallback(
     async (center: MapCoordinate, region: MapRegion = searchRegion) => {
@@ -553,7 +562,7 @@ export function ExploreMapScreen() {
       <View style={styles.mapArea}>
         {mapNode}
 
-        <View style={styles.topChrome} pointerEvents="box-none">
+        <View style={[styles.topChrome, { top: insets.top + spacing.sm }]} pointerEvents="box-none">
           <MapSearchBar onPress={() => setSearchOpen(true)} />
           <MapFilterBar
             value={filter}
@@ -563,23 +572,18 @@ export function ExploreMapScreen() {
               void loadMap(lastCameraCenter, next);
             }}
           />
-          <AppText variant="caption" color="textSecondary">
-            {placeSource === 'GOLF_FACILITY'
-              ? '스크린골프장 (JJOIN DB)'
-              : '카카오 장소 검색'}
-          </AppText>
           {locationDenied ? (
-            <AppText variant="caption" color="warning">
+            <AppText variant="caption" color="warning" style={styles.statusLine}>
               위치 권한 없음 · 지역 검색은 가능합니다
             </AppText>
           ) : null}
           {error ? (
-            <AppText variant="caption" color="danger">
+            <AppText variant="caption" color="danger" style={styles.statusLine}>
               검색 오류 · 지도는 유지됩니다
             </AppText>
           ) : null}
           {loading ? (
-            <AppText variant="caption" color="textSecondary">
+            <AppText variant="caption" color="textTertiary" style={styles.statusLine}>
               주변 불러오는 중…
             </AppText>
           ) : null}
@@ -598,6 +602,8 @@ export function ExploreMapScreen() {
         index={0}
         snapPoints={snapPoints}
         enablePanDownToClose={false}
+        backgroundStyle={styles.sheetBackground}
+        handleIndicatorStyle={styles.sheetHandle}
       >
         <BottomSheetScrollView contentContainerStyle={styles.sheetContent}>
           <ExploreBottomSheetBody
@@ -639,87 +645,50 @@ export function ExploreMapScreen() {
                   Alert.alert('조인 만들기', '이 장소에서는 조인을 만들 수 없습니다.');
                   return;
                 }
-                const gate = requestGatedAction({ type: 'CREATE_JOIN' });
-                if (!gate.allowed) {
-                  router.push('/auth/gate');
-                  return;
+                if (!venuePickMode) {
+                  const gate = requestGatedAction({ type: 'CREATE_JOIN' });
+                  if (!gate.allowed) {
+                    router.push('/auth/gate');
+                    return;
+                  }
                 }
                 if (activatingVenue) return;
                 setActivatingVenue(true);
                 try {
                   const api = getApiClient(getSecureSessionStore());
-                  let venueId: string;
-                  let venueName: string;
-                  let venueAddress: string;
-
-                  if (
-                    selectedVenue.source === 'GOLF_FACILITY' ||
-                    selectedVenue.golfFacilityId
-                  ) {
-                    const facilityId =
-                      selectedVenue.golfFacilityId ?? selectedVenue.venueId;
-                    try {
-                      const activated = await api.activateGolfFacilityVenue(facilityId);
-                      venueId = activated.venueId;
-                      venueName = activated.name;
-                      venueAddress =
-                        selectedVenue.roadAddress ?? selectedVenue.address ?? '';
-                    } catch (e) {
-                      const msg = e instanceof Error ? e.message : '';
-                      if (msg.includes('FACILITY_NOT_JOIN_ELIGIBLE')) {
-                        Alert.alert(
-                          '조인 장소',
-                          '현재 조인 장소로 사용할 수 없는 시설입니다.',
-                        );
-                        return;
-                      }
-                      if (msg.includes('FACILITY_COORDINATE_REQUIRED')) {
-                        Alert.alert(
-                          '조인 장소',
-                          '위치 정보 확인 중인 시설입니다.',
-                        );
-                        return;
-                      }
-                      if (msg.includes('FACILITY_NOT_FOUND') || msg.includes('404')) {
-                        Alert.alert('조인 장소', '장소를 찾을 수 없습니다.');
-                        return;
-                      }
-                      throw e;
-                    }
-                  } else if (selectedVenue.jjoinVenueId) {
-                    const activated = await api.getVenue(selectedVenue.jjoinVenueId);
-                    venueId = activated.venueId;
-                    venueName = activated.name;
-                    venueAddress =
-                      activated.roadAddress ?? activated.address ?? '';
-                  } else {
-                    const provider =
-                      selectedVenue.source === 'MOCK' || selectedVenue.provider === 'MOCK'
-                        ? 'MOCK'
-                        : 'KAKAO';
-                    const providerPlaceId =
-                      selectedVenue.providerPlaceId ?? selectedVenue.venueId;
-                    const activated = await api.activateVenue({
-                      provider,
-                      providerPlaceId,
-                      resolveHint: {
-                        latitude: selectedVenue.latitude,
-                        longitude: selectedVenue.longitude,
-                        query: selectedVenue.name,
-                      },
+                  const resolved = await resolveVenueForJoin(api, selectedVenue);
+                  if (venuePickMode) {
+                    const draft = peekJoinCreateDraft();
+                    saveJoinCreateDraft({
+                      players: draft?.players ?? 4,
+                      selectedVenue: venueSelectionFromVenueDto({
+                        venueId: resolved.venueId,
+                        name: resolved.name,
+                        address: resolved.address,
+                        roadAddress: resolved.address,
+                        phone: resolved.phone,
+                        latitude: resolved.latitude,
+                        longitude: resolved.longitude,
+                        golfFacilityId: selectedVenue.golfFacilityId,
+                      }),
                     });
-                    venueId = activated.venueId;
-                    venueName = activated.name;
-                    venueAddress =
-                      activated.roadAddress ?? activated.address ?? '';
+                    router.push({
+                      pathname: '/(tabs)/create',
+                      params: {
+                        venueId: resolved.venueId,
+                        venueName: resolved.name,
+                        venueAddress: resolved.address,
+                      },
+                    } as Href);
+                    return;
                   }
 
                   router.push({
                     pathname: '/(tabs)/create',
                     params: {
-                      venueId,
-                      venueName,
-                      venueAddress,
+                      venueId: resolved.venueId,
+                      venueName: resolved.name,
+                      venueAddress: resolved.address,
                     },
                   } as Href);
                 } catch {
@@ -746,11 +715,7 @@ export function ExploreMapScreen() {
             onJoinPress={(joinId) => {
               router.push({ pathname: '/join/[joinId]', params: { joinId } } as Href);
             }}
-            createJoinLabel={
-              selectedVenue?.source === 'GOLF_FACILITY'
-                ? '이 장소로 선택'
-                : '여기서 조인 만들기'
-            }
+            createJoinLabel={venuePickMode ? '이 장소 선택' : '여기서 조인 만들기'}
           />
         </BottomSheetScrollView>
       </BottomSheet>
@@ -769,6 +734,7 @@ export function ExploreMapScreen() {
             value={searchQuery}
             onChangeText={onSearchQueryChange}
             placeholder="검색어 입력"
+            placeholderTextColor={colors.textTertiary}
             style={styles.input}
             autoFocus
             returnKeyType="search"
@@ -878,10 +844,12 @@ const styles = StyleSheet.create({
   mapArea: { flex: 1, backgroundColor: 'transparent' },
   topChrome: {
     position: 'absolute',
-    top: 52,
     left: spacing.md,
     right: spacing.md,
     gap: spacing.sm,
+  },
+  statusLine: {
+    paddingHorizontal: spacing.xxs,
   },
   fabCol: {
     position: 'absolute',
@@ -889,6 +857,16 @@ const styles = StyleSheet.create({
     bottom: '32%',
     alignItems: 'flex-end',
     gap: spacing.sm,
+  },
+  sheetBackground: {
+    backgroundColor: colors.surfaceElevated,
+    borderTopLeftRadius: radius.sheet,
+    borderTopRightRadius: radius.sheet,
+  },
+  sheetHandle: {
+    backgroundColor: colors.border,
+    width: 40,
+    height: 4,
   },
   sheetContent: {
     paddingHorizontal: spacing.md,
@@ -906,7 +884,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 12,
     padding: spacing.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceMuted,
+    color: colors.textPrimary,
   },
   searchRow: {
     paddingVertical: spacing.md,

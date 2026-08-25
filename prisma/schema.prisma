@@ -188,6 +188,8 @@ model User {
   pushDevices           PushDevice[]
   notifications         AppNotification[]
   pushNotificationsEnabled Boolean @default(true) @map("push_notifications_enabled")
+  venueRecents          UserVenueRecent[]
+  venueFavorites        UserVenueFavorite[]
 
   @@map("users")
 }
@@ -425,10 +427,42 @@ model Venue {
   sport         Sport          @relation(fields: [sportId], references: [id])
   golfFacility  GolfFacility?  @relation(fields: [golfFacilityId], references: [id], onDelete: SetNull)
   joins         Join[]
+  userRecents   UserVenueRecent[]
+  userFavorites UserVenueFavorite[]
 
   @@unique([provider, providerPlaceId])
   @@index([sportId, latitude, longitude])
   @@map("venues")
+}
+
+/// User's recently used venues for Join Create (updated on successful join create only).
+model UserVenueRecent {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  venueId    String   @map("venue_id") @db.Uuid
+  lastUsedAt DateTime @default(now()) @map("last_used_at") @db.Timestamptz(6)
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, venueId])
+  @@index([userId, lastUsedAt(sort: Desc)])
+  @@map("user_venue_recents")
+}
+
+/// User bookmarked venues for Join Create picker.
+model UserVenueFavorite {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  venueId   String   @map("venue_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, venueId])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("user_venue_favorites")
 }
 
 model Join {

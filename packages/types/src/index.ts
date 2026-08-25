@@ -426,6 +426,34 @@ export type ActivateGolfFacilityVenueResponse = {
   created: boolean;
 };
 
+/** Join Create picker — saved/recent official venue row. */
+export type UserVenuePickerItemDto = {
+  venueId: string;
+  name: string;
+  address: string | null;
+  roadAddress: string | null;
+  phone: string | null;
+  latitude: number;
+  longitude: number;
+  golfFacilityId?: string | null;
+  facilityType?: string | null;
+  isFavorite?: boolean;
+};
+
+export type UserVenueListResponse = {
+  items: UserVenuePickerItemDto[];
+};
+
+export type AddUserVenueFavoriteRequest = {
+  venueId: string;
+};
+
+export type CreateCustomVenueRequest = {
+  name: string;
+  address: string;
+  phone?: string | null;
+};
+
 /** Default max markers returned per viewport (server-side guard). */
 export const GOLF_FACILITY_MAP_DEFAULT_LIMIT = 400;
 export const GOLF_FACILITY_MAP_MAX_LIMIT = 500;
