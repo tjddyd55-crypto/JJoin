@@ -37,7 +37,10 @@ Do **not** add Redis / Object Storage / workers in this phase.
 Configured in:
 
 - `nixpacks.toml` — install + workspace package builds + `prisma generate` + API build
-- `railway.json` — start, preDeploy migration, healthcheck
+- `railway.json` — **api** start/preDeploy/healthcheck (`/health`)
+- `railway.worker.json` — **batch/cron workers** (settlement, public-golf sync): migrate + exit; **no HTTP healthcheck**
+
+Workers must not use `railway.json` healthcheck — they run `start → work → exit` and have no `/health` listener.
 
 Effective flow:
 
