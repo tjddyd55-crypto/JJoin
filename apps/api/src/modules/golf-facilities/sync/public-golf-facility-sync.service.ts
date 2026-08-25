@@ -178,22 +178,31 @@ export class PublicGolfFacilitySyncService {
       orderBy: { startedAt: 'desc' },
     });
     if (running) {
-      const report: PublicGolfSyncReport = {
-        status: 'SKIPPED',
-        runId: running.id,
-        fetchedPages: 0,
-        fetchedCount: 0,
-        insertedCount: 0,
-        updatedCount: 0,
-        unchangedCount: 0,
-        inactiveCount: 0,
-        geocodedCount: 0,
-        failedCount: 0,
-        errorSummary: 'lock_held_by_running_sync',
-        meta: { runningId: running.id },
-      };
-      logEvent('PUBLIC_GOLF_SYNC_COMPLETE', report);
-      return report;
+      const ageMs = now.getTime() - running.startedAt.getTime();
+      // Force / ops: clear locks older than 2 minutes (container kill leaves RUNNING).
+      if (options.force && ageMs > 2 * 60 * 1000) {
+        await this.finishRun(running.id, {
+          status: 'FAILED',
+          errorSummary: 'stale_lock_cleared_by_force',
+        });
+      } else {
+        const report: PublicGolfSyncReport = {
+          status: 'SKIPPED',
+          runId: running.id,
+          fetchedPages: 0,
+          fetchedCount: 0,
+          insertedCount: 0,
+          updatedCount: 0,
+          unchangedCount: 0,
+          inactiveCount: 0,
+          geocodedCount: 0,
+          failedCount: 0,
+          errorSummary: 'lock_held_by_running_sync',
+          meta: { runningId: running.id, ageMs },
+        };
+        logEvent('PUBLIC_GOLF_SYNC_COMPLETE', report);
+        return report;
+      }
     }
 
     const run = await this.prisma.publicGolfFacilitySyncRun.create({
