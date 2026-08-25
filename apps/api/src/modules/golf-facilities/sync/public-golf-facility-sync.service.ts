@@ -135,8 +135,8 @@ function sourceFingerprint(row: {
 }
 
 function sameTm(
-  aX: number | null | undefined,
-  aY: number | null | undefined,
+  aX: number | Prisma.Decimal | null | undefined,
+  aY: number | Prisma.Decimal | null | undefined,
   bX: number | null,
   bY: number | null,
 ): boolean {
