@@ -422,7 +422,7 @@ export type GolfFacilityMapDto = {
   isScreenJoinEligible: boolean;
 };
 
-/** Bounds query response — eligible + VALID only; no Venue side effects. */
+/** Bounds query response — active + VALID coords; classification does not filter. */
 export type GolfFacilityBoundsResponse = {
   items: GolfFacilityMapDto[];
   truncated: boolean;

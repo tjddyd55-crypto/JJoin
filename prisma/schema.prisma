@@ -875,6 +875,7 @@ model GolfFacility {
   closureDate DateTime? @map("closure_date") @db.Date
 
   isActive             Boolean @default(true) @map("is_active")
+  /// Display/metadata only — never used to drop from master/map (Phase sync).
   isScreenJoinEligible Boolean @default(false) @map("is_screen_join_eligible")
 
   exclusionReason String? @map("exclusion_reason")
@@ -882,6 +883,13 @@ model GolfFacility {
   sourceLastModifiedAt DateTime? @map("source_last_modified_at") @db.Timestamptz(6)
   sourceDataUpdatedAt  DateTime? @map("source_data_updated_at") @db.Timestamptz(6)
   sourceSyncedAt       DateTime? @map("source_synced_at") @db.Timestamptz(6)
+
+  /// Last successful full sync that included this facility.
+  lastSeenAt            DateTime? @map("last_seen_at") @db.Timestamptz(6)
+  /// Consecutive successful syncs where this LOCALDATA key was absent (never hard-delete).
+  consecutiveMissCount  Int       @default(0) @map("consecutive_miss_count")
+  /// Original LOCALDATA API item snapshot (additive).
+  sourceRawJson         Json?     @map("source_raw_json")
 
   verifiedAt       DateTime? @map("verified_at") @db.Timestamptz(6)
   verifiedByUserId String?   @map("verified_by_user_id") @db.Uuid
@@ -894,6 +902,7 @@ model GolfFacility {
   @@unique([source, governmentSourceKey])
   @@index([isActive, isScreenJoinEligible])
   @@index([isActive, isScreenJoinEligible, coordinateStatus])
+  @@index([isActive, coordinateStatus])
   @@index([latitude, longitude])
   @@index([sido, sigungu])
   @@index([facilityType])
@@ -901,5 +910,38 @@ model GolfFacility {
   @@index([hasScreenGolf])
   @@index([sportType])
   @@index([normalizedName])
+  @@index([lastSeenAt])
   @@map("golf_facilities")
+}
+
+enum PublicGolfFacilitySyncRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+  SKIPPED
+  ABORTED_GUARD
+}
+
+/// Audit log for nationwide LOCALDATA golf facility sync (15-day / 1·16 KST cron).
+model PublicGolfFacilitySyncRun {
+  id              String                          @id @default(uuid()) @db.Uuid
+  status          PublicGolfFacilitySyncRunStatus
+  source          String                          @default("LOCALDATA_GOLF_PRACTICE_RANGE")
+  startedAt       DateTime                        @map("started_at") @db.Timestamptz(6)
+  finishedAt      DateTime?                       @map("finished_at") @db.Timestamptz(6)
+  fetchedPages    Int                             @default(0) @map("fetched_pages")
+  fetchedCount    Int                             @default(0) @map("fetched_count")
+  insertedCount   Int                             @default(0) @map("inserted_count")
+  updatedCount    Int                             @default(0) @map("updated_count")
+  unchangedCount  Int                             @default(0) @map("unchanged_count")
+  inactiveCount   Int                             @default(0) @map("inactive_count")
+  geocodedCount   Int                             @default(0) @map("geocoded_count")
+  failedCount     Int                             @default(0) @map("failed_count")
+  errorSummary    String?                         @map("error_summary")
+  meta            Json?
+  createdAt       DateTime                        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([startedAt])
+  @@index([status, startedAt])
+  @@map("public_golf_facility_sync_runs")
 }

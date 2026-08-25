@@ -76,7 +76,8 @@ export class GolfFacilitiesService {
   }
 
   /**
-   * Viewport markers: active + screen-join-eligible + VALID coords only.
+   * Viewport markers: active + VALID coords (all types including UNKNOWN).
+   * Classification / isScreenJoinEligible is metadata only — never filters map.
    * Side-effect free (no Venue writes).
    */
   async listInBounds(input: {
@@ -110,7 +111,6 @@ export class GolfFacilitiesService {
     const rows = await this.prisma.golfFacility.findMany({
       where: {
         isActive: true,
-        isScreenJoinEligible: true,
         coordinateStatus: 'VALID',
         latitude: { gte: south, lte: north },
         longitude: { gte: west, lte: east },
@@ -121,15 +121,13 @@ export class GolfFacilitiesService {
     });
 
     const truncated = rows.length > limit;
-    const items = (truncated ? rows.slice(0, limit) : rows).map((r) =>
-      this.toMapDto(r, { requireSelectable: true }),
-    );
+    const items = (truncated ? rows.slice(0, limit) : rows).map((r) => this.toMapDto(r));
 
     return { items, truncated, limit };
   }
 
   /**
-   * Text eligible (CONFIRMED/join-eligible) facilities by name/address region.
+   * Text active facilities by name/address region (all types including UNKNOWN).
    * May include MISSING coords (selectable=false). No Venue side effects.
    */
   async search(input: {
@@ -157,9 +155,6 @@ export class GolfFacilitiesService {
     const rows = await this.prisma.golfFacility.findMany({
       where: {
         isActive: true,
-        isScreenJoinEligible: true,
-        // Eligible set is CONFIRMED screen joins; keep explicit for safety.
-        screenStatus: 'CONFIRMED',
         OR: [
           { displayName: { contains: q, mode: 'insensitive' } },
           { sourceName: { contains: q, mode: 'insensitive' } },
@@ -218,11 +213,8 @@ export class GolfFacilitiesService {
       });
     }
 
-    if (
-      !facility.isActive ||
-      !facility.isScreenJoinEligible ||
-      facility.sportType !== 'GOLF'
-    ) {
+    // All active public golf facilities may create Join (classification is metadata).
+    if (!facility.isActive) {
       throw new BadRequestException({
         code: 'FACILITY_NOT_JOIN_ELIGIBLE',
         message: '조인 장소로 활성화할 수 없는 시설입니다.',
@@ -307,19 +299,13 @@ export class GolfFacilitiesService {
     }
   }
 
-  private toMapDto(
-    row: FacilityRow,
-    opts?: { requireSelectable?: boolean },
-  ): GolfFacilityMapDto {
+  private toMapDto(row: FacilityRow): GolfFacilityMapDto {
     const hasValidCoords =
       row.coordinateStatus === 'VALID' &&
       row.latitude != null &&
       row.longitude != null;
-    const selectable = hasValidCoords && row.isScreenJoinEligible;
-
-    if (opts?.requireSelectable && !selectable) {
-      // Bounds path should never hit this; guard anyway.
-    }
+    // Classification is metadata only — Join/select requires active + VALID coords.
+    const selectable = hasValidCoords;
 
     return {
       id: row.id,
