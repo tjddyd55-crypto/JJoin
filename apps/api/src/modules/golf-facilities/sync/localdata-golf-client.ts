@@ -46,9 +46,20 @@ export async function fetchLocaldataGolfPage(input: {
   url.searchParams.set('type', 'json');
 
   const fetchImpl = input.fetchImpl ?? fetch;
-  const res = await fetchImpl(url.toString(), {
-    headers: { Accept: 'application/json' },
-  });
+  let res: Response;
+  try {
+    res = await fetchImpl(url.toString(), {
+      headers: { Accept: 'application/json' },
+    });
+  } catch (e) {
+    const cause =
+      e instanceof Error && 'cause' in e && e.cause instanceof Error
+        ? `${e.cause.name}:${e.cause.message}`
+        : e instanceof Error
+          ? e.message
+          : String(e);
+    throw new Error(`LOCALDATA_FETCH_FAILED:${cause}`);
+  }
   if (!res.ok) {
     throw new Error(`LOCALDATA_HTTP_${res.status}`);
   }
