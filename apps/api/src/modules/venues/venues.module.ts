@@ -1,6 +1,8 @@
 ﻿import { Module } from '@nestjs/common';
 import { VenuesController } from './venues.controller';
+import { MeVenuesController } from './me-venues.controller';
 import { VenuesService } from './venues.service';
+import { MeVenuesService } from './me-venues.service';
 import { VENUE_SEARCH_PROVIDER } from '../../providers/venue-search.types';
 import { resolveVenueProviderMode } from '../../providers/venue-search.config';
 import { MockVenueSearchAdapter } from '../../providers/mock-venue-search.adapter';
@@ -8,7 +10,7 @@ import { KakaoLocalVenueSearchAdapter } from '../../providers/kakao-local-venue-
 import { venueSearchConfig } from '../../providers/venue-search.config';
 
 @Module({
-  controllers: [VenuesController],
+  controllers: [VenuesController, MeVenuesController],
   providers: [
     MockVenueSearchAdapter,
     KakaoLocalVenueSearchAdapter,
@@ -32,7 +34,8 @@ import { venueSearchConfig } from '../../providers/venue-search.config';
       },
     },
     VenuesService,
+    MeVenuesService,
   ],
-  exports: [VenuesService, VENUE_SEARCH_PROVIDER],
+  exports: [VenuesService, MeVenuesService, VENUE_SEARCH_PROVIDER],
 })
 export class VenuesModule {}

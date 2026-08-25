@@ -45,6 +45,7 @@ import {
   InsufficientBalanceError,
 } from '../wallet/coin-ledger.service';
 import { SettlementService } from '../settlement/settlement.service';
+import { MeVenuesService } from '../venues/me-venues.service';
 import {
   CoinPolicyDisabledError,
   resolveDefaultRewardPerParticipant,
@@ -65,6 +66,7 @@ export class JoinsService {
     private readonly settlement: SettlementService,
     private readonly accounts: UserAccountService,
     private readonly notifications: NotificationEventService,
+    private readonly meVenues: MeVenuesService,
   ) {}
 
   ping() {
@@ -179,6 +181,7 @@ export class JoinsService {
 
     const joinId = randomUUID();
     const idemBase = clientIdempotencyKey ?? joinId;
+    let createdVenueId: string | null = null;
 
     try {
       await this.prisma.$transaction(async (tx) => {
@@ -237,6 +240,8 @@ export class JoinsService {
             },
           });
         }
+
+        createdVenueId = venue.id;
 
         const wallet = await this.ledger.getOrCreateWallet(hostUserId, coinAsset.id, tx);
         const locked = await this.ledger.lockWallet(tx, wallet.id);
@@ -333,6 +338,10 @@ export class JoinsService {
       String(updated.availableBalance),
       String(updated.heldBalance),
     );
+
+    if (createdVenueId) {
+      await this.meVenues.touchRecent(hostUserId, createdVenueId);
+    }
 
     return this.getDetail(joinId, hostUserId);
   }

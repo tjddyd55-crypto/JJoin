@@ -5,9 +5,10 @@ import { WalletModule } from '../wallet/wallet.module';
 import { SettlementModule } from '../settlement/settlement.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { UsersModule } from '../users/users.module';
+import { VenuesModule } from '../venues/venues.module';
 
 @Module({
-  imports: [WalletModule, SettlementModule, UsersModule, NotificationsModule],
+  imports: [WalletModule, SettlementModule, UsersModule, NotificationsModule, VenuesModule],
   controllers: [JoinsController],
   providers: [JoinsService],
   exports: [JoinsService],
