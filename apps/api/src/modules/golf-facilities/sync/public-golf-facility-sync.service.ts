@@ -188,7 +188,8 @@ export class PublicGolfFacilitySyncService {
       } else {
         const report: PublicGolfSyncReport = {
           status: 'SKIPPED',
-          runId: running.id,
+          // Not a self-lock: report the *blocking* RUNNING row id only in meta.
+          runId: null,
           fetchedPages: 0,
           fetchedCount: 0,
           insertedCount: 0,
