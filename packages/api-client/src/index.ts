@@ -49,6 +49,15 @@ import {
   type AdminManualIssuanceResponse,
   type AdminUserCoinHistoryDto,
   type CoinIssuanceType,
+  type DiscoverJoinsResponse,
+  type DiscoverWeeklyCountsResponse,
+  type AdminDistrictCatalogResponse,
+  type UserJoinRegionPreferenceListResponse,
+  type UserJoinRegionPreferenceDto,
+  type UpsertUserJoinRegionPreferenceRequest,
+  type JoinDiscoveryRegionMode,
+  type JoinDiscoverySort,
+  type JoinDiscoveryJoinability,
 } from '@jjoin/types';
 
 export type ApiClientConfig = {
@@ -350,6 +359,13 @@ export class ApiClient {
     east: number;
     west: number;
     limit?: number;
+    date?: string;
+    regionMode?: JoinDiscoveryRegionMode;
+    sido?: string;
+    sigungu?: string;
+    lat?: number;
+    lng?: number;
+    radiusMeters?: number;
   }): Promise<GolfFacilityBoundsResponse> {
     const params = new URLSearchParams();
     params.set('north', String(query.north));
@@ -357,10 +373,100 @@ export class ApiClient {
     params.set('east', String(query.east));
     params.set('west', String(query.west));
     if (query.limit != null) params.set('limit', String(query.limit));
+    if (query.date) params.set('date', query.date);
+    if (query.regionMode) params.set('regionMode', query.regionMode);
+    if (query.sido) params.set('sido', query.sido);
+    if (query.sigungu) params.set('sigungu', query.sigungu);
+    if (query.lat != null) params.set('lat', String(query.lat));
+    if (query.lng != null) params.set('lng', String(query.lng));
+    if (query.radiusMeters != null) {
+      params.set('radiusMeters', String(query.radiusMeters));
+    }
     const res = await request(
       `${this.config.baseUrl}/golf-facilities?${params.toString()}`,
       { headers: await this.headers(true) },
     );
+    return parseJson(res);
+  }
+
+  async getDiscoverJoins(
+    query: {
+      date: string;
+      regionMode: JoinDiscoveryRegionMode;
+      lat?: number;
+      lng?: number;
+      radiusMeters?: number;
+      sido?: string;
+      sigungu?: string;
+      sort?: JoinDiscoverySort;
+      joinability?: JoinDiscoveryJoinability;
+    },
+    signal?: AbortSignal,
+  ): Promise<DiscoverJoinsResponse> {
+    const params = new URLSearchParams();
+    Object.entries(query).forEach(([k, v]) => {
+      if (v != null && v !== '') params.set(k, String(v));
+    });
+    const res = await request(
+      `${this.config.baseUrl}/joins/discover?${params.toString()}`,
+      { headers: await this.headers(true), signal },
+    );
+    return parseJson(res);
+  }
+
+  async getDiscoverWeeklyCounts(
+    query: {
+      weekStart: string;
+      regionMode: JoinDiscoveryRegionMode;
+      lat?: number;
+      lng?: number;
+      radiusMeters?: number;
+      sido?: string;
+      sigungu?: string;
+    },
+    signal?: AbortSignal,
+  ): Promise<DiscoverWeeklyCountsResponse> {
+    const params = new URLSearchParams();
+    Object.entries(query).forEach(([k, v]) => {
+      if (v != null && v !== '') params.set(k, String(v));
+    });
+    const res = await request(
+      `${this.config.baseUrl}/joins/discover/weekly?${params.toString()}`,
+      { headers: await this.headers(true), signal },
+    );
+    return parseJson(res);
+  }
+
+  async getRegionDistricts(): Promise<AdminDistrictCatalogResponse> {
+    const res = await request(`${this.config.baseUrl}/regions/districts`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getMyJoinRegions(): Promise<UserJoinRegionPreferenceListResponse> {
+    const res = await request(`${this.config.baseUrl}/me/join-regions`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async addMyJoinRegion(
+    body: UpsertUserJoinRegionPreferenceRequest,
+  ): Promise<UserJoinRegionPreferenceDto> {
+    const res = await request(`${this.config.baseUrl}/me/join-regions`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async removeMyJoinRegion(id: string): Promise<{ ok: true }> {
+    const res = await request(`${this.config.baseUrl}/me/join-regions/${id}`, {
+      method: 'DELETE',
+      headers: await this.headers(true),
+    });
     return parseJson(res);
   }
 

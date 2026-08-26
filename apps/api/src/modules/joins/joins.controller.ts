@@ -4,15 +4,20 @@
   Get,
   Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import type { CreateJoinRequest, JoinCoinPreviewRequest } from '@jjoin/types';
 import { JoinsService } from './joins.service';
+import { JoinDiscoveryService } from './join-discovery.service';
 import { CurrentUserId, MockAuthGuard } from '../../common/mock-auth.guard';
 
 @Controller('joins')
 export class JoinsController {
-  constructor(private readonly service: JoinsService) {}
+  constructor(
+    private readonly service: JoinsService,
+    private readonly discovery: JoinDiscoveryService,
+  ) {}
 
   @Get('_meta')
   meta() {
@@ -37,6 +42,59 @@ export class JoinsController {
     return this.service.myJoins(userId);
   }
 
+  /** Must be registered before `@Get(':joinId')`. */
+  @Get('discover')
+  @UseGuards(MockAuthGuard)
+  discover(
+    @CurrentUserId() userId: string,
+    @Query('date') date?: string,
+    @Query('regionMode') regionMode?: string,
+    @Query('lat') lat?: string,
+    @Query('lng') lng?: string,
+    @Query('radiusMeters') radiusMeters?: string,
+    @Query('sido') sido?: string,
+    @Query('sigungu') sigungu?: string,
+    @Query('sort') sort?: string,
+    @Query('joinability') joinability?: string,
+  ) {
+    return this.discovery.discover(userId, {
+      date,
+      regionMode,
+      lat: optionalNum(lat),
+      lng: optionalNum(lng),
+      radiusMeters: optionalNum(radiusMeters),
+      sido,
+      sigungu,
+      sort,
+      joinability,
+    });
+  }
+
+  @Get('discover/weekly')
+  @UseGuards(MockAuthGuard)
+  discoverWeekly(
+    @CurrentUserId() userId: string,
+    @Query('weekStart') weekStart?: string,
+    @Query('date') date?: string,
+    @Query('regionMode') regionMode?: string,
+    @Query('lat') lat?: string,
+    @Query('lng') lng?: string,
+    @Query('radiusMeters') radiusMeters?: string,
+    @Query('sido') sido?: string,
+    @Query('sigungu') sigungu?: string,
+  ) {
+    return this.discovery.weeklyCounts(userId, {
+      weekStart,
+      date,
+      regionMode,
+      lat: optionalNum(lat),
+      lng: optionalNum(lng),
+      radiusMeters: optionalNum(radiusMeters),
+      sido,
+      sigungu,
+    });
+  }
+
   @Get(':joinId')
   @UseGuards(MockAuthGuard)
   detail(@Param('joinId') joinId: string, @CurrentUserId() userId: string) {
@@ -58,4 +116,10 @@ export class JoinsController {
   ) {
     return this.service.approve(joinId, participantId, userId);
   }
+}
+
+function optionalNum(value?: string): number | undefined {
+  if (value == null || value === '') return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
 }
