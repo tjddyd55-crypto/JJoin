@@ -3,7 +3,6 @@
  * Cron runner and Nest stay thin; this module owns data logic.
  */
 import { Prisma, type PrismaClient } from '@prisma/client';
-import proj4 from 'proj4';
 import {
   fetchAllLocaldataGolfFacilities,
   type LocaldataGolfRawItem,
@@ -14,14 +13,11 @@ import {
   normalizeLocaldataGolfItem,
   type NormalizedGolfFacility,
 } from './facility-normalize';
+import {
+  convertGolfTmToWgs84,
+  normalizeAddressForCompare,
+} from './golf-tm-crs';
 
-proj4.defs(
-  'EPSG:5174',
-  '+proj=tmerc +lat_0=38 +lon_0=127 +k=1 +x_0=200000 +y_0=500000 +ellps=bessel +units=m +no_defs +towgs84=-115.80,474.99,674.11,1.16,-2.31,-1.63,6.43',
-);
-
-const KR_LAT = [33, 39] as const;
-const KR_LNG = [124, 132] as const;
 const MISS_INACTIVE_THRESHOLD = 3;
 const LOCK_STALE_MS = 2 * 60 * 60 * 1000;
 const DEFAULT_MIN_FETCHED = 5000;
@@ -78,22 +74,6 @@ export function shouldRunOnKstCalendar(now = new Date()): boolean {
   return d === 1 || d === 16;
 }
 
-function convertTm(tmX: number, tmY: number): { lat: number; lng: number; ok: boolean } {
-  try {
-    const [lng, lat] = proj4('EPSG:5174', 'EPSG:4326', [tmX, tmY]) as [number, number];
-    const ok =
-      Number.isFinite(lat) &&
-      Number.isFinite(lng) &&
-      lat >= KR_LAT[0] &&
-      lat <= KR_LAT[1] &&
-      lng >= KR_LNG[0] &&
-      lng <= KR_LNG[1];
-    return { lat, lng, ok };
-  } catch {
-    return { lat: 0, lng: 0, ok: false };
-  }
-}
-
 function dec(n: number | null): Prisma.Decimal | null {
   if (n == null || !Number.isFinite(n)) return null;
   return new Prisma.Decimal(n);
@@ -132,16 +112,6 @@ function sourceFingerprint(row: {
     screenStatus: row.screenStatus,
     isActive: row.isActive,
   });
-}
-
-function sameTm(
-  aX: number | Prisma.Decimal | null | undefined,
-  aY: number | Prisma.Decimal | null | undefined,
-  bX: number | null,
-  bY: number | null,
-): boolean {
-  if (aX == null || aY == null || bX == null || bY == null) return false;
-  return Math.abs(Number(aX) - bX) < 0.001 && Math.abs(Number(aY) - bY) < 0.001;
 }
 
 export class PublicGolfFacilitySyncService {
@@ -407,27 +377,58 @@ export class PublicGolfFacilitySyncService {
               latitude: true,
               longitude: true,
               coordinateStatus: true,
+              coordinateSource: true,
+              sourceRoadAddress: true,
+              sourceLotAddress: true,
               sourceTmX: true,
               sourceTmY: true,
             },
           });
-          const canReuse =
+
+          const addressUnchanged =
+            !!existing &&
+            normalizeAddressForCompare(existing.sourceRoadAddress) ===
+              normalizeAddressForCompare(row.sourceRoadAddress) &&
+            normalizeAddressForCompare(existing.sourceLotAddress) ===
+              normalizeAddressForCompare(row.sourceLotAddress);
+
+          // Canonical address-geocode corrections must survive public TM re-import.
+          if (
             existing &&
-            existing.coordinateStatus === 'VALID' &&
+            existing.coordinateSource === 'ADDRESS_GEOCODED' &&
+            (existing.coordinateStatus === 'CORRECTED' ||
+              existing.coordinateStatus === 'VALID') &&
             existing.latitude != null &&
             existing.longitude != null &&
-            sameTm(existing.sourceTmX, existing.sourceTmY, row.sourceTmX, row.sourceTmY);
-
-          if (canReuse) {
+            addressUnchanged
+          ) {
+            const conv = convertGolfTmToWgs84(row.sourceTmX, row.sourceTmY);
             row = {
               ...row,
-              latitude: Number(existing!.latitude),
-              longitude: Number(existing!.longitude),
-              coordinateSource: 'GOV_TM_CONVERTED',
-              coordinateStatus: 'VALID',
+              sourceWgsLatitude: conv.ok ? conv.lat : null,
+              sourceWgsLongitude: conv.ok ? conv.lng : null,
+              latitude: Number(existing.latitude),
+              longitude: Number(existing.longitude),
+              coordinateSource: 'ADDRESS_GEOCODED',
+              coordinateStatus: existing.coordinateStatus,
             };
+            if (conv.ok) geocoded += 1;
+          } else if (
+            existing &&
+            existing.coordinateSource === 'ADDRESS_GEOCODED' &&
+            !addressUnchanged
+          ) {
+            // Address changed under a prior correction — mark for revalidation; refresh TM→WGS.
+            const conv = convertGolfTmToWgs84(row.sourceTmX, row.sourceTmY);
+            row = applyTmConversion(row, conv.lat, conv.lng, conv.ok);
+            row = {
+              ...row,
+              coordinateStatus: 'REVIEW',
+            };
+            if (conv.ok) geocoded += 1;
           } else {
-            const conv = convertTm(row.sourceTmX, row.sourceTmY);
+            // Always recompute from TM with current CRS (do not reuse stale 5174 WGS).
+            const conv = convertGolfTmToWgs84(row.sourceTmX, row.sourceTmY);
             row = applyTmConversion(row, conv.lat, conv.lng, conv.ok);
             if (conv.ok) geocoded += 1;
           }
@@ -480,6 +481,8 @@ export class PublicGolfFacilitySyncService {
           sigungu: row.sigungu,
           sourceTmX: dec(row.sourceTmX),
           sourceTmY: dec(row.sourceTmY),
+          sourceWgsLatitude: dec(row.sourceWgsLatitude),
+          sourceWgsLongitude: dec(row.sourceWgsLongitude),
           latitude: dec(row.latitude),
           longitude: dec(row.longitude),
           coordinateSource: row.coordinateSource,
@@ -562,6 +565,8 @@ export class PublicGolfFacilitySyncService {
         sigungu: row.sigungu,
         sourceTmX: dec(row.sourceTmX),
         sourceTmY: dec(row.sourceTmY),
+        sourceWgsLatitude: dec(row.sourceWgsLatitude),
+        sourceWgsLongitude: dec(row.sourceWgsLongitude),
         latitude: dec(row.latitude),
         longitude: dec(row.longitude),
         coordinateSource: row.coordinateSource,

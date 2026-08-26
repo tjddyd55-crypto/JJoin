@@ -34,3 +34,11 @@ apps/mobile/google-services.json
 
 # LOCALDATA golf facility research snapshots / staging (do not commit)
 data/golf-practice-ranges/
+
+.env.coord
+.tmp-railway-vars.json
+artifacts/golf-coord/
+
+
+.tmp-pg-vars.json
+

@@ -111,7 +111,7 @@ export class GolfFacilitiesService {
     const rows = await this.prisma.golfFacility.findMany({
       where: {
         isActive: true,
-        coordinateStatus: 'VALID',
+        coordinateStatus: { in: ['VALID', 'CORRECTED'] },
         latitude: { gte: south, lte: north },
         longitude: { gte: west, lte: east },
       },
@@ -222,7 +222,8 @@ export class GolfFacilitiesService {
     }
 
     if (
-      facility.coordinateStatus !== 'VALID' ||
+      (facility.coordinateStatus !== 'VALID' &&
+        facility.coordinateStatus !== 'CORRECTED') ||
       facility.latitude == null ||
       facility.longitude == null
     ) {
@@ -301,10 +302,10 @@ export class GolfFacilitiesService {
 
   private toMapDto(row: FacilityRow): GolfFacilityMapDto {
     const hasValidCoords =
-      row.coordinateStatus === 'VALID' &&
+      (row.coordinateStatus === 'VALID' || row.coordinateStatus === 'CORRECTED') &&
       row.latitude != null &&
       row.longitude != null;
-    // Classification is metadata only — Join/select requires active + VALID coords.
+    // Classification is metadata only — Join/select requires active + usable coords.
     const selectable = hasValidCoords;
 
     return {

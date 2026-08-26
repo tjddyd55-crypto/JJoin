@@ -19,12 +19,16 @@
     "prisma:migrate:status": "pnpm exec prisma migrate status --schema=prisma/schema.prisma",
     "start:api:prod": "node apps/api/dist/main.js",
     "sync:public-golf-facilities": "pnpm exec tsx scripts/run-public-golf-facility-sync.ts",
-    "sync:public-golf-facilities:force": "pnpm exec tsx scripts/run-public-golf-facility-sync.ts --force"
+    "sync:public-golf-facilities:force": "pnpm exec tsx scripts/run-public-golf-facility-sync.ts --force",
+    "golf:coordinates:audit": "pnpm exec tsx scripts/golf-coordinates-correct.ts",
+    "golf:coordinates:correct": "pnpm exec tsx scripts/golf-coordinates-correct.ts",
+    "test:golf-tm-crs": "pnpm exec tsx scripts/golf-tm-crs.node-test.ts"
   },
   "devDependencies": {
     "prettier": "^3.4.2",
     "prisma": "^6.19.3",
     "proj4": "^2.21.0",
+    "tsx": "^4.19.2",
     "typescript": "^5.7.3"
   }
 }

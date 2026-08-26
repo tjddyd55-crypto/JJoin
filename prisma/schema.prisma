@@ -836,6 +836,7 @@ enum GolfFacilityPhoneStatus {
 
 enum CoordinateSource {
   GOV_TM_CONVERTED
+  ADDRESS_GEOCODED
   NAVER_GEOCODED
   MANUAL
   UNKNOWN
@@ -843,6 +844,8 @@ enum CoordinateSource {
 
 enum CoordinateStatus {
   VALID
+  CORRECTED
+  REVIEW
   INVALID
   MISSING
 }
@@ -880,6 +883,11 @@ model GolfFacility {
   sourceTmX Decimal? @map("source_tm_x") @db.Decimal(18, 6)
   sourceTmY Decimal? @map("source_tm_y") @db.Decimal(18, 6)
 
+  /// Last public-data TM→WGS84 result (preserved when canonical lat/lng is address-corrected).
+  sourceWgsLatitude  Decimal? @map("source_wgs_latitude") @db.Decimal(10, 7)
+  sourceWgsLongitude Decimal? @map("source_wgs_longitude") @db.Decimal(10, 7)
+
+  /// Canonical map/API coordinates (SSOT for bounds, distance, venue activation).
   latitude  Decimal? @db.Decimal(10, 7)
   longitude Decimal? @db.Decimal(10, 7)
 

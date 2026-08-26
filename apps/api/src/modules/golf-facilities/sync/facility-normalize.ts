@@ -32,10 +32,18 @@ export type NormalizedGolfFacility = {
   sigungu: string | null;
   sourceTmX: number | null;
   sourceTmY: number | null;
+  /** Public TM→WGS84 (may differ from canonical lat/lng after address correction). */
+  sourceWgsLatitude: number | null;
+  sourceWgsLongitude: number | null;
   latitude: number | null;
   longitude: number | null;
-  coordinateSource: 'GOV_TM_CONVERTED' | 'UNKNOWN';
-  coordinateStatus: 'VALID' | 'INVALID' | 'MISSING';
+  coordinateSource:
+    | 'GOV_TM_CONVERTED'
+    | 'ADDRESS_GEOCODED'
+    | 'NAVER_GEOCODED'
+    | 'MANUAL'
+    | 'UNKNOWN';
+  coordinateStatus: 'VALID' | 'CORRECTED' | 'REVIEW' | 'INVALID' | 'MISSING';
   facilityType:
     | 'SCREEN_GOLF'
     | 'MIXED_GOLF_FACILITY'
@@ -319,6 +327,8 @@ export function normalizeLocaldataGolfItem(
     sigungu,
     sourceTmX: tmX,
     sourceTmY: tmY,
+    sourceWgsLatitude: null,
+    sourceWgsLongitude: null,
     latitude: null,
     longitude: null,
     coordinateSource: 'UNKNOWN',
@@ -347,6 +357,8 @@ export function applyTmConversion(
   if (!ok || lat == null || lng == null) {
     return {
       ...row,
+      sourceWgsLatitude: null,
+      sourceWgsLongitude: null,
       latitude: null,
       longitude: null,
       coordinateSource: 'UNKNOWN',
@@ -355,6 +367,8 @@ export function applyTmConversion(
   }
   return {
     ...row,
+    sourceWgsLatitude: lat,
+    sourceWgsLongitude: lng,
     latitude: lat,
     longitude: lng,
     coordinateSource: 'GOV_TM_CONVERTED',
