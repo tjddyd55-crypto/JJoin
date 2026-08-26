@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
   venueName: { flex: 1 },
   loader: { marginVertical: spacing.sm },
   otherLabel: { marginTop: spacing.xs },
-  actionCol: { gap: spacing.sm },
+  actionCol: { gap: spacing.md },
   listSection: { gap: spacing.xxs },
   listRow: {
     paddingVertical: spacing.xs,
@@ -483,14 +483,14 @@ const styles = StyleSheet.create({
   },
   sheet: {
     padding: spacing.lg,
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   sheetTitle: { marginBottom: spacing.xs },
   modal: {
     flex: 1,
     padding: spacing.lg,
     paddingTop: spacing.xl,
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   input: {
     borderWidth: 1,

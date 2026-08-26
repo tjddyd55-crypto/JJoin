@@ -8,7 +8,7 @@ import {
   type ExploreMapResponse,
   type ExploreVenueDto,
 } from '@jjoin/types';
-import { defaultVenueSearchQuery } from '@jjoin/domain';
+import { defaultVenueSearchQuery, aggregateFacilityJoinActivity } from '@jjoin/domain';
 import { exploreConfig } from '../presence/presence.config';
 import { haversineMeters } from '../presence/privacy-location';
 import { PresenceService } from '../presence/presence.service';
@@ -88,11 +88,16 @@ export class ExploreService {
         const base = this.toVenueDto(h, centerLat, centerLng);
         const linked = activated.get(h.providerPlaceId);
         const previews = dbJoins.get(h.providerPlaceId) ?? [];
+        const activity = aggregateFacilityJoinActivity(previews);
         const isActivated = Boolean(linked);
         return {
           ...base,
           joinPreviews: previews,
-          openJoinCount: previews.length,
+          openJoinCount: activity.openJoinCount,
+          todayJoinCount: activity.todayJoinCount,
+          ongoingJoinCount: activity.ongoingJoinCount,
+          hasTodayJoin: activity.hasTodayJoin,
+          hasOngoingJoin: activity.hasOngoingJoin,
           canCreateJoin: true,
           jjoinVenueId: linked?.id ?? null,
           isActivated,

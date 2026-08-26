@@ -27,9 +27,14 @@ import {
   SCREEN_GOLF_DURATION_RULE,
   assertPublicProfileHasNoPrivateFields,
   canAffordJoinCreate,
+  compareJoinDiscoveryPriority,
   computeConfirmedPlayerCount,
   computeJoinCoinRequirement,
+  DISCOVERY_JOIN_STATUSES,
   estimateEndAt,
+  aggregateFacilityJoinActivity,
+  isOngoingJoin,
+  isTodayValidJoin,
   mapGenderDisplay,
   nextJoinStatusAfterRoster,
   subCoinAmounts,
@@ -380,7 +385,7 @@ export class JoinsService {
           host: { include: { profile: true } },
           participants: true,
         },
-        orderBy: { startAt: 'asc' },
+        orderBy: { createdAt: 'desc' },
       }),
       this.prisma.joinParticipant.findMany({
         where: { userId, role: 'PARTICIPANT' },
@@ -568,23 +573,40 @@ export class JoinsService {
     return this.getDetail(joinId, hostUserId);
   }
 
-  /** Phase F “오늘 조인”: JJOIN venues that currently have open joins. */
+  /** Phase F “오늘 조인”: discovery statuses, today-valid or ongoing, not ended. */
   async listOpenJoinVenuesNear(input: {
     centerLat: number;
     centerLng: number;
   }): Promise<ExploreVenueDto[]> {
+    const now = new Date();
     const joins = await this.prisma.join.findMany({
       where: {
-        status: { in: ['OPEN', 'FULL'] },
-        startAt: { gte: new Date(Date.now() - 24 * 60 * 60_000) },
+        status: { in: [...DISCOVERY_JOIN_STATUSES] },
+        scheduledEndAt: { gt: now },
       },
       include: {
         venue: true,
         host: { include: { profile: true } },
       },
       orderBy: { startAt: 'asc' },
-      take: 40,
+      take: 80,
     });
+
+    const discoveryJoins = joins.filter(
+      (join) =>
+        isOngoingJoin({
+          status: join.status,
+          startAt: join.startAt,
+          scheduledEndAt: join.scheduledEndAt,
+          now,
+        }) ||
+        isTodayValidJoin({
+          status: join.status,
+          startAt: join.startAt,
+          scheduledEndAt: join.scheduledEndAt,
+          now,
+        }),
+    );
 
     const byVenue = new Map<
       string,
@@ -594,28 +616,22 @@ export class JoinsService {
       }
     >();
 
-    for (const join of joins) {
+    for (const join of discoveryJoins.sort((a, b) =>
+      compareJoinDiscoveryPriority(a, b, now),
+    )) {
       const key = join.venueId;
       const entry = byVenue.get(key) ?? {
         venue: join.venue,
         previews: [],
       };
-      entry.previews.push({
-        joinId: join.id,
-        startAt: join.startAt.toISOString(),
-        scheduledEndAt: join.scheduledEndAt.toISOString(),
-        currentParticipants: join.confirmedPlayerCount,
-        maxParticipants: join.plannedPlayerCount,
-        rewardCoin: String(join.rewardPerParticipant),
-        hostNickname: join.host.profile?.nickname ?? '호스트',
-        hostVerified: true,
-      });
+      entry.previews.push(this.toJoinPreview(join));
       byVenue.set(key, entry);
     }
 
     return [...byVenue.values()].map(({ venue, previews }) => {
       const lat = Number(venue.latitude);
       const lng = Number(venue.longitude);
+      const activity = aggregateFacilityJoinActivity(previews, now);
       return {
         venueId: venue.id,
         name: venue.name,
@@ -630,7 +646,11 @@ export class JoinsService {
         distanceMeters: Math.round(
           haversineMeters(input.centerLat, input.centerLng, lat, lng),
         ),
-        openJoinCount: previews.length,
+        openJoinCount: activity.openJoinCount,
+        todayJoinCount: activity.todayJoinCount,
+        ongoingJoinCount: activity.ongoingJoinCount,
+        hasTodayJoin: activity.hasTodayJoin,
+        hasOngoingJoin: activity.hasOngoingJoin,
         joinPreviews: previews,
         source: 'JJOIN' as const,
         canCreateJoin: true,
@@ -638,7 +658,7 @@ export class JoinsService {
     });
   }
 
-  /** Merge DB open joins onto mock venue fixtures by providerPlaceId. */
+  /** Merge DB discovery joins onto venue fixtures by providerPlaceId. */
   async openJoinsByProviderPlaceIds(
     providerPlaceIds: string[],
     provider: string = 'MOCK',
@@ -655,11 +675,12 @@ export class JoinsService {
     const venueIds = venues.map((v) => v.id);
     if (venueIds.length === 0) return new Map();
 
+    const now = new Date();
     const joins = await this.prisma.join.findMany({
       where: {
         venueId: { in: venueIds },
-        status: { in: ['OPEN', 'FULL'] },
-        startAt: { gte: new Date(Date.now() - 24 * 60 * 60_000) },
+        status: { in: [...DISCOVERY_JOIN_STATUSES] },
+        scheduledEndAt: { gt: now },
       },
       include: {
         venue: true,
@@ -670,21 +691,55 @@ export class JoinsService {
 
     const byPlace = new Map<string, ExploreJoinPreviewDto[]>();
     for (const join of joins) {
+      if (
+        !isOngoingJoin({
+          status: join.status,
+          startAt: join.startAt,
+          scheduledEndAt: join.scheduledEndAt,
+          now,
+        }) &&
+        !isTodayValidJoin({
+          status: join.status,
+          startAt: join.startAt,
+          scheduledEndAt: join.scheduledEndAt,
+          now,
+        })
+      ) {
+        continue;
+      }
       const placeId = join.venue.providerPlaceId;
       const list = byPlace.get(placeId) ?? [];
-      list.push({
-        joinId: join.id,
-        startAt: join.startAt.toISOString(),
-        scheduledEndAt: join.scheduledEndAt.toISOString(),
-        currentParticipants: join.confirmedPlayerCount,
-        maxParticipants: join.plannedPlayerCount,
-        rewardCoin: String(join.rewardPerParticipant),
-        hostNickname: join.host.profile?.nickname ?? '호스트',
-        hostVerified: true,
-      });
+      list.push(this.toJoinPreview(join));
+      byPlace.set(placeId, list);
+    }
+    for (const [placeId, list] of byPlace) {
+      list.sort((a, b) => compareJoinDiscoveryPriority(a, b, now));
       byPlace.set(placeId, list);
     }
     return byPlace;
+  }
+
+  private toJoinPreview(join: {
+    id: string;
+    status: string;
+    startAt: Date;
+    scheduledEndAt: Date;
+    confirmedPlayerCount: number;
+    plannedPlayerCount: number;
+    rewardPerParticipant: Prisma.Decimal;
+    host: { profile: { nickname: string } | null };
+  }): ExploreJoinPreviewDto {
+    return {
+      joinId: join.id,
+      status: join.status as JoinStatus,
+      startAt: join.startAt.toISOString(),
+      scheduledEndAt: join.scheduledEndAt.toISOString(),
+      currentParticipants: join.confirmedPlayerCount,
+      maxParticipants: join.plannedPlayerCount,
+      rewardCoin: String(join.rewardPerParticipant),
+      hostNickname: join.host.profile?.nickname ?? '호스트',
+      hostVerified: true,
+    };
   }
 
   private toDetail(
