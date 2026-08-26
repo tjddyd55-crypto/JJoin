@@ -132,7 +132,7 @@ export default function CreateScreen() {
   const onPickFromMap = useCallback(() => {
     saveJoinCreateDraft({ players, selectedVenue });
     router.push({
-      pathname: '/(tabs)/explore',
+      pathname: '/(tabs)/screen',
       params: { venuePick: '1' },
     } as Href);
   }, [players, router, selectedVenue]);

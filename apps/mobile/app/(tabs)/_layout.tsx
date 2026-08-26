@@ -10,16 +10,16 @@ import { t } from '@jjoin/i18n';
 
 const TAB_ICONS: Record<string, IconName> = {
   index: 'home',
-  explore: 'map',
-  create: 'create',
-  'my-joins': 'calendar',
+  joins: 'calendar',
+  screen: 'golf',
+  'my-joins': 'people',
   my: 'profile',
 };
 
 const TAB_LABELS: Record<string, string> = {
   index: t('nav.home'),
-  explore: t('nav.explore'),
-  create: t('nav.create'),
+  joins: t('nav.join'),
+  screen: t('nav.screen'),
   'my-joins': t('nav.myJoins'),
   my: t('nav.my'),
 };
@@ -40,9 +40,13 @@ function ClubMinimalTabBar(props: {
   };
 }) {
   const { state, navigation } = props;
+  const visible = state.routes.filter(
+    (route) => route.name !== 'create' && route.name !== 'explore',
+  );
   return (
     <BottomNavigation
-      items={state.routes.map((route, index) => {
+      items={visible.map((route) => {
+        const index = state.routes.findIndex((r) => r.key === route.key);
         const focused = state.index === index;
         return {
           key: route.key,
@@ -73,10 +77,13 @@ export default function TabLayout() {
         screenOptions={{ headerShown: false }}
       >
         <Tabs.Screen name="index" options={{ title: t('nav.home') }} />
-        <Tabs.Screen name="explore" options={{ title: t('nav.explore') }} />
-        <Tabs.Screen name="create" options={{ title: t('nav.create') }} />
+        <Tabs.Screen name="joins" options={{ title: t('nav.join') }} />
+        <Tabs.Screen name="screen" options={{ title: t('nav.screen') }} />
         <Tabs.Screen name="my-joins" options={{ title: t('nav.myJoins') }} />
         <Tabs.Screen name="my" options={{ title: t('nav.my') }} />
+        {/* Hidden routes — keep for deep links / create flow */}
+        <Tabs.Screen name="create" options={{ href: null, title: t('nav.create') }} />
+        <Tabs.Screen name="explore" options={{ href: null, title: t('nav.explore') }} />
       </Tabs>
     </ThemeProvider>
   );

@@ -1,6 +1,15 @@
-import React from 'react';
-import { ExploreDiscoveryScreen } from '../../src/features/explore/discovery/ExploreDiscoveryScreen';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 
-export default function ExploreTab() {
-  return <ExploreDiscoveryScreen />;
+/**
+ * Legacy Explore alias.
+ * - venuePick → 스크린 탭 (장소 선택)
+ * - 그 외 → 조인 탭
+ */
+export default function ExploreAlias() {
+  const params = useLocalSearchParams<{ venuePick?: string }>();
+  const venuePick = params.venuePick === '1' || params.venuePick === 'true';
+  if (venuePick) {
+    return <Redirect href={{ pathname: '/(tabs)/screen', params: { venuePick: '1' } }} />;
+  }
+  return <Redirect href="/(tabs)/joins" />;
 }
