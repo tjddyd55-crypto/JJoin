@@ -2,12 +2,19 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import {
+  Badge,
   Card,
   ScrollScreenFrame,
   Section,
   Spacer,
+  Stack,
   Text,
+  Row,
 } from '@jjoin/design-system';
+import {
+  resolveJoinDiscoveryBadge,
+  resolveJoinDiscoveryKind,
+} from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
 import type { JoinListItemDto, MyJoinsResponse } from '@jjoin/types';
 import { getApiClient } from '../../src/lib/api';
@@ -19,6 +26,7 @@ function joinDetailHref(joinId: string): Href {
 
 function JoinRow({ item, onPress }: { item: JoinListItemDto; onPress: () => void }) {
   const start = new Date(item.startAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+  const badge = resolveJoinDiscoveryBadge(item);
   return (
     <Pressable
       accessibilityRole="button"
@@ -26,20 +34,39 @@ function JoinRow({ item, onPress }: { item: JoinListItemDto; onPress: () => void
       style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}
     >
       <Card variant="interactive" padding="md" style={styles.joinCard}>
-        <Text variant="body" tone="primary">
-          {item.venueName}
-        </Text>
-        <Text variant="caption" tone="secondary">
-          {start}
-        </Text>
-        <Text variant="caption" tone="tertiary">
-          {item.confirmedPlayerCount}/{item.plannedPlayerCount} · {item.status}
-          {item.myParticipationStatus ? ` · 나: ${item.myParticipationStatus}` : ''}
-          {item.pendingApplicantCount > 0 ? ` · 신청 ${item.pendingApplicantCount}` : ''}
-        </Text>
+        <Stack gap="xs">
+          <Row justify="space-between" align="center">
+            <Text variant="body" tone="primary" style={styles.title}>
+              {item.venueName}
+            </Text>
+            <Badge
+              label={badge.label}
+              variant={badge.kind === 'ongoing' ? 'gold' : 'neutral'}
+            />
+          </Row>
+          <Text variant="caption" tone="secondary">
+            {start}
+          </Text>
+          <Text variant="caption" tone="tertiary">
+            {item.confirmedPlayerCount}/{item.plannedPlayerCount}
+            {item.myParticipationStatus ? ` · 나: ${item.myParticipationStatus}` : ''}
+            {item.pendingApplicantCount > 0 ? ` · 신청 ${item.pendingApplicantCount}` : ''}
+          </Text>
+        </Stack>
       </Card>
     </Pressable>
   );
+}
+
+function splitActivePast(items: JoinListItemDto[]) {
+  const active: JoinListItemDto[] = [];
+  const past: JoinListItemDto[] = [];
+  for (const item of items) {
+    const kind = resolveJoinDiscoveryKind(item);
+    if (kind === 'past' || kind === 'inactive') past.push(item);
+    else active.push(item);
+  }
+  return { active, past };
 }
 
 export default function MyJoinsScreen() {
@@ -78,6 +105,9 @@ export default function MyJoinsScreen() {
     }, [section, hostedY, participatingY]),
   );
 
+  const hosted = splitActivePast(data?.hosted ?? []);
+  const participating = splitActivePast(data?.participating ?? []);
+
   return (
     <ScrollScreenFrame ref={scrollRef}>
       <Text variant="screenTitle" tone="primary">
@@ -101,13 +131,36 @@ export default function MyJoinsScreen() {
               없음
             </Text>
           ) : (
-            data?.hosted.map((item) => (
-              <JoinRow
-                key={item.joinId}
-                item={item}
-                onPress={() => router.push(joinDetailHref(item.joinId))}
-              />
-            ))
+            <Stack gap="md">
+              {hosted.active.length > 0 ? (
+                <Stack gap="xs">
+                  <Text variant="meta" tone="secondary">
+                    진행·예정
+                  </Text>
+                  {hosted.active.map((item) => (
+                    <JoinRow
+                      key={item.joinId}
+                      item={item}
+                      onPress={() => router.push(joinDetailHref(item.joinId))}
+                    />
+                  ))}
+                </Stack>
+              ) : null}
+              {hosted.past.length > 0 ? (
+                <Stack gap="xs">
+                  <Text variant="meta" tone="secondary">
+                    지난 조인
+                  </Text>
+                  {hosted.past.map((item) => (
+                    <JoinRow
+                      key={item.joinId}
+                      item={item}
+                      onPress={() => router.push(joinDetailHref(item.joinId))}
+                    />
+                  ))}
+                </Stack>
+              ) : null}
+            </Stack>
           )}
         </Section>
       </View>
@@ -119,13 +172,36 @@ export default function MyJoinsScreen() {
               없음
             </Text>
           ) : (
-            data?.participating.map((item) => (
-              <JoinRow
-                key={item.joinId}
-                item={item}
-                onPress={() => router.push(joinDetailHref(item.joinId))}
-              />
-            ))
+            <Stack gap="md">
+              {participating.active.length > 0 ? (
+                <Stack gap="xs">
+                  <Text variant="meta" tone="secondary">
+                    진행·예정
+                  </Text>
+                  {participating.active.map((item) => (
+                    <JoinRow
+                      key={item.joinId}
+                      item={item}
+                      onPress={() => router.push(joinDetailHref(item.joinId))}
+                    />
+                  ))}
+                </Stack>
+              ) : null}
+              {participating.past.length > 0 ? (
+                <Stack gap="xs">
+                  <Text variant="meta" tone="secondary">
+                    지난 조인
+                  </Text>
+                  {participating.past.map((item) => (
+                    <JoinRow
+                      key={item.joinId}
+                      item={item}
+                      onPress={() => router.push(joinDetailHref(item.joinId))}
+                    />
+                  ))}
+                </Stack>
+              ) : null}
+            </Stack>
           )}
         </Section>
       </View>
@@ -135,6 +211,7 @@ export default function MyJoinsScreen() {
 
 const styles = StyleSheet.create({
   joinCard: {
-    marginBottom: 8,
+    marginBottom: 0,
   },
+  title: { flex: 1, paddingRight: 8 },
 });

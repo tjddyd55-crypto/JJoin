@@ -1,6 +1,6 @@
 import React from 'react';
-import { ExploreMapScreen } from '../../src/features/explore/screens/ExploreMapScreen';
+import { ExploreDiscoveryScreen } from '../../src/features/explore/discovery/ExploreDiscoveryScreen';
 
 export default function ExploreTab() {
-  return <ExploreMapScreen />;
+  return <ExploreDiscoveryScreen />;
 }

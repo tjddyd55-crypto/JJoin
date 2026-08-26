@@ -1,17 +1,43 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import {
+  Badge,
   Button,
   Text,
   BottomSheetFrame,
   Spacer,
+  Stack,
+  Row,
   useTheme,
+  spacing,
 } from '@jjoin/design-system';
 import type { ExploreVenueDto, PublicNearbyUserDto } from '@jjoin/types';
 import type { PresenceVisibility } from '@jjoin/types';
+import { PresenceVisibility as PresenceVisibilityEnum } from '@jjoin/types';
 import { JoinCard } from '../../../ui/patterns/JoinCard';
 import { VenueCard } from '../../../ui/patterns/VenueCard';
 import { VenuePreviewCard } from '../../../ui/patterns/VenuePreviewCard';
+import { useJoinDiscoveryOptional } from '../discovery/JoinDiscoveryContext';
+import { localDayKey } from '@jjoin/domain';
+
+function PresenceStatusBlock({ presence }: { presence: PresenceVisibility }) {
+  const on = presence === PresenceVisibilityEnum.AVAILABLE;
+  return (
+    <Stack gap="xs">
+      <Text variant="meta" tone="tertiary">
+        현재 상태
+      </Text>
+      <Row gap="sm" align="center">
+        <Badge label={on ? '조인 가능 ON' : '조인 쉬는 중'} variant={on ? 'gold' : 'neutral'} />
+      </Row>
+      <Text variant="caption" tone="tertiary">
+        {on
+          ? '주변 사용자가 나를 조인 가능한 상태로 볼 수 있습니다.'
+          : '현재는 조인 가능한 사용자로 표시되지 않습니다.'}
+      </Text>
+    </Stack>
+  );
+}
 
 export function ExploreBottomSheetBody(props: {
   mode: 'PEEK' | 'VENUE' | 'USER' | 'PRESENCE_PRIVACY' | 'PRESENCE_DURATION';
@@ -34,45 +60,54 @@ export function ExploreBottomSheetBody(props: {
   createJoinLabel?: string;
 }) {
   const theme = useTheme();
+  const discovery = useJoinDiscoveryOptional();
+  const selectedDate = discovery?.filter.date;
+  const isSelectedToday =
+    !selectedDate || selectedDate === localDayKey(new Date());
 
   if (props.mode === 'PRESENCE_PRIVACY') {
     return (
       <BottomSheetFrame showHandle={false}>
-        <Text variant="sectionTitle" tone="primary">
-          주변 사용자에게 표시
-        </Text>
-        <Text variant="body" tone="secondary">
-          주변 사용자에게 내 조인 가능 상태를 표시할까요?
-        </Text>
-        <Spacer size="sm" />
-        <View
-          style={[
-            styles.infoCard,
-            {
-              backgroundColor: theme.colors.surface.card,
-              borderColor: theme.colors.border.subtle,
-              borderRadius: theme.radius.md,
-            },
-          ]}
-        >
-          <Text variant="bodyStrong" tone="primary">
-            표시되는 정보
-          </Text>
-          <Text variant="caption" tone="secondary">
-            · 프로필 사진 · 닉네임 · 본인확인 배지
-          </Text>
-          <Text variant="caption" tone="secondary">
-            · 대략 거리 · 스포츠 실력
-          </Text>
-          <Text variant="bodyStrong" tone="primary">
-            표시되지 않음
-          </Text>
-          <Text variant="caption" tone="secondary">
-            · 정확한 위치 · 전화번호 · 실명
-          </Text>
-        </View>
-        <Button label="조인 가능 상태 켜기" onPress={props.onConfirmPrivacy} />
-        <Button label="취소" variant="secondary" onPress={props.onCancelPresence} />
+        <Stack gap="md">
+          <Stack gap="xs">
+            <Text variant="sectionTitle" tone="primary">
+              주변 사용자에게 표시
+            </Text>
+            <Text variant="body" tone="secondary">
+              주변 사용자에게 내 조인 가능 상태를 표시할까요?
+            </Text>
+          </Stack>
+          <View
+            style={[
+              styles.infoCard,
+              {
+                backgroundColor: theme.colors.surface.card,
+                borderColor: theme.colors.border.subtle,
+                borderRadius: theme.radius.md,
+              },
+            ]}
+          >
+            <Text variant="bodyStrong" tone="primary">
+              표시되는 정보
+            </Text>
+            <Text variant="caption" tone="secondary">
+              · 프로필 사진 · 닉네임 · 본인확인 배지
+            </Text>
+            <Text variant="caption" tone="secondary">
+              · 대략 거리 · 스포츠 실력
+            </Text>
+            <Text variant="bodyStrong" tone="primary">
+              표시되지 않음
+            </Text>
+            <Text variant="caption" tone="secondary">
+              · 정확한 위치 · 전화번호 · 실명
+            </Text>
+          </View>
+          <Stack gap="sm">
+            <Button label="조인 가능 상태 켜기" onPress={props.onConfirmPrivacy} />
+            <Button label="취소" variant="secondary" onPress={props.onCancelPresence} />
+          </Stack>
+        </Stack>
       </BottomSheetFrame>
     );
   }
@@ -80,18 +115,21 @@ export function ExploreBottomSheetBody(props: {
   if (props.mode === 'PRESENCE_DURATION') {
     return (
       <BottomSheetFrame showHandle={false}>
-        <Text variant="sectionTitle" tone="primary">
-          지금 조인 가능
-        </Text>
-        <Text variant="body" tone="secondary">
-          공개 시간을 선택하세요. 정확한 위치는 공개되지 않습니다.
-        </Text>
-        <Spacer size="sm" />
-        <View style={styles.row}>
-          <Button label="1시간" variant="secondary" onPress={() => props.onPickDuration('1h')} />
-          <Button label="2시간" onPress={() => props.onPickDuration('2h')} />
-          <Button label="오늘" variant="secondary" onPress={() => props.onPickDuration('today')} />
-        </View>
+        <Stack gap="md">
+          <Stack gap="xs">
+            <Text variant="sectionTitle" tone="primary">
+              지금 조인 가능
+            </Text>
+            <Text variant="body" tone="secondary">
+              공개 시간을 선택하세요. 정확한 위치는 공개되지 않습니다.
+            </Text>
+          </Stack>
+          <Stack gap="sm">
+            <Button label="1시간" variant="secondary" onPress={() => props.onPickDuration('1h')} />
+            <Button label="2시간" onPress={() => props.onPickDuration('2h')} />
+            <Button label="오늘" variant="secondary" onPress={() => props.onPickDuration('today')} />
+          </Stack>
+        </Stack>
       </BottomSheetFrame>
     );
   }
@@ -100,53 +138,74 @@ export function ExploreBottomSheetBody(props: {
     const v = props.selectedVenue;
     const distanceLabel =
       v.distanceMeters != null ? `${(v.distanceMeters / 1000).toFixed(1)}km` : null;
+    const today = v.todayJoinCount ?? 0;
+    const ongoing = v.ongoingJoinCount ?? 0;
+    const dateJoinLabel = isSelectedToday
+      ? `오늘 조인 ${today}개`
+      : `${selectedDate!.slice(5).replace('-', '/')} 조인 ${today}개`;
     return (
       <BottomSheetFrame showHandle={false}>
-        <VenuePreviewCard
-          name={v.name}
-          category={v.categoryName}
-          distanceLabel={distanceLabel}
-          address={v.roadAddress ?? v.regionLabel ?? v.address ?? ''}
-          openJoinCount={v.openJoinCount}
-        />
-        <Spacer size="sm" />
-        {v.joinPreviews.length === 0 ? (
-          <Text variant="caption" tone="tertiary">
-            현재 열린 조인 없음
-          </Text>
-        ) : (
-          v.joinPreviews.map((j) => (
-            <JoinCard
-              key={j.joinId}
-              venue={v.name}
-              startAt={j.startAt}
-              participantCount={j.currentParticipants}
-              plannedPlayerCount={j.maxParticipants}
-              host={j.hostNickname}
-              hostVerified={j.hostVerified}
-              rewardPerParticipant={j.rewardCoin}
-              onPress={() => props.onJoinPress(j.joinId)}
-            />
-          ))
-        )}
-        <Spacer size="sm" />
-        {v.placeUrl ? (
-          <Button label="카카오맵에서 보기" variant="secondary" onPress={props.onVenueDetail} />
-        ) : (
-          <Button label="장소 상세" variant="secondary" onPress={props.onVenueDetail} />
-        )}
-        {v.canCreateJoin ? (
-          <Button
-            label={props.createJoinLabel ?? '여기서 조인 만들기'}
-            onPress={props.onCreateJoin}
+        <Stack gap="md">
+          <VenuePreviewCard
+            name={v.name}
+            category={v.categoryName}
+            distanceLabel={distanceLabel}
+            address={v.roadAddress ?? v.regionLabel ?? v.address ?? ''}
+            openJoinCount={v.openJoinCount}
+            todayJoinCount={today}
+            ongoingJoinCount={ongoing}
           />
-        ) : (
-          <Text variant="caption" tone="tertiary">
-            {v.source === 'GOLF_FACILITY'
-              ? '위치 정보 확인 중인 시설입니다.'
-              : '이 장소에서 조인 만들기는 곧 지원됩니다.'}
-          </Text>
-        )}
+          {v.joinPreviews.length === 0 ? (
+            <Text variant="caption" tone="tertiary">
+              현재 열린 조인 없음
+            </Text>
+          ) : (
+            <Stack gap="sm">
+              {(ongoing > 0 || today > 0) && (
+                <Text variant="meta" tone="secondary">
+                  {[
+                    ongoing > 0 ? `현재 진행 중 ${ongoing}개` : null,
+                    today > 0 ? dateJoinLabel : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </Text>
+              )}
+              {v.joinPreviews.map((j) => (
+                <JoinCard
+                  key={j.joinId}
+                  venue={v.name}
+                  startAt={j.startAt}
+                  participantCount={j.currentParticipants}
+                  plannedPlayerCount={j.maxParticipants}
+                  host={j.hostNickname}
+                  hostVerified={j.hostVerified}
+                  rewardPerParticipant={j.rewardCoin}
+                  onPress={() => props.onJoinPress(j.joinId)}
+                />
+              ))}
+            </Stack>
+          )}
+          <Stack gap="sm">
+            {v.placeUrl ? (
+              <Button label="카카오맵에서 보기" variant="secondary" onPress={props.onVenueDetail} />
+            ) : (
+              <Button label="장소 상세" variant="secondary" onPress={props.onVenueDetail} />
+            )}
+            {v.canCreateJoin ? (
+              <Button
+                label={props.createJoinLabel ?? '여기서 조인 만들기'}
+                onPress={props.onCreateJoin}
+              />
+            ) : (
+              <Text variant="caption" tone="tertiary">
+                {v.source === 'GOLF_FACILITY'
+                  ? '위치 정보 확인 중인 시설입니다.'
+                  : '이 장소에서 조인 만들기는 곧 지원됩니다.'}
+              </Text>
+            )}
+          </Stack>
+        </Stack>
       </BottomSheetFrame>
     );
   }
@@ -155,68 +214,78 @@ export function ExploreBottomSheetBody(props: {
     const u = props.selectedUser;
     return (
       <BottomSheetFrame showHandle={false}>
-        <Text variant="sectionTitle" tone="primary">
-          {u.nickname}
-          {u.verifiedBadge ? ' ✓' : ''}
-        </Text>
-        <Text variant="meta" tone="secondary">
-          {u.ageBand ?? '나이대 비공개'} · {u.skillLevel ?? '실력 미설정'}
-        </Text>
-        <Text variant="meta" tone="tertiary">
-          약 {(u.approxDistanceMeters / 1000).toFixed(1)}km · {u.regionLabel ?? '주변'}
-        </Text>
-        <Text variant="bodyStrong" style={{ color: theme.colors.action.primary }}>
-          지금 조인 가능
-        </Text>
-        <Text variant="caption" tone="tertiary">
-          정확한 위치는 공개되지 않습니다.
-        </Text>
-        <Spacer size="sm" />
-        <Button label="프로필 보기" onPress={props.onOpenProfile} />
+        <Stack gap="md">
+          <Stack gap="xs">
+            <Text variant="sectionTitle" tone="primary">
+              {u.nickname}
+              {u.verifiedBadge ? ' ✓' : ''}
+            </Text>
+            <Text variant="meta" tone="secondary">
+              {u.ageBand ?? '나이대 비공개'} · {u.skillLevel ?? '실력 미설정'}
+            </Text>
+            <Text variant="meta" tone="tertiary">
+              약 {(u.approxDistanceMeters / 1000).toFixed(1)}km · {u.regionLabel ?? '주변'}
+            </Text>
+            <Text variant="bodyStrong" style={{ color: theme.colors.action.primary }}>
+              지금 조인 가능
+            </Text>
+            <Text variant="caption" tone="tertiary">
+              정확한 위치는 공개되지 않습니다.
+            </Text>
+          </Stack>
+          <Button label="프로필 보기" onPress={props.onOpenProfile} />
+        </Stack>
       </BottomSheetFrame>
     );
   }
 
+  const presenceOn = props.presence === PresenceVisibilityEnum.AVAILABLE;
+
   return (
     <BottomSheetFrame showHandle={false}>
-      <Text variant="sectionTitle" tone="primary">
-        내 주변
-      </Text>
-      <Text variant="meta" tone="secondary">
-        스크린골프장 {props.venues.length}곳 · 지금 조인 가능 {props.users.length}명
-      </Text>
-      <Spacer size="sm" />
-      <Button
-        label={props.presence === 'AVAILABLE' ? '지금 조인 가능 ON' : '지금 조인 가능 켜기'}
-        variant={props.presence === 'AVAILABLE' ? 'primary' : 'secondary'}
-        onPress={props.onOpenPresence}
-      />
-      {props.venues.slice(0, 2).map((v) => (
-        <VenueCard
-          key={v.venueId}
-          name={v.name}
-          distance={
-            v.distanceMeters != null ? `${(v.distanceMeters / 1000).toFixed(1)}km` : null
-          }
-          regionLabel={v.regionLabel}
-          openJoinCount={v.openJoinCount}
-          onPress={() => props.onSelectVenue(v.venueId)}
+      <Stack gap="md">
+        <Stack gap="xs">
+          <Text variant="sectionTitle" tone="primary">
+            내 주변
+          </Text>
+          <Text variant="meta" tone="secondary">
+            스크린골프장 {props.venues.length}곳 · 지금 조인 가능 {props.users.length}명
+          </Text>
+        </Stack>
+        <PresenceStatusBlock presence={props.presence} />
+        <Button
+          label={presenceOn ? '조인 가능 끄기' : '조인 가능 켜기'}
+          variant={presenceOn ? 'secondary' : 'primary'}
+          onPress={props.onOpenPresence}
         />
-      ))}
-      {props.users.slice(0, 1).map((u) => (
-        <VenueCard
-          key={u.userId}
-          name={`${u.nickname}${u.verifiedBadge ? ' ✓' : ''}`}
-          distance={`약 ${(u.approxDistanceMeters / 1000).toFixed(1)}km`}
-          regionLabel="지금 조인 가능"
-          onPress={() => props.onSelectUser(u.userId)}
-        />
-      ))}
+        <Stack gap="sm">
+          {props.venues.slice(0, 2).map((v) => (
+            <VenueCard
+              key={v.venueId}
+              name={v.name}
+              distance={
+                v.distanceMeters != null ? `${(v.distanceMeters / 1000).toFixed(1)}km` : null
+              }
+              regionLabel={v.regionLabel}
+              openJoinCount={v.openJoinCount}
+              onPress={() => props.onSelectVenue(v.venueId)}
+            />
+          ))}
+          {props.users.slice(0, 1).map((u) => (
+            <VenueCard
+              key={u.userId}
+              name={`${u.nickname}${u.verifiedBadge ? ' ✓' : ''}`}
+              distance={`약 ${(u.approxDistanceMeters / 1000).toFixed(1)}km`}
+              regionLabel="지금 조인 가능"
+              onPress={() => props.onSelectUser(u.userId)}
+            />
+          ))}
+        </Stack>
+      </Stack>
     </BottomSheetFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  infoCard: { gap: 6, padding: 14, borderWidth: 1 },
-  row: { gap: 10 },
+  infoCard: { gap: spacing.xs, padding: spacing.sm, borderWidth: 1 },
 });

@@ -70,8 +70,12 @@ export function golfFacilityToExploreVenue(
     latitude: f.latitude,
     longitude: f.longitude,
     distanceMeters,
-    openJoinCount: 0,
-    joinPreviews: [],
+    openJoinCount: f.openJoinCount ?? 0,
+    todayJoinCount: f.todayJoinCount ?? f.selectedDateJoinCount ?? 0,
+    ongoingJoinCount: f.ongoingJoinCount ?? 0,
+    hasTodayJoin: f.hasTodayJoin ?? f.hasSelectedDateJoin ?? false,
+    hasOngoingJoin: f.hasOngoingJoin ?? false,
+    joinPreviews: f.joinPreviews ?? [],
     source: 'GOLF_FACILITY',
     canCreateJoin: selectable,
     jjoinVenueId: null,
@@ -88,6 +92,15 @@ export async function fetchGolfFacilitiesInRegion(input: {
   center: MapCoordinate;
   region: MapRegion;
   signal?: AbortSignal;
+  /** When true, keep only facilities with selected-date/ongoing joins. */
+  todayJoinOnly?: boolean;
+  date?: string;
+  regionMode?: 'NEARBY' | 'DISTRICT';
+  sido?: string;
+  sigungu?: string;
+  lat?: number;
+  lng?: number;
+  radiusMeters?: number;
 }): Promise<ExploreMapResponse> {
   const halfLat = input.region.latitudeDelta / 2;
   const halfLng = input.region.longitudeDelta / 2;
@@ -97,19 +110,31 @@ export async function fetchGolfFacilitiesInRegion(input: {
     south: input.center.latitude - halfLat,
     east: input.center.longitude + halfLng,
     west: input.center.longitude - halfLng,
+    date: input.date,
+    regionMode: input.regionMode,
+    sido: input.sido,
+    sigungu: input.sigungu,
+    lat: input.lat,
+    lng: input.lng,
+    radiusMeters: input.radiusMeters,
   });
   if (input.signal?.aborted) {
     throw new Error('Aborted');
   }
-  const venues = result.items
+  let venues = result.items
     .map((f) => golfFacilityToExploreVenue(f, input.center))
     .filter((v): v is ExploreVenueDto => v != null);
+  if (input.todayJoinOnly) {
+    venues = venues.filter(
+      (v) => v.hasTodayJoin || v.hasOngoingJoin || v.openJoinCount > 0,
+    );
+  }
   return {
     venues,
     users: [],
     metadata: {
       sportCode: 'SCREEN_GOLF',
-      filter: 'VENUE',
+      filter: input.todayJoinOnly ? 'TODAY_JOIN' : 'VENUE',
       source: 'live',
       venueCount: venues.length,
       userCount: 0,

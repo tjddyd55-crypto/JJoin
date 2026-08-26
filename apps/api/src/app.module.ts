@@ -17,6 +17,7 @@ import { ExploreModule } from './modules/explore/explore.module';
 import { DisputeModule } from './modules/dispute/dispute.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { RegionsModule } from './modules/regions/regions.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -30,6 +31,7 @@ import { PrismaModule } from './prisma/prisma.module';
     VenuesModule,
     GolfFacilitiesModule,
     JoinsModule,
+    RegionsModule,
     ParticipationModule,
     WalletModule,
     SettlementModule,
