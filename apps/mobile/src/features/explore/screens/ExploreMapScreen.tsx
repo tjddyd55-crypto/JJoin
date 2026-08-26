@@ -142,6 +142,8 @@ export function ExploreMapScreen({
             longitude: center.longitude,
           },
           signal: ac.signal,
+          // Join tab (discoveryLinked): only places with joins for the selected date.
+          // Screen tab: never force this — show all GolfFacility markers.
           todayJoinOnly: discoveryLinked ? true : todayJoinOnly,
           date: disc?.date,
           regionMode,
@@ -711,6 +713,13 @@ export function ExploreMapScreen({
             selectedVenue={selectedVenue}
             selectedUser={selectedUser}
             presence={presence}
+            showPresence={discoveryLinked}
+            peekTitle={discoveryLinked ? '조인이 있는 장소' : '주변 스크린골프장'}
+            peekSubtitle={
+              discoveryLinked
+                ? `선택일 기준 조인 장소 ${data?.venues.length ?? 0}곳`
+                : `주변 스크린골프장 ${data?.venues.length ?? 0}곳`
+            }
             onSelectVenue={onVenuePress}
             onSelectUser={onUserPress}
             onOpenPresence={() => {
@@ -804,7 +813,13 @@ export function ExploreMapScreen({
             onJoinPress={(joinId) => {
               router.push({ pathname: '/join/[joinId]', params: { joinId } } as Href);
             }}
-            createJoinLabel={venuePickMode ? '이 장소 선택' : '여기서 조인 만들기'}
+            createJoinLabel={
+              venuePickMode
+                ? '이 장소 선택'
+                : discoveryLinked
+                  ? '여기서 조인 만들기'
+                  : '이 매장에서 조인 만들기'
+            }
           />
         </BottomSheetScrollView>
       </BottomSheet>

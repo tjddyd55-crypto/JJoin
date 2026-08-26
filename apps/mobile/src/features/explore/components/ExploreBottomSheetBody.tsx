@@ -58,8 +58,13 @@ export function ExploreBottomSheetBody(props: {
   onJoinPress: (joinId: string) => void;
   /** Override primary CTA label (e.g. GolfFacility confirm). */
   createJoinLabel?: string;
+  /** Presence ON/OFF — Join tab only; Screen facility map hides them. */
+  showPresence?: boolean;
+  peekTitle?: string;
+  peekSubtitle?: string;
 }) {
   const theme = useTheme();
+  const showPresence = props.showPresence !== false;
   const discovery = useJoinDiscoveryOptional();
   const selectedDate = discovery?.filter.date;
   const isSelectedToday =
@@ -240,26 +245,36 @@ export function ExploreBottomSheetBody(props: {
   }
 
   const presenceOn = props.presence === PresenceVisibilityEnum.AVAILABLE;
+  const peekTitle = props.peekTitle ?? '내 주변';
+  const peekSubtitle =
+    props.peekSubtitle ??
+    (showPresence
+      ? `스크린골프장 ${props.venues.length}곳 · 지금 조인 가능 ${props.users.length}명`
+      : `주변 스크린골프장 ${props.venues.length}곳`);
 
   return (
     <BottomSheetFrame showHandle={false}>
       <Stack gap="md">
         <Stack gap="xs">
           <Text variant="sectionTitle" tone="primary">
-            내 주변
+            {peekTitle}
           </Text>
           <Text variant="meta" tone="secondary">
-            스크린골프장 {props.venues.length}곳 · 지금 조인 가능 {props.users.length}명
+            {peekSubtitle}
           </Text>
         </Stack>
-        <PresenceStatusBlock presence={props.presence} />
-        <Button
-          label={presenceOn ? '조인 가능 끄기' : '조인 가능 켜기'}
-          variant={presenceOn ? 'secondary' : 'primary'}
-          onPress={props.onOpenPresence}
-        />
+        {showPresence ? (
+          <>
+            <PresenceStatusBlock presence={props.presence} />
+            <Button
+              label={presenceOn ? '조인 가능 끄기' : '조인 가능 켜기'}
+              variant={presenceOn ? 'secondary' : 'primary'}
+              onPress={props.onOpenPresence}
+            />
+          </>
+        ) : null}
         <Stack gap="sm">
-          {props.venues.slice(0, 2).map((v) => (
+          {props.venues.slice(0, showPresence ? 2 : 4).map((v) => (
             <VenueCard
               key={v.venueId}
               name={v.name}
@@ -271,15 +286,17 @@ export function ExploreBottomSheetBody(props: {
               onPress={() => props.onSelectVenue(v.venueId)}
             />
           ))}
-          {props.users.slice(0, 1).map((u) => (
-            <VenueCard
-              key={u.userId}
-              name={`${u.nickname}${u.verifiedBadge ? ' ✓' : ''}`}
-              distance={`약 ${(u.approxDistanceMeters / 1000).toFixed(1)}km`}
-              regionLabel="지금 조인 가능"
-              onPress={() => props.onSelectUser(u.userId)}
-            />
-          ))}
+          {showPresence
+            ? props.users.slice(0, 1).map((u) => (
+                <VenueCard
+                  key={u.userId}
+                  name={`${u.nickname}${u.verifiedBadge ? ' ✓' : ''}`}
+                  distance={`약 ${(u.approxDistanceMeters / 1000).toFixed(1)}km`}
+                  regionLabel="지금 조인 가능"
+                  onPress={() => props.onSelectUser(u.userId)}
+                />
+              ))
+            : null}
         </Stack>
       </Stack>
     </BottomSheetFrame>

@@ -104,9 +104,14 @@ export default function HomeScreen() {
             </Text>
             <Button label="조인 만들기" onPress={() => router.push('/(tabs)/create')} />
             <Button
-              label="주변 탐색"
+              label="스크린 찾기"
               variant="secondary"
-              onPress={() => router.push('/(tabs)/explore')}
+              onPress={() => router.push('/(tabs)/screen')}
+            />
+            <Button
+              label="조인 찾기"
+              variant="secondary"
+              onPress={() => router.push('/(tabs)/joins')}
             />
           </Stack>
         ) : (
@@ -128,11 +133,11 @@ export default function HomeScreen() {
       </Section>
 
       <Section title="오늘 참여할 조인" subtitle="날짜·지역으로 주변 조인 찾기">
-        <EmptyJoinHint message="오늘 어디서 조인할지 탐색에서 바로 확인해 보세요." />
+        <EmptyJoinHint message="오늘 어디서 조인할지 조인 메뉴에서 바로 확인해 보세요." />
         <Spacer size="sm" />
         <Button
           label="오늘 조인 전체보기"
-          onPress={() => router.push('/(tabs)/explore')}
+          onPress={() => router.push('/(tabs)/joins')}
         />
       </Section>
     </ScrollScreenFrame>
