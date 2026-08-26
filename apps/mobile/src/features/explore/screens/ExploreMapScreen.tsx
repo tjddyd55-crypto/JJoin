@@ -53,6 +53,8 @@ import {
   type MapRegion,
   type SheetMode,
 } from '../model/map-types';
+import { useJoinDiscoveryOptional } from '../discovery/JoinDiscoveryContext';
+import { DEFAULT_NEARBY_RADIUS_METERS } from '@jjoin/domain';
 
 /** GolfFacility DB is default place SoT; Kakao Local remains as fallback. */
 type PlaceSource = 'GOLF_FACILITY' | 'KAKAO';
@@ -61,13 +63,25 @@ const VIEWPORT_DEBOUNCE_MS = 350;
 const SEARCH_DEBOUNCE_MS = 300;
 const MIN_SEARCH_CHARS = 1;
 
-export function ExploreMapScreen() {
+export type ExploreMapScreenProps = {
+  /** When embedded in Weekly+Regional Explore — share date/region filter. */
+  discoveryLinked?: boolean;
+  externalLocation?: MapCoordinate | null;
+  externalLocationDenied?: boolean;
+};
+
+export function ExploreMapScreen({
+  discoveryLinked = false,
+  externalLocation = null,
+  externalLocationDenied = false,
+}: ExploreMapScreenProps = {}) {
   const router = useRouter();
   const params = useLocalSearchParams<{ venuePick?: string }>();
   const venuePickMode = params.venuePick === '1' || params.venuePick === 'true';
   const { requestGatedAction } = useSession();
   const theme = useTheme();
   const store = getSecureSessionStore();
+  const discovery = useJoinDiscoveryOptional();
   const mapRef = useRef<MapCameraHandle | null>(null);
   const sheetRef = useRef<BottomSheet>(null);
   const requestSeq = useRef(0);
@@ -99,10 +113,17 @@ export function ExploreMapScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const runtime = getMapRuntimeStatus();
-  const snapPoints = useMemo(() => ['28%', '52%', '88%'], []);
+  const snapPoints = useMemo(
+    () => (discoveryLinked ? ['16%', '48%', '88%'] : ['28%', '52%', '88%']),
+    [discoveryLinked],
+  );
 
   const loadGolfFacilityMap = useCallback(
-    async (center: MapCoordinate, region: MapRegion = searchRegion) => {
+    async (
+      center: MapCoordinate,
+      region: MapRegion = searchRegion,
+      todayJoinOnly = filter === 'TODAY_JOIN',
+    ) => {
       const seq = ++requestSeq.current;
       abortRef.current?.abort();
       const ac = new AbortController();
@@ -110,6 +131,8 @@ export function ExploreMapScreen() {
       setLoading(true);
       setError(null);
       try {
+        const disc = discoveryLinked ? discovery?.filter : null;
+        const regionMode = disc?.region.mode;
         const result = await fetchGolfFacilitiesInRegion({
           store,
           center,
@@ -119,6 +142,22 @@ export function ExploreMapScreen() {
             longitude: center.longitude,
           },
           signal: ac.signal,
+          todayJoinOnly: discoveryLinked ? true : todayJoinOnly,
+          date: disc?.date,
+          regionMode,
+          sido: disc?.region.mode === 'DISTRICT' ? disc.region.sido : undefined,
+          sigungu:
+            disc?.region.mode === 'DISTRICT' ? disc.region.sigungu : undefined,
+          lat:
+            regionMode === 'NEARBY'
+              ? (externalLocation ?? deviceLocation)?.latitude
+              : (externalLocation ?? deviceLocation)?.latitude,
+          lng:
+            regionMode === 'NEARBY'
+              ? (externalLocation ?? deviceLocation)?.longitude
+              : (externalLocation ?? deviceLocation)?.longitude,
+          radiusMeters:
+            regionMode === 'NEARBY' ? DEFAULT_NEARBY_RADIUS_METERS : undefined,
         });
         if (seq !== requestSeq.current) return;
         setData(result);
@@ -132,7 +171,15 @@ export function ExploreMapScreen() {
         if (seq === requestSeq.current) setLoading(false);
       }
     },
-    [store, searchRegion],
+    [
+      store,
+      searchRegion,
+      filter,
+      discoveryLinked,
+      discovery?.filter,
+      externalLocation,
+      deviceLocation,
+    ],
   );
 
   const loadKakaoMap = useCallback(
@@ -199,7 +246,7 @@ export function ExploreMapScreen() {
       kakaoQuery?: string,
     ) => {
       if (source === 'GOLF_FACILITY') {
-        await loadGolfFacilityMap(center, region);
+        await loadGolfFacilityMap(center, region, nextFilter === 'TODAY_JOIN');
         return;
       }
       await loadKakaoMap(center, nextFilter, kakaoQuery ?? '스크린골프', region);
@@ -208,6 +255,43 @@ export function ExploreMapScreen() {
   );
 
   useEffect(() => {
+    if (!discoveryLinked) return;
+    if (externalLocation) {
+      setDeviceLocation(externalLocation);
+      setLocationDenied(false);
+    } else if (externalLocationDenied) {
+      setLocationDenied(true);
+    }
+  }, [discoveryLinked, externalLocation, externalLocationDenied]);
+
+  useEffect(() => {
+    if (!discoveryLinked || !discovery?.filter) return;
+    void loadMap(lastCameraCenter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    discoveryLinked,
+    discovery?.filter.date,
+    discovery?.filter.region,
+    discovery?.filter.sort,
+  ]);
+
+  useEffect(() => {
+    if (discoveryLinked && externalLocation) {
+      const here = externalLocation;
+      setDeviceLocation(here);
+      setLastCameraCenter(here);
+      setSearchRegion((r) => ({
+        ...r,
+        latitude: here.latitude,
+        longitude: here.longitude,
+      }));
+      void loadMap(here, filter, {
+        ...GEOJE_DEMO_REGION,
+        latitude: here.latitude,
+        longitude: here.longitude,
+      });
+      return;
+    }
     void (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
@@ -493,12 +577,14 @@ export function ExploreMapScreen() {
   };
 
   const turnOffPresence = async () => {
+    const previous = presence;
+    setPresence(PresenceVisibility.HIDDEN);
     try {
       await getApiClient(store).deleteMyPresence();
     } catch {
-      /* ignore */
+      setPresence(previous);
+      Alert.alert('조인 가능', '상태를 변경하지 못했습니다. 다시 시도해 주세요.');
     }
-    setPresence(PresenceVisibility.HIDDEN);
   };
 
   const onCameraGesture = (center: MapCoordinate, bounds?: MapBounds) => {
@@ -562,7 +648,13 @@ export function ExploreMapScreen() {
       <View style={styles.mapArea}>
         {mapNode}
 
-        <View style={styles.topChrome} pointerEvents="box-none">
+        <View
+          style={[
+            styles.topChrome,
+            { top: discoveryLinked ? 8 : 52 },
+          ]}
+          pointerEvents="box-none"
+        >
           <MapSearchBar onPress={() => setSearchOpen(true)} />
           <MapFilterBar
             value={filter}
@@ -589,7 +681,13 @@ export function ExploreMapScreen() {
           ) : null}
         </View>
 
-        <View style={styles.fabCol} pointerEvents="box-none">
+        <View
+          style={[
+            styles.fabCol,
+            { bottom: discoveryLinked ? '18%' : '32%' },
+          ]}
+          pointerEvents="box-none"
+        >
           {cameraDirty && placeSource === 'KAKAO' ? (
             <ReSearchAreaButton onPress={() => void onReSearch()} />
           ) : null}

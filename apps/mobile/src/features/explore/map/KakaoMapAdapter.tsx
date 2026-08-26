@@ -6,9 +6,29 @@ import {
   type KakaoMapMarkerDto,
 } from 'jjoin-kakao-map';
 import type { ExploreVenueDto, PublicNearbyUserDto } from '@jjoin/types';
+import { resolveMapJoinCaptionForDate, localDayKey } from '@jjoin/domain';
 import type { MapBounds, MapCoordinate, MapRegion } from '../model/map-types';
 import { latitudeDeltaToZoomLevel } from './map-geo';
 import type { MapCameraHandle } from './map-handle';
+
+function venueMapCaption(v: ExploreVenueDto): string {
+  const selectedCount = v.todayJoinCount ?? 0;
+  const activity = {
+    todayJoinCount: selectedCount,
+    selectedDateJoinCount: selectedCount,
+    ongoingJoinCount: v.ongoingJoinCount ?? 0,
+    openJoinCount: v.openJoinCount ?? 0,
+    hasTodayJoin: Boolean(v.hasTodayJoin ?? selectedCount > 0),
+    hasSelectedDateJoin: Boolean(v.hasTodayJoin ?? selectedCount > 0),
+    hasOngoingJoin: Boolean(v.hasOngoingJoin ?? (v.ongoingJoinCount ?? 0) > 0),
+  };
+  const caption = resolveMapJoinCaptionForDate(activity, {
+    todayKey: localDayKey(new Date()),
+  });
+  if (caption) return caption;
+  if (v.openJoinCount > 0) return String(v.openJoinCount);
+  return '';
+}
 
 export type { MapCameraHandle } from './map-handle';
 
@@ -69,16 +89,20 @@ export function KakaoMapAdapter({
     const list: KakaoMapMarkerDto[] = [];
     for (const v of venues) {
       const selected = v.venueId === selectedVenueId;
-      // Kakao Live venues: no open-join count on the pin. JJOIN-owned only (future).
+      const caption = venueMapCaption(v);
       const showJoinBadge =
-        (v.source === 'JJOIN' || Boolean(v.jjoinVenueId) || Boolean(v.isActivated)) &&
-        v.openJoinCount > 0;
+        caption.length > 0 &&
+        (v.source === 'JJOIN' ||
+          v.source === 'GOLF_FACILITY' ||
+          Boolean(v.jjoinVenueId) ||
+          Boolean(v.isActivated) ||
+          v.openJoinCount > 0);
       list.push({
         id: `venue:${v.venueId}`,
         kind: 'venue',
         latitude: v.latitude,
         longitude: v.longitude,
-        caption: showJoinBadge ? String(v.openJoinCount) : '',
+        caption: showJoinBadge ? caption : '',
         selected,
       });
     }

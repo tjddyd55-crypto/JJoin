@@ -31,13 +31,31 @@ export class GolfFacilitiesController {
     @Query('east') east?: string,
     @Query('west') west?: string,
     @Query('limit') limit?: string,
+    @Query('date') date?: string,
+    @Query('regionMode') regionMode?: string,
+    @Query('sido') sido?: string,
+    @Query('sigungu') sigungu?: string,
+    @Query('lat') lat?: string,
+    @Query('lng') lng?: string,
+    @Query('radiusMeters') radiusMeters?: string,
   ) {
+    const mode =
+      regionMode === 'NEARBY' || regionMode === 'DISTRICT'
+        ? regionMode
+        : undefined;
     return this.service.listInBounds({
       north: requireNum(north, 'north'),
       south: requireNum(south, 'south'),
       east: requireNum(east, 'east'),
       west: requireNum(west, 'west'),
       limit: optionalInt(limit),
+      date,
+      regionMode: mode,
+      sido,
+      sigungu,
+      lat: optionalFloat(lat),
+      lng: optionalFloat(lng),
+      radiusMeters: optionalFloat(radiusMeters),
     });
   }
 
@@ -90,6 +108,12 @@ function optionalInt(value?: string): number | undefined {
   if (value == null || value === '') return undefined;
   const n = Number(value);
   return Number.isFinite(n) ? Math.floor(n) : undefined;
+}
+
+function optionalFloat(value?: string): number | undefined {
+  if (value == null || value === '') return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
 }
 
 function badBounds(name: string): never {

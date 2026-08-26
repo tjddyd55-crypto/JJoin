@@ -5,18 +5,34 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  DEFAULT_NEARBY_RADIUS_METERS,
+  emptyFacilityJoinActivity,
+  DISCOVERY_JOIN_STATUSES,
+  isOngoingJoin,
+  isTodayValidJoin,
+  isValidOnSelectedDate,
+  aggregateFacilityJoinActivity,
+  aggregateFacilityJoinActivityForDate,
+  compareJoinDiscoveryPriority,
+  localDayKey,
+} from '@jjoin/domain';
+import {
   GOLF_FACILITY_MAP_DEFAULT_LIMIT,
   GOLF_FACILITY_MAP_MAX_LIMIT,
   GOLF_FACILITY_SEARCH_DEFAULT_LIMIT,
   LOCALDATA_GOLF_VENUE_PROVIDER,
+  JoinStatus,
   type ActivateGolfFacilityVenueResponse,
+  type ExploreJoinPreviewDto,
   type GolfFacilityBoundsResponse,
   type GolfFacilityMapDto,
   type GolfFacilitySearchResponse,
+  type JoinDiscoveryRegionMode,
 } from '@jjoin/types';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ensureFoundation } from '../../foundation/ensure-foundation';
+import { haversineMeters } from '../presence/privacy-location';
 
 type VenueMeta = {
   status?: 'ACTIVE' | 'UNAVAILABLE';
@@ -42,6 +58,17 @@ type FacilityRow = {
   phone: string | null;
   coordinateStatus: string;
   isScreenJoinEligible: boolean;
+};
+
+type FacilityActivity = {
+  todayJoinCount: number;
+  ongoingJoinCount: number;
+  openJoinCount: number;
+  hasTodayJoin: boolean;
+  hasOngoingJoin: boolean;
+  selectedDateJoinCount: number;
+  hasSelectedDateJoin: boolean;
+  previews: ExploreJoinPreviewDto[];
 };
 
 const MAP_SELECT = {
@@ -86,6 +113,13 @@ export class GolfFacilitiesService {
     east: number;
     west: number;
     limit?: number;
+    date?: string;
+    regionMode?: JoinDiscoveryRegionMode;
+    sido?: string;
+    sigungu?: string;
+    lat?: number;
+    lng?: number;
+    radiusMeters?: number;
   }): Promise<GolfFacilityBoundsResponse> {
     const north = input.north;
     const south = input.south;
@@ -108,20 +142,64 @@ export class GolfFacilitiesService {
       GOLF_FACILITY_MAP_MAX_LIMIT,
     );
 
-    const rows = await this.prisma.golfFacility.findMany({
+    const now = new Date();
+    const dateKey = input.date?.trim() || localDayKey(now);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+      throw new BadRequestException({
+        code: 'INVALID_DATE',
+        message: '날짜 형식이 올바르지 않습니다. (YYYY-MM-DD)',
+      });
+    }
+
+    const districtWhere =
+      input.regionMode === 'DISTRICT' && input.sido && input.sigungu
+        ? { sido: input.sido, sigungu: input.sigungu }
+        : {};
+
+    let rows = await this.prisma.golfFacility.findMany({
       where: {
         isActive: true,
         coordinateStatus: 'VALID',
         latitude: { gte: south, lte: north },
         longitude: { gte: west, lte: east },
+        ...districtWhere,
       },
       select: MAP_SELECT,
       orderBy: [{ displayName: 'asc' }, { id: 'asc' }],
       take: limit + 1,
     });
 
+    if (
+      input.regionMode === 'NEARBY' &&
+      input.lat != null &&
+      input.lng != null &&
+      Number.isFinite(input.lat) &&
+      Number.isFinite(input.lng)
+    ) {
+      const radius =
+        input.radiusMeters != null && Number.isFinite(input.radiusMeters)
+          ? Math.max(1, Math.floor(input.radiusMeters))
+          : DEFAULT_NEARBY_RADIUS_METERS;
+      rows = rows.filter((r) => {
+        if (r.latitude == null || r.longitude == null) return false;
+        return (
+          haversineMeters(
+            input.lat!,
+            input.lng!,
+            Number(r.latitude),
+            Number(r.longitude),
+          ) <= radius
+        );
+      });
+    }
+
     const truncated = rows.length > limit;
-    const items = (truncated ? rows.slice(0, limit) : rows).map((r) => this.toMapDto(r));
+    const page = truncated ? rows.slice(0, limit) : rows;
+    const activityByFacility = await this.joinActivityByGolfFacilityIds(
+      page.map((r) => r.id),
+      dateKey,
+    );
+    const items = page.map((r) => this.toMapDto(r, activityByFacility.get(r.id)));
 
     return { items, truncated, limit };
   }
@@ -172,9 +250,12 @@ export class GolfFacilitiesService {
 
     const page = rows.slice(0, limit);
     const nextCursor = rows.length > limit ? page[page.length - 1]?.id ?? null : null;
+    const activityByFacility = await this.joinActivityByGolfFacilityIds(
+      page.map((r) => r.id),
+    );
 
     return {
-      items: page.map((r) => this.toMapDto(r)),
+      items: page.map((r) => this.toMapDto(r, activityByFacility.get(r.id))),
       nextCursor,
       limit,
     };
@@ -191,7 +272,8 @@ export class GolfFacilitiesService {
         message: '골프 시설을 찾을 수 없습니다.',
       });
     }
-    return this.toMapDto(row);
+    const activityByFacility = await this.joinActivityByGolfFacilityIds([row.id]);
+    return this.toMapDto(row, activityByFacility.get(row.id));
   }
 
   /**
@@ -299,13 +381,22 @@ export class GolfFacilitiesService {
     }
   }
 
-  private toMapDto(row: FacilityRow): GolfFacilityMapDto {
+  private toMapDto(
+    row: FacilityRow,
+    activity?: FacilityActivity,
+  ): GolfFacilityMapDto {
     const hasValidCoords =
       row.coordinateStatus === 'VALID' &&
       row.latitude != null &&
       row.longitude != null;
     // Classification is metadata only — Join/select requires active + VALID coords.
     const selectable = hasValidCoords;
+    const joinActivity = activity ?? {
+      ...emptyFacilityJoinActivity(),
+      selectedDateJoinCount: 0,
+      hasSelectedDateJoin: false,
+      previews: [] as ExploreJoinPreviewDto[],
+    };
 
     return {
       id: row.id,
@@ -323,7 +414,141 @@ export class GolfFacilitiesService {
       coordinateStatus: row.coordinateStatus,
       selectable,
       isScreenJoinEligible: row.isScreenJoinEligible,
+      todayJoinCount: joinActivity.todayJoinCount,
+      ongoingJoinCount: joinActivity.ongoingJoinCount,
+      openJoinCount: joinActivity.openJoinCount,
+      hasTodayJoin: joinActivity.hasTodayJoin,
+      hasOngoingJoin: joinActivity.hasOngoingJoin,
+      selectedDateJoinCount: joinActivity.selectedDateJoinCount,
+      hasSelectedDateJoin: joinActivity.hasSelectedDateJoin,
+      ...(joinActivity.openJoinCount > 0
+        ? { joinPreviews: joinActivity.previews }
+        : {}),
     };
+  }
+
+  /**
+   * Aggregate joins for GolfFacility markers in one query (no N+1).
+   * When `dateKey` is provided, uses selected-date validity; otherwise today-only.
+   */
+  private async joinActivityByGolfFacilityIds(
+    golfFacilityIds: string[],
+    dateKey?: string,
+  ): Promise<Map<string, FacilityActivity>> {
+    const empty = (): FacilityActivity => ({
+      ...emptyFacilityJoinActivity(),
+      selectedDateJoinCount: 0,
+      hasSelectedDateJoin: false,
+      previews: [],
+    });
+    const result = new Map<string, FacilityActivity>();
+    for (const id of golfFacilityIds) {
+      result.set(id, empty());
+    }
+    if (golfFacilityIds.length === 0) return result;
+
+    const venues = await this.prisma.venue.findMany({
+      where: { golfFacilityId: { in: golfFacilityIds } },
+      select: { id: true, golfFacilityId: true },
+    });
+    if (venues.length === 0) return result;
+
+    const venueToFacility = new Map<string, string>();
+    for (const v of venues) {
+      if (v.golfFacilityId) venueToFacility.set(v.id, v.golfFacilityId);
+    }
+
+    const now = new Date();
+    const resolvedDateKey = dateKey ?? localDayKey(now);
+    const joins = await this.prisma.join.findMany({
+      where: {
+        venueId: { in: [...venueToFacility.keys()] },
+        status: { in: [...DISCOVERY_JOIN_STATUSES] },
+        scheduledEndAt: { gt: now },
+      },
+      select: {
+        id: true,
+        venueId: true,
+        status: true,
+        startAt: true,
+        scheduledEndAt: true,
+        confirmedPlayerCount: true,
+        plannedPlayerCount: true,
+        rewardPerParticipant: true,
+        host: { select: { profile: { select: { nickname: true } } } },
+      },
+      orderBy: { startAt: 'asc' },
+    });
+
+    const byFacility = new Map<string, ExploreJoinPreviewDto[]>();
+    for (const join of joins) {
+      const facilityId = venueToFacility.get(join.venueId);
+      if (!facilityId) continue;
+
+      const onSelectedDate = isValidOnSelectedDate({
+        status: join.status,
+        startAt: join.startAt,
+        scheduledEndAt: join.scheduledEndAt,
+        now,
+        dateKey: resolvedDateKey,
+      });
+      const ongoing =
+        resolvedDateKey === localDayKey(now) &&
+        isOngoingJoin({
+          status: join.status,
+          startAt: join.startAt,
+          scheduledEndAt: join.scheduledEndAt,
+          now,
+        });
+
+      // Backward-compatible path when date omitted: keep today-only preview inclusion.
+      const includePreview = dateKey
+        ? onSelectedDate || ongoing
+        : ongoing ||
+          isTodayValidJoin({
+            status: join.status,
+            startAt: join.startAt,
+            scheduledEndAt: join.scheduledEndAt,
+            now,
+          });
+
+      if (!includePreview) continue;
+
+      const list = byFacility.get(facilityId) ?? [];
+      list.push({
+        joinId: join.id,
+        status: join.status as JoinStatus,
+        startAt: join.startAt.toISOString(),
+        scheduledEndAt: join.scheduledEndAt.toISOString(),
+        currentParticipants: join.confirmedPlayerCount,
+        maxParticipants: join.plannedPlayerCount,
+        rewardCoin: String(join.rewardPerParticipant),
+        hostNickname: join.host.profile?.nickname ?? '호스트',
+        hostVerified: true,
+      });
+      byFacility.set(facilityId, list);
+    }
+
+    for (const [facilityId, previews] of byFacility) {
+      previews.sort((a, b) => compareJoinDiscoveryPriority(a, b, now));
+      if (dateKey) {
+        const agg = aggregateFacilityJoinActivityForDate(
+          previews,
+          resolvedDateKey,
+          now,
+        );
+        result.set(facilityId, { ...agg, previews });
+      } else {
+        const agg = aggregateFacilityJoinActivity(previews, now);
+        result.set(facilityId, {
+          ...agg,
+          selectedDateJoinCount: agg.todayJoinCount,
+          hasSelectedDateJoin: agg.hasTodayJoin,
+          previews,
+        });
+      }
+    }
+    return result;
   }
 
   private toActivateResponse(

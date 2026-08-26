@@ -240,6 +240,7 @@ model User {
   pushNotificationsEnabled Boolean @default(true) @map("push_notifications_enabled")
   venueRecents          UserVenueRecent[]
   venueFavorites        UserVenueFavorite[]
+  joinRegionPreferences UserJoinRegionPreference[]
   storeOwnershipRequests StoreOwnershipRequest[] @relation("StoreOwnershipRequestApplicant")
   storeOwnerships        StoreOwnership[]
   storeRequestsReviewed  StoreOwnershipRequest[] @relation("StoreOwnershipRequestReviewer")
@@ -517,6 +518,23 @@ model UserVenueFavorite {
   @@unique([userId, venueId])
   @@index([userId, createdAt(sort: Desc)])
   @@map("user_venue_favorites")
+}
+
+/// User preferred districts for Join Discovery quick picks.
+model UserJoinRegionPreference {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  sido      String
+  sigungu   String
+  label     String
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sido, sigungu])
+  @@index([userId, sortOrder])
+  @@map("user_join_region_preferences")
 }
 
 model Join {

@@ -3,6 +3,7 @@ import { JoinsController } from './joins.controller';
 import { StoreJoinsController } from './store-joins.controller';
 import { JoinsService } from './joins.service';
 import { MatchingJoinsService } from './matching-joins.service';
+import { JoinDiscoveryService } from './join-discovery.service';
 import { WalletModule } from '../wallet/wallet.module';
 import { SettlementModule } from '../settlement/settlement.module';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -20,10 +21,7 @@ import { GolfFacilitiesModule } from '../golf-facilities/golf-facilities.module'
     GolfFacilitiesModule,
   ],
   controllers: [JoinsController, StoreJoinsController],
-  providers: [
-    JoinsService,
-    MatchingJoinsService,
-  ],
-  exports: [JoinsService, MatchingJoinsService],
+  providers: [JoinsService, JoinDiscoveryService, MatchingJoinsService],
+  exports: [JoinsService, JoinDiscoveryService, MatchingJoinsService],
 })
 export class JoinsModule {}

@@ -308,6 +308,7 @@ export type ExploreFilter = 'ALL' | 'VENUE' | 'USER' | 'TODAY_JOIN';
 
 export type ExploreJoinPreviewDto = {
   joinId: string;
+  status: JoinStatus;
   startAt: string;
   scheduledEndAt: string;
   currentParticipants: number;
@@ -333,6 +334,12 @@ export type ExploreVenueDto = {
   longitude: number;
   distanceMeters: number | null;
   openJoinCount: number;
+  /** Today (local) valid joins still not ended. */
+  todayJoinCount?: number;
+  /** Currently in progress joins. */
+  ongoingJoinCount?: number;
+  hasTodayJoin?: boolean;
+  hasOngoingJoin?: boolean;
   joinPreviews: ExploreJoinPreviewDto[];
   source?: ExploreVenueSource;
   /** True when Create Join from this card is supported in current product phase. */
@@ -451,6 +458,17 @@ export type GolfFacilityMapDto = {
   /** False when coords MISSING — browse/search only, cannot activate for Join. */
   selectable?: boolean;
   isScreenJoinEligible: boolean;
+  /** Aggregated join activity for map (bounds); defaults to 0 when absent. */
+  todayJoinCount?: number;
+  ongoingJoinCount?: number;
+  openJoinCount?: number;
+  hasTodayJoin?: boolean;
+  hasOngoingJoin?: boolean;
+  /** Selected date (query `date`) activity — same as today when date omitted/today. */
+  selectedDateJoinCount?: number;
+  hasSelectedDateJoin?: boolean;
+  /** Present only when openJoinCount > 0 (keeps dense bounds payloads small). */
+  joinPreviews?: ExploreJoinPreviewDto[];
 };
 
 /** Bounds query response — active + VALID coords; classification does not filter. */
@@ -785,9 +803,105 @@ export type RejectStoreVerificationRequest = {
   adminNote?: string;
 };
 
+
+
+
+
+
+
 export type MyJoinsResponse = {
   hosted: JoinListItemDto[];
   participating: JoinListItemDto[];
+};
+
+/** Weekly + regional join discovery (participant explore). */
+export type JoinDiscoveryRegionMode = 'NEARBY' | 'DISTRICT';
+export type JoinDiscoverySort = 'TIME' | 'DISTANCE';
+export type JoinDiscoveryJoinability = 'ALL' | 'JOINABLE';
+
+export type DiscoverJoinCardDto = {
+  joinId: string;
+  status: JoinStatus;
+  startAt: string;
+  scheduledEndAt: string;
+  venueId: string;
+  venueName: string;
+  regionLabel: string | null;
+  sido: string | null;
+  sigungu: string | null;
+  latitude: number;
+  longitude: number;
+  distanceMeters: number | null;
+  currentParticipants: number;
+  maxParticipants: number;
+  availableSlots: number;
+  rewardPerParticipant: string;
+  hostNickname: string;
+  isHost: boolean;
+  isParticipant: boolean;
+  canJoin: boolean;
+  canJoinState: 'JOINABLE' | 'FULL' | 'ALREADY_JOINED' | 'HOST' | 'UNAVAILABLE';
+  ctaLabel: string | null;
+  golfFacilityId: string | null;
+};
+
+export type DiscoverJoinsResponse = {
+  date: string;
+  regionMode: JoinDiscoveryRegionMode;
+  regionLabel: string;
+  sort: JoinDiscoverySort;
+  joinability: JoinDiscoveryJoinability;
+  ongoing: DiscoverJoinCardDto[];
+  upcoming: DiscoverJoinCardDto[];
+  totalCount: number;
+};
+
+export type DiscoverWeeklyCountItemDto = {
+  date: string;
+  count: number;
+};
+
+export type DiscoverWeeklyCountsResponse = {
+  weekStart: string;
+  weekEnd: string;
+  regionMode: JoinDiscoveryRegionMode;
+  regionLabel: string;
+  days: DiscoverWeeklyCountItemDto[];
+};
+
+export type AdminDistrictDto = {
+  sido: string;
+  sigungu: string;
+  label: string;
+};
+
+export type AdminSidoGroupDto = {
+  sido: string;
+  label: string;
+  districts: AdminDistrictDto[];
+};
+
+export type AdminDistrictCatalogResponse = {
+  groups: AdminSidoGroupDto[];
+};
+
+export type UserJoinRegionPreferenceDto = {
+  id: string;
+  sido: string;
+  sigungu: string;
+  label: string;
+  sortOrder: number;
+  createdAt: string;
+};
+
+export type UserJoinRegionPreferenceListResponse = {
+  items: UserJoinRegionPreferenceDto[];
+};
+
+export type UpsertUserJoinRegionPreferenceRequest = {
+  sido: string;
+  sigungu: string;
+  label?: string;
 };
 
 /** Push / in-app notification (Phase R). */
@@ -956,3 +1070,4 @@ export type AdminUserCoinHistoryDto = {
   lifetimeBurnContributed: string;
   recentTransactions: WalletTransactionDto[];
 };
+
