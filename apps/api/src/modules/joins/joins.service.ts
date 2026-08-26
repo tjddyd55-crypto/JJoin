@@ -2,11 +2,14 @@
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  forwardRef,
+  Inject,
   Injectable,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import {
+  JoinKind,
   JoinMethod,
   JoinStatus,
   ParticipantRole,
@@ -20,6 +23,7 @@ import {
   type JoinDetailDto,
   type JoinListItemDto,
   type JoinParticipantDto,
+  type MatchingJoinExtras,
   type MyJoinsResponse,
   type PublicUserProfileDto,
 } from '@jjoin/types';
@@ -27,11 +31,13 @@ import {
   SCREEN_GOLF_DURATION_RULE,
   assertPublicProfileHasNoPrivateFields,
   canAffordJoinCreate,
+  canApplyMatchingGenderSlot,
   compareJoinDiscoveryPriority,
   computeConfirmedPlayerCount,
   computeJoinCoinRequirement,
   DISCOVERY_JOIN_STATUSES,
   estimateEndAt,
+  formatMatchingRecruitmentLabel,
   aggregateFacilityJoinActivity,
   isOngoingJoin,
   isTodayValidJoin,
@@ -60,6 +66,7 @@ import { UserAccountService } from '../users/user-account.service';
 import { mockUserStore } from '../../mock/mock-user.store';
 import { NotificationEventService } from '../notifications/notification-event.service';
 import { NotificationType } from '@prisma/client';
+import { MatchingJoinsService } from './matching-joins.service';
 
 const ACTIVE_JOIN_STATUSES: JoinStatus[] = [JoinStatus.OPEN, JoinStatus.FULL];
 
@@ -72,6 +79,8 @@ export class JoinsService {
     private readonly accounts: UserAccountService,
     private readonly notifications: NotificationEventService,
     private readonly meVenues: MeVenuesService,
+    @Inject(forwardRef(() => MatchingJoinsService))
+    private readonly matchingJoins: MatchingJoinsService,
   ) {}
 
   ping() {
@@ -352,6 +361,14 @@ export class JoinsService {
   }
 
   async getDetail(joinId: string, viewerUserId?: string): Promise<JoinDetailDto> {
+    const joinMeta = await this.prisma.join.findUnique({
+      where: { id: joinId },
+      select: { joinKind: true },
+    });
+    if (joinMeta?.joinKind === 'STORE_MATCHING') {
+      await this.matchingJoins.ensureMatchingDeadline(joinId);
+    }
+
     const join = await this.prisma.join.findUnique({
       where: { id: joinId },
       include: {
@@ -410,6 +427,16 @@ export class JoinsService {
 
   async apply(joinId: string, userId: string): Promise<JoinDetailDto> {
     await this.accounts.assertIdentityVerified(userId, 'APPLY_JOIN');
+
+    const joinKindRow = await this.prisma.join.findUnique({
+      where: { id: joinId },
+      select: { joinKind: true },
+    });
+    if (joinKindRow?.joinKind === 'STORE_MATCHING') {
+      await this.matchingJoins.ensureMatchingDeadline(joinId);
+      return this.applyStoreMatching(joinId, userId);
+    }
+
     await this.prisma.$transaction(async (tx) => {
       const join = await tx.join.findUnique({
         where: { id: joinId },
@@ -472,6 +499,115 @@ export class JoinsService {
         eventKey: `join:${joinId}:application:${userId}:received`,
       });
     }
+
+    return this.getDetail(joinId, userId);
+  }
+
+  private async applyStoreMatching(joinId: string, userId: string): Promise<JoinDetailDto> {
+    const applicant = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true },
+    });
+    if (!applicant?.profile?.gender) {
+      throw new BadRequestException({
+        code: 'GENDER_REQUIRED',
+        message: '성별 정보가 필요합니다.',
+      });
+    }
+    const applicantGender = applicant.profile.gender;
+
+    await this.prisma.$transaction(async (tx) => {
+      const join = await tx.join.findUnique({
+        where: { id: joinId },
+        include: {
+          participants: { include: { user: { include: { profile: true } } } },
+        },
+      });
+      if (!join) throw new NotFoundException('join_not_found');
+      if (join.joinKind !== 'STORE_MATCHING') {
+        throw new BadRequestException('not_store_matching_join');
+      }
+      if (join.hostUserId === userId) {
+        throw new ForbiddenException('host_cannot_apply');
+      }
+      if (join.status === 'CANCELLED' || join.status === 'COMPLETED') {
+        throw new BadRequestException('join_not_joinable');
+      }
+      if (!this.matchingJoins.isStoreMatchingJoinable(join)) {
+        throw new BadRequestException('join_not_joinable');
+      }
+
+      const existing = join.participants.find((p) => p.userId === userId);
+      if (existing) {
+        throw new ConflictException('already_applied');
+      }
+
+      const confirmedGenders = join.participants
+        .filter(
+          (p) =>
+            p.role !== 'HOST' &&
+            (p.participationStatus === 'APPROVED' || p.participationStatus === 'CONFIRMED'),
+        )
+        .map((p) => p.user.profile?.gender ?? null);
+
+      if (
+        !canApplyMatchingGenderSlot({
+          applicantGender,
+          targetMaleCount: join.targetMaleCount ?? 0,
+          targetFemaleCount: join.targetFemaleCount ?? 0,
+          confirmedGenders,
+        })
+      ) {
+        throw new BadRequestException({
+          code: 'GENDER_SLOT_FULL',
+          message: '해당 성별 모집 인원이 마감되었습니다.',
+        });
+      }
+
+      const participant = await tx.joinParticipant.create({
+        data: {
+          joinId,
+          userId,
+          role: 'PARTICIPANT',
+          participationStatus: 'APPROVED',
+          approvedAt: new Date(),
+          confirmedAt: new Date(),
+        },
+      });
+
+      const rosterCount = this.matchingJoins.countMatchingParticipants([
+        ...join.participants,
+        { role: 'PARTICIPANT', participationStatus: 'APPROVED' },
+      ]);
+
+      const scheduledEndAt = estimateEndAt({
+        startAt: join.startAt,
+        playerCount: Math.max(rosterCount, 1),
+        rule: SCREEN_GOLF_DURATION_RULE,
+      });
+      const nextStatus = nextJoinStatusAfterRoster({
+        currentStatus: join.status,
+        confirmedPlayerCount: rosterCount,
+        plannedPlayerCount: join.plannedPlayerCount,
+      });
+
+      await tx.join.update({
+        where: { id: joinId },
+        data: {
+          confirmedPlayerCount: rosterCount,
+          scheduledEndAt,
+          status: nextStatus as never,
+        },
+      });
+
+      await this.settlement.ensureSettlementOnApprove(tx, {
+        joinId,
+        participantId: participant.id,
+        scheduledEndAt,
+        rewardPerParticipant: join.rewardPerParticipant,
+        coinAssetId: join.coinAssetId,
+      });
+    });
 
     return this.getDetail(joinId, userId);
   }
@@ -719,6 +855,13 @@ export class JoinsService {
     return byPlace;
   }
 
+  toListItemPublic(
+    join: Parameters<JoinsService['toListItem']>[0],
+    userId: string,
+  ): JoinListItemDto {
+    return this.toListItem(join, userId);
+  }
+
   private toJoinPreview(join: {
     id: string;
     status: string;
@@ -747,12 +890,19 @@ export class JoinsService {
       id: string;
       status: string;
       joinMethod: string;
+      joinKind?: string;
       title: string | null;
       description: string | null;
       startAt: Date;
       scheduledEndAt: Date;
       plannedPlayerCount: number;
       confirmedPlayerCount: number;
+      recruitClosesAt?: Date | null;
+      minimumPlayers?: number | null;
+      targetMaleCount?: number | null;
+      targetFemaleCount?: number | null;
+      matchingRewardTarget?: string | null;
+      storeOwnershipId?: string | null;
       rewardPerParticipant: Prisma.Decimal;
       roomCreationFeeAmount: Prisma.Decimal;
       rewardHoldTotalAmount: Prisma.Decimal;
@@ -786,7 +936,7 @@ export class JoinsService {
         participationStatus: string;
         appliedAt: Date;
         approvedAt: Date | null;
-        user: { profile: { nickname: string } | null; identityStatus?: string };
+        user: { profile: { nickname: string; gender?: string | null } | null; identityStatus?: string };
       }>;
     },
     viewerUserId?: string,
@@ -808,6 +958,17 @@ export class JoinsService {
     const mine = viewerUserId
       ? participants.find((p) => p.userId === viewerUserId) ?? null
       : null;
+
+    const matchingExtras = this.buildMatchingExtras({
+      joinKind: join.joinKind,
+      recruitClosesAt: join.recruitClosesAt,
+      minimumPlayers: join.minimumPlayers,
+      targetMaleCount: join.targetMaleCount,
+      targetFemaleCount: join.targetFemaleCount,
+      matchingRewardTarget: join.matchingRewardTarget,
+      storeOwnershipId: join.storeOwnershipId,
+      participants: join.participants,
+    });
 
     return {
       joinId: join.id,
@@ -838,6 +999,7 @@ export class JoinsService {
       host: hostProfile,
       myParticipation: mine,
       participants,
+      ...matchingExtras,
     };
   }
 
@@ -846,10 +1008,17 @@ export class JoinsService {
       id: string;
       status: string;
       joinMethod: string;
+      joinKind?: string;
       startAt: Date;
       scheduledEndAt: Date;
       plannedPlayerCount: number;
       confirmedPlayerCount: number;
+      recruitClosesAt?: Date | null;
+      minimumPlayers?: number | null;
+      targetMaleCount?: number | null;
+      targetFemaleCount?: number | null;
+      matchingRewardTarget?: string | null;
+      storeOwnershipId?: string | null;
       rewardPerParticipant: Prisma.Decimal;
       roomCreationFeeAmount: Prisma.Decimal;
       rewardHoldTotalAmount: Prisma.Decimal;
@@ -859,11 +1028,22 @@ export class JoinsService {
         userId: string;
         role: string;
         participationStatus: string;
+        user?: { profile: { gender: string | null } | null };
       }>;
     },
     userId: string,
   ): JoinListItemDto {
     const mine = join.participants.find((p) => p.userId === userId);
+    const matchingExtras = this.buildMatchingExtras({
+      joinKind: join.joinKind,
+      recruitClosesAt: join.recruitClosesAt,
+      minimumPlayers: join.minimumPlayers,
+      targetMaleCount: join.targetMaleCount,
+      targetFemaleCount: join.targetFemaleCount,
+      matchingRewardTarget: join.matchingRewardTarget,
+      storeOwnershipId: join.storeOwnershipId,
+      participants: join.participants,
+    });
     return {
       joinId: join.id,
       status: join.status as JoinStatus,
@@ -880,6 +1060,59 @@ export class JoinsService {
       myParticipationStatus: (mine?.participationStatus as ParticipationStatus) ?? null,
       pendingApplicantCount: join.participants.filter((p) => p.participationStatus === 'APPLIED')
         .length,
+      ...matchingExtras,
+    };
+  }
+
+  private buildMatchingExtras(join: {
+    joinKind?: string;
+    recruitClosesAt?: Date | null;
+    minimumPlayers?: number | null;
+    targetMaleCount?: number | null;
+    targetFemaleCount?: number | null;
+    matchingRewardTarget?: string | null;
+    storeOwnershipId?: string | null;
+    participants?: Array<{
+      role: string;
+      participationStatus: string;
+      user?: { profile?: { gender?: string | null } | null };
+    }>;
+  }): MatchingJoinExtras {
+    if (join.joinKind !== 'STORE_MATCHING') {
+      return {};
+    }
+
+    const maleTarget = join.targetMaleCount ?? 0;
+    const femaleTarget = join.targetFemaleCount ?? 0;
+    let confirmedMale = 0;
+    let confirmedFemale = 0;
+
+    for (const p of join.participants ?? []) {
+      if (p.role === 'HOST') continue;
+      if (p.participationStatus !== 'APPROVED' && p.participationStatus !== 'CONFIRMED') {
+        continue;
+      }
+      const gender = p.user?.profile?.gender;
+      if (gender === 'MALE') confirmedMale += 1;
+      else if (gender === 'FEMALE') confirmedFemale += 1;
+    }
+
+    return {
+      joinKind: JoinKind.STORE_MATCHING,
+      recruitClosesAt: join.recruitClosesAt?.toISOString() ?? null,
+      minimumPlayers: join.minimumPlayers ?? null,
+      targetMaleCount: join.targetMaleCount ?? null,
+      targetFemaleCount: join.targetFemaleCount ?? null,
+      matchingRewardTarget: (join.matchingRewardTarget as MatchingJoinExtras['matchingRewardTarget']) ?? null,
+      recruitmentLabel: formatMatchingRecruitmentLabel({
+        targetMaleCount: maleTarget,
+        targetFemaleCount: femaleTarget,
+        confirmedMale,
+        confirmedFemale,
+      }),
+      confirmedMaleCount: confirmedMale,
+      confirmedFemaleCount: confirmedFemale,
+      storeOwnershipId: join.storeOwnershipId ?? null,
     };
   }
 

@@ -124,3 +124,60 @@ export const notificationPreferenceSchema = z.object({
 export type NotificationPreferenceInput = z.infer<typeof notificationPreferenceSchema>;
 /** @deprecated alias */
 export const notificationPreferenceSchemaAlias = notificationPreferenceSchema;
+
+export const createStoreOwnershipRequestSchema = z.object({
+  golfFacilityId: z.string().uuid(),
+  applicantName: z.string().trim().min(1).max(80),
+  applicantPhone: z.string().trim().min(8).max(20),
+  relation: z.enum(['REPRESENTATIVE', 'OWNER', 'MANAGER', 'OTHER']),
+  memo: z.string().trim().max(500).optional(),
+  businessRegistrationNo: z.string().trim().min(1).max(20).optional(),
+});
+
+export type CreateStoreOwnershipRequestInput = z.infer<typeof createStoreOwnershipRequestSchema>;
+
+export const createStoreMatchingJoinSchema = z
+  .object({
+    storeOwnershipId: z.string().uuid(),
+    startAt: z.string().min(1),
+    recruitClosesAt: z.string().min(1),
+    targetMaleCount: z.number().int().min(0).max(4),
+    targetFemaleCount: z.number().int().min(0).max(4),
+    minimumPlayers: z.number().int().min(2).max(4),
+    matchingRewardTarget: z.enum(['FEMALE', 'MALE', 'ALL']),
+    rewardPerParticipant: z.string().regex(/^\d+(\.\d{1,4})?$/),
+    title: z.string().trim().max(80).nullable().optional(),
+    description: z.string().trim().max(500).nullable().optional(),
+    idempotencyKey: z.string().trim().min(8).max(120).optional(),
+  })
+  .refine((v) => v.targetMaleCount + v.targetFemaleCount >= 1, {
+    message: 'matching_roster_required',
+  })
+  .refine((v) => v.targetMaleCount + v.targetFemaleCount <= 4, {
+    message: 'matching_roster_max_four',
+  })
+  .refine((v) => v.minimumPlayers <= v.targetMaleCount + v.targetFemaleCount, {
+    message: 'minimum_exceeds_planned',
+  });
+
+export type CreateStoreMatchingJoinInput = z.infer<typeof createStoreMatchingJoinSchema>;
+
+export const storeMatchingCompleteSchema = z.object({
+  attendance: z
+    .array(
+      z.object({
+        participantId: z.string().uuid(),
+        attended: z.boolean(),
+      }),
+    )
+    .min(1),
+});
+
+export type StoreMatchingCompleteInput = z.infer<typeof storeMatchingCompleteSchema>;
+
+export const rejectStoreVerificationSchema = z.object({
+  rejectReason: z.string().trim().min(1).max(500),
+  adminNote: z.string().trim().max(500).optional(),
+});
+
+export type RejectStoreVerificationInput = z.infer<typeof rejectStoreVerificationSchema>;

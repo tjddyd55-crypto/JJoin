@@ -8,6 +8,8 @@ import {
   type AuthSessionDto,
   type CreateCustomVenueRequest,
   type CreateJoinRequest,
+  type CreateStoreMatchingJoinRequest,
+  type CreateStoreOwnershipRequest,
   type ExploreFilter,
   type ExploreMapResponse,
   type GolfFacilityBoundsResponse,
@@ -16,6 +18,7 @@ import {
   type JoinCoinPreviewDto,
   type JoinCoinPreviewRequest,
   type JoinDetailDto,
+  type JoinListItemDto,
   type JoinSettlementSummaryDto,
   type MeDto,
   type MyJoinsResponse,
@@ -37,6 +40,7 @@ import {
   type AdminResolveDisputeRequest,
   type DisputeStatus,
   type RegisterPushDeviceRequest,
+  type RejectStoreVerificationRequest,
   type PushDeviceDto,
   type NotificationListResponse,
   type AppNotificationDto,
@@ -58,6 +62,10 @@ import {
   type JoinDiscoveryRegionMode,
   type JoinDiscoverySort,
   type JoinDiscoveryJoinability,
+  type StoreMatchingCompleteRequest,
+  type StoreOwnershipDto,
+  type StoreOwnershipRequestDto,
+  type StoreVerificationStatus,
 } from '@jjoin/types';
 
 export type ApiClientConfig = {
@@ -873,6 +881,111 @@ export class ApiClient {
   ): Promise<NotificationPreferenceDto> {
     const res = await request(`${this.config.baseUrl}/me/notification-preference`, {
       method: 'PATCH',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async createStoreVerification(
+    body: CreateStoreOwnershipRequest,
+  ): Promise<StoreOwnershipRequestDto> {
+    const res = await request(`${this.config.baseUrl}/store-verifications`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async getMyStoreVerifications(): Promise<StoreOwnershipRequestDto[]> {
+    const res = await request(`${this.config.baseUrl}/store-verifications/me`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getMyStores(query?: { includeWallet?: boolean }): Promise<StoreOwnershipDto[]> {
+    const params = new URLSearchParams();
+    if (query?.includeWallet) params.set('includeWallet', '1');
+    const qs = params.toString();
+    const res = await request(`${this.config.baseUrl}/my-stores${qs ? `?${qs}` : ''}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async listAdminStoreVerifications(query?: {
+    status?: StoreVerificationStatus;
+  }): Promise<StoreOwnershipRequestDto[]> {
+    const params = new URLSearchParams();
+    if (query?.status) params.set('status', query.status);
+    const qs = params.toString();
+    const res = await request(
+      `${this.config.baseUrl}/admin/store-verifications${qs ? `?${qs}` : ''}`,
+      { headers: await this.headers(true) },
+    );
+    return parseJson(res);
+  }
+
+  async approveAdminStoreVerification(id: string): Promise<StoreOwnershipRequestDto> {
+    const res = await request(`${this.config.baseUrl}/admin/store-verifications/${id}/approve`, {
+      method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async rejectAdminStoreVerification(
+    id: string,
+    body: RejectStoreVerificationRequest,
+  ): Promise<StoreOwnershipRequestDto> {
+    const res = await request(`${this.config.baseUrl}/admin/store-verifications/${id}/reject`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async revokeAdminStoreVerification(id: string): Promise<StoreOwnershipRequestDto> {
+    const res = await request(`${this.config.baseUrl}/admin/store-verifications/${id}/revoke`, {
+      method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async createStoreJoin(body: CreateStoreMatchingJoinRequest): Promise<JoinDetailDto> {
+    const res = await request(`${this.config.baseUrl}/store-joins`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async getMyStoreJoins(): Promise<JoinListItemDto[]> {
+    const res = await request(`${this.config.baseUrl}/store-joins/mine`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async cancelStoreJoin(joinId: string): Promise<JoinDetailDto> {
+    const res = await request(`${this.config.baseUrl}/store-joins/${joinId}/cancel`, {
+      method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async completeStoreJoin(
+    joinId: string,
+    body: StoreMatchingCompleteRequest,
+  ): Promise<JoinDetailDto> {
+    const res = await request(`${this.config.baseUrl}/store-joins/${joinId}/complete`, {
+      method: 'POST',
       headers: await this.headers(true),
       body: JSON.stringify(body),
     });

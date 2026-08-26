@@ -6,6 +6,8 @@ import {
   DisputeStatus,
   MockAuthPersona,
   SocialProvider,
+  StoreOwnerRelation,
+  StoreVerificationStatus,
   type AdminDisputeDetailDto,
   type AdminDisputeListItemDto,
   type AdminUserCoinHistoryDto,
@@ -13,6 +15,7 @@ import {
   type CoinIssuanceListItemDto,
   type CoinSupplyDashboardDto,
   type CoinSupplyReconciliationDto,
+  type StoreOwnershipRequestDto,
 } from '@jjoin/types';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:3000';
@@ -39,6 +42,17 @@ function formatCoin(v: string | number) {
   if (Number.isNaN(n)) return String(v);
   return n.toLocaleString('ko-KR');
 }
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleString('ko-KR');
+}
+
+const RELATION_LABELS: Record<StoreOwnerRelation, string> = {
+  [StoreOwnerRelation.REPRESENTATIVE]: '대표',
+  [StoreOwnerRelation.OWNER]: '점주',
+  [StoreOwnerRelation.MANAGER]: '매니저',
+  [StoreOwnerRelation.OTHER]: '기타',
+};
 
 function LoginBar() {
   const [busy, setBusy] = useState(false);
@@ -70,6 +84,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   const loc = useLocation();
   const coinActive = loc.pathname === '/' || loc.pathname.startsWith('/coin');
   const disputeActive = loc.pathname.startsWith('/disputes');
+  const storeVerificationActive = loc.pathname.startsWith('/store-verifications');
   return (
     <div className="layout layout-wide">
       <header className="admin-nav card row">
@@ -80,9 +95,235 @@ function Shell({ children }: { children: React.ReactNode }) {
         <Link to="/disputes" className={disputeActive ? 'nav-active' : undefined}>
           분쟁
         </Link>
+        <Link
+          to="/store-verifications"
+          className={storeVerificationActive ? 'nav-active' : undefined}
+        >
+          매장 인증
+        </Link>
         {!token ? <LoginBar /> : null}
       </header>
       {children}
+    </div>
+  );
+}
+
+function StoreVerificationListPage() {
+  const [items, setItems] = useState<StoreOwnershipRequestDto[]>([]);
+  const [status, setStatus] = useState<StoreVerificationStatus | ''>(StoreVerificationStatus.PENDING);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await api<StoreOwnershipRequestDto[]>(
+        `/admin/store-verifications${status ? `?status=${status}` : ''}`,
+      );
+      setItems(res);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'load_failed');
+    }
+  }, [status]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return (
+    <div>
+      <h1>매장 인증</h1>
+      <div className="row" style={{ marginBottom: 12 }}>
+        <select
+          value={status}
+          onChange={(e) => setStatus(e.target.value as StoreVerificationStatus | '')}
+        >
+          <option value="">ALL</option>
+          <option value={StoreVerificationStatus.PENDING}>PENDING</option>
+          <option value={StoreVerificationStatus.APPROVED}>APPROVED</option>
+          <option value={StoreVerificationStatus.REJECTED}>REJECTED</option>
+        </select>
+        <button onClick={() => void load()}>새로고침</button>
+      </div>
+      {error ? <p className="error-text">{error}</p> : null}
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th>신청자</th>
+            <th>연락처</th>
+            <th>시설명</th>
+            <th>관계</th>
+            <th>신청일</th>
+            <th>상태</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((row) => (
+            <tr key={row.id}>
+              <td>{row.applicantName}</td>
+              <td>{row.applicantPhone}</td>
+              <td>{row.facilityName}</td>
+              <td>{RELATION_LABELS[row.relation]}</td>
+              <td>{formatDate(row.createdAt)}</td>
+              <td>{row.status}</td>
+              <td>
+                <Link to={`/store-verifications/${row.id}`}>상세</Link>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function StoreVerificationDetailPage() {
+  const { requestId } = useParams();
+  const navigate = useNavigate();
+  const [detail, setDetail] = useState<StoreOwnershipRequestDto | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [adminNote, setAdminNote] = useState('');
+  const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | 'revoke' | null>(null);
+
+  const load = useCallback(async () => {
+    if (!requestId) return;
+    const res = await api<StoreOwnershipRequestDto[]>(
+      `/admin/store-verifications`,
+    );
+    const found = res.find((row) => row.id === requestId) ?? null;
+    setDetail(found);
+  }, [requestId]);
+
+  useEffect(() => {
+    void load().catch((e) => setError(e instanceof Error ? e.message : 'load_failed'));
+  }, [load]);
+
+  async function runAction(action: 'approve' | 'reject' | 'revoke') {
+    if (!requestId || busy) return;
+    if (action === 'reject' && !rejectReason.trim()) {
+      setError('거절 사유를 입력해 주세요.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      if (action === 'approve') {
+        await api(`/admin/store-verifications/${requestId}/approve`, { method: 'POST' });
+      } else if (action === 'reject') {
+        await api(`/admin/store-verifications/${requestId}/reject`, {
+          method: 'POST',
+          body: JSON.stringify({
+            rejectReason: rejectReason.trim(),
+            adminNote: adminNote.trim() || undefined,
+          }),
+        });
+      } else {
+        await api(`/admin/store-verifications/${requestId}/revoke`, { method: 'POST' });
+      }
+      setConfirmAction(null);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'action_failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!detail) return <p>{error ?? '불러오는 중…'}</p>;
+
+  const canApprove = detail.status === StoreVerificationStatus.PENDING;
+  const canReject = detail.status === StoreVerificationStatus.PENDING;
+  const canRevoke = detail.status === StoreVerificationStatus.APPROVED;
+
+  return (
+    <div>
+      <button onClick={() => navigate('/store-verifications')}>← 목록</button>
+      <h1>매장 인증 상세</h1>
+      <div className="card">
+        <div>
+          <strong>{detail.facilityName}</strong>
+        </div>
+        <div>{detail.facilityAddress ?? '—'}</div>
+        <div>
+          {detail.applicantName} · {detail.applicantPhone} · {RELATION_LABELS[detail.relation]}
+        </div>
+        <div>상태 {detail.status}</div>
+        <div>신청 {formatDate(detail.createdAt)}</div>
+        {detail.businessRegistrationNo ? <div>사업자번호 {detail.businessRegistrationNo}</div> : null}
+        {detail.memo ? <div>메모: {detail.memo}</div> : null}
+        {detail.rejectReason ? <div>거절 사유: {detail.rejectReason}</div> : null}
+        {detail.adminNote ? <div>운영 메모: {detail.adminNote}</div> : null}
+      </div>
+
+      {canReject ? (
+        <div className="card">
+          <label>
+            거절 사유
+            <input value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
+          </label>
+          <label>
+            운영 메모 (선택)
+            <input value={adminNote} onChange={(e) => setAdminNote(e.target.value)} />
+          </label>
+        </div>
+      ) : null}
+
+      {(canApprove || canReject || canRevoke) ? (
+        <div className="row" style={{ marginTop: 12 }}>
+          {canApprove ? (
+            <button className="primary" disabled={busy} onClick={() => setConfirmAction('approve')}>
+              승인
+            </button>
+          ) : null}
+          {canReject ? (
+            <button className="danger" disabled={busy} onClick={() => setConfirmAction('reject')}>
+              거절
+            </button>
+          ) : null}
+          {canRevoke ? (
+            <button className="danger" disabled={busy} onClick={() => setConfirmAction('revoke')}>
+              승인 철회
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {error ? <p className="error-text">{error}</p> : null}
+
+      {confirmAction ? (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <h3>
+              {confirmAction === 'approve'
+                ? '승인'
+                : confirmAction === 'reject'
+                  ? '거절'
+                  : '승인 철회'}
+            </h3>
+            <p>
+              {confirmAction === 'approve'
+                ? '이 매장 인증 요청을 승인합니다.'
+                : confirmAction === 'reject'
+                  ? `거절 사유: ${rejectReason.trim() || '(미입력)'}`
+                  : '승인된 매장 권한을 철회합니다.'}
+            </p>
+            <div className="row">
+              <button disabled={busy} onClick={() => setConfirmAction(null)}>
+                취소
+              </button>
+              <button
+                className="primary"
+                disabled={busy}
+                onClick={() => void runAction(confirmAction)}
+              >
+                확정
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -687,6 +928,8 @@ export function App() {
         <Route path="/coin/users/:userId" element={<UserCoinPage />} />
         <Route path="/disputes" element={<DisputeListPage />} />
         <Route path="/disputes/:disputeId" element={<DisputeDetailPage />} />
+        <Route path="/store-verifications" element={<StoreVerificationListPage />} />
+        <Route path="/store-verifications/:requestId" element={<StoreVerificationDetailPage />} />
       </Routes>
     </Shell>
   );

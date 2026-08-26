@@ -493,6 +493,97 @@ export class CoinLedgerService {
     });
   }
 
+  /** Refund remaining open hold after settlements — idempotent. */
+  async refundRemainingJoinHold(
+    tx: PrismaTx,
+    params: {
+      hostWalletId: string;
+      coinAssetId: string;
+      joinId: string;
+      idempotencyKey: string;
+    },
+  ) {
+    const existing = await tx.coinTransaction.findUnique({
+      where: { idempotencyKey: params.idempotencyKey },
+    });
+    if (existing) return existing;
+
+    const hold = await tx.coinHold.findFirst({
+      where: {
+        joinId: params.joinId,
+        status: { in: ['OPEN', 'PARTIALLY_RELEASED'] },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (!hold) return null;
+
+    const settlements = await tx.rewardSettlement.findMany({
+      where: { joinId: params.joinId },
+    });
+
+    let accounted = zeroCoinAmount();
+    for (const s of settlements) {
+      if (['PAID', 'AUTO_PAID', 'REFUNDED'].includes(s.rewardStatus)) {
+        accounted = addCoinAmounts(accounted, String(s.amount));
+      }
+    }
+
+    const holdTotal = String(hold.amount);
+    const remaining =
+      compareCoinAmounts(holdTotal, accounted) > 0
+        ? subCoinAmounts(holdTotal, accounted)
+        : zeroCoinAmount();
+
+    if (compareCoinAmounts(remaining, '0') <= 0) {
+      await tx.coinHold.update({
+        where: { id: hold.id },
+        data: { status: 'REFUNDED', refundedAt: new Date(), releasedAt: new Date() },
+      });
+      return null;
+    }
+
+    const wallet = await this.lockWallet(tx, params.hostWalletId);
+    const available = String(wallet.availableBalance);
+    const held = String(wallet.heldBalance);
+    if (compareCoinAmounts(held, remaining) < 0) {
+      throw new InsufficientBalanceError();
+    }
+
+    const availableAfter = addCoinAmounts(available, remaining);
+    const heldAfter = subCoinAmounts(held, remaining);
+
+    await tx.wallet.update({
+      where: { id: wallet.id },
+      data: {
+        availableBalance: new Prisma.Decimal(availableAfter),
+        heldBalance: new Prisma.Decimal(heldAfter),
+      },
+    });
+
+    const ledgerTx = await tx.coinTransaction.create({
+      data: {
+        walletId: wallet.id,
+        coinAssetId: params.coinAssetId,
+        type: 'JOIN_REWARD_REFUND',
+        direction: 'CREDIT',
+        amount: new Prisma.Decimal(remaining),
+        balanceAfterAvailable: new Prisma.Decimal(availableAfter),
+        balanceAfterHeld: new Prisma.Decimal(heldAfter),
+        refType: 'JOIN',
+        refId: params.joinId,
+        idempotencyKey: params.idempotencyKey,
+        metadata: { holdId: hold.id, reason: 'REMAINING_HOLD_REFUND' },
+      },
+    });
+
+    await tx.coinHold.update({
+      where: { id: hold.id },
+      data: { status: 'REFUNDED', refundedAt: new Date(), releasedAt: new Date() },
+    });
+
+    return ledgerTx;
+  }
+
   async refreshCoinHoldStatus(tx: PrismaTx, holdId: string) {
     const hold = await tx.coinHold.findUniqueOrThrow({ where: { id: holdId } });
     const settlements = await tx.rewardSettlement.findMany({ where: { holdId } });
