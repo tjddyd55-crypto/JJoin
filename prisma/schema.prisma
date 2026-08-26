@@ -42,6 +42,38 @@ enum JoinMethod {
   APPROVAL
 }
 
+/** STANDARD = existing P2P join; STORE_MATCHING = store-owner recruitment join. */
+enum JoinKind {
+  STANDARD
+  STORE_MATCHING
+}
+
+enum MatchingRewardTarget {
+  FEMALE
+  MALE
+  ALL
+}
+
+enum StoreVerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  REVOKED
+}
+
+enum StoreOwnerRelation {
+  REPRESENTATIVE
+  OWNER
+  MANAGER
+  OTHER
+}
+
+enum StoreOwnershipStatus {
+  ACTIVE
+  REVOKED
+}
+
 enum ParticipationStatus {
   APPLIED
   APPROVED
@@ -208,6 +240,9 @@ model User {
   pushNotificationsEnabled Boolean @default(true) @map("push_notifications_enabled")
   venueRecents          UserVenueRecent[]
   venueFavorites        UserVenueFavorite[]
+  storeOwnershipRequests StoreOwnershipRequest[] @relation("StoreOwnershipRequestApplicant")
+  storeOwnerships        StoreOwnership[]
+  storeRequestsReviewed  StoreOwnershipRequest[] @relation("StoreOwnershipRequestReviewer")
 
   @@map("users")
 }
@@ -447,6 +482,7 @@ model Venue {
   joins         Join[]
   userRecents   UserVenueRecent[]
   userFavorites UserVenueFavorite[]
+  storeOwnerships StoreOwnership[]
 
   @@unique([provider, providerPlaceId])
   @@index([sportId, latitude, longitude])
@@ -492,9 +528,18 @@ model Join {
   description             String?
   status                  JoinStatus @default(DRAFT)
   joinMethod              JoinMethod @default(OPEN) @map("join_method")
+  joinKind                JoinKind   @default(STANDARD) @map("join_kind")
   startAt                 DateTime   @map("start_at") @db.Timestamptz(6)
   scheduledEndAt          DateTime   @map("scheduled_end_at") @db.Timestamptz(6)
+  /// Recruitment deadline for STORE_MATCHING (must be < startAt).
+  recruitClosesAt         DateTime?  @map("recruit_closes_at") @db.Timestamptz(6)
   plannedPlayerCount      Int        @map("planned_player_count")
+  /// Minimum confirmed players to proceed after deadline (STORE_MATCHING).
+  minimumPlayers          Int?       @map("minimum_players")
+  targetMaleCount         Int?       @map("target_male_count")
+  targetFemaleCount       Int?       @map("target_female_count")
+  matchingRewardTarget    MatchingRewardTarget? @map("matching_reward_target")
+  storeOwnershipId        String?    @map("store_ownership_id") @db.Uuid
   confirmedPlayerCount    Int        @default(1) @map("confirmed_player_count")
   rewardPerParticipant    Decimal    @map("reward_per_participant") @db.Decimal(18, 4)
   coinAssetId             String     @map("coin_asset_id") @db.Uuid
@@ -512,6 +557,7 @@ model Join {
   venue          Venue              @relation(fields: [venueId], references: [id])
   host           User               @relation("JoinHost", fields: [hostUserId], references: [id])
   coinAsset      CoinAsset          @relation(fields: [coinAssetId], references: [id])
+  storeOwnership StoreOwnership?    @relation(fields: [storeOwnershipId], references: [id], onDelete: SetNull)
   requirements   JoinRequirement[]
   options        JoinOption[]
   participants   JoinParticipant[]
@@ -523,7 +569,63 @@ model Join {
   @@index([status, startAt])
   @@index([hostUserId, startAt])
   @@index([sportId, startAt])
+  @@index([joinKind, status, startAt])
+  @@index([recruitClosesAt])
   @@map("joins")
+}
+
+/// Applicant request to verify ownership of a GolfFacility (store).
+model StoreOwnershipRequest {
+  id                     String                  @id @default(uuid()) @db.Uuid
+  userId                 String                  @map("user_id") @db.Uuid
+  golfFacilityId         String                  @map("golf_facility_id") @db.Uuid
+  applicantName          String                  @map("applicant_name")
+  applicantPhone         String                  @map("applicant_phone")
+  relation               StoreOwnerRelation
+  memo                   String?
+  businessRegistrationNo String?                 @map("business_registration_no")
+  status                 StoreVerificationStatus @default(PENDING)
+  adminNote              String?                 @map("admin_note")
+  rejectReason           String?                 @map("reject_reason")
+  reviewedByAdminUserId  String?                 @map("reviewed_by_admin_user_id") @db.Uuid
+  reviewedAt             DateTime?               @map("reviewed_at") @db.Timestamptz(6)
+  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user         User          @relation("StoreOwnershipRequestApplicant", fields: [userId], references: [id], onDelete: Cascade)
+  golfFacility GolfFacility  @relation(fields: [golfFacilityId], references: [id], onDelete: Cascade)
+  reviewer     User?         @relation("StoreOwnershipRequestReviewer", fields: [reviewedByAdminUserId], references: [id], onDelete: SetNull)
+  ownership    StoreOwnership?
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([golfFacilityId])
+  @@map("store_ownership_requests")
+}
+
+/// Approved store ownership — one user may own many facilities.
+model StoreOwnership {
+  id             String               @id @default(uuid()) @db.Uuid
+  userId         String               @map("user_id") @db.Uuid
+  golfFacilityId String               @map("golf_facility_id") @db.Uuid
+  venueId        String?              @map("venue_id") @db.Uuid
+  requestId      String?              @unique @map("request_id") @db.Uuid
+  status         StoreOwnershipStatus @default(ACTIVE)
+  approvedAt     DateTime             @default(now()) @map("approved_at") @db.Timestamptz(6)
+  revokedAt      DateTime?            @map("revoked_at") @db.Timestamptz(6)
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  golfFacility GolfFacility           @relation(fields: [golfFacilityId], references: [id], onDelete: Cascade)
+  venue        Venue?                 @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  request      StoreOwnershipRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  joins        Join[]
+
+  @@unique([userId, golfFacilityId])
+  @@index([userId, status])
+  @@index([golfFacilityId, status])
+  @@map("store_ownerships")
 }
 
 model JoinRequirement {
@@ -932,6 +1034,8 @@ model GolfFacility {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   venue Venue?
+  storeOwnershipRequests StoreOwnershipRequest[]
+  storeOwnerships        StoreOwnership[]
 
   @@unique([source, governmentSourceKey])
   @@index([isActive, isScreenJoinEligible])

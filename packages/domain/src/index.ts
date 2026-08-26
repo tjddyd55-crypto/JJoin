@@ -224,6 +224,26 @@ export {
 } from './coin-join';
 
 export {
+  assertRecruitClosesBeforeStart,
+  assertValidMinimumPlayers,
+  canAffordMatchingJoinCreate,
+  canApplyMatchingGenderSlot,
+  computeMatchingJoinCoinRequirement,
+  computeMatchingPlannedPlayerCount,
+  computeMatchingRewardEligibleSlots,
+  countMatchingRosterByGender,
+  evaluateMatchingDeadline,
+  formatMatchingRecruitmentLabel,
+  isRewardEligibleMatchingGender,
+  type MatchingDeadlineOutcome,
+  type MatchingGender,
+  type MatchingJoinCoinRequirement,
+  type MatchingRewardTarget,
+  type MatchingRosterCounts,
+  type MatchingTargetComposition,
+} from './store-matching';
+
+export {
   REWARD_QUICK_ADD_DENOMINATIONS,
   addRewardQuickIncrement,
   computeCoinShortfall,

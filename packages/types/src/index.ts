@@ -39,6 +39,37 @@ export enum JoinMethod {
   APPROVAL = 'APPROVAL',
 }
 
+export enum JoinKind {
+  STANDARD = 'STANDARD',
+  STORE_MATCHING = 'STORE_MATCHING',
+}
+
+export enum MatchingRewardTarget {
+  FEMALE = 'FEMALE',
+  MALE = 'MALE',
+  ALL = 'ALL',
+}
+
+export enum StoreVerificationStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  CANCELLED = 'CANCELLED',
+  REVOKED = 'REVOKED',
+}
+
+export enum StoreOwnerRelation {
+  REPRESENTATIVE = 'REPRESENTATIVE',
+  OWNER = 'OWNER',
+  MANAGER = 'MANAGER',
+  OTHER = 'OTHER',
+}
+
+export enum StoreOwnershipStatus {
+  ACTIVE = 'ACTIVE',
+  REVOKED = 'REVOKED',
+}
+
 export enum ParticipantRole {
   HOST = 'HOST',
   PARTICIPANT = 'PARTICIPANT',
@@ -628,6 +659,19 @@ export type AdminResolveDisputeRequest = {
   adminNote?: string;
 };
 
+export type MatchingJoinExtras = {
+  joinKind?: JoinKind;
+  recruitClosesAt?: string | null;
+  minimumPlayers?: number | null;
+  targetMaleCount?: number | null;
+  targetFemaleCount?: number | null;
+  matchingRewardTarget?: MatchingRewardTarget | null;
+  recruitmentLabel?: string | null;
+  confirmedMaleCount?: number;
+  confirmedFemaleCount?: number;
+  storeOwnershipId?: string | null;
+};
+
 export type JoinDetailDto = {
   joinId: string;
   status: JoinStatus;
@@ -660,7 +704,7 @@ export type JoinDetailDto = {
   participants: JoinParticipantDto[];
   /** Present when viewer is host or participant with settlement rows. */
   settlement?: JoinSettlementSummaryDto | null;
-};
+} & MatchingJoinExtras;
 
 export type JoinListItemDto = {
   joinId: string;
@@ -677,6 +721,68 @@ export type JoinListItemDto = {
   myRole: ParticipantRole | null;
   myParticipationStatus: ParticipationStatus | null;
   pendingApplicantCount: number;
+} & MatchingJoinExtras;
+
+export type CreateStoreOwnershipRequest = {
+  golfFacilityId: string;
+  applicantName: string;
+  applicantPhone: string;
+  relation: StoreOwnerRelation;
+  memo?: string;
+  businessRegistrationNo?: string;
+};
+
+export type StoreOwnershipRequestDto = {
+  id: string;
+  golfFacilityId: string;
+  facilityName: string;
+  facilityAddress: string | null;
+  applicantName: string;
+  applicantPhone: string;
+  relation: StoreOwnerRelation;
+  memo: string | null;
+  businessRegistrationNo: string | null;
+  status: StoreVerificationStatus;
+  rejectReason: string | null;
+  adminNote: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type StoreOwnershipDto = {
+  id: string;
+  golfFacilityId: string;
+  facilityName: string;
+  facilityAddress: string | null;
+  venueId: string | null;
+  status: StoreOwnershipStatus;
+  approvedAt: string;
+  walletAvailable?: string;
+  walletHeld?: string;
+};
+
+export type CreateStoreMatchingJoinRequest = {
+  storeOwnershipId: string;
+  startAt: string;
+  recruitClosesAt: string;
+  targetMaleCount: number;
+  targetFemaleCount: number;
+  minimumPlayers: number;
+  matchingRewardTarget: MatchingRewardTarget;
+  rewardPerParticipant: string;
+  title?: string | null;
+  description?: string | null;
+  idempotencyKey?: string;
+};
+
+export type StoreMatchingCompleteRequest = {
+  attendance: Array<{ participantId: string; attended: boolean }>;
+};
+
+export type RejectStoreVerificationRequest = {
+  rejectReason: string;
+  adminNote?: string;
 };
 
 export type MyJoinsResponse = {

@@ -1,5 +1,6 @@
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Badge,
   Card,
@@ -14,7 +15,9 @@ import {
   useTheme,
 } from '@jjoin/design-system';
 import { t } from '@jjoin/i18n';
-import { useSession } from '../../../session/SessionContext';
+import { StoreOwnershipStatus } from '@jjoin/types';
+import { getApiClient } from '../../../lib/api';
+import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
 import { legalDocumentRoute } from '../../auth/legal';
 
 function showWithdrawTbd() {
@@ -25,7 +28,22 @@ export function MyHomeScreen() {
   const { me, logout } = useSession();
   const router = useRouter();
   const theme = useTheme();
+  const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
+  const [hasActiveStores, setHasActiveStores] = useState(false);
   const profile = me?.publicProfile;
+
+  useFocusEffect(
+    useCallback(() => {
+      void api
+        .getMyStores()
+        .then((stores) =>
+          setHasActiveStores(
+            stores.some((store) => store.status === StoreOwnershipStatus.ACTIVE),
+          ),
+        )
+        .catch(() => setHasActiveStores(false));
+    }, [api]),
+  );
 
   if (!profile) {
     return (
@@ -113,6 +131,34 @@ export function MyHomeScreen() {
             onPress={() => router.push('/my/wallet')}
             showSeparator={false}
           />
+        </Card>
+      </Section>
+
+      <Section title="매장 운영">
+        <Card variant="base" padding="none" style={styles.settingsCard}>
+          <View style={styles.settingsInner}>
+            <ListRow
+              label="스크린골프 매장 인증"
+              icon="verified"
+              onPress={() => router.push('/my/store-verification')}
+              showSeparator={hasActiveStores}
+            />
+            {hasActiveStores ? (
+              <>
+                <ListRow
+                  label="내 매장"
+                  icon="location"
+                  onPress={() => router.push('/my/stores')}
+                />
+                <ListRow
+                  label="모집 조인 만들기"
+                  icon="calendar"
+                  onPress={() => router.push('/my/create-store-join')}
+                  showSeparator={false}
+                />
+              </>
+            ) : null}
+          </View>
         </Card>
       </Section>
 
