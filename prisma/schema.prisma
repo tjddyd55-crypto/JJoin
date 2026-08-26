@@ -42,7 +42,9 @@ enum JoinMethod {
   APPROVAL
 }
 
-/** STANDARD = existing P2P join; STORE_MATCHING = store-owner recruitment join. */
+/**
+ * STANDARD = existing P2P join; STORE_MATCHING = store-owner recruitment join.
+ */
 enum JoinKind {
   STANDARD
   STORE_MATCHING
@@ -220,45 +222,45 @@ model User {
   createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  profile               UserProfile?
-  socialAccounts        SocialAccount[]
-  identityVerifications IdentityVerification[]
-  mediaAssets           MediaAsset[]
-  sportProfiles         UserSportProfile[]
-  hostedJoins           Join[]                 @relation("JoinHost")
-  participations        JoinParticipant[]
-  wallets               Wallet[]
-  reportsFiled          Report[]               @relation("ReportReporter")
-  disputesOpened        DisputeCase[]          @relation("DisputeOpenedBy")
-  disputesResolvedAdmin DisputeCase[]          @relation("DisputeResolvedBy")
-  presence              UserPresence?
-  consents              UserConsent[]
-  pushDevices           PushDevice[]
-  notifications         AppNotification[]
-  coinIssuancesReceived CoinIssuance[]         @relation("IssuanceRecipient")
-  coinIssuancesCreated  CoinIssuance[]         @relation("IssuanceCreatedBy")
-  pushNotificationsEnabled Boolean @default(true) @map("push_notifications_enabled")
-  venueRecents          UserVenueRecent[]
-  venueFavorites        UserVenueFavorite[]
-  joinRegionPreferences UserJoinRegionPreference[]
-  storeOwnershipRequests StoreOwnershipRequest[] @relation("StoreOwnershipRequestApplicant")
-  storeOwnerships        StoreOwnership[]
-  storeRequestsReviewed  StoreOwnershipRequest[] @relation("StoreOwnershipRequestReviewer")
+  profile                  UserProfile?
+  socialAccounts           SocialAccount[]
+  identityVerifications    IdentityVerification[]
+  mediaAssets              MediaAsset[]
+  sportProfiles            UserSportProfile[]
+  hostedJoins              Join[]                     @relation("JoinHost")
+  participations           JoinParticipant[]
+  wallets                  Wallet[]
+  reportsFiled             Report[]                   @relation("ReportReporter")
+  disputesOpened           DisputeCase[]              @relation("DisputeOpenedBy")
+  disputesResolvedAdmin    DisputeCase[]              @relation("DisputeResolvedBy")
+  presence                 UserPresence?
+  consents                 UserConsent[]
+  pushDevices              PushDevice[]
+  notifications            AppNotification[]
+  coinIssuancesReceived    CoinIssuance[]             @relation("IssuanceRecipient")
+  coinIssuancesCreated     CoinIssuance[]             @relation("IssuanceCreatedBy")
+  pushNotificationsEnabled Boolean                    @default(true) @map("push_notifications_enabled")
+  venueRecents             UserVenueRecent[]
+  venueFavorites           UserVenueFavorite[]
+  joinRegionPreferences    UserJoinRegionPreference[]
+  storeOwnershipRequests   StoreOwnershipRequest[]    @relation("StoreOwnershipRequestApplicant")
+  storeOwnerships          StoreOwnership[]
+  storeRequestsReviewed    StoreOwnershipRequest[]    @relation("StoreOwnershipRequestReviewer")
 
   @@map("users")
 }
 
 model PushDevice {
-  id         String          @id @default(uuid()) @db.Uuid
-  userId     String          @map("user_id") @db.Uuid
+  id         String           @id @default(uuid()) @db.Uuid
+  userId     String           @map("user_id") @db.Uuid
   provider   PushProviderKind @default(EXPO)
-  pushToken  String          @map("push_token")
+  pushToken  String           @map("push_token")
   platform   PushPlatform
-  deviceId   String?         @map("device_id")
-  active     Boolean         @default(true)
-  lastSeenAt DateTime        @default(now()) @map("last_seen_at") @db.Timestamptz(6)
-  createdAt  DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deviceId   String?          @map("device_id")
+  active     Boolean          @default(true)
+  lastSeenAt DateTime         @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -279,7 +281,7 @@ model AppNotification {
   readAt    DateTime?        @map("read_at") @db.Timestamptz(6)
   createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  user   User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   outbox NotificationOutbox?
 
   @@index([userId, createdAt(sort: Desc)])
@@ -323,17 +325,17 @@ model UserConsent {
 /// Current presence only (MVP: no location history table).
 /// Public APIs must never expose actual latitude/longitude.
 model UserPresence {
-  id              String             @id @default(uuid()) @db.Uuid
-  userId          String             @unique @map("user_id") @db.Uuid
-  visibility      PresenceVisibility @default(HIDDEN)
-  availableUntil  DateTime?          @map("available_until") @db.Timestamptz(6)
+  id             String             @id @default(uuid()) @db.Uuid
+  userId         String             @unique @map("user_id") @db.Uuid
+  visibility     PresenceVisibility @default(HIDDEN)
+  availableUntil DateTime?          @map("available_until") @db.Timestamptz(6)
   /// Actual coordinates — server-only; never in PublicNearbyUserDto
-  latitude        Decimal            @db.Decimal(10, 7)
-  longitude       Decimal            @db.Decimal(10, 7)
-  accuracyMeters  Float?             @map("accuracy_meters")
-  lastLocationAt  DateTime           @map("last_location_at") @db.Timestamptz(6)
-  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  latitude       Decimal            @db.Decimal(10, 7)
+  longitude      Decimal            @db.Decimal(10, 7)
+  accuracyMeters Float?             @map("accuracy_meters")
+  lastLocationAt DateTime           @map("last_location_at") @db.Timestamptz(6)
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -343,16 +345,16 @@ model UserPresence {
 }
 
 model UserProfile {
-  userId        String    @id @map("user_id") @db.Uuid
-  nickname      String    @unique
-  avatarAssetId String?   @map("avatar_asset_id") @db.Uuid
+  userId        String   @id @map("user_id") @db.Uuid
+  nickname      String   @unique
+  avatarAssetId String?  @map("avatar_asset_id") @db.Uuid
   gender        String?
-  ageBand       String?   @map("age_band")
-  regionCode    String?   @map("region_code")
-  regionLabel   String?   @map("region_label")
+  ageBand       String?  @map("age_band")
+  regionCode    String?  @map("region_code")
+  regionLabel   String?  @map("region_label")
   bio           String?
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   avatarAsset MediaAsset? @relation("ProfileAvatar", fields: [avatarAssetId], references: [id], onDelete: SetNull)
@@ -430,12 +432,12 @@ model Sport {
 }
 
 model SportRule {
-  sportId            String   @id @map("sport_id") @db.Uuid
-  durationStrategy   String   @map("duration_strategy")
-  durationParamJson  Json     @map("duration_param_json")
-  defaultJoinMethod  JoinMethod @default(OPEN) @map("default_join_method")
-  metadata           Json?
-  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  sportId           String     @id @map("sport_id") @db.Uuid
+  durationStrategy  String     @map("duration_strategy")
+  durationParamJson Json       @map("duration_param_json")
+  defaultJoinMethod JoinMethod @default(OPEN) @map("default_join_method")
+  metadata          Json?
+  updatedAt         DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   sport Sport @relation(fields: [sportId], references: [id], onDelete: Cascade)
 
@@ -459,30 +461,30 @@ model UserSportProfile {
 }
 
 model Venue {
-  id               String   @id @default(uuid()) @db.Uuid
-  sportId          String   @map("sport_id") @db.Uuid
-  provider         String
-  providerPlaceId  String   @map("provider_place_id")
+  id              String   @id @default(uuid()) @db.Uuid
+  sportId         String   @map("sport_id") @db.Uuid
+  provider        String
+  providerPlaceId String   @map("provider_place_id")
   /// Optional link to nationwide GolfFacility master (LOCALDATA activation only).
-  golfFacilityId   String?  @unique @map("golf_facility_id") @db.Uuid
-  name             String
-  address          String?
-  roadAddress      String?  @map("road_address")
-  latitude         Decimal  @db.Decimal(10, 7)
-  longitude        Decimal  @db.Decimal(10, 7)
-  phone            String?
-  countryCode      String   @default("KR") @map("country_code") @db.Char(2)
-  region           String?
-  timezone         String?
-  metadata         Json?
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  golfFacilityId  String?  @unique @map("golf_facility_id") @db.Uuid
+  name            String
+  address         String?
+  roadAddress     String?  @map("road_address")
+  latitude        Decimal  @db.Decimal(10, 7)
+  longitude       Decimal  @db.Decimal(10, 7)
+  phone           String?
+  countryCode     String   @default("KR") @map("country_code") @db.Char(2)
+  region          String?
+  timezone        String?
+  metadata        Json?
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  sport         Sport               @relation(fields: [sportId], references: [id])
-  golfFacility  GolfFacility?       @relation(fields: [golfFacilityId], references: [id], onDelete: SetNull)
-  joins         Join[]
-  userRecents   UserVenueRecent[]
-  userFavorites UserVenueFavorite[]
+  sport           Sport               @relation(fields: [sportId], references: [id])
+  golfFacility    GolfFacility?       @relation(fields: [golfFacilityId], references: [id], onDelete: SetNull)
+  joins           Join[]
+  userRecents     UserVenueRecent[]
+  userFavorites   UserVenueFavorite[]
   storeOwnerships StoreOwnership[]
 
   @@unique([provider, providerPlaceId])
@@ -538,44 +540,44 @@ model UserJoinRegionPreference {
 }
 
 model Join {
-  id                      String     @id @default(uuid()) @db.Uuid
-  sportId                 String     @map("sport_id") @db.Uuid
-  venueId                 String     @map("venue_id") @db.Uuid
-  hostUserId              String     @map("host_user_id") @db.Uuid
-  title                   String?
-  description             String?
-  status                  JoinStatus @default(DRAFT)
-  joinMethod              JoinMethod @default(OPEN) @map("join_method")
-  joinKind                JoinKind   @default(STANDARD) @map("join_kind")
-  startAt                 DateTime   @map("start_at") @db.Timestamptz(6)
-  scheduledEndAt          DateTime   @map("scheduled_end_at") @db.Timestamptz(6)
+  id                    String                @id @default(uuid()) @db.Uuid
+  sportId               String                @map("sport_id") @db.Uuid
+  venueId               String                @map("venue_id") @db.Uuid
+  hostUserId            String                @map("host_user_id") @db.Uuid
+  title                 String?
+  description           String?
+  status                JoinStatus            @default(DRAFT)
+  joinMethod            JoinMethod            @default(OPEN) @map("join_method")
+  joinKind              JoinKind              @default(STANDARD) @map("join_kind")
+  startAt               DateTime              @map("start_at") @db.Timestamptz(6)
+  scheduledEndAt        DateTime              @map("scheduled_end_at") @db.Timestamptz(6)
   /// Recruitment deadline for STORE_MATCHING (must be < startAt).
-  recruitClosesAt         DateTime?  @map("recruit_closes_at") @db.Timestamptz(6)
-  plannedPlayerCount      Int        @map("planned_player_count")
+  recruitClosesAt       DateTime?             @map("recruit_closes_at") @db.Timestamptz(6)
+  plannedPlayerCount    Int                   @map("planned_player_count")
   /// Minimum confirmed players to proceed after deadline (STORE_MATCHING).
-  minimumPlayers          Int?       @map("minimum_players")
-  targetMaleCount         Int?       @map("target_male_count")
-  targetFemaleCount       Int?       @map("target_female_count")
-  matchingRewardTarget    MatchingRewardTarget? @map("matching_reward_target")
-  storeOwnershipId        String?    @map("store_ownership_id") @db.Uuid
-  confirmedPlayerCount    Int        @default(1) @map("confirmed_player_count")
-  rewardPerParticipant    Decimal    @map("reward_per_participant") @db.Decimal(18, 4)
-  coinAssetId             String     @map("coin_asset_id") @db.Uuid
-  roomCreationFeeAmount   Decimal    @map("room_creation_fee_amount") @db.Decimal(18, 4)
-  rewardHoldTotalAmount   Decimal    @map("reward_hold_total_amount") @db.Decimal(18, 4)
-  costShareType           String?    @map("cost_share_type")
-  countryCode             String     @default("KR") @map("country_code") @db.Char(2)
-  timezone                String     @default("Asia/Seoul")
-  confirmedAt             DateTime?  @map("confirmed_at") @db.Timestamptz(6)
-  cancelledAt             DateTime?  @map("cancelled_at") @db.Timestamptz(6)
-  createdAt               DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt               DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  minimumPlayers        Int?                  @map("minimum_players")
+  targetMaleCount       Int?                  @map("target_male_count")
+  targetFemaleCount     Int?                  @map("target_female_count")
+  matchingRewardTarget  MatchingRewardTarget? @map("matching_reward_target")
+  storeOwnershipId      String?               @map("store_ownership_id") @db.Uuid
+  confirmedPlayerCount  Int                   @default(1) @map("confirmed_player_count")
+  rewardPerParticipant  Decimal               @map("reward_per_participant") @db.Decimal(18, 4)
+  coinAssetId           String                @map("coin_asset_id") @db.Uuid
+  roomCreationFeeAmount Decimal               @map("room_creation_fee_amount") @db.Decimal(18, 4)
+  rewardHoldTotalAmount Decimal               @map("reward_hold_total_amount") @db.Decimal(18, 4)
+  costShareType         String?               @map("cost_share_type")
+  countryCode           String                @default("KR") @map("country_code") @db.Char(2)
+  timezone              String                @default("Asia/Seoul")
+  confirmedAt           DateTime?             @map("confirmed_at") @db.Timestamptz(6)
+  cancelledAt           DateTime?             @map("cancelled_at") @db.Timestamptz(6)
+  createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  sport          Sport              @relation(fields: [sportId], references: [id])
-  venue          Venue              @relation(fields: [venueId], references: [id])
-  host           User               @relation("JoinHost", fields: [hostUserId], references: [id])
-  coinAsset      CoinAsset          @relation(fields: [coinAssetId], references: [id])
-  storeOwnership StoreOwnership?    @relation(fields: [storeOwnershipId], references: [id], onDelete: SetNull)
+  sport          Sport             @relation(fields: [sportId], references: [id])
+  venue          Venue             @relation(fields: [venueId], references: [id])
+  host           User              @relation("JoinHost", fields: [hostUserId], references: [id])
+  coinAsset      CoinAsset         @relation(fields: [coinAssetId], references: [id])
+  storeOwnership StoreOwnership?   @relation(fields: [storeOwnershipId], references: [id], onDelete: SetNull)
   requirements   JoinRequirement[]
   options        JoinOption[]
   participants   JoinParticipant[]
@@ -610,9 +612,9 @@ model StoreOwnershipRequest {
   createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user         User          @relation("StoreOwnershipRequestApplicant", fields: [userId], references: [id], onDelete: Cascade)
-  golfFacility GolfFacility  @relation(fields: [golfFacilityId], references: [id], onDelete: Cascade)
-  reviewer     User?         @relation("StoreOwnershipRequestReviewer", fields: [reviewedByAdminUserId], references: [id], onDelete: SetNull)
+  user         User            @relation("StoreOwnershipRequestApplicant", fields: [userId], references: [id], onDelete: Cascade)
+  golfFacility GolfFacility    @relation(fields: [golfFacilityId], references: [id], onDelete: Cascade)
+  reviewer     User?           @relation("StoreOwnershipRequestReviewer", fields: [reviewedByAdminUserId], references: [id], onDelete: SetNull)
   ownership    StoreOwnership?
 
   @@index([status, createdAt(sort: Desc)])
@@ -647,13 +649,13 @@ model StoreOwnership {
 }
 
 model JoinRequirement {
-  id              String  @id @default(uuid()) @db.Uuid
-  joinId          String  @map("join_id") @db.Uuid
-  requirementType String  @map("requirement_type")
+  id              String @id @default(uuid()) @db.Uuid
+  joinId          String @map("join_id") @db.Uuid
+  requirementType String @map("requirement_type")
   operator        String
-  valueJson       Json    @map("value_json")
-  targetCount     Int?    @map("target_count")
-  sortOrder       Int     @default(0) @map("sort_order")
+  valueJson       Json   @map("value_json")
+  targetCount     Int?   @map("target_count")
+  sortOrder       Int    @default(0) @map("sort_order")
   metadata        Json?
 
   join Join @relation(fields: [joinId], references: [id], onDelete: Cascade)
@@ -675,19 +677,19 @@ model JoinOption {
 }
 
 model JoinParticipant {
-  id                   String              @id @default(uuid()) @db.Uuid
-  joinId               String              @map("join_id") @db.Uuid
-  userId               String              @map("user_id") @db.Uuid
-  role                 ParticipantRole     @default(PARTICIPANT)
-  participationStatus  ParticipationStatus @default(APPLIED) @map("participation_status")
-  partySize            Int                 @default(1) @map("party_size")
-  appliedAt            DateTime            @default(now()) @map("applied_at") @db.Timestamptz(6)
-  approvedAt           DateTime?           @map("approved_at") @db.Timestamptz(6)
-  confirmedAt          DateTime?           @map("confirmed_at") @db.Timestamptz(6)
-  cancelledAt          DateTime?           @map("cancelled_at") @db.Timestamptz(6)
+  id                  String              @id @default(uuid()) @db.Uuid
+  joinId              String              @map("join_id") @db.Uuid
+  userId              String              @map("user_id") @db.Uuid
+  role                ParticipantRole     @default(PARTICIPANT)
+  participationStatus ParticipationStatus @default(APPLIED) @map("participation_status")
+  partySize           Int                 @default(1) @map("party_size")
+  appliedAt           DateTime            @default(now()) @map("applied_at") @db.Timestamptz(6)
+  approvedAt          DateTime?           @map("approved_at") @db.Timestamptz(6)
+  confirmedAt         DateTime?           @map("confirmed_at") @db.Timestamptz(6)
+  cancelledAt         DateTime?           @map("cancelled_at") @db.Timestamptz(6)
 
-  join       Join               @relation(fields: [joinId], references: [id], onDelete: Cascade)
-  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  join       Join              @relation(fields: [joinId], references: [id], onDelete: Cascade)
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   settlement RewardSettlement?
   reports    Report[]
   dispute    DisputeCase?
@@ -698,23 +700,23 @@ model JoinParticipant {
 }
 
 model RewardSettlement {
-  id                   String       @id @default(uuid()) @db.Uuid
-  joinId               String       @map("join_id") @db.Uuid
-  joinParticipantId    String       @unique @map("join_participant_id") @db.Uuid
-  coinAssetId          String       @map("coin_asset_id") @db.Uuid
-  amount               Decimal      @db.Decimal(18, 4)
-  rewardStatus         RewardStatus @default(HELD) @map("reward_status")
-  holdId               String?      @map("hold_id") @db.Uuid
-  settlementAvailableAt DateTime    @map("settlement_available_at") @db.Timestamptz(6)
-  autoPayAt            DateTime     @map("auto_pay_at") @db.Timestamptz(6)
-  heldAt               DateTime?    @map("held_at") @db.Timestamptz(6)
-  paidAt               DateTime?    @map("paid_at") @db.Timestamptz(6)
-  disputedAt           DateTime?    @map("disputed_at") @db.Timestamptz(6)
-  refundedAt           DateTime?    @map("refunded_at") @db.Timestamptz(6)
-  paidTxId             String?      @map("paid_tx_id") @db.Uuid
-  idempotencyKey       String       @unique @map("idempotency_key")
-  createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt            DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                    String       @id @default(uuid()) @db.Uuid
+  joinId                String       @map("join_id") @db.Uuid
+  joinParticipantId     String       @unique @map("join_participant_id") @db.Uuid
+  coinAssetId           String       @map("coin_asset_id") @db.Uuid
+  amount                Decimal      @db.Decimal(18, 4)
+  rewardStatus          RewardStatus @default(HELD) @map("reward_status")
+  holdId                String?      @map("hold_id") @db.Uuid
+  settlementAvailableAt DateTime     @map("settlement_available_at") @db.Timestamptz(6)
+  autoPayAt             DateTime     @map("auto_pay_at") @db.Timestamptz(6)
+  heldAt                DateTime?    @map("held_at") @db.Timestamptz(6)
+  paidAt                DateTime?    @map("paid_at") @db.Timestamptz(6)
+  disputedAt            DateTime?    @map("disputed_at") @db.Timestamptz(6)
+  refundedAt            DateTime?    @map("refunded_at") @db.Timestamptz(6)
+  paidTxId              String?      @map("paid_tx_id") @db.Uuid
+  idempotencyKey        String       @unique @map("idempotency_key")
+  createdAt             DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   participant JoinParticipant  @relation(fields: [joinParticipantId], references: [id], onDelete: Cascade)
   coinAsset   CoinAsset        @relation(fields: [coinAssetId], references: [id])
@@ -762,19 +764,19 @@ model Wallet {
 }
 
 model CoinTransaction {
-  id                   String           @id @default(uuid()) @db.Uuid
-  walletId             String           @map("wallet_id") @db.Uuid
-  coinAssetId          String           @map("coin_asset_id") @db.Uuid
-  type                 CoinTxType
-  direction            CoinTxDirection
-  amount               Decimal          @db.Decimal(18, 4)
+  id                    String          @id @default(uuid()) @db.Uuid
+  walletId              String          @map("wallet_id") @db.Uuid
+  coinAssetId           String          @map("coin_asset_id") @db.Uuid
+  type                  CoinTxType
+  direction             CoinTxDirection
+  amount                Decimal         @db.Decimal(18, 4)
   balanceAfterAvailable Decimal         @map("balance_after_available") @db.Decimal(18, 4)
-  balanceAfterHeld     Decimal          @map("balance_after_held") @db.Decimal(18, 4)
-  refType              String?          @map("ref_type")
-  refId                String?          @map("ref_id")
-  idempotencyKey       String           @unique @map("idempotency_key")
-  metadata             Json?
-  createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  balanceAfterHeld      Decimal         @map("balance_after_held") @db.Decimal(18, 4)
+  refType               String?         @map("ref_type")
+  refId                 String?         @map("ref_id")
+  idempotencyKey        String          @unique @map("idempotency_key")
+  metadata              Json?
+  createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
 
   wallet      Wallet             @relation(fields: [walletId], references: [id], onDelete: Cascade)
   coinAsset   CoinAsset          @relation(fields: [coinAssetId], references: [id])
@@ -881,11 +883,11 @@ model DisputeCase {
   createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  join            Join              @relation(fields: [joinId], references: [id], onDelete: Cascade)
-  participant     JoinParticipant   @relation(fields: [joinParticipantId], references: [id], onDelete: Cascade)
-  settlement      RewardSettlement  @relation(fields: [settlementId], references: [id], onDelete: Cascade)
-  openedBy        User              @relation("DisputeOpenedBy", fields: [openedByUserId], references: [id])
-  resolvedByAdmin User?             @relation("DisputeResolvedBy", fields: [resolvedByAdminUserId], references: [id])
+  join            Join             @relation(fields: [joinId], references: [id], onDelete: Cascade)
+  participant     JoinParticipant  @relation(fields: [joinParticipantId], references: [id], onDelete: Cascade)
+  settlement      RewardSettlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  openedBy        User             @relation("DisputeOpenedBy", fields: [openedByUserId], references: [id])
+  resolvedByAdmin User?            @relation("DisputeResolvedBy", fields: [resolvedByAdminUserId], references: [id])
 
   @@index([status, openedAt])
   @@index([joinId])
@@ -1039,11 +1041,11 @@ model GolfFacility {
   sourceSyncedAt       DateTime? @map("source_synced_at") @db.Timestamptz(6)
 
   /// Last successful full sync that included this facility.
-  lastSeenAt            DateTime? @map("last_seen_at") @db.Timestamptz(6)
+  lastSeenAt           DateTime? @map("last_seen_at") @db.Timestamptz(6)
   /// Consecutive successful syncs where this LOCALDATA key was absent (never hard-delete).
-  consecutiveMissCount  Int       @default(0) @map("consecutive_miss_count")
+  consecutiveMissCount Int       @default(0) @map("consecutive_miss_count")
   /// Original LOCALDATA API item snapshot (additive).
-  sourceRawJson         Json?     @map("source_raw_json")
+  sourceRawJson        Json?     @map("source_raw_json")
 
   verifiedAt       DateTime? @map("verified_at") @db.Timestamptz(6)
   verifiedByUserId String?   @map("verified_by_user_id") @db.Uuid
@@ -1051,7 +1053,7 @@ model GolfFacility {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  venue Venue?
+  venue                  Venue?
   storeOwnershipRequests StoreOwnershipRequest[]
   storeOwnerships        StoreOwnership[]
 
@@ -1080,22 +1082,22 @@ enum PublicGolfFacilitySyncRunStatus {
 
 /// Audit log for nationwide LOCALDATA golf facility sync (15-day / 1·16 KST cron).
 model PublicGolfFacilitySyncRun {
-  id              String                          @id @default(uuid()) @db.Uuid
-  status          PublicGolfFacilitySyncRunStatus
-  source          String                          @default("LOCALDATA_GOLF_PRACTICE_RANGE")
-  startedAt       DateTime                        @map("started_at") @db.Timestamptz(6)
-  finishedAt      DateTime?                       @map("finished_at") @db.Timestamptz(6)
-  fetchedPages    Int                             @default(0) @map("fetched_pages")
-  fetchedCount    Int                             @default(0) @map("fetched_count")
-  insertedCount   Int                             @default(0) @map("inserted_count")
-  updatedCount    Int                             @default(0) @map("updated_count")
-  unchangedCount  Int                             @default(0) @map("unchanged_count")
-  inactiveCount   Int                             @default(0) @map("inactive_count")
-  geocodedCount   Int                             @default(0) @map("geocoded_count")
-  failedCount     Int                             @default(0) @map("failed_count")
-  errorSummary    String?                         @map("error_summary")
-  meta            Json?
-  createdAt       DateTime                        @default(now()) @map("created_at") @db.Timestamptz(6)
+  id             String                          @id @default(uuid()) @db.Uuid
+  status         PublicGolfFacilitySyncRunStatus
+  source         String                          @default("LOCALDATA_GOLF_PRACTICE_RANGE")
+  startedAt      DateTime                        @map("started_at") @db.Timestamptz(6)
+  finishedAt     DateTime?                       @map("finished_at") @db.Timestamptz(6)
+  fetchedPages   Int                             @default(0) @map("fetched_pages")
+  fetchedCount   Int                             @default(0) @map("fetched_count")
+  insertedCount  Int                             @default(0) @map("inserted_count")
+  updatedCount   Int                             @default(0) @map("updated_count")
+  unchangedCount Int                             @default(0) @map("unchanged_count")
+  inactiveCount  Int                             @default(0) @map("inactive_count")
+  geocodedCount  Int                             @default(0) @map("geocoded_count")
+  failedCount    Int                             @default(0) @map("failed_count")
+  errorSummary   String?                         @map("error_summary")
+  meta           Json?
+  createdAt      DateTime                        @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([startedAt])
   @@index([status, startedAt])
