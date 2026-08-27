@@ -1,6 +1,7 @@
 import type { ExploreFilter, ExploreMapResponse } from '@jjoin/types';
 import { getMockExploreMap } from '../model/mock-explore-data';
 import { getApiClient } from '../../../lib/api';
+import { isInternalToolsEnabled } from '../../../lib/internal-tools';
 import type { SecureSessionStore } from '../../../session/secure-session-store';
 import type { MapCoordinate, MapRegion } from '../model/map-types';
 
@@ -26,8 +27,11 @@ export async function fetchExploreMap(input: {
       northEastLng: input.center.longitude + halfLng,
       sportCode: 'SCREEN_GOLF',
     });
-  } catch {
-    return getMockExploreMap();
+  } catch (error) {
+    if (isInternalToolsEnabled()) {
+      return getMockExploreMap();
+    }
+    throw error;
   }
 }
 

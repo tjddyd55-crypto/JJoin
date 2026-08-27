@@ -24,6 +24,7 @@ import {
 import { Text, spacing, useTheme } from '@jjoin/design-system';
 import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
 import { getApiClient } from '../../../lib/api';
+import { isInternalToolsEnabled } from '../../../lib/internal-tools';
 import { fetchExploreMap, REGION_SEARCH_FIXTURES } from '../api/explore-api';
 import {
   fetchGolfFacilitiesInRegion,
@@ -647,13 +648,21 @@ export function ExploreMapScreen({
   const mapUnavailable =
     runtime.kind === 'missing_native_key' ? (
       <MapUnavailablePanel
-        title="Kakao Map Native App Key 필요"
-        body="Kakao Developers에서 Native App Key를 발급해 apps/mobile/.env 의 EXPO_PUBLIC_KAKAO_MAP_NATIVE_APP_KEY에 설정한 뒤 Development Build를 재생성하세요. (REST API Key와 다릅니다. package: com.jjoin.app + Android key hash 등록 필요)"
+        title="지도를 불러올 수 없습니다"
+        body={
+          isInternalToolsEnabled()
+            ? 'Kakao Developers에서 Native App Key를 발급해 apps/mobile/.env 의 EXPO_PUBLIC_KAKAO_MAP_NATIVE_APP_KEY에 설정한 뒤 Development Build를 재생성하세요.'
+            : '잠시 후 다시 시도해 주세요. 문제가 계속되면 앱을 재시작해 주세요.'
+        }
       />
     ) : runtime.kind === 'expo_go_unsupported' ? (
       <MapUnavailablePanel
-        title="Development Build 필요"
-        body="Kakao Map은 Expo Go에서 사용할 수 없습니다. prebuild 후 expo run:android 로 Dev Client를 사용하세요."
+        title="지도를 사용할 수 없습니다"
+        body={
+          isInternalToolsEnabled()
+            ? 'Kakao Map은 Expo Go에서 사용할 수 없습니다. Development Build를 사용하세요.'
+            : '이 기기에서는 지도를 표시할 수 없습니다.'
+        }
       />
     ) : null;
 

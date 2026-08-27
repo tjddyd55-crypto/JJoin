@@ -146,11 +146,13 @@ function CatalogBody() {
   );
 }
 
+import { isInternalToolsEnabled } from '../../src/lib/internal-tools';
+
 export default function DesignSystemCatalogScreen() {
-  if (!__DEV__) {
+  if (!isInternalToolsEnabled()) {
     return (
       <ScreenFrame>
-        <Text tone="secondary">Not available</Text>
+        <Text tone="secondary">사용할 수 없는 화면입니다.</Text>
       </ScreenFrame>
     );
   }

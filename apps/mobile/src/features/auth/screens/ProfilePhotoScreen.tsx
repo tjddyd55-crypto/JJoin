@@ -13,6 +13,7 @@ import { t } from '@jjoin/i18n';
 import { useRouter } from 'expo-router';
 import { useSession } from '../../../session/SessionContext';
 import { OnboardingHeader } from '../../../ui/patterns';
+import { isInternalToolsEnabled } from '../../../lib/internal-tools';
 
 export function ProfilePhotoScreen() {
   const { setAvatar, me } = useSession();
@@ -82,15 +83,23 @@ export function ProfilePhotoScreen() {
       </Card>
 
       <View style={styles.actions}>
-        <Button
-          label={t('auth.profilePhoto.mockPick')}
-          variant="secondary"
-          onPress={() => setUri(`https://i.pravatar.cc/200?u=${Date.now()}`)}
-          accessibilityLabel="Mock 프로필 사진 선택"
-        />
-        <Text variant="caption" tone="tertiary">
-          {t('auth.profilePhoto.hint')}
-        </Text>
+        {isInternalToolsEnabled() ? (
+          <>
+            <Button
+              label={t('auth.profilePhoto.mockPick')}
+              variant="secondary"
+              onPress={() => setUri(`https://i.pravatar.cc/200?u=${Date.now()}`)}
+              accessibilityLabel="개발용 프로필 사진 선택"
+            />
+            <Text variant="caption" tone="tertiary">
+              {t('auth.profilePhoto.hint')}
+            </Text>
+          </>
+        ) : (
+          <Text variant="caption" tone="tertiary">
+            프로필 사진은 나중에 설정할 수 있습니다. 지금은 건너뛰어도 됩니다.
+          </Text>
+        )}
       </View>
 
       {error ? (

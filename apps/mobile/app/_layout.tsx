@@ -13,6 +13,7 @@ import {
 } from '@jjoin/design-system';
 import { resolveOnboardingStep } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
+import { isInternalToolsEnabled } from '../src/lib/internal-tools';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -160,7 +161,9 @@ export default function RootLayout() {
               <Stack.Screen name="my" />
               <Stack.Screen name="join/[joinId]" />
               <Stack.Screen name="user/[userId]" />
-              {__DEV__ ? <Stack.Screen name="dev" options={{ headerShown: false }} /> : null}
+              {isInternalToolsEnabled() ? (
+                <Stack.Screen name="dev" options={{ headerShown: false }} />
+              ) : null}
             </Stack>
           </AuthGateBootstrap>
         </SessionProvider>
