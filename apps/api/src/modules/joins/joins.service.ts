@@ -544,7 +544,7 @@ export class JoinsService {
       }
 
       const existing = join.participants.find((p) => p.userId === userId);
-      if (existing) {
+      if (existing && existing.participationStatus !== 'CANCELLED') {
         throw new ConflictException('already_applied');
       }
 
@@ -552,6 +552,7 @@ export class JoinsService {
         .filter(
           (p) =>
             p.role !== 'HOST' &&
+            p.id !== existing?.id &&
             (p.participationStatus === 'APPROVED' || p.participationStatus === 'CONFIRMED'),
         )
         .map((p) => p.user.profile?.gender ?? null);
@@ -570,21 +571,39 @@ export class JoinsService {
         });
       }
 
-      const participant = await tx.joinParticipant.create({
-        data: {
-          joinId,
-          userId,
-          role: 'PARTICIPANT',
-          participationStatus: 'APPROVED',
-          approvedAt: new Date(),
-          confirmedAt: new Date(),
-        },
-      });
+      const now = new Date();
+      const participant = existing
+        ? await tx.joinParticipant.update({
+            where: { id: existing.id },
+            data: {
+              participationStatus: 'APPROVED',
+              approvedAt: now,
+              confirmedAt: now,
+              cancelledAt: null,
+            },
+          })
+        : await tx.joinParticipant.create({
+            data: {
+              joinId,
+              userId,
+              role: 'PARTICIPANT',
+              participationStatus: 'APPROVED',
+              approvedAt: now,
+              confirmedAt: now,
+            },
+          });
 
-      const rosterCount = this.matchingJoins.countMatchingParticipants([
-        ...join.participants,
-        { role: 'PARTICIPANT', participationStatus: 'APPROVED' },
-      ]);
+      const rosterParticipants = existing
+        ? join.participants.map((p) =>
+            p.id === existing.id
+              ? { ...p, participationStatus: 'APPROVED' as const }
+              : p,
+          )
+        : [
+            ...join.participants,
+            { role: 'PARTICIPANT' as const, participationStatus: 'APPROVED' as const },
+          ];
+      const rosterCount = this.matchingJoins.countMatchingParticipants(rosterParticipants);
 
       const scheduledEndAt = estimateEndAt({
         startAt: join.startAt,
