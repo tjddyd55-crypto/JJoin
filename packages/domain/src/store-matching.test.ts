@@ -7,6 +7,7 @@ import {
   evaluateMatchingDeadline,
   formatMatchingRecruitmentLabel,
   isRewardEligibleMatchingGender,
+  remainingMatchingHoldRefund,
   resolveMatchingRewardDisposition,
   resolveStoreMatchingDisplayStatus,
   storeMatchingDisplayStatusLabel,
@@ -102,6 +103,43 @@ test('reward eligibility respects target', () => {
   assert.equal(isRewardEligibleMatchingGender('FEMALE', 'FEMALE'), true);
   assert.equal(isRewardEligibleMatchingGender('MALE', 'FEMALE'), false);
   assert.equal(isRewardEligibleMatchingGender('MALE', 'ALL'), true);
+});
+
+test('leave NOT_ELIGIBLE does not shrink remaining JOIN hold refund', () => {
+  // HOLD 10_000; one left participant marked NOT_ELIGIBLE (no ledger move).
+  assert.equal(
+    remainingMatchingHoldRefund({
+      holdTotal: '10000',
+      settlements: [
+        { amount: '5000', rewardStatus: 'NOT_ELIGIBLE' },
+        { amount: '5000', rewardStatus: 'HELD' },
+      ],
+    }),
+    '10000',
+  );
+});
+
+test('insufficient cancel refunds full hold when leave used NOT_ELIGIBLE', () => {
+  assert.equal(
+    remainingMatchingHoldRefund({
+      holdTotal: '10000',
+      settlements: [{ amount: '5000', rewardStatus: 'NOT_ELIGIBLE' }],
+    }),
+    '10000',
+  );
+});
+
+test('REFUNDED after ledger move reduces remaining hold (no double refund)', () => {
+  assert.equal(
+    remainingMatchingHoldRefund({
+      holdTotal: '10000',
+      settlements: [
+        { amount: '5000', rewardStatus: 'PAID' },
+        { amount: '5000', rewardStatus: 'REFUNDED' },
+      ],
+    }),
+    '0',
+  );
 });
 
 test('settlement pays only attended eligible genders', () => {

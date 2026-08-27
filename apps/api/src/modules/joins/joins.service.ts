@@ -50,6 +50,7 @@ import {
   storeMatchingDisplayStatusLabel,
   storeMatchingOwnerListPriority,
   subCoinAmounts,
+  computeAutoPayAt,
 } from '@jjoin/domain';
 import { createJoinSchema, joinCoinPreviewSchema } from '@jjoin/validation';
 import { Prisma } from '@prisma/client';
@@ -544,7 +545,7 @@ export class JoinsService {
       }
 
       const existing = join.participants.find((p) => p.userId === userId);
-      if (existing) {
+      if (existing && existing.participationStatus !== 'CANCELLED') {
         throw new ConflictException('already_applied');
       }
 
@@ -552,6 +553,7 @@ export class JoinsService {
         .filter(
           (p) =>
             p.role !== 'HOST' &&
+            p.id !== existing?.id &&
             (p.participationStatus === 'APPROVED' || p.participationStatus === 'CONFIRMED'),
         )
         .map((p) => p.user.profile?.gender ?? null);
@@ -570,21 +572,39 @@ export class JoinsService {
         });
       }
 
-      const participant = await tx.joinParticipant.create({
-        data: {
-          joinId,
-          userId,
-          role: 'PARTICIPANT',
-          participationStatus: 'APPROVED',
-          approvedAt: new Date(),
-          confirmedAt: new Date(),
-        },
-      });
+      const now = new Date();
+      const participant = existing
+        ? await tx.joinParticipant.update({
+            where: { id: existing.id },
+            data: {
+              participationStatus: 'APPROVED',
+              approvedAt: now,
+              confirmedAt: now,
+              cancelledAt: null,
+            },
+          })
+        : await tx.joinParticipant.create({
+            data: {
+              joinId,
+              userId,
+              role: 'PARTICIPANT',
+              participationStatus: 'APPROVED',
+              approvedAt: now,
+              confirmedAt: now,
+            },
+          });
 
-      const rosterCount = this.matchingJoins.countMatchingParticipants([
-        ...join.participants,
-        { role: 'PARTICIPANT', participationStatus: 'APPROVED' },
-      ]);
+      const rosterParticipants = existing
+        ? join.participants.map((p) =>
+            p.id === existing.id
+              ? { ...p, participationStatus: 'APPROVED' as const }
+              : p,
+          )
+        : [
+            ...join.participants,
+            { role: 'PARTICIPANT' as const, participationStatus: 'APPROVED' as const },
+          ];
+      const rosterCount = this.matchingJoins.countMatchingParticipants(rosterParticipants);
 
       const scheduledEndAt = estimateEndAt({
         startAt: join.startAt,
@@ -613,6 +633,23 @@ export class JoinsService {
         rewardPerParticipant: join.rewardPerParticipant,
         coinAssetId: join.coinAssetId,
       });
+
+      // Leave marks settlement NOT_ELIGIBLE without moving JOIN hold; rejoin must restore HELD.
+      const settlement = await tx.rewardSettlement.findUnique({
+        where: { joinParticipantId: participant.id },
+      });
+      if (settlement?.rewardStatus === 'NOT_ELIGIBLE') {
+        await tx.rewardSettlement.update({
+          where: { id: settlement.id },
+          data: {
+            rewardStatus: 'HELD',
+            heldAt: now,
+            refundedAt: null,
+            settlementAvailableAt: scheduledEndAt,
+            autoPayAt: computeAutoPayAt(scheduledEndAt),
+          },
+        });
+      }
     });
 
     return this.getDetail(joinId, userId);

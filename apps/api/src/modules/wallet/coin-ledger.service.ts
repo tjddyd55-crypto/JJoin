@@ -4,6 +4,7 @@ import {
   addCoinAmounts,
   compareCoinAmounts,
   isCoinAmountPositive,
+  remainingMatchingHoldRefund,
   subCoinAmounts,
   zeroCoinAmount,
 } from '@jjoin/domain';
@@ -202,27 +203,36 @@ export class CoinLedgerService {
         return;
       }
       const creditAmount = subCoinAmounts(target, available);
-      let idempotencyKey = `dev-funding:${personaLabel}:${coinAsset.code}:to-${target}:from-${available}`;
+      // Include userId so KAKAO/NAVER/GOOGLE personas do not share funding ledger keys.
+      let idempotencyKey = `dev-funding:${personaLabel}:${userId}:${coinAsset.code}:to-${target}:from-${available}`;
       const existing = await tx.coinIssuance.findUnique({ where: { idempotencyKey } });
       if (existing) {
         // Same available balance can recur after spend — allow another TEST top-up.
-        idempotencyKey = `dev-funding:${personaLabel}:${coinAsset.code}:${randomUUID()}`;
+        idempotencyKey = `dev-funding:${personaLabel}:${userId}:${coinAsset.code}:${randomUUID()}`;
       }
 
-      await this.issueCoins(
-        {
-          userId,
-          amount: creditAmount,
-          issuanceType: 'DEV_SEED',
-          reason: `DEV funding to ${target}`,
-          referenceType: 'DEV_FUNDING',
-          referenceId: userId,
-          idempotencyKey,
-          metadata: { policy: 'TEST_ONLY', persona: personaLabel },
-          coinAssetId: coinAsset.id,
-        },
-        tx,
-      );
+      try {
+        await this.issueCoins(
+          {
+            userId,
+            amount: creditAmount,
+            issuanceType: 'DEV_SEED',
+            reason: `DEV funding to ${target}`,
+            referenceType: 'DEV_FUNDING',
+            referenceId: userId,
+            idempotencyKey,
+            metadata: { policy: 'TEST_ONLY', persona: personaLabel },
+            coinAssetId: coinAsset.id,
+          },
+          tx,
+        );
+      } catch (err) {
+        // Orphan CoinTransaction without CoinIssuance for a prior key — skip top-up; sign-in proceeds.
+        if (err instanceof ConflictException) {
+          return;
+        }
+        throw err;
+      }
     });
   }
 
@@ -521,18 +531,14 @@ export class CoinLedgerService {
       where: { joinId: params.joinId },
     });
 
-    let accounted = zeroCoinAmount();
-    for (const s of settlements) {
-      if (['PAID', 'AUTO_PAID', 'REFUNDED'].includes(s.rewardStatus)) {
-        accounted = addCoinAmounts(accounted, String(s.amount));
-      }
-    }
-
     const holdTotal = String(hold.amount);
-    const remaining =
-      compareCoinAmounts(holdTotal, accounted) > 0
-        ? subCoinAmounts(holdTotal, accounted)
-        : zeroCoinAmount();
+    const remaining = remainingMatchingHoldRefund({
+      holdTotal,
+      settlements: settlements.map((s) => ({
+        amount: String(s.amount),
+        rewardStatus: s.rewardStatus,
+      })),
+    });
 
     if (compareCoinAmounts(remaining, '0') <= 0) {
       await tx.coinHold.update({

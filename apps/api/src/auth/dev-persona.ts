@@ -9,6 +9,7 @@ import {
   type SocialSignInResponse,
 } from '@jjoin/types';
 import { resolveOnboardingStep } from '@jjoin/domain';
+import { ConflictException } from '@nestjs/common';
 import type { PrismaClient } from '@prisma/client';
 import { ensureFoundation } from '../foundation/ensure-foundation';
 import { issueSessionToken } from './session-token';
@@ -159,8 +160,16 @@ export async function signInDevPersona(
 
   if (isDevCoinFundingAllowed()) {
     // Idempotent TEST ONLY top-up — not a production grant endpoint.
+    // Funding must never block mock sign-in (orphan ledger keys / cross-provider races).
     const ledger = new CoinLedgerService(prisma as PrismaService);
-    await ledger.ensureDevFundingTarget(userId, fixture.persona);
+    try {
+      await ledger.ensureDevFundingTarget(userId, fixture.persona);
+    } catch (err) {
+      if (!(err instanceof ConflictException)) {
+        throw err;
+      }
+      // Orphan/cross-provider funding key — session still issued; admin can top up TEST coin.
+    }
   }
 
   const fundedMe = await loadMeFromDb(prisma, userId);

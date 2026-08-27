@@ -240,6 +240,7 @@ export {
   formatMatchingDeadlineHint,
   formatMatchingRecruitmentLabel,
   isRewardEligibleMatchingGender,
+  remainingMatchingHoldRefund,
   resolveMatchingRewardDisposition,
   resolveStoreMatchingDisplayStatus,
   storeMatchingDisplayStatusLabel,
