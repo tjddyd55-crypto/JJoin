@@ -939,7 +939,19 @@ export class SettlementService {
     });
     if (!join || join.status === 'CANCELLED' || join.status === 'COMPLETED') return;
 
-    const nonHost = join.participants.filter((p) => p.role !== 'HOST');
+    // Never auto-complete while still recruiting — leave marks settlements
+    // NOT_ELIGIBLE (terminal) but JOIN-level HOLD must stay until deadline/cancel/complete.
+    if (join.joinKind === 'STORE_MATCHING') {
+      if (!['CONFIRMED', 'IN_PROGRESS', 'SETTLING'].includes(join.status)) {
+        return;
+      }
+    }
+
+    const nonHost = join.participants.filter(
+      (p) =>
+        p.role !== 'HOST' &&
+        ['APPROVED', 'CONFIRMED', 'COMPLETED', 'NO_SHOW'].includes(p.participationStatus),
+    );
     if (nonHost.length === 0) return;
 
     const openDisputes = await this.disputes.countOpenDisputesForJoin(tx, joinId);
