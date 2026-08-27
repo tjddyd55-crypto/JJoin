@@ -1,4 +1,20 @@
-import { JoinKind, MatchingRewardTarget, type DiscoverJoinCardDto, type JoinDetailDto } from '@jjoin/types';
+import {
+  buildStoreMatchingSecondaryLabel,
+  canConfirmMatchingAttendance,
+  formatMatchingDeadlineHint,
+  resolveStoreMatchingDisplayStatus,
+  storeMatchingDisplayStatusLabel,
+  storeMatchingOwnerListPriority,
+  type StoreMatchingDisplayAudience,
+  type StoreMatchingDisplayStatus,
+} from '@jjoin/domain';
+import {
+  JoinKind,
+  MatchingRewardTarget,
+  type DiscoverJoinCardDto,
+  type JoinDetailDto,
+  type JoinListItemDto,
+} from '@jjoin/types';
 
 export function formatKstTime(iso: string): string {
   try {
@@ -51,7 +67,7 @@ export function splitKstDateTime(iso: string): { dateYmd: string; timeHm: string
 }
 
 export function isStoreMatchingJoin(
-  join: Pick<DiscoverJoinCardDto | JoinDetailDto, 'joinKind'>,
+  join: { joinKind?: JoinKind | string | null },
 ): boolean {
   return join.joinKind === JoinKind.STORE_MATCHING;
 }
@@ -91,4 +107,115 @@ export function matchingSlotProgressLabel(
 export function matchingDeadlineLabel(recruitClosesAt: string | null | undefined): string | null {
   if (!recruitClosesAt) return null;
   return `${formatKstTime(recruitClosesAt)} 마감`;
+}
+
+type MatchingStatusSource = {
+  joinKind?: JoinKind | string | null;
+  status: string;
+  startAt: string;
+  scheduledEndAt: string;
+  confirmedPlayerCount?: number;
+  plannedPlayerCount?: number;
+  currentParticipants?: number;
+  maxParticipants?: number;
+  recruitClosesAt?: string | null;
+  minimumPlayers?: number | null;
+  displayStatus?: StoreMatchingDisplayStatus;
+  displayStatusLabel?: string;
+  displaySubtitle?: string | null;
+  canConfirmAttendance?: boolean;
+  remainingSlots?: number;
+  ownerListPriority?: number;
+  recruitmentLabel?: string | null;
+};
+
+function rosterCounts(join: MatchingStatusSource): {
+  confirmed: number;
+  planned: number;
+} {
+  return {
+    confirmed: join.confirmedPlayerCount ?? join.currentParticipants ?? 0,
+    planned: join.plannedPlayerCount ?? join.maxParticipants ?? 0,
+  };
+}
+
+function deriveDisplayStatus(join: MatchingStatusSource): StoreMatchingDisplayStatus | null {
+  if (!isStoreMatchingJoin(join)) return null;
+  if (join.displayStatus) return join.displayStatus;
+  const { confirmed, planned } = rosterCounts(join);
+  return resolveStoreMatchingDisplayStatus({
+    now: new Date(),
+    status: join.status,
+    recruitClosesAt: join.recruitClosesAt ? new Date(join.recruitClosesAt) : null,
+    startAt: new Date(join.startAt),
+    scheduledEndAt: new Date(join.scheduledEndAt),
+    confirmedPlayerCount: confirmed,
+    minimumPlayers: join.minimumPlayers,
+  });
+}
+
+export function matchingDisplayStatusLabel(
+  join: MatchingStatusSource,
+  audience: StoreMatchingDisplayAudience = 'host',
+): string | null {
+  if (!isStoreMatchingJoin(join)) return null;
+  if (audience === 'host' && join.displayStatusLabel) return join.displayStatusLabel;
+  const status = deriveDisplayStatus(join);
+  if (!status) return null;
+  const { confirmed } = rosterCounts(join);
+  return storeMatchingDisplayStatusLabel(status, {
+    audience,
+    confirmedPlayerCount: confirmed,
+  });
+}
+
+export function matchingDisplaySubtitle(join: MatchingStatusSource): string | null {
+  if (!isStoreMatchingJoin(join)) return null;
+  if (join.displaySubtitle) return join.displaySubtitle;
+  const status = deriveDisplayStatus(join);
+  if (!status) return null;
+  const { confirmed, planned } = rosterCounts(join);
+  return buildStoreMatchingSecondaryLabel({
+    displayStatus: status,
+    recruitmentLabel: join.recruitmentLabel,
+    remainingSlots: join.remainingSlots ?? Math.max(0, planned - confirmed),
+    confirmedPlayerCount: confirmed,
+    recruitClosesAt: join.recruitClosesAt ? new Date(join.recruitClosesAt) : null,
+    now: new Date(),
+  });
+}
+
+export function matchingCanConfirmAttendance(join: MatchingStatusSource): boolean {
+  if (!isStoreMatchingJoin(join)) return false;
+  if (typeof join.canConfirmAttendance === 'boolean') return join.canConfirmAttendance;
+  return canConfirmMatchingAttendance({
+    now: new Date(),
+    status: join.status,
+    scheduledEndAt: new Date(join.scheduledEndAt),
+  });
+}
+
+export function matchingOwnerListPriority(join: MatchingStatusSource): number {
+  if (typeof join.ownerListPriority === 'number') return join.ownerListPriority;
+  const status = deriveDisplayStatus(join);
+  if (!status) return 99;
+  return storeMatchingOwnerListPriority(status);
+}
+
+export function matchingDeadlineHint(join: MatchingStatusSource): string | null {
+  if (!isStoreMatchingJoin(join) || !join.recruitClosesAt) return null;
+  return formatMatchingDeadlineHint(new Date(join.recruitClosesAt), new Date());
+}
+
+export function matchingRewardResultLabel(params: {
+  completed: boolean;
+  paidAmount?: string | null;
+  noshow?: boolean;
+}): string | null {
+  if (!params.completed) return null;
+  if (params.noshow) return '보상 미지급';
+  if (params.paidAmount && Number(params.paidAmount) > 0) {
+    return `+${params.paidAmount}C 지급`;
+  }
+  return null;
 }

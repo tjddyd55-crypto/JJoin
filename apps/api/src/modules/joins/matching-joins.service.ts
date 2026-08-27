@@ -5,6 +5,7 @@ import {
   forwardRef,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
@@ -23,12 +24,14 @@ import {
   computeMatchingJoinCoinRequirement,
   computeMatchingPlannedPlayerCount,
   countMatchingRosterByGender,
+  emptyMatchingDeadlineBatchSummary,
   evaluateMatchingDeadline,
   estimateEndAt,
   resolveMatchingRewardDisposition,
   settlementRefundIdempotencyKey,
   settlementRowIdempotencyKey,
   settlementTransferIdempotencyKey,
+  type MatchingDeadlineBatchSummary,
 } from '@jjoin/domain';
 import { createStoreMatchingJoinSchema, storeMatchingCompleteSchema } from '@jjoin/validation';
 import { Prisma } from '@prisma/client';
@@ -49,6 +52,8 @@ const MATCHING_OPEN_STATUSES: JoinStatus[] = [JoinStatus.OPEN, JoinStatus.FULL];
 
 @Injectable()
 export class MatchingJoinsService {
+  private readonly logger = new Logger(MatchingJoinsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly ledger: CoinLedgerService,
@@ -471,7 +476,8 @@ export class MatchingJoinsService {
 
   async reconcileDueMatchingDeadlines(
     limit = 50,
-  ): Promise<{ processed: number; joinIds: string[] }> {
+  ): Promise<MatchingDeadlineBatchSummary & { processed: number; joinIds: string[] }> {
+    const started = Date.now();
     const now = new Date();
     const due = await this.prisma.join.findMany({
       where: {
@@ -483,10 +489,45 @@ export class MatchingJoinsService {
       take: Math.max(1, Math.min(limit, 200)),
       orderBy: { recruitClosesAt: 'asc' },
     });
+
+    const summary = emptyMatchingDeadlineBatchSummary();
+    summary.scannedCount = due.length;
+    const joinIds: string[] = [];
+
     for (const row of due) {
-      await this.ensureMatchingDeadline(row.id);
+      try {
+        const outcome = await this.ensureMatchingDeadline(row.id);
+        joinIds.push(row.id);
+        if (outcome === 'confirmed') summary.confirmedCount += 1;
+        else if (outcome === 'cancelled') summary.cancelledCount += 1;
+        else summary.skippedCount += 1;
+      } catch (err) {
+        summary.errorCount += 1;
+        this.logger.warn(
+          `matchingDeadlineBatch join_error joinId=${row.id} message=${
+            err instanceof Error ? err.message : 'unknown'
+          }`,
+        );
+      }
     }
-    return { processed: due.length, joinIds: due.map((d) => d.id) };
+
+    summary.durationMs = Date.now() - started;
+    this.logger.log(
+      `matchingDeadlineBatch ${JSON.stringify({
+        scannedCount: summary.scannedCount,
+        confirmedCount: summary.confirmedCount,
+        cancelledCount: summary.cancelledCount,
+        skippedCount: summary.skippedCount,
+        errorCount: summary.errorCount,
+        durationMs: summary.durationMs,
+      })}`,
+    );
+
+    return {
+      ...summary,
+      processed: summary.confirmedCount + summary.cancelledCount,
+      joinIds,
+    };
   }
 
   async leaveAsParticipant(joinId: string, userId: string): Promise<JoinDetailDto> {
@@ -548,15 +589,21 @@ export class MatchingJoinsService {
     return this.joins.getDetail(joinId, userId);
   }
 
-  async ensureMatchingDeadline(joinId: string): Promise<void> {
+  /**
+   * Idempotent deadline reconcile for one join.
+   * Concurrent workers are safe via status-gated updateMany + ledger idempotency keys.
+   */
+  async ensureMatchingDeadline(
+    joinId: string,
+  ): Promise<'confirmed' | 'cancelled' | 'skipped'> {
     const now = new Date();
-    await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const join = await tx.join.findUnique({
         where: { id: joinId },
         include: { participants: true },
       });
-      if (!join || join.joinKind !== 'STORE_MATCHING') return;
-      if (!join.recruitClosesAt || join.minimumPlayers == null) return;
+      if (!join || join.joinKind !== 'STORE_MATCHING') return 'skipped';
+      if (!join.recruitClosesAt || join.minimumPlayers == null) return 'skipped';
 
       const alreadyClosed = ['CONFIRMED', 'CANCELLED', 'COMPLETED'].includes(join.status);
       const rosterCount = this.countMatchingParticipants(join.participants);
@@ -570,7 +617,7 @@ export class MatchingJoinsService {
         alreadyClosed,
       });
 
-      if (outcome.action === 'noop') return;
+      if (outcome.action === 'noop') return 'skipped';
 
       const hostWallet = await this.ledger.getOrCreateWallet(
         join.hostUserId,
@@ -593,11 +640,11 @@ export class MatchingJoinsService {
           },
           data: { participationStatus: 'CANCELLED', cancelledAt: now },
         });
-        await tx.join.update({
-          where: { id: joinId },
+        const cancelled = await tx.join.updateMany({
+          where: { id: joinId, status: { in: ['OPEN', 'FULL'] } },
           data: { status: 'CANCELLED', cancelledAt: now },
         });
-        return;
+        return cancelled.count > 0 ? 'cancelled' : 'skipped';
       }
 
       const scheduledEndAt = estimateEndAt({
@@ -605,8 +652,8 @@ export class MatchingJoinsService {
         playerCount: Math.max(rosterCount, 1),
         rule: SCREEN_GOLF_DURATION_RULE,
       });
-      await tx.join.update({
-        where: { id: joinId },
+      const confirmed = await tx.join.updateMany({
+        where: { id: joinId, status: { in: ['OPEN', 'FULL'] } },
         data: {
           status: 'CONFIRMED',
           confirmedAt: now,
@@ -614,6 +661,7 @@ export class MatchingJoinsService {
           scheduledEndAt,
         },
       });
+      return confirmed.count > 0 ? 'confirmed' : 'skipped';
     });
   }
 

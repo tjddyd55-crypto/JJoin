@@ -26,10 +26,16 @@ import { getApiClient } from '../../src/lib/api';
 import { getSecureSessionStore, useSession } from '../../src/session/SessionContext';
 import {
   isStoreMatchingJoin,
+  matchingCanConfirmAttendance,
   matchingDeadlineLabel,
+  matchingDisplayStatusLabel,
+  matchingDisplaySubtitle,
   matchingRewardBenefitLabel,
+  matchingRewardResultLabel,
   matchingSlotProgressLabel,
+  formatKstTime,
 } from '../../src/features/store/matching-join-ui';
+import { summarizeMatchingSettlement } from '@jjoin/domain';
 
 function rewardStatusLabel(status: RewardStatus): string {
   switch (status) {
@@ -369,6 +375,10 @@ export default function JoinDetailScreen() {
         detail.confirmedFemaleCount,
       )
     : null;
+  const matchingStatusLabel = matching
+    ? matchingDisplayStatusLabel(detail, isHost ? 'host' : 'participant')
+    : null;
+  const matchingSubtitle = matching ? matchingDisplaySubtitle(detail) : null;
   const canCancelMatching =
     matching &&
     isHost &&
@@ -380,21 +390,57 @@ export default function JoinDetailScreen() {
     Boolean(detail.myParticipation) &&
     (detail.status === JoinStatus.OPEN || detail.status === JoinStatus.FULL);
   const canMarkAttendance =
-    matching &&
-    isHost &&
-    detail.status !== JoinStatus.CANCELLED &&
-    detail.status !== JoinStatus.COMPLETED &&
-    new Date(detail.scheduledEndAt).getTime() <= Date.now();
+    matching && isHost && matchingCanConfirmAttendance(detail);
   const matchingRoster = matching
     ? detail.participants.filter((p) => p.role !== 'HOST')
     : [];
+  const attendanceReady =
+    matchingRoster.length > 0 &&
+    matchingRoster.every((p) => typeof attendance[p.participantId] === 'boolean');
+  const settlementPreview =
+    matching && attendanceReady
+      ? summarizeMatchingSettlement({
+          rewardPerParticipant: detail.rewardPerParticipant,
+          heldTotal: detail.rewardHoldTotalAmount,
+          matchingRewardTarget: detail.matchingRewardTarget ?? 'ALL',
+          participants: matchingRoster.map((p) => ({
+            attended: attendance[p.participantId] === true,
+            gender: p.gender ?? null,
+          })),
+        })
+      : null;
+  const participantRewardLabel = matching
+    ? matchingRewardResultLabel({
+        completed: detail.status === JoinStatus.COMPLETED,
+        paidAmount:
+          mySettlement?.rewardStatus === RewardStatus.PAID ||
+          mySettlement?.rewardStatus === RewardStatus.AUTO_PAID
+            ? mySettlement.rewardAmount
+            : null,
+        noshow:
+          detail.status === JoinStatus.COMPLETED &&
+          mySettlement != null &&
+          (mySettlement.rewardStatus === RewardStatus.REFUNDED ||
+            mySettlement.rewardStatus === RewardStatus.NOT_ELIGIBLE),
+      })
+    : null;
 
   return (
     <View style={styles.root}>
       <ScrollScreenFrame contentPaddingBottom={24}>
         <Section title={detail.venue.name} subtitle={startLabel}>
           {matching ? <Badge label="매장 인증" variant="gold" /> : null}
-          <Badge label={detail.status} variant="gold" />
+          <Badge label={matchingStatusLabel ?? detail.status} variant="gold" />
+          {matchingSubtitle ? (
+            <Text variant="caption" tone="secondary">
+              {matchingSubtitle}
+            </Text>
+          ) : null}
+          {participantRewardLabel ? (
+            <Text variant="body" tone="secondary" style={{ color: theme.colors.reward.primary }}>
+              {participantRewardLabel}
+            </Text>
+          ) : null}
           <Text variant="body" tone="secondary">
             {detail.confirmedPlayerCount}/{detail.plannedPlayerCount}명
           </Text>
@@ -422,6 +468,9 @@ export default function JoinDetailScreen() {
                 {matchingDeadlineLabel(detail.recruitClosesAt)}
               </Text>
             ) : null}
+            <Text variant="caption" tone="tertiary">
+              시작 {formatKstTime(detail.startAt)} · 종료 {formatKstTime(detail.scheduledEndAt)}
+            </Text>
             {matchingRewardBenefitLabel(detail.matchingRewardTarget, detail.rewardPerParticipant) ? (
               <Text variant="body" tone="secondary" style={{ color: theme.colors.reward.primary }}>
                 {matchingRewardBenefitLabel(detail.matchingRewardTarget, detail.rewardPerParticipant)}
@@ -564,9 +613,27 @@ export default function JoinDetailScreen() {
                 </View>
               </Card>
             ))}
+            {settlementPreview ? (
+              <Card variant="elevated" padding="md" style={styles.attendanceCard}>
+                <Text variant="bodyStrong" tone="primary">
+                  정산 요약
+                </Text>
+                <Text variant="caption" tone="secondary">
+                  보상 지급 예정 {settlementPreview.paidCount}명 · {settlementPreview.payoutTotal}C
+                </Text>
+                <Text variant="caption" tone="secondary">
+                  HOLD 반환 예정 {settlementPreview.refundToHost}C
+                </Text>
+              </Card>
+            ) : (
+              <Text variant="caption" tone="tertiary">
+                모든 참가자의 참석 여부를 확인해주세요.
+              </Text>
+            )}
             <Button
-              label="참석 확인 후 정산 완료"
+              label="참석 확인하기 · 정산 완료"
               loading={busy}
+              disabled={!attendanceReady}
               onPress={() => void onCompleteMatching()}
             />
           </Section>

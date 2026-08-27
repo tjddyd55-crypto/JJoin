@@ -16,6 +16,12 @@ import {
   localDayKey,
   partitionDiscoverJoins,
   resolveDiscoverCanJoin,
+  resolveStoreMatchingDisplayStatus,
+  storeMatchingDisplayStatusLabel,
+  storeMatchingOwnerListPriority,
+  buildStoreMatchingSecondaryLabel,
+  canConfirmMatchingAttendance,
+  computeMatchingRemainingSlots,
   sundayOfWeek,
 } from '@jjoin/domain';
 import {
@@ -70,6 +76,8 @@ type DiscoveryJoinRow = {
   matchingRewardTarget: string | null;
   plannedPlayerCount: number;
   confirmedPlayerCount: number;
+  confirmedAt: Date | null;
+  cancelledAt: Date | null;
   rewardPerParticipant: Prisma.Decimal;
   hostUserId: string;
   venue: {
@@ -290,6 +298,29 @@ export class JoinDiscoveryService {
       else if (gender === 'FEMALE') confirmedFemale += 1;
     }
 
+    const now = new Date();
+    const displayStatus = resolveStoreMatchingDisplayStatus({
+      now,
+      status: row.status,
+      recruitClosesAt: row.recruitClosesAt,
+      startAt: row.startAt,
+      scheduledEndAt: row.scheduledEndAt,
+      confirmedPlayerCount: row.confirmedPlayerCount,
+      minimumPlayers: row.minimumPlayers,
+      confirmedAt: row.confirmedAt,
+      cancelledAt: row.cancelledAt,
+    });
+    const remainingSlots = computeMatchingRemainingSlots(
+      row.plannedPlayerCount,
+      row.confirmedPlayerCount,
+    );
+    const recruitmentLabel = formatMatchingRecruitmentLabel({
+      targetMaleCount: maleTarget,
+      targetFemaleCount: femaleTarget,
+      confirmedMale,
+      confirmedFemale,
+    });
+
     return {
       joinKind: JoinKind.STORE_MATCHING,
       recruitClosesAt: row.recruitClosesAt?.toISOString() ?? null,
@@ -298,14 +329,29 @@ export class JoinDiscoveryService {
       targetFemaleCount: row.targetFemaleCount ?? null,
       matchingRewardTarget:
         (row.matchingRewardTarget as MatchingJoinExtras['matchingRewardTarget']) ?? null,
-      recruitmentLabel: formatMatchingRecruitmentLabel({
-        targetMaleCount: maleTarget,
-        targetFemaleCount: femaleTarget,
-        confirmedMale,
-        confirmedFemale,
-      }),
+      recruitmentLabel,
       confirmedMaleCount: confirmedMale,
       confirmedFemaleCount: confirmedFemale,
+      displayStatus,
+      displayStatusLabel: storeMatchingDisplayStatusLabel(displayStatus, {
+        audience: 'host',
+        confirmedPlayerCount: row.confirmedPlayerCount,
+      }),
+      displaySubtitle: buildStoreMatchingSecondaryLabel({
+        displayStatus,
+        recruitmentLabel,
+        remainingSlots,
+        confirmedPlayerCount: row.confirmedPlayerCount,
+        recruitClosesAt: row.recruitClosesAt,
+        now,
+      }),
+      canConfirmAttendance: canConfirmMatchingAttendance({
+        now,
+        status: row.status,
+        scheduledEndAt: row.scheduledEndAt,
+      }),
+      remainingSlots,
+      ownerListPriority: storeMatchingOwnerListPriority(displayStatus),
     };
   }
 

@@ -563,6 +563,8 @@ export type JoinParticipantDto = {
   verifiedBadge: boolean;
   appliedAt: string;
   approvedAt: string | null;
+  /** Present for STORE_MATCHING attendance/settlement preview. */
+  gender?: 'MALE' | 'FEMALE' | 'UNSPECIFIED' | 'OTHER' | null;
 };
 
 export type SettlementParticipantDto = {
@@ -677,6 +679,17 @@ export type AdminResolveDisputeRequest = {
   adminNote?: string;
 };
 
+/** Derived STORE_MATCHING UI status (not a DB enum). */
+export type StoreMatchingDisplayStatus =
+  | 'RECRUITING'
+  | 'MINIMUM_SECURED'
+  | 'CONFIRMED'
+  | 'IN_PROGRESS'
+  | 'ATTENDANCE_PENDING'
+  | 'CANCELLED_INSUFFICIENT'
+  | 'CANCELLED'
+  | 'COMPLETED';
+
 export type MatchingJoinExtras = {
   joinKind?: JoinKind;
   recruitClosesAt?: string | null;
@@ -688,6 +701,13 @@ export type MatchingJoinExtras = {
   confirmedMaleCount?: number;
   confirmedFemaleCount?: number;
   storeOwnershipId?: string | null;
+  /** Additive SSOT fields for matching status UX. */
+  displayStatus?: StoreMatchingDisplayStatus;
+  displayStatusLabel?: string;
+  displaySubtitle?: string | null;
+  canConfirmAttendance?: boolean;
+  remainingSlots?: number;
+  ownerListPriority?: number;
 };
 
 export type JoinDetailDto = {

@@ -1,11 +1,14 @@
 /**
  * STORE_MATCHING recruitment deadline reconciler for Railway cron / manual ops.
- * Prefers HTTP: POST /store-joins/matching/deadline/run
  *
- * Usage:
+ * Preferred ops path (same pattern as settlement-cron HTTP callers):
  *   MATCHING_DEADLINE_HTTP_URL=https://<api>/store-joins/matching/deadline/run \
  *   SETTLEMENT_CRON_SECRET=... \
- *   pnpm exec tsx scripts/run-matching-deadline.ts
+ *   pnpm matching-deadline
+ *
+ * Auth: send secret via `x-settlement-cron-secret` (preferred) or `Authorization: Bearer`.
+ * Cadence recommendation: every 5 minutes (minute-level close accuracy; avoid 1-minute spam).
+ * Lazy reconcile on discover/mine/detail/apply remains the safety net.
  */
 async function main() {
   const url = (process.env.MATCHING_DEADLINE_HTTP_URL ?? '').trim();
@@ -17,14 +20,21 @@ async function main() {
     process.exitCode = 1;
     return;
   }
+  if (!secret) {
+    console.error('SETTLEMENT_CRON_SECRET is required');
+    process.exitCode = 1;
+    return;
+  }
   const res = await fetch(url, {
     method: 'POST',
     headers: {
-      ...(secret ? { 'x-settlement-cron-secret': secret } : {}),
+      'x-settlement-cron-secret': secret,
+      Authorization: `Bearer ${secret}`,
     },
   });
   const text = await res.text();
-  console.log('matching_deadline', res.status, text.slice(0, 800));
+  // Never log the secret; body is aggregate counts only.
+  console.log('matchingDeadlineBatch', res.status, text.slice(0, 800));
   if (!res.ok) process.exitCode = 1;
 }
 
