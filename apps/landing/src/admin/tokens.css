@@ -1,0 +1,53 @@
+/**
+ * Admin web tokens — aligned with @jjoin/design-system legacy colors + spacing/radius.
+ * Scoped under .admin-root so public landing styles are not affected.
+ */
+.admin-root {
+  /* colors (packages/design-system/src/tokens/colors.ts) */
+  --admin-primary: #0a6b56;
+  --admin-primary-soft: #e0f2ed;
+  --admin-background: #f5f6f8;
+  --admin-surface: #ffffff;
+  --admin-text-primary: #1c2128;
+  --admin-text-secondary: #6b7280;
+  --admin-text-muted: #9ca3af;
+  --admin-border: #e5e7eb;
+  --admin-border-strong: #d1d5db;
+  --admin-danger: #c0392b;
+  --admin-danger-soft: #fdecec;
+  --admin-warning: #b86b14;
+  --admin-warning-soft: #fff4e5;
+  --admin-success: #0a6b56;
+  --admin-success-soft: #e0f2ed;
+  --admin-info: #26748c;
+  --admin-info-soft: #e8f4f7;
+  --admin-coin: #26748c;
+  --admin-overlay: rgba(20, 22, 26, 0.55);
+
+  /* spacing (packages/design-system/src/tokens/spacing.ts) */
+  --admin-space-xxs: 4px;
+  --admin-space-xs: 8px;
+  --admin-space-sm: 12px;
+  --admin-space-md: 16px;
+  --admin-space-lg: 24px;
+  --admin-space-xl: 32px;
+  --admin-space-xxl: 48px;
+
+  /* radius (packages/design-system/src/tokens/radius.ts) */
+  --admin-radius-xs: 6px;
+  --admin-radius-sm: 8px;
+  --admin-radius-md: 12px;
+  --admin-radius-lg: 16px;
+
+  /* typography sizes (packages/design-system/src/tokens/typography.ts) */
+  --admin-font-screen-title: 22px;
+  --admin-font-section-title: 18px;
+  --admin-font-body: 15px;
+  --admin-font-meta: 13px;
+  --admin-font-caption: 12px;
+  --admin-font-kpi: 28px;
+  --admin-font-kpi-sm: 20px;
+
+  --admin-shadow-card: 0 4px 16px rgba(28, 33, 40, 0.06);
+  --admin-shadow-nav: 0 1px 3px rgba(28, 33, 40, 0.04);
+}

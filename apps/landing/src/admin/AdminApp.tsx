@@ -114,42 +114,42 @@ export function AdminLoginPage() {
   }
 
   return (
-    <div className="layout layout-wide">
-      <div className="card" style={{ maxWidth: 420, margin: '48px auto', padding: 24 }}>
-        <h2 style={{ marginTop: 0 }}>관리자 로그인</h2>
-        <p style={{ color: '#666', fontSize: 14 }}>
-          Railway <code>JJOIN_ADMIN_LOGIN_ID</code> / <code>JJOIN_ADMIN_LOGIN_PASSWORD</code> 계정
-        </p>
-        <label style={{ display: 'block', marginBottom: 8 }}>
-          ID
-          <input
-            style={{ display: 'block', width: '100%', marginTop: 4, boxSizing: 'border-box' }}
-            value={loginId}
-            onChange={(e) => setLoginId(e.target.value)}
-            autoComplete="username"
-          />
-        </label>
-        <label style={{ display: 'block', marginBottom: 12 }}>
-          Password
-          <input
-            style={{ display: 'block', width: '100%', marginTop: 4, boxSizing: 'border-box' }}
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-          />
-        </label>
-        {error ? <div style={{ color: '#b00020', marginBottom: 8 }}>{error}</div> : null}
-        <button disabled={busy || !loginId || !password} onClick={() => void signInAdmin()}>
-          로그인
-        </button>
-        {import.meta.env.DEV ? (
-          <div style={{ marginTop: 16, borderTop: '1px solid #eee', paddingTop: 12 }}>
-            <button disabled={busy} onClick={() => void signInDevAdmin()}>
-              DEV_ADMIN (mock)
-            </button>
-          </div>
-        ) : null}
+    <div className="admin-root">
+      <div className="layout layout-wide">
+        <div className="card admin-login-card">
+          <h2>관리자 로그인</h2>
+          <p className="login-hint">
+            Railway <code>JJOIN_ADMIN_LOGIN_ID</code> / <code>JJOIN_ADMIN_LOGIN_PASSWORD</code> 계정
+          </p>
+          <label>
+            ID
+            <input
+              value={loginId}
+              onChange={(e) => setLoginId(e.target.value)}
+              autoComplete="username"
+            />
+          </label>
+          <label>
+            Password
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+          </label>
+          {error ? <div className="error-text">{error}</div> : null}
+          <button className="btn-primary" disabled={busy || !loginId || !password} onClick={() => void signInAdmin()}>
+            로그인
+          </button>
+          {import.meta.env.DEV ? (
+            <div style={{ marginTop: 16, borderTop: '1px solid var(--admin-border)', paddingTop: 12 }}>
+              <button disabled={busy} onClick={() => void signInDevAdmin()}>
+                DEV_ADMIN (mock)
+              </button>
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   );
@@ -167,34 +167,37 @@ function Shell({ children }: { children: React.ReactNode }) {
     return <Navigate to="/admin/login" replace />;
   }
   return (
-    <div className="layout layout-wide">
-      <header className="admin-nav card row">
-        <strong>JJOIN HQ</strong>
-        <Link to="/admin" className={loc.pathname === '/admin' ? 'nav-active' : undefined}>
-          대시보드
-        </Link>
-        <Link to="/admin/coin" className={coinActive ? 'nav-active' : undefined}>
-          코인 관리
-        </Link>
-        <Link to="/admin/disputes" className={disputeActive ? 'nav-active' : undefined}>
-          분쟁
-        </Link>
-        <Link
-          to="/admin/store-verifications"
-          className={storeVerificationActive ? 'nav-active' : undefined}
-        >
-          매장 인증
-        </Link>
-        <button
-          onClick={() => {
-            localStorage.removeItem(TOKEN_KEY);
-            navigate('/admin/login', { replace: true });
-          }}
-        >
-          로그아웃
-        </button>
-      </header>
-      {children}
+    <div className="admin-root">
+      <div className="layout layout-wide">
+        <header className="admin-nav card row">
+          <strong>JJOIN HQ</strong>
+          <Link to="/admin" className={loc.pathname === '/admin' ? 'nav-active' : undefined}>
+            대시보드
+          </Link>
+          <Link to="/admin/coin" className={coinActive ? 'nav-active' : undefined}>
+            코인 관리
+          </Link>
+          <Link to="/admin/disputes" className={disputeActive ? 'nav-active' : undefined}>
+            분쟁
+          </Link>
+          <Link
+            to="/admin/store-verifications"
+            className={storeVerificationActive ? 'nav-active' : undefined}
+          >
+            매장 인증
+          </Link>
+          <button
+            className="btn-ghost"
+            onClick={() => {
+              localStorage.removeItem(TOKEN_KEY);
+              navigate('/admin/login', { replace: true });
+            }}
+          >
+            로그아웃
+          </button>
+        </header>
+        {children}
+      </div>
     </div>
   );
 }
@@ -673,10 +676,10 @@ function ManualIssuanceDialog(props: {
         </label>
         {error ? <p>{error}</p> : null}
         <div className="row">
-          <button disabled={busy} onClick={props.onClose}>
+          <button type="button" className="btn-secondary" disabled={busy} onClick={props.onClose}>
             취소
           </button>
-          <button className="primary" disabled={busy} onClick={() => void submit()}>
+          <button type="button" className="btn-primary" disabled={busy} onClick={() => void submit()}>
             발행
           </button>
         </div>
@@ -757,101 +760,146 @@ function CoinSupplyPage() {
   const kpi = dash?.kpi;
 
   return (
-    <div>
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>코인 관리</h1>
-        <div className="row">
-          <label className="row" style={{ alignItems: 'center' }}>
-            <input
-              type="checkbox"
-              checked={excludeDevSeed}
-              onChange={(e) => setExcludeDevSeed(e.target.checked)}
-            />
-            DEV_SEED 제외(기간/breakdown)
-          </label>
-          <button onClick={() => void load()}>새로고침</button>
-          <button className="primary" onClick={() => setGrantOpen(true)}>
+    <div className="coin-page">
+      <div className="coin-page-header">
+        <div>
+          <h1 className="coin-page-title">코인 관리</h1>
+          <p className="coin-page-desc">
+            Coin 공급·발행·정합성을 확인합니다. 수동 발행은 신규 mint(ISSUANCE)이며 Transfer가 아닙니다.
+          </p>
+        </div>
+        <div className="coin-page-actions">
+          <button type="button" className="btn-secondary" onClick={() => void load()}>
+            새로고침
+          </button>
+          <button type="button" className="btn-primary" onClick={() => setGrantOpen(true)}>
             수동 발행
           </button>
         </div>
       </div>
 
+      <div className="coin-filter-bar">
+        <label className="coin-filter-check">
+          <input
+            type="checkbox"
+            checked={excludeDevSeed}
+            onChange={(e) => setExcludeDevSeed(e.target.checked)}
+          />
+          DEV_SEED 제외 (기간·breakdown)
+        </label>
+        <span className="coin-filter-divider" aria-hidden />
+        <span
+          className={
+            excludeDevSeed ? 'coin-scope-badge coin-scope-badge--prod' : 'coin-scope-badge coin-scope-badge--all'
+          }
+        >
+          {excludeDevSeed ? '운영 지표 기준' : '전체 데이터 기준'}
+        </span>
+        <p className="coin-filter-hint">
+          {excludeDevSeed
+            ? 'DEV_SEED 발행을 제외한 운영 지표입니다. 테스트/시드 데이터는 자동 초기화되지 않습니다.'
+            : '현재 수치는 DEV_SEED 포함 기준입니다. 운영 지표를 보려면 DEV_SEED 제외를 켜세요.'}
+        </p>
+      </div>
+
       {error ? <p className="error-text">{error}</p> : null}
 
       {kpi ? (
-        <div className="kpi-grid">
-          <div className="card kpi">
-            <div className="kpi-label">총 누적 발행</div>
-            <div className="kpi-value">{formatCoin(kpi.totalIssued)}</div>
-            <div className="kpi-sub">운영 발행 {formatCoin(kpi.productionIssued)}</div>
+        <div className="coin-kpi-grid">
+          <div className="card coin-kpi-card coin-kpi-card--issued">
+            <div className="coin-kpi-label">총 누적 발행</div>
+            <div className="coin-kpi-value">{formatCoin(kpi.totalIssued)}</div>
+            <div className="coin-kpi-sub">
+              운영 발행 {formatCoin(kpi.productionIssued)} — DEV_SEED·테스트 발행을 제외한 실제 운영 mint
+            </div>
           </div>
-          <div className="card kpi">
-            <div className="kpi-label">현재 유통</div>
-            <div className="kpi-value">{formatCoin(kpi.currentSupply)}</div>
+          <div className="card coin-kpi-card coin-kpi-card--supply">
+            <div className="coin-kpi-label">현재 유통</div>
+            <div className="coin-kpi-value">{formatCoin(kpi.currentSupply)}</div>
+            <div className="coin-kpi-sub">지갑에 존재하는 Coin 합계</div>
           </div>
-          <div className="card kpi">
-            <div className="kpi-label">Available</div>
-            <div className="kpi-value">{formatCoin(kpi.totalAvailable)}</div>
+          <div className="card coin-kpi-card coin-kpi-card--available">
+            <div className="coin-kpi-label">사용 가능</div>
+            <div className="coin-kpi-value">{formatCoin(kpi.totalAvailable)}</div>
+            <div className="coin-kpi-sub">즉시 사용·이체 가능 잔액</div>
           </div>
-          <div className="card kpi">
-            <div className="kpi-label">Held</div>
-            <div className="kpi-value">{formatCoin(kpi.totalHeld)}</div>
+          <div className="card coin-kpi-card coin-kpi-card--held">
+            <div className="coin-kpi-label">홀드</div>
+            <div className="coin-kpi-value">{formatCoin(kpi.totalHeld)}</div>
+            <div className="coin-kpi-sub">조인·정산 등으로 잠긴 잔액</div>
           </div>
-          <div className="card kpi">
-            <div className="kpi-label">누적 소멸</div>
-            <div className="kpi-value">{formatCoin(kpi.totalBurned)}</div>
+          <div className="card coin-kpi-card coin-kpi-card--burned">
+            <div className="coin-kpi-label">누적 소멸</div>
+            <div className="coin-kpi-value">{formatCoin(kpi.totalBurned)}</div>
+            <div className="coin-kpi-sub">Burn으로 영구 제거된 Coin</div>
           </div>
-          <div className="card kpi">
-            <div className="kpi-label">오늘 / 이번 달 발행</div>
-            <div className="kpi-value">
+          <div className="card coin-kpi-card coin-kpi-card--period">
+            <div className="coin-kpi-label">오늘 / 이번 달 발행</div>
+            <div className="coin-kpi-value">
               {formatCoin(kpi.todayIssued)} / {formatCoin(kpi.monthIssued)}
             </div>
+            <div className="coin-kpi-sub">선택한 DEV_SEED 필터가 기간 집계에도 적용됩니다</div>
           </div>
         </div>
       ) : null}
 
-      <div className="card">
-        <strong>발행 유형별 Breakdown</strong>
+      <div className="card coin-section">
+        <div className="coin-section-header">
+          <strong className="coin-section-title">발행 유형별 내역</strong>
+          <p className="coin-section-desc">issuanceType별 누적 발행량 (현재 필터 기준)</p>
+        </div>
         <table className="data-table">
           <thead>
             <tr>
               <th>유형</th>
-              <th>수량</th>
+              <th className="col-num">수량</th>
             </tr>
           </thead>
           <tbody>
             {(dash?.breakdown ?? []).map((b) => (
               <tr key={b.issuanceType}>
                 <td>{b.issuanceType}</td>
-                <td>{formatCoin(b.amount)}</td>
+                <td className="col-num">{formatCoin(b.amount)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <div className="card">
-        <strong>Supply Reconciliation</strong>
+      <div className="card coin-section">
+        <div className="coin-section-header">
+          <strong className="coin-section-title">공급 정합성</strong>
+          <p className="coin-section-desc">
+            장부(Issued − Burned)와 지갑(Available + Held) 합계가 일치하는지 확인합니다. 불일치 시 자동 수정하지
+            않습니다.
+          </p>
+        </div>
         {recon ? (
           <div>
-            <p>
-              Issued {formatCoin(recon.totalIssued)} − Burned {formatCoin(recon.totalBurned)} ={' '}
-              {formatCoin(recon.currentSupplyFromBooks)}
-            </p>
-            <p>
-              Available {formatCoin(recon.totalAvailable)} + Held {formatCoin(recon.totalHeld)} ={' '}
-              {formatCoin(recon.currentSupplyFromWallets)}
-            </p>
-            <p className={recon.ok ? 'ok-text' : 'error-text'}>
-              {recon.ok ? 'IDENTITY OK' : `MISMATCH delta=${formatCoin(recon.delta)} (자동 수정 금지)`}
+            <div className="coin-recon-lines">
+              <p className="coin-recon-line">
+                <strong>장부</strong> 발행 {formatCoin(recon.totalIssued)} − 소멸 {formatCoin(recon.totalBurned)} ={' '}
+                {formatCoin(recon.currentSupplyFromBooks)}
+              </p>
+              <p className="coin-recon-line">
+                <strong>지갑</strong> 사용 가능 {formatCoin(recon.totalAvailable)} + 홀드{' '}
+                {formatCoin(recon.totalHeld)} = {formatCoin(recon.currentSupplyFromWallets)}
+              </p>
+            </div>
+            <p
+              className={
+                recon.ok ? 'coin-recon-status coin-recon-status--ok' : 'coin-recon-status coin-recon-status--error'
+              }
+            >
+              {recon.ok ? '정합성 OK' : `불일치 delta=${formatCoin(recon.delta)} (자동 수정 금지)`}
             </p>
           </div>
         ) : null}
       </div>
 
-      <div className="card">
-        <div className="row" style={{ marginBottom: 12 }}>
-          <strong>발행 내역</strong>
+      <div className="card coin-section">
+        <div className="coin-table-toolbar">
+          <strong className="coin-section-title">발행 내역</strong>
           <select value={range} onChange={(e) => setRange(e.target.value as typeof range)}>
             <option value="today">오늘</option>
             <option value="7d">7일</option>
@@ -876,7 +924,7 @@ function CoinSupplyPage() {
             <tr>
               <th>일시</th>
               <th>사용자</th>
-              <th>수량</th>
+              <th className="col-num">수량</th>
               <th>유형</th>
               <th>사유</th>
               <th>Reference</th>
@@ -893,7 +941,7 @@ function CoinSupplyPage() {
                     {row.userNickname ?? row.userId.slice(0, 8)}
                   </Link>
                 </td>
-                <td>+{formatCoin(row.amount)}</td>
+                <td className="col-num">+{formatCoin(row.amount)}</td>
                 <td>{row.issuanceType}</td>
                 <td>{row.reason ?? '—'}</td>
                 <td>
@@ -910,22 +958,26 @@ function CoinSupplyPage() {
         </table>
       </div>
 
-      <div className="card">
-        <strong>사용자 Coin History</strong>
-        <div className="row">
+      <div className="card coin-section">
+        <div className="coin-section-header">
+          <strong className="coin-section-title">사용자 Coin History</strong>
+          <p className="coin-section-desc">userId로 개별 사용자 잔액·누적 이력을 조회합니다.</p>
+        </div>
+        <div className="coin-user-lookup">
           <input
             placeholder="userId"
             value={userLookup}
             onChange={(e) => setUserLookup(e.target.value)}
-            style={{ maxWidth: 360 }}
           />
-          <button onClick={() => void lookupUser()}>조회</button>
+          <button type="button" className="btn-secondary" onClick={() => void lookupUser()}>
+            조회
+          </button>
         </div>
         {userHistory ? (
-          <div style={{ marginTop: 12 }}>
+          <div className="coin-user-result">
             <p>
-              {userHistory.nickname ?? userHistory.userId} · Available{' '}
-              {formatCoin(userHistory.availableCoin)} · Held {formatCoin(userHistory.heldCoin)}
+              {userHistory.nickname ?? userHistory.userId} · 사용 가능 {formatCoin(userHistory.availableCoin)} · 홀드{' '}
+              {formatCoin(userHistory.heldCoin)}
             </p>
             <p>
               누적 발행 수령 {formatCoin(userHistory.lifetimeIssuedReceived)} · Transfer 수령{' '}
@@ -935,6 +987,11 @@ function CoinSupplyPage() {
           </div>
         ) : null}
       </div>
+
+      <p className="coin-ops-note">
+        테스트·DEV_SEED 데이터는 production DB에서 자동 초기화되지 않습니다. 운영 판단 시 DEV_SEED 제외 필터를
+        사용하세요.
+      </p>
 
       <ManualIssuanceDialog open={grantOpen} onClose={() => setGrantOpen(false)} onDone={() => void load()} />
     </div>
