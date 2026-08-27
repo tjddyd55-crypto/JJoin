@@ -18,17 +18,17 @@ import {
   resolveDiscoverCanJoin,
   sundayOfWeek,
 } from '@jjoin/domain';
-import type {
-  AdminDistrictCatalogResponse,
-  DiscoverJoinCardDto,
-  DiscoverJoinsResponse,
-  DiscoverWeeklyCountsResponse,
-  JoinDiscoveryJoinability,
-  JoinDiscoveryRegionMode,
-  JoinDiscoverySort,
-  JoinStatus,
-  MatchingJoinExtras,
+import {
   JoinKind,
+  type AdminDistrictCatalogResponse,
+  type DiscoverJoinCardDto,
+  type DiscoverJoinsResponse,
+  type DiscoverWeeklyCountsResponse,
+  type JoinDiscoveryJoinability,
+  type JoinDiscoveryRegionMode,
+  type JoinDiscoverySort,
+  type JoinStatus,
+  type MatchingJoinExtras,
 } from '@jjoin/types';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
