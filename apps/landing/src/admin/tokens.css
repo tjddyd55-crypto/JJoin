@@ -1,5 +1,7 @@
 /**
- * Admin web tokens — aligned with @jjoin/design-system legacy colors + spacing/radius.
+ * Admin web tokens — manual mirror of @jjoin/design-system legacy tokens.
+ * Source: packages/design-system/src/tokens/{colors,spacing,radius,typography}.ts
+ * When DS tokens change, sync values here. Do not invent parallel palettes.
  * Scoped under .admin-root so public landing styles are not affected.
  */
 .admin-root {
