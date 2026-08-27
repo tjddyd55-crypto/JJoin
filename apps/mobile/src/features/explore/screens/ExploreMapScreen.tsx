@@ -11,13 +11,15 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import * as Location from 'expo-location';
-import { useRouter, useLocalSearchParams, type Href } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from 'expo-router';
 import {
   PresenceVisibility,
+  StoreOwnershipStatus,
   type ExploreFilter,
   type ExploreMapResponse,
   type GolfFacilityMapDto,
   type PresenceDurationOption,
+  type StoreOwnershipDto,
 } from '@jjoin/types';
 import { Text, spacing, useTheme } from '@jjoin/design-system';
 import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
@@ -111,6 +113,7 @@ export function ExploreMapScreen({
   const [searchLoading, setSearchLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [myStores, setMyStores] = useState<StoreOwnershipDto[]>([]);
 
   const runtime = getMapRuntimeStatus();
   const snapPoints = useMemo(
@@ -349,10 +352,39 @@ export function ExploreMapScreen({
     };
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      if (discoveryLinked || venuePickMode) return;
+      const api = getApiClient(store);
+      void api
+        .getMyStores()
+        .then((items) =>
+          setMyStores(items.filter((s) => s.status === StoreOwnershipStatus.ACTIVE)),
+        )
+        .catch(() => setMyStores([]));
+    }, [discoveryLinked, store, venuePickMode]),
+  );
+
   const selectedVenue = useMemo(
     () => data?.venues.find((v) => v.venueId === selectedVenueId) ?? null,
     [data, selectedVenueId],
   );
+  const ownedStoreForVenue = useMemo(() => {
+    if (!selectedVenue?.golfFacilityId) return null;
+    return (
+      myStores.find(
+        (store) =>
+          store.status === StoreOwnershipStatus.ACTIVE &&
+          store.golfFacilityId === selectedVenue.golfFacilityId,
+      ) ?? null
+    );
+  }, [myStores, selectedVenue?.golfFacilityId]);
+  const screenCreateJoinLabel = useMemo(() => {
+    if (venuePickMode) return '이 장소 선택';
+    if (discoveryLinked) return '여기서 조인 만들기';
+    if (ownedStoreForVenue) return '모집 조인 만들기';
+    return '이 매장에서 조인 만들기';
+  }, [discoveryLinked, ownedStoreForVenue, venuePickMode]);
   const selectedUser = useMemo(
     () => data?.users.find((u) => u.userId === selectedUserId) ?? null,
     [data, selectedUserId],
@@ -738,6 +770,22 @@ export function ExploreMapScreen({
             onPickDuration={(d) => void activatePresence(d)}
             onCreateJoin={() => {
               void (async () => {
+                if (
+                  !venuePickMode &&
+                  !discoveryLinked &&
+                  ownedStoreForVenue
+                ) {
+                  const gate = requestGatedAction({ type: 'CREATE_JOIN' });
+                  if (!gate.allowed) {
+                    router.push('/auth/gate');
+                    return;
+                  }
+                  router.push({
+                    pathname: '/my/create-store-join',
+                    params: { storeOwnershipId: ownedStoreForVenue.id },
+                  });
+                  return;
+                }
                 if (!selectedVenue?.canCreateJoin) {
                   if (
                     selectedVenue?.source === 'GOLF_FACILITY' &&
@@ -813,13 +861,7 @@ export function ExploreMapScreen({
             onJoinPress={(joinId) => {
               router.push({ pathname: '/join/[joinId]', params: { joinId } } as Href);
             }}
-            createJoinLabel={
-              venuePickMode
-                ? '이 장소 선택'
-                : discoveryLinked
-                  ? '여기서 조인 만들기'
-                  : '이 매장에서 조인 만들기'
-            }
+            createJoinLabel={screenCreateJoinLabel}
           />
         </BottomSheetScrollView>
       </BottomSheet>

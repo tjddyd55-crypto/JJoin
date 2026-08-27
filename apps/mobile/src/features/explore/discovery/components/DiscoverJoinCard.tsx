@@ -2,25 +2,20 @@ import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Badge, Button, Text, Stack, spacing, useTheme } from '@jjoin/design-system';
 import type { DiscoverJoinCardDto } from '@jjoin/types';
+import {
+  formatKstDate,
+  formatKstTime,
+  isStoreMatchingJoin,
+  matchingDeadlineLabel,
+  matchingRewardBenefitLabel,
+  matchingSlotProgressLabel,
+} from '../../../store/matching-join-ui';
 
 type Props = {
   join: DiscoverJoinCardDto;
   onPress: () => void;
   onJoinPress?: () => void;
 };
-
-function formatTime(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat('ko-KR', {
-      timeZone: 'Asia/Seoul',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    }).format(new Date(iso));
-  } catch {
-    return iso.slice(11, 16);
-  }
-}
 
 function statusLabel(join: DiscoverJoinCardDto): string {
   if (join.canJoinState === 'HOST') return '내가 만든 조인';
@@ -31,18 +26,30 @@ function statusLabel(join: DiscoverJoinCardDto): string {
 
 export function DiscoverJoinCard({ join, onPress, onJoinPress }: Props) {
   const theme = useTheme();
+  const matching = isStoreMatchingJoin(join);
   const regionBits = [
     join.sigungu ?? join.regionLabel,
-    join.distanceMeters != null
-      ? `${(join.distanceMeters / 1000).toFixed(1)}km`
-      : null,
+    join.distanceMeters != null ? `${(join.distanceMeters / 1000).toFixed(1)}km` : null,
   ].filter(Boolean);
+
+  const slotLabel = matching
+    ? matchingSlotProgressLabel(
+        join.targetMaleCount,
+        join.targetFemaleCount,
+        join.confirmedMaleCount,
+        join.confirmedFemaleCount,
+      )
+    : null;
+  const deadlineLabel = matching ? matchingDeadlineLabel(join.recruitClosesAt) : null;
+  const rewardLabel = matching
+    ? matchingRewardBenefitLabel(join.matchingRewardTarget, join.rewardPerParticipant)
+    : null;
 
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${formatTime(join.startAt)} ${join.venueName}`}
+      accessibilityLabel={`${formatKstTime(join.startAt)} ${join.venueName}`}
       style={[
         styles.card,
         {
@@ -54,9 +61,12 @@ export function DiscoverJoinCard({ join, onPress, onJoinPress }: Props) {
     >
       <Stack gap="sm">
         <View style={styles.top}>
-          <Text variant="sectionTitle" tone="primary">
-            {formatTime(join.startAt)}
-          </Text>
+          <View style={styles.titleRow}>
+            <Text variant="sectionTitle" tone="primary">
+              {formatKstDate(join.startAt)} {formatKstTime(join.startAt)}
+            </Text>
+            {matching ? <Badge label="매장 인증" variant="gold" /> : null}
+          </View>
           <Badge label={statusLabel(join)} />
         </View>
         <Text variant="body" tone="primary">
@@ -67,13 +77,47 @@ export function DiscoverJoinCard({ join, onPress, onJoinPress }: Props) {
             {regionBits.join(' · ')}
           </Text>
         ) : null}
-        <Text variant="meta" tone="secondary">
-          {join.currentParticipants}/{join.maxParticipants}명
-          {join.availableSlots > 0 ? ` · ${join.availableSlots}자리 남음` : ''}
-        </Text>
-        <Text variant="meta" tone="tertiary">
-          +{join.rewardPerParticipant} Coin
-        </Text>
+
+        {matching ? (
+          <>
+            {slotLabel ? (
+              <Text variant="meta" tone="secondary">
+                {slotLabel}
+              </Text>
+            ) : null}
+            {join.recruitmentLabel ? (
+              <Text variant="meta" tone="secondary">
+                {join.recruitmentLabel}
+              </Text>
+            ) : null}
+            {join.minimumPlayers != null ? (
+              <Text variant="meta" tone="tertiary">
+                최소 {join.minimumPlayers}명 진행
+              </Text>
+            ) : null}
+            {deadlineLabel ? (
+              <Text variant="meta" tone="tertiary">
+                {deadlineLabel}
+              </Text>
+            ) : null}
+            {rewardLabel ? (
+              <Text variant="meta" tone="secondary" style={{ color: theme.colors.reward.primary }}>
+                {rewardLabel}
+              </Text>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <Text variant="meta" tone="secondary">
+              {join.currentParticipants}/{join.maxParticipants}명
+              {join.availableSlots > 0 ? ` · ${join.availableSlots}자리 남음` : ''}
+            </Text>
+            <Text variant="meta" tone="tertiary">
+              +{join.rewardPerParticipant} Coin
+            </Text>
+          </>
+        )}
+
         {join.canJoin && join.ctaLabel && onJoinPress ? (
           <Button label={join.ctaLabel} onPress={onJoinPress} />
         ) : null}
@@ -89,8 +133,15 @@ const styles = StyleSheet.create({
   },
   top: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: spacing.sm,
+  },
+  titleRow: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
 });

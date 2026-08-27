@@ -141,22 +141,20 @@ export function MyHomeScreen() {
               label="스크린골프 매장 인증"
               icon="verified"
               onPress={() => router.push('/my/store-verification')}
+            />
+            <ListRow
+              label="내 매장"
+              icon="location"
+              onPress={() => router.push('/my/stores')}
               showSeparator={hasActiveStores}
             />
             {hasActiveStores ? (
-              <>
-                <ListRow
-                  label="내 매장"
-                  icon="location"
-                  onPress={() => router.push('/my/stores')}
-                />
-                <ListRow
-                  label="모집 조인 만들기"
-                  icon="calendar"
-                  onPress={() => router.push('/my/create-store-join')}
-                  showSeparator={false}
-                />
-              </>
+              <ListRow
+                label="모집 조인 만들기"
+                icon="calendar"
+                onPress={() => router.push('/my/create-store-join')}
+                showSeparator={false}
+              />
             ) : null}
           </View>
         </Card>

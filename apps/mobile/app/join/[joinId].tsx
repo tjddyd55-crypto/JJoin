@@ -15,6 +15,7 @@ import {
   type BadgeVariant,
 } from '@jjoin/design-system';
 import {
+  JoinStatus,
   ParticipationStatus,
   RewardStatus,
   type JoinDetailDto,
@@ -23,6 +24,12 @@ import {
 } from '@jjoin/types';
 import { getApiClient } from '../../src/lib/api';
 import { getSecureSessionStore, useSession } from '../../src/session/SessionContext';
+import {
+  isStoreMatchingJoin,
+  matchingDeadlineLabel,
+  matchingRewardBenefitLabel,
+  matchingSlotProgressLabel,
+} from '../../src/features/store/matching-join-ui';
 
 function rewardStatusLabel(status: RewardStatus): string {
   switch (status) {
@@ -189,6 +196,20 @@ export default function JoinDetailScreen() {
     `${mySettlement?.settlementId ?? 'none'}:${mySettlement?.rewardStatus ?? 'none'}`,
   );
 
+  async function onCancelStoreJoin() {
+    if (!joinId || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await api.cancelStoreJoin(joinId);
+      setDetail(next);
+    } catch {
+      setError('조인 취소에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function onApply() {
     if (!joinId) return;
     const gate = requestGatedAction({ type: 'APPLY_JOIN', joinId });
@@ -289,16 +310,61 @@ export default function JoinDetailScreen() {
   const startLabel = new Date(detail.startAt).toLocaleString('ko-KR', {
     timeZone: 'Asia/Seoul',
   });
+  const matching = isStoreMatchingJoin(detail);
+  const slotLabel = matching
+    ? matchingSlotProgressLabel(
+        detail.targetMaleCount,
+        detail.targetFemaleCount,
+        detail.confirmedMaleCount,
+        detail.confirmedFemaleCount,
+      )
+    : null;
+  const canCancelMatching =
+    matching &&
+    isHost &&
+    (detail.status === JoinStatus.OPEN || detail.status === JoinStatus.FULL) &&
+    detail.confirmedPlayerCount <= 1;
 
   return (
     <View style={styles.root}>
       <ScrollScreenFrame contentPaddingBottom={24}>
         <Section title={detail.venue.name} subtitle={startLabel}>
+          {matching ? <Badge label="매장 인증" variant="gold" /> : null}
           <Badge label={detail.status} variant="gold" />
           <Text variant="body" tone="secondary">
             {detail.confirmedPlayerCount}/{detail.plannedPlayerCount}명
           </Text>
         </Section>
+
+        {matching ? (
+          <Section title="모집 정보">
+            {slotLabel ? (
+              <Text variant="body" tone="secondary">
+                {slotLabel}
+              </Text>
+            ) : null}
+            {detail.recruitmentLabel ? (
+              <Text variant="body" tone="secondary">
+                {detail.recruitmentLabel}
+              </Text>
+            ) : null}
+            {detail.minimumPlayers != null ? (
+              <Text variant="caption" tone="tertiary">
+                최소 {detail.minimumPlayers}명 진행
+              </Text>
+            ) : null}
+            {matchingDeadlineLabel(detail.recruitClosesAt) ? (
+              <Text variant="caption" tone="tertiary">
+                {matchingDeadlineLabel(detail.recruitClosesAt)}
+              </Text>
+            ) : null}
+            {matchingRewardBenefitLabel(detail.matchingRewardTarget, detail.rewardPerParticipant) ? (
+              <Text variant="body" tone="secondary" style={{ color: theme.colors.reward.primary }}>
+                {matchingRewardBenefitLabel(detail.matchingRewardTarget, detail.rewardPerParticipant)}
+              </Text>
+            ) : null}
+          </Section>
+        ) : null}
 
         <Section title="호스트">
           <Text variant="bodyStrong" tone="primary">
@@ -455,6 +521,14 @@ export default function JoinDetailScreen() {
       <StickyActionFrame>
         {!isHost && !detail.myParticipation ? (
           <Button label="참가 신청" loading={busy} onPress={() => void onApply()} />
+        ) : null}
+        {canCancelMatching ? (
+          <Button
+            label="모집 조인 취소"
+            variant="secondary"
+            loading={busy}
+            onPress={() => void onCancelStoreJoin()}
+          />
         ) : null}
         <Button
           label="내 조인"
