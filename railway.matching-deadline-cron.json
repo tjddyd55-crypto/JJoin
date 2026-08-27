@@ -4,6 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
+    "preDeployCommand": [],
     "startCommand": "pnpm matching-deadline",
     "restartPolicyType": "NEVER"
   }
