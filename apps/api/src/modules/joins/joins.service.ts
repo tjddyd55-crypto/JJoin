@@ -1158,7 +1158,12 @@ export class JoinsService {
 
     for (const p of join.participants ?? []) {
       if (p.role === 'HOST') continue;
-      if (p.participationStatus !== 'APPROVED' && p.participationStatus !== 'CONFIRMED') {
+      // COMPLETED remains part of the filled roster after settlement; exclude leave/cancel/no-show.
+      if (
+        p.participationStatus !== 'APPROVED' &&
+        p.participationStatus !== 'CONFIRMED' &&
+        p.participationStatus !== 'COMPLETED'
+      ) {
         continue;
       }
       const gender = p.user?.profile?.gender;
