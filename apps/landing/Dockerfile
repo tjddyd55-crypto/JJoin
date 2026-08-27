@@ -15,7 +15,6 @@ ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_ANDROID_DOWNLOAD_URL=$VITE_ANDROID_DOWNLOAD_URL
 ENV VITE_ANDROID_DOWNLOAD_VERSION=$VITE_ANDROID_DOWNLOAD_VERSION
 RUN pnpm --filter @jjoin/types build \
-  && pnpm --filter @jjoin/domain build \
   && pnpm --filter @jjoin/landing build
 
 FROM node:22-alpine AS run
