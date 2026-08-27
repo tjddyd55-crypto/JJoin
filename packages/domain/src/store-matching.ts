@@ -5,7 +5,9 @@
 
 import {
   addCoinAmounts,
+  compareCoinAmounts,
   mulCoinAmountByInt,
+  subCoinAmounts,
   zeroCoinAmount,
 } from './coin-amount';
 import { canAffordJoinCreate } from './coin-join';
@@ -237,6 +239,27 @@ export function resolveMatchingRewardDisposition(params: {
     return 'PAY';
   }
   return 'REFUND';
+}
+
+/**
+ * Remaining JOIN-level reward HOLD that can still refund to host.
+ * Only ledger-moved terminals (PAID / AUTO_PAID / REFUNDED) reduce remaining.
+ * Leave marks NOT_ELIGIBLE and must NOT shrink remaining — hold stays pooled.
+ */
+export function remainingMatchingHoldRefund(params: {
+  holdTotal: string;
+  settlements: Array<{ amount: string; rewardStatus: string }>;
+}): string {
+  let accounted = zeroCoinAmount();
+  for (const s of params.settlements) {
+    if (['PAID', 'AUTO_PAID', 'REFUNDED'].includes(s.rewardStatus)) {
+      accounted = addCoinAmounts(accounted, s.amount);
+    }
+  }
+  if (compareCoinAmounts(params.holdTotal, accounted) <= 0) {
+    return zeroCoinAmount();
+  }
+  return subCoinAmounts(params.holdTotal, accounted);
 }
 
 /** Aggregate payout vs unused hold after attendance marking (for tests / UI preview). */
