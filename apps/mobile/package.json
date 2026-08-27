@@ -11,7 +11,8 @@
     "prebuild": "expo prebuild",
     "web": "expo start --web",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "echo \"mobile lint placeholder\""
+    "lint": "echo \"mobile lint placeholder\"",
+    "eas-build-post-install": "pnpm --dir ../.. run build:mobile-deps"
   },
   "dependencies": {
     "@gorhom/bottom-sheet": "^5.2.14",

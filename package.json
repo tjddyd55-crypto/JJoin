@@ -9,6 +9,7 @@
     "dev:mobile": "pnpm --filter @jjoin/mobile start",
     "dev:api": "pnpm --filter @jjoin/api start:dev",
     "build": "pnpm -r --if-present run build",
+    "build:mobile-deps": "pnpm --filter @jjoin/types build && pnpm --filter @jjoin/domain build && pnpm --filter @jjoin/validation build && pnpm --filter @jjoin/api-client build && pnpm --filter @jjoin/i18n build",
     "build:api": "pnpm --filter @jjoin/types build && pnpm --filter @jjoin/domain build && pnpm --filter @jjoin/validation build && pnpm prisma:generate && pnpm --filter @jjoin/api build",
     "typecheck": "pnpm -r --if-present run typecheck",
     "lint": "pnpm -r --if-present run lint",
