@@ -56,6 +56,36 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleString('ko-KR');
 }
 
+function statusBadgeClass(kind: 'success' | 'warning' | 'danger' | 'info' | 'neutral') {
+  return `status-badge status-badge--${kind}`;
+}
+
+function storeStatusBadge(status: StoreVerificationStatus) {
+  if (status === StoreVerificationStatus.APPROVED) {
+    return <span className={statusBadgeClass('success')}>APPROVED</span>;
+  }
+  if (status === StoreVerificationStatus.REJECTED) {
+    return <span className={statusBadgeClass('danger')}>REJECTED</span>;
+  }
+  if (status === StoreVerificationStatus.PENDING) {
+    return <span className={statusBadgeClass('warning')}>PENDING</span>;
+  }
+  return <span className={statusBadgeClass('neutral')}>{status}</span>;
+}
+
+function disputeStatusBadge(status: DisputeStatus) {
+  if (status === DisputeStatus.RESOLVED) {
+    return <span className={statusBadgeClass('success')}>RESOLVED</span>;
+  }
+  if (status === DisputeStatus.UNDER_REVIEW) {
+    return <span className={statusBadgeClass('info')}>UNDER_REVIEW</span>;
+  }
+  if (status === DisputeStatus.OPEN) {
+    return <span className={statusBadgeClass('warning')}>OPEN</span>;
+  }
+  return <span className={statusBadgeClass('neutral')}>{status}</span>;
+}
+
 const RELATION_LABELS: Record<StoreOwnerRelation, string> = {
   [StoreOwnerRelation.REPRESENTATIVE]: '대표',
   [StoreOwnerRelation.OWNER]: '점주',
@@ -138,13 +168,19 @@ export function AdminLoginPage() {
               autoComplete="current-password"
             />
           </label>
-          {error ? <div className="error-text">{error}</div> : null}
-          <button className="btn-primary" disabled={busy || !loginId || !password} onClick={() => void signInAdmin()}>
-            로그인
-          </button>
+          {error ? <div className="admin-error-banner">{error}</div> : null}
+          <div className="login-actions">
+            <button
+              className="btn-primary"
+              disabled={busy || !loginId || !password}
+              onClick={() => void signInAdmin()}
+            >
+              로그인
+            </button>
+          </div>
           {import.meta.env.DEV ? (
             <div style={{ marginTop: 16, borderTop: '1px solid var(--admin-border)', paddingTop: 12 }}>
-              <button disabled={busy} onClick={() => void signInDevAdmin()}>
+              <button type="button" className="btn-secondary" disabled={busy} onClick={() => void signInDevAdmin()}>
                 DEV_ADMIN (mock)
               </button>
             </div>
@@ -159,10 +195,11 @@ function Shell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const token = useMemo(() => localStorage.getItem(TOKEN_KEY), []);
   const loc = useLocation();
-  const coinActive =
-    loc.pathname === '/admin' || loc.pathname === '/admin/' || loc.pathname.startsWith('/admin/coin');
-  const disputeActive = loc.pathname.startsWith('/admin/disputes');
-  const storeVerificationActive = loc.pathname.startsWith('/admin/store-verifications');
+  const path = loc.pathname;
+  const dashActive = path === '/admin' || path === '/admin/';
+  const coinActive = path.startsWith('/admin/coin');
+  const disputeActive = path.startsWith('/admin/disputes');
+  const storeVerificationActive = path.startsWith('/admin/store-verifications');
   if (!token) {
     return <Navigate to="/admin/login" replace />;
   }
@@ -171,14 +208,11 @@ function Shell({ children }: { children: React.ReactNode }) {
       <div className="layout layout-wide">
         <header className="admin-nav card row">
           <strong>JJOIN HQ</strong>
-          <Link to="/admin" className={loc.pathname === '/admin' ? 'nav-active' : undefined}>
+          <Link to="/admin" className={dashActive ? 'nav-active' : undefined}>
             대시보드
           </Link>
           <Link to="/admin/coin" className={coinActive ? 'nav-active' : undefined}>
             코인 관리
-          </Link>
-          <Link to="/admin/disputes" className={disputeActive ? 'nav-active' : undefined}>
-            분쟁
           </Link>
           <Link
             to="/admin/store-verifications"
@@ -186,7 +220,11 @@ function Shell({ children }: { children: React.ReactNode }) {
           >
             매장 인증
           </Link>
+          <Link to="/admin/disputes" className={disputeActive ? 'nav-active' : undefined}>
+            분쟁 관리
+          </Link>
           <button
+            type="button"
             className="btn-ghost"
             onClick={() => {
               localStorage.removeItem(TOKEN_KEY);
@@ -204,31 +242,60 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 function AdminDashboard() {
   const [pendingStores, setPendingStores] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     void api<StoreOwnershipRequestDto[]>(
       `/admin/store-verifications?status=${StoreVerificationStatus.PENDING}`,
     )
-      .then((rows) => setPendingStores(rows.length))
-      .catch(() => setPendingStores(null));
+      .then((rows) => {
+        setPendingStores(rows.length);
+        setLoadError(false);
+      })
+      .catch(() => {
+        setPendingStores(null);
+        setLoadError(true);
+      });
   }, []);
 
   return (
-    <div className="card" style={{ padding: 24 }}>
-      <h1 style={{ marginTop: 0 }}>운영 대시보드</h1>
-      <p style={{ color: '#666' }}>
-        대기 중 매장 인증: {pendingStores == null ? '—' : `${pendingStores}건`}
-      </p>
-      <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
-        <Link to="/admin/store-verifications" className="card" style={{ padding: 16, minWidth: 180 }}>
-          매장 인증 관리
-        </Link>
-        <Link to="/admin/coin" className="card" style={{ padding: 16, minWidth: 180 }}>
-          코인 지급/관리
-        </Link>
-        <Link to="/admin/disputes" className="card" style={{ padding: 16, minWidth: 180 }}>
-          분쟁 처리
-        </Link>
+    <div className="admin-page">
+      <div className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">운영 대시보드</h1>
+          <p className="admin-page-desc">매장 인증·코인·분쟁 운영 메뉴로 바로 이동합니다.</p>
+        </div>
+      </div>
+
+      {loadError ? (
+        <p className="admin-error-banner">대기 건수를 불러오지 못했습니다. 메뉴에서 직접 확인하세요.</p>
+      ) : null}
+
+      <div className="dash-kpi-grid">
+        <div className="card dash-kpi-card">
+          <div className="dash-kpi-label">대기 중 매장 인증</div>
+          <div className="dash-kpi-value">{pendingStores == null ? '—' : pendingStores}</div>
+          <div className="dash-kpi-sub">PENDING 상태 신청</div>
+        </div>
+      </div>
+
+      <div className="card admin-section">
+        <strong className="admin-section-title">바로가기</strong>
+        <p className="admin-section-desc">자주 쓰는 운영 화면</p>
+        <div className="dash-links" style={{ marginTop: 12 }}>
+          <Link to="/admin/store-verifications" className="card dash-link-card">
+            <span className="dash-link-title">매장 인증</span>
+            <span className="dash-link-desc">신청 목록 · 승인 · 거절</span>
+          </Link>
+          <Link to="/admin/coin" className="card dash-link-card">
+            <span className="dash-link-title">코인 관리</span>
+            <span className="dash-link-desc">공급 · 발행 · 정합성</span>
+          </Link>
+          <Link to="/admin/disputes" className="card dash-link-card">
+            <span className="dash-link-title">분쟁 관리</span>
+            <span className="dash-link-desc">분쟁 목록 · 판정</span>
+          </Link>
+        </div>
       </div>
     </div>
   );
@@ -256,49 +323,67 @@ function StoreVerificationListPage() {
   }, [load]);
 
   return (
-    <div>
-      <h1>매장 인증</h1>
-      <div className="row" style={{ marginBottom: 12 }}>
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value as StoreVerificationStatus | '')}
-        >
-          <option value="">ALL</option>
-          <option value={StoreVerificationStatus.PENDING}>PENDING</option>
-          <option value={StoreVerificationStatus.APPROVED}>APPROVED</option>
-          <option value={StoreVerificationStatus.REJECTED}>REJECTED</option>
-        </select>
-        <button onClick={() => void load()}>새로고침</button>
+    <div className="admin-page">
+      <div className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">매장 인증</h1>
+          <p className="admin-page-desc">골프시설 점주 인증 신청을 검토하고 승인·거절합니다.</p>
+        </div>
+        <div className="admin-page-actions">
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value as StoreVerificationStatus | '')}
+          >
+            <option value="">전체</option>
+            <option value={StoreVerificationStatus.PENDING}>PENDING</option>
+            <option value={StoreVerificationStatus.APPROVED}>APPROVED</option>
+            <option value={StoreVerificationStatus.REJECTED}>REJECTED</option>
+          </select>
+          <button type="button" className="btn-secondary" onClick={() => void load()}>
+            새로고침
+          </button>
+        </div>
       </div>
-      {error ? <p className="error-text">{error}</p> : null}
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>신청자</th>
-            <th>연락처</th>
-            <th>시설명</th>
-            <th>관계</th>
-            <th>신청일</th>
-            <th>상태</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((row) => (
-            <tr key={row.id}>
-              <td>{row.applicantName}</td>
-              <td>{row.applicantPhone}</td>
-              <td>{row.facilityName}</td>
-              <td>{RELATION_LABELS[row.relation]}</td>
-              <td>{formatDate(row.createdAt)}</td>
-              <td>{row.status}</td>
-              <td>
-                <Link to={`/admin/store-verifications/${row.id}`}>상세</Link>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {error ? <p className="admin-error-banner">{error}</p> : null}
+      <div className="card admin-section">
+        <div className="admin-table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>신청자</th>
+                <th>연락처</th>
+                <th>시설명</th>
+                <th>관계</th>
+                <th>신청일</th>
+                <th>상태</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {items.length === 0 && !error ? (
+                <tr>
+                  <td colSpan={7}>
+                    <p className="admin-empty">해당 조건의 신청이 없습니다.</p>
+                  </td>
+                </tr>
+              ) : null}
+              {items.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.applicantName}</td>
+                  <td>{row.applicantPhone}</td>
+                  <td>{row.facilityName}</td>
+                  <td>{RELATION_LABELS[row.relation]}</td>
+                  <td>{formatDate(row.createdAt)}</td>
+                  <td>{storeStatusBadge(row.status)}</td>
+                  <td>
+                    <Link to={`/admin/store-verifications/${row.id}`}>상세</Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
@@ -357,35 +442,57 @@ function StoreVerificationDetailPage() {
     }
   }
 
-  if (!detail) return <p>{error ?? '불러오는 중…'}</p>;
+  if (!detail) {
+    return (
+      <div className="admin-page">
+        <p className={error ? 'admin-error-banner' : 'admin-loading'}>{error ?? '불러오는 중…'}</p>
+      </div>
+    );
+  }
 
   const canApprove = detail.status === StoreVerificationStatus.PENDING;
   const canReject = detail.status === StoreVerificationStatus.PENDING;
   const canRevoke = detail.status === StoreVerificationStatus.APPROVED;
 
   return (
-    <div>
-      <button onClick={() => navigate('/admin/store-verifications')}>← 목록</button>
-      <h1>매장 인증 상세</h1>
-      <div className="card">
+    <div className="admin-page">
+      <button
+        type="button"
+        className="btn-secondary admin-back"
+        onClick={() => navigate('/admin/store-verifications')}
+      >
+        ← 목록
+      </button>
+      <div className="admin-page-header">
         <div>
-          <strong>{detail.facilityName}</strong>
+          <h1 className="admin-page-title">매장 인증 상세</h1>
+          <p className="admin-page-desc">신청 정보를 확인하고 승인·거절합니다.</p>
         </div>
-        <div>{detail.facilityAddress ?? '—'}</div>
-        <div>
-          {detail.applicantName} · {detail.applicantPhone} · {RELATION_LABELS[detail.relation]}
+        <div>{storeStatusBadge(detail.status)}</div>
+      </div>
+
+      <div className="card admin-section">
+        <div className="admin-detail-grid">
+          <div>
+            <strong>{detail.facilityName}</strong>
+          </div>
+          <div className="muted">{detail.facilityAddress ?? '—'}</div>
+          <div>
+            {detail.applicantName} · {detail.applicantPhone} · {RELATION_LABELS[detail.relation]}
+          </div>
+          <div className="muted">신청 {formatDate(detail.createdAt)}</div>
+          {detail.businessRegistrationNo ? <div>사업자번호 {detail.businessRegistrationNo}</div> : null}
+          {detail.memo ? <div>메모: {detail.memo}</div> : null}
+          {detail.rejectReason ? <div>거절 사유: {detail.rejectReason}</div> : null}
+          {detail.adminNote ? <div>운영 메모: {detail.adminNote}</div> : null}
         </div>
-        <div>상태 {detail.status}</div>
-        <div>신청 {formatDate(detail.createdAt)}</div>
-        {detail.businessRegistrationNo ? <div>사업자번호 {detail.businessRegistrationNo}</div> : null}
-        {detail.memo ? <div>메모: {detail.memo}</div> : null}
-        {detail.rejectReason ? <div>거절 사유: {detail.rejectReason}</div> : null}
-        {detail.adminNote ? <div>운영 메모: {detail.adminNote}</div> : null}
       </div>
 
       {canReject ? (
-        <div className="card">
-          <label>
+        <div className="card admin-section">
+          <strong className="admin-section-title">거절 입력</strong>
+          <p className="admin-section-desc">거절 시 사유는 필수입니다.</p>
+          <label style={{ marginTop: 12 }}>
             거절 사유
             <input value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
           </label>
@@ -396,27 +503,42 @@ function StoreVerificationDetailPage() {
         </div>
       ) : null}
 
-      {(canApprove || canReject || canRevoke) ? (
-        <div className="row" style={{ marginTop: 12 }}>
+      {canApprove || canReject || canRevoke ? (
+        <div className="admin-page-actions">
           {canApprove ? (
-            <button className="primary" disabled={busy} onClick={() => setConfirmAction('approve')}>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={busy}
+              onClick={() => setConfirmAction('approve')}
+            >
               승인
             </button>
           ) : null}
           {canReject ? (
-            <button className="danger" disabled={busy} onClick={() => setConfirmAction('reject')}>
+            <button
+              type="button"
+              className="danger"
+              disabled={busy}
+              onClick={() => setConfirmAction('reject')}
+            >
               거절
             </button>
           ) : null}
           {canRevoke ? (
-            <button className="danger" disabled={busy} onClick={() => setConfirmAction('revoke')}>
+            <button
+              type="button"
+              className="danger"
+              disabled={busy}
+              onClick={() => setConfirmAction('revoke')}
+            >
               승인 철회
             </button>
           ) : null}
         </div>
       ) : null}
 
-      {error ? <p className="error-text">{error}</p> : null}
+      {error ? <p className="admin-error-banner">{error}</p> : null}
 
       {confirmAction ? (
         <div className="modal-backdrop">
@@ -436,11 +558,12 @@ function StoreVerificationDetailPage() {
                   : '승인된 매장 권한을 철회합니다.'}
             </p>
             <div className="row">
-              <button disabled={busy} onClick={() => setConfirmAction(null)}>
+              <button type="button" className="btn-secondary" disabled={busy} onClick={() => setConfirmAction(null)}>
                 취소
               </button>
               <button
-                className="primary"
+                type="button"
+                className={confirmAction === 'approve' ? 'btn-primary' : 'danger'}
                 disabled={busy}
                 onClick={() => void runAction(confirmAction)}
               >
@@ -476,28 +599,45 @@ function DisputeListPage() {
   }, [load]);
 
   return (
-    <div>
-      <h1>분쟁 목록</h1>
-      <div className="row" style={{ marginBottom: 12 }}>
-        <select value={status} onChange={(e) => setStatus(e.target.value as DisputeStatus | '')}>
-          <option value="">ALL</option>
-          <option value="OPEN">OPEN</option>
-          <option value="UNDER_REVIEW">UNDER_REVIEW</option>
-          <option value="RESOLVED">RESOLVED</option>
-        </select>
-        <button onClick={() => void load()}>새로고침</button>
+    <div className="admin-page">
+      <div className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">분쟁 관리</h1>
+          <p className="admin-page-desc">조인 보상 분쟁을 검토하고 판정합니다.</p>
+        </div>
+        <div className="admin-page-actions">
+          <select value={status} onChange={(e) => setStatus(e.target.value as DisputeStatus | '')}>
+            <option value="">전체</option>
+            <option value="OPEN">OPEN</option>
+            <option value="UNDER_REVIEW">UNDER_REVIEW</option>
+            <option value="RESOLVED">RESOLVED</option>
+          </select>
+          <button type="button" className="btn-secondary" onClick={() => void load()}>
+            새로고침
+          </button>
+        </div>
       </div>
-      {error ? <p>{error}</p> : null}
-      {items.map((d) => (
-        <Link key={d.disputeId} to={`/admin/disputes/${d.disputeId}`} style={{ textDecoration: 'none' }}>
-          <div className="card">
-            <strong>{d.venueName}</strong> · {d.participantNickname} · {d.rewardAmount} Coin
-            <div>
-              {d.status} · {d.reasonType}
+      {error ? <p className="admin-error-banner">{error}</p> : null}
+      <div className="dispute-list">
+        {items.length === 0 && !error ? <p className="admin-empty">해당 조건의 분쟁이 없습니다.</p> : null}
+        {items.map((d) => (
+          <Link
+            key={d.disputeId}
+            to={`/admin/disputes/${d.disputeId}`}
+            className="dispute-card-link"
+          >
+            <div className="card dispute-card">
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <span className="dispute-card-title">{d.venueName}</span>
+                {disputeStatusBadge(d.status)}
+              </div>
+              <div className="dispute-card-meta">
+                {d.participantNickname} · {d.rewardAmount} Coin · {d.reasonType}
+              </div>
             </div>
-          </div>
-        </Link>
-      ))}
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
@@ -538,53 +678,90 @@ function DisputeDetailPage() {
     }
   }
 
-  if (!detail) return <p>{error ?? '불러오는 중…'}</p>;
+  if (!detail) {
+    return (
+      <div className="admin-page">
+        <p className={error ? 'admin-error-banner' : 'admin-loading'}>{error ?? '불러오는 중…'}</p>
+      </div>
+    );
+  }
 
   const payLabel = `참가자에게 ${detail.rewardAmount} Coin 지급`;
   const refundLabel = `방장에게 ${detail.rewardAmount} Coin 반환`;
 
   return (
-    <div>
-      <button onClick={() => navigate('/admin/disputes')}>← 목록</button>
-      <h1>분쟁 상세</h1>
-      <div className="card">
-        <div>{detail.venueName}</div>
+    <div className="admin-page">
+      <button type="button" className="btn-secondary admin-back" onClick={() => navigate('/admin/disputes')}>
+        ← 목록
+      </button>
+      <div className="admin-page-header">
         <div>
-          Host {detail.hostNickname} · Participant {detail.participantNickname}
+          <h1 className="admin-page-title">분쟁 상세</h1>
+          <p className="admin-page-desc">호스트·참가자 설명을 확인한 뒤 판정합니다.</p>
         </div>
-        <div>
-          Reward {detail.rewardAmount} · {detail.rewardStatus} · Hold {detail.holdStatus ?? '-'}
-        </div>
-        <div>
-          Status {detail.status}
-          {detail.resolution ? ` · ${detail.resolution}` : ''}
+        <div>{disputeStatusBadge(detail.status)}</div>
+      </div>
+
+      <div className="card admin-section">
+        <div className="admin-detail-grid">
+          <div>
+            <strong>{detail.venueName}</strong>
+          </div>
+          <div>
+            Host {detail.hostNickname} · Participant {detail.participantNickname}
+          </div>
+          <div className="muted">
+            Reward {detail.rewardAmount} · {detail.rewardStatus} · Hold {detail.holdStatus ?? '-'}
+          </div>
+          {detail.resolution ? <div>판정: {detail.resolution}</div> : null}
         </div>
       </div>
-      <div className="card">
-        <strong>Host 설명</strong>
-        <p>{detail.hostStatement ?? '(없음)'}</p>
-        <strong>Participant 설명</strong>
-        <p>{detail.participantStatement ?? '(없음)'}</p>
+
+      <div className="card admin-section">
+        <strong className="admin-section-title">Host 설명</strong>
+        <p className="admin-section-desc">{detail.hostStatement ?? '(없음)'}</p>
+        <strong className="admin-section-title" style={{ marginTop: 16 }}>
+          Participant 설명
+        </strong>
+        <p className="admin-section-desc">{detail.participantStatement ?? '(없음)'}</p>
       </div>
+
       {detail.status !== DisputeStatus.RESOLVED ? (
-        <>
-          <textarea
-            placeholder="운영 메모 (내부)"
-            value={adminNote}
-            onChange={(e) => setAdminNote(e.target.value)}
-            rows={3}
-          />
-          <div className="row" style={{ marginTop: 12 }}>
-            <button className="primary" disabled={busy} onClick={() => setConfirm(DisputeResolution.PAY_PARTICIPANT)}>
+        <div className="card admin-section">
+          <strong className="admin-section-title">판정</strong>
+          <p className="admin-section-desc">확정 후 변경할 수 없습니다.</p>
+          <label style={{ marginTop: 12 }}>
+            운영 메모 (내부)
+            <textarea
+              placeholder="운영 메모"
+              value={adminNote}
+              onChange={(e) => setAdminNote(e.target.value)}
+              rows={3}
+            />
+          </label>
+          <div className="admin-page-actions" style={{ marginTop: 12 }}>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={busy}
+              onClick={() => setConfirm(DisputeResolution.PAY_PARTICIPANT)}
+            >
               {payLabel}
             </button>
-            <button className="danger" disabled={busy} onClick={() => setConfirm(DisputeResolution.REFUND_HOST)}>
+            <button
+              type="button"
+              className="danger"
+              disabled={busy}
+              onClick={() => setConfirm(DisputeResolution.REFUND_HOST)}
+            >
               {refundLabel}
             </button>
           </div>
-        </>
+        </div>
       ) : null}
-      {error ? <p>{error}</p> : null}
+
+      {error ? <p className="admin-error-banner">{error}</p> : null}
+
       {confirm ? (
         <div className="modal-backdrop">
           <div className="modal">
@@ -592,10 +769,15 @@ function DisputeDetailPage() {
             <p>{confirm === DisputeResolution.PAY_PARTICIPANT ? payLabel : refundLabel}</p>
             <p>확정 후 변경할 수 없습니다.</p>
             <div className="row">
-              <button disabled={busy} onClick={() => setConfirm(null)}>
+              <button type="button" className="btn-secondary" disabled={busy} onClick={() => setConfirm(null)}>
                 취소
               </button>
-              <button className="primary" disabled={busy} onClick={() => void resolve(confirm)}>
+              <button
+                type="button"
+                className={confirm === DisputeResolution.PAY_PARTICIPANT ? 'btn-primary' : 'danger'}
+                disabled={busy}
+                onClick={() => void resolve(confirm)}
+              >
                 확정
               </button>
             </div>
@@ -1010,27 +1192,42 @@ function IssuanceDetailPage() {
       .catch((e) => setError(e instanceof Error ? e.message : 'load_failed'));
   }, [issuanceId]);
 
-  if (!detail) return <p>{error ?? '불러오는 중…'}</p>;
+  if (!detail) {
+    return (
+      <div className="admin-page">
+        <p className={error ? 'admin-error-banner' : 'admin-loading'}>{error ?? '불러오는 중…'}</p>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <button onClick={() => navigate('/admin/coin')}>← 코인 관리</button>
-      <h1>발행 상세</h1>
-      <div className="card">
-        <p>ID {detail.issuanceId}</p>
-        <p>
-          {detail.userNickname ?? detail.userId} · +{formatCoin(detail.amount)} · {detail.issuanceType}
-        </p>
-        <p>사유: {detail.reason ?? '—'}</p>
-        <p>
-          Reference: {detail.referenceType ?? '—'} / {detail.referenceId ?? '—'}
-        </p>
-        <p>
-          처리자: {detail.createdByLabel} · {new Date(detail.createdAt).toLocaleString('ko-KR')}
-        </p>
-        <p>Ledger TX: {detail.ledgerTxId}</p>
-        <p>Status: {detail.status}</p>
-        {detail.metadata ? <pre>{JSON.stringify(detail.metadata, null, 2)}</pre> : null}
+    <div className="admin-page">
+      <button type="button" className="btn-secondary admin-back" onClick={() => navigate('/admin/coin')}>
+        ← 코인 관리
+      </button>
+      <div className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">발행 상세</h1>
+          <p className="admin-page-desc">Issuance ledger 기록</p>
+        </div>
+      </div>
+      <div className="card admin-section">
+        <div className="admin-detail-grid">
+          <div>ID {detail.issuanceId}</div>
+          <div>
+            {detail.userNickname ?? detail.userId} · +{formatCoin(detail.amount)} · {detail.issuanceType}
+          </div>
+          <div className="muted">사유: {detail.reason ?? '—'}</div>
+          <div className="muted">
+            Reference: {detail.referenceType ?? '—'} / {detail.referenceId ?? '—'}
+          </div>
+          <div>
+            처리자: {detail.createdByLabel} · {new Date(detail.createdAt).toLocaleString('ko-KR')}
+          </div>
+          <div>Ledger TX: {detail.ledgerTxId}</div>
+          <div>Status: {detail.status}</div>
+          {detail.metadata ? <pre>{JSON.stringify(detail.metadata, null, 2)}</pre> : null}
+        </div>
       </div>
     </div>
   );
@@ -1049,49 +1246,63 @@ function UserCoinPage() {
       .catch((e) => setError(e instanceof Error ? e.message : 'load_failed'));
   }, [userId]);
 
-  if (!detail) return <p>{error ?? '불러오는 중…'}</p>;
+  if (!detail) {
+    return (
+      <div className="admin-page">
+        <p className={error ? 'admin-error-banner' : 'admin-loading'}>{error ?? '불러오는 중…'}</p>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <button onClick={() => navigate('/admin/coin')}>← 코인 관리</button>
-      <h1>사용자 Coin</h1>
-      <div className="card">
-        <p>
-          {detail.nickname ?? detail.userId}
-        </p>
-        <p>
-          Available {formatCoin(detail.availableCoin)} · Held {formatCoin(detail.heldCoin)}
-        </p>
-        <p>
-          누적 발행 수령 {formatCoin(detail.lifetimeIssuedReceived)} (신규 mint만)
-        </p>
-        <p>
-          누적 Transfer 수령 {formatCoin(detail.lifetimeTransferReceived)} (발행 아님)
-        </p>
-        <p>Burn 기여 {formatCoin(detail.lifetimeBurnContributed)}</p>
+    <div className="admin-page">
+      <button type="button" className="btn-secondary admin-back" onClick={() => navigate('/admin/coin')}>
+        ← 코인 관리
+      </button>
+      <div className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">사용자 Coin</h1>
+          <p className="admin-page-desc">{detail.nickname ?? detail.userId}</p>
+        </div>
       </div>
-      <div className="card">
-        <strong>최근 Ledger</strong>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>일시</th>
-              <th>유형</th>
-              <th>금액</th>
-              <th>라벨</th>
-            </tr>
-          </thead>
-          <tbody>
-            {detail.recentTransactions.map((tx) => (
-              <tr key={tx.id}>
-                <td>{new Date(tx.createdAt).toLocaleString('ko-KR')}</td>
-                <td>{tx.type}</td>
-                <td>{tx.amount}</td>
-                <td>{tx.label}</td>
+      <div className="card admin-section">
+        <div className="admin-detail-grid">
+          <div>
+            사용 가능 {formatCoin(detail.availableCoin)} · 홀드 {formatCoin(detail.heldCoin)}
+          </div>
+          <div className="muted">
+            누적 발행 수령 {formatCoin(detail.lifetimeIssuedReceived)} (신규 mint만)
+          </div>
+          <div className="muted">
+            누적 Transfer 수령 {formatCoin(detail.lifetimeTransferReceived)} (발행 아님)
+          </div>
+          <div className="muted">Burn 기여 {formatCoin(detail.lifetimeBurnContributed)}</div>
+        </div>
+      </div>
+      <div className="card admin-section">
+        <strong className="admin-section-title">최근 Ledger</strong>
+        <div className="admin-table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>일시</th>
+                <th>유형</th>
+                <th className="col-num">금액</th>
+                <th>라벨</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {detail.recentTransactions.map((tx) => (
+                <tr key={tx.id}>
+                  <td>{new Date(tx.createdAt).toLocaleString('ko-KR')}</td>
+                  <td>{tx.type}</td>
+                  <td className="col-num">{tx.amount}</td>
+                  <td>{tx.label}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
