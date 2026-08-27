@@ -7,6 +7,8 @@ import {
   formatKstTime,
   isStoreMatchingJoin,
   matchingDeadlineLabel,
+  matchingDisplayStatusLabel,
+  matchingDisplaySubtitle,
   matchingRewardBenefitLabel,
   matchingSlotProgressLabel,
 } from '../../../store/matching-join-ui';
@@ -21,6 +23,8 @@ function statusLabel(join: DiscoverJoinCardDto): string {
   if (join.canJoinState === 'HOST') return '내가 만든 조인';
   if (join.canJoinState === 'ALREADY_JOINED') return '참가 중';
   if (join.canJoinState === 'FULL') return '정원 마감';
+  const matchingLabel = matchingDisplayStatusLabel(join, 'host');
+  if (matchingLabel) return matchingLabel;
   return join.status === 'IN_PROGRESS' ? '진행 중' : '모집 중';
 }
 
@@ -41,6 +45,7 @@ export function DiscoverJoinCard({ join, onPress, onJoinPress }: Props) {
       )
     : null;
   const deadlineLabel = matching ? matchingDeadlineLabel(join.recruitClosesAt) : null;
+  const subtitle = matching ? matchingDisplaySubtitle(join) : null;
   const rewardLabel = matching
     ? matchingRewardBenefitLabel(join.matchingRewardTarget, join.rewardPerParticipant)
     : null;
@@ -88,6 +93,11 @@ export function DiscoverJoinCard({ join, onPress, onJoinPress }: Props) {
             {join.recruitmentLabel ? (
               <Text variant="meta" tone="secondary">
                 {join.recruitmentLabel}
+              </Text>
+            ) : null}
+            {subtitle ? (
+              <Text variant="meta" tone="tertiary">
+                {subtitle}
               </Text>
             ) : null}
             {join.minimumPlayers != null ? (

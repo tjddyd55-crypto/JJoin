@@ -11,6 +11,7 @@ import {
 import type { CreateStoreMatchingJoinRequest, StoreMatchingCompleteRequest } from '@jjoin/types';
 import { MatchingJoinsService } from './matching-joins.service';
 import { CurrentUserId, MockAuthGuard } from '../../common/mock-auth.guard';
+import { extractCronSecret, matchesCronSecret } from '../../common/cron-secret';
 
 @Controller('store-joins')
 export class StoreJoinsController {
@@ -30,13 +31,20 @@ export class StoreJoinsController {
 
   /** Railway cron / ops — reconcile due STORE_MATCHING recruitment deadlines. */
   @Post('matching/deadline/run')
-  async runDeadline(@Headers('x-settlement-cron-secret') secret?: string) {
+  async runDeadline(
+    @Headers('x-settlement-cron-secret') headerSecret?: string,
+    @Headers('authorization') authorization?: string,
+  ) {
     const expected = process.env.SETTLEMENT_CRON_SECRET?.trim();
-    // Require configured secret in production; never leave public when unset.
+    // Require configured secret; never leave public when unset.
     if (!expected) {
       throw new UnauthorizedException('cron_secret_not_configured');
     }
-    if (secret !== expected) {
+    const provided = extractCronSecret({
+      'x-settlement-cron-secret': headerSecret,
+      authorization,
+    });
+    if (!matchesCronSecret(provided, expected)) {
       throw new UnauthorizedException('invalid_cron_secret');
     }
     const limit = Number(process.env.MATCHING_DEADLINE_BATCH_SIZE ?? 50);

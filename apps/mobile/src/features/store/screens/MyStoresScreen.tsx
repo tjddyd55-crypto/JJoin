@@ -11,17 +11,32 @@ import {
   Spacer,
   Text,
 } from '@jjoin/design-system';
-import { JoinStatus, StoreOwnershipStatus, type JoinListItemDto, type StoreOwnershipDto } from '@jjoin/types';
+import { StoreOwnershipStatus, type JoinListItemDto, type StoreOwnershipDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
-import { groupStoreJoins } from '../store-ui';
+import {
+  filterStoreJoins,
+  groupStoreJoins,
+  storeJoinCardCaption,
+  type StoreJoinListFilter,
+} from '../store-ui';
+import { matchingCanConfirmAttendance, matchingDisplayStatusLabel } from '../matching-join-ui';
 
 function joinDetailHref(joinId: string): Href {
   return { pathname: '/join/[joinId]', params: { joinId } } as Href;
 }
 
+const FILTERS: Array<{ id: StoreJoinListFilter; label: string }> = [
+  { id: 'ALL', label: '전체' },
+  { id: 'ACTIVE', label: '진행중' },
+  { id: 'RECRUITING', label: '모집중' },
+  { id: 'DONE', label: '완료' },
+];
+
 function StoreJoinRow({ item, onPress }: { item: JoinListItemDto; onPress: () => void }) {
   const start = new Date(item.startAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+  const statusLabel = matchingDisplayStatusLabel(item, 'host');
+  const needsAttendance = matchingCanConfirmAttendance(item);
   return (
     <Pressable
       accessibilityRole="button"
@@ -29,16 +44,25 @@ function StoreJoinRow({ item, onPress }: { item: JoinListItemDto; onPress: () =>
       style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}
     >
       <Card variant="interactive" padding="md" style={styles.joinCard}>
-        <Text variant="body" tone="primary">
-          {item.venueName}
-        </Text>
+        <Row justify="space-between" align="center">
+          <Text variant="body" tone="primary">
+            {item.venueName}
+          </Text>
+          {statusLabel ? (
+            <Badge label={statusLabel} variant={needsAttendance ? 'gold' : 'neutral'} />
+          ) : null}
+        </Row>
         <Text variant="caption" tone="secondary">
           {start}
         </Text>
         <Text variant="caption" tone="tertiary">
-          {item.confirmedPlayerCount}/{item.plannedPlayerCount}명 · {item.rewardPerParticipant} Coin
-          {item.recruitmentLabel ? ` · ${item.recruitmentLabel}` : ''}
+          {storeJoinCardCaption(item)}
         </Text>
+        {needsAttendance ? (
+          <Text variant="caption" tone="primary" style={styles.ctaHint}>
+            참석 확인하기
+          </Text>
+        ) : null}
       </Card>
     </Pressable>
   );
@@ -76,13 +100,15 @@ export function MyStoresScreen() {
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [stores, setStores] = useState<StoreOwnershipDto[]>([]);
   const [joins, setJoins] = useState<JoinListItemDto[]>([]);
+  const [filter, setFilter] = useState<StoreJoinListFilter>('ALL');
   const [error, setError] = useState<string | null>(null);
 
   const activeStores = useMemo(
     () => stores.filter((store) => store.status === StoreOwnershipStatus.ACTIVE),
     [stores],
   );
-  const groups = useMemo(() => groupStoreJoins(joins), [joins]);
+  const filteredJoins = useMemo(() => filterStoreJoins(joins, filter), [joins, filter]);
+  const groups = useMemo(() => groupStoreJoins(filteredJoins), [filteredJoins]);
 
   const load = useCallback(async () => {
     try {
@@ -172,6 +198,37 @@ export function MyStoresScreen() {
 
       <Spacer size="lg" />
 
+      <Row gap="sm" style={styles.filterRow}>
+        {FILTERS.map((item) => (
+          <Pressable key={item.id} onPress={() => setFilter(item.id)}>
+            <Badge
+              label={item.label}
+              variant={filter === item.id ? 'gold' : 'neutral'}
+            />
+          </Pressable>
+        ))}
+      </Row>
+
+      <Spacer size="md" />
+
+      <JoinSection
+        title="참석 확인 대기"
+        items={groups.attendancePending}
+        onPressItem={(joinId) => router.push(joinDetailHref(joinId))}
+      />
+      <Spacer size="md" />
+      <JoinSection
+        title="진행중"
+        items={groups.inProgress}
+        onPressItem={(joinId) => router.push(joinDetailHref(joinId))}
+      />
+      <Spacer size="md" />
+      <JoinSection
+        title="진행 예정"
+        items={groups.scheduled}
+        onPressItem={(joinId) => router.push(joinDetailHref(joinId))}
+      />
+      <Spacer size="md" />
       <JoinSection
         title="모집중"
         items={groups.recruiting}
@@ -179,14 +236,8 @@ export function MyStoresScreen() {
       />
       <Spacer size="md" />
       <JoinSection
-        title="진행예정"
-        items={groups.scheduled}
-        onPressItem={(joinId) => router.push(joinDetailHref(joinId))}
-      />
-      <Spacer size="md" />
-      <JoinSection
-        title="종료"
-        items={groups.ended.filter((j) => j.status !== JoinStatus.CANCELLED)}
+        title="완료"
+        items={groups.ended}
         onPressItem={(joinId) => router.push(joinDetailHref(joinId))}
       />
       <Spacer size="md" />
@@ -205,5 +256,11 @@ const styles = StyleSheet.create({
   },
   joinCard: {
     marginBottom: 8,
+  },
+  filterRow: {
+    flexWrap: 'wrap',
+  },
+  ctaHint: {
+    marginTop: 6,
   },
 });

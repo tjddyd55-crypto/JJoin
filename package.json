@@ -19,7 +19,8 @@
     "prisma:migrate:status": "pnpm exec prisma migrate status --schema=prisma/schema.prisma",
     "start:api:prod": "node apps/api/dist/main.js",
     "sync:public-golf-facilities": "pnpm exec tsx scripts/run-public-golf-facility-sync.ts",
-    "sync:public-golf-facilities:force": "pnpm exec tsx scripts/run-public-golf-facility-sync.ts --force"
+    "sync:public-golf-facilities:force": "pnpm exec tsx scripts/run-public-golf-facility-sync.ts --force",
+    "matching-deadline": "pnpm exec tsx scripts/run-matching-deadline.ts"
   },
   "devDependencies": {
     "prettier": "^3.4.2",

@@ -2,11 +2,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   canApplyMatchingGenderSlot,
+  canConfirmMatchingAttendance,
   computeMatchingJoinCoinRequirement,
   evaluateMatchingDeadline,
   formatMatchingRecruitmentLabel,
   isRewardEligibleMatchingGender,
   resolveMatchingRewardDisposition,
+  resolveStoreMatchingDisplayStatus,
+  storeMatchingDisplayStatusLabel,
+  storeMatchingOwnerListPriority,
   summarizeMatchingSettlement,
 } from './store-matching';
 
@@ -154,5 +158,130 @@ test('deadline confirms full roster before close', () => {
       alreadyClosed: false,
     }),
     { action: 'confirm', reason: 'FULL' },
+  );
+});
+
+test('display status covers recruiting through completed', () => {
+  const closes = new Date('2026-08-26T09:00:00.000Z');
+  const start = new Date('2026-08-26T11:00:00.000Z');
+  const end = new Date('2026-08-26T14:00:00.000Z');
+
+  assert.equal(
+    resolveStoreMatchingDisplayStatus({
+      now: new Date('2026-08-26T08:00:00.000Z'),
+      status: 'OPEN',
+      recruitClosesAt: closes,
+      startAt: start,
+      scheduledEndAt: end,
+      confirmedPlayerCount: 1,
+      minimumPlayers: 3,
+    }),
+    'RECRUITING',
+  );
+
+  assert.equal(
+    resolveStoreMatchingDisplayStatus({
+      now: new Date('2026-08-26T08:00:00.000Z'),
+      status: 'OPEN',
+      recruitClosesAt: closes,
+      startAt: start,
+      scheduledEndAt: end,
+      confirmedPlayerCount: 3,
+      minimumPlayers: 3,
+    }),
+    'MINIMUM_SECURED',
+  );
+
+  assert.equal(
+    resolveStoreMatchingDisplayStatus({
+      now: new Date('2026-08-26T10:00:00.000Z'),
+      status: 'CONFIRMED',
+      recruitClosesAt: closes,
+      startAt: start,
+      scheduledEndAt: end,
+      confirmedPlayerCount: 3,
+      minimumPlayers: 3,
+    }),
+    'CONFIRMED',
+  );
+
+  assert.equal(
+    resolveStoreMatchingDisplayStatus({
+      now: new Date('2026-08-26T12:00:00.000Z'),
+      status: 'CONFIRMED',
+      recruitClosesAt: closes,
+      startAt: start,
+      scheduledEndAt: end,
+      confirmedPlayerCount: 3,
+      minimumPlayers: 3,
+    }),
+    'IN_PROGRESS',
+  );
+
+  assert.equal(
+    resolveStoreMatchingDisplayStatus({
+      now: new Date('2026-08-26T15:00:00.000Z'),
+      status: 'CONFIRMED',
+      recruitClosesAt: closes,
+      startAt: start,
+      scheduledEndAt: end,
+      confirmedPlayerCount: 3,
+      minimumPlayers: 3,
+    }),
+    'ATTENDANCE_PENDING',
+  );
+
+  assert.equal(
+    resolveStoreMatchingDisplayStatus({
+      now: new Date('2026-08-26T15:00:00.000Z'),
+      status: 'CANCELLED',
+      recruitClosesAt: closes,
+      startAt: start,
+      scheduledEndAt: end,
+      confirmedPlayerCount: 2,
+      minimumPlayers: 3,
+      cancelledAt: new Date('2026-08-26T09:01:00.000Z'),
+      confirmedAt: null,
+    }),
+    'CANCELLED_INSUFFICIENT',
+  );
+
+  assert.equal(
+    resolveStoreMatchingDisplayStatus({
+      now: new Date('2026-08-26T15:00:00.000Z'),
+      status: 'COMPLETED',
+      recruitClosesAt: closes,
+      startAt: start,
+      scheduledEndAt: end,
+      confirmedPlayerCount: 3,
+      minimumPlayers: 3,
+    }),
+    'COMPLETED',
+  );
+
+  assert.equal(storeMatchingDisplayStatusLabel('ATTENDANCE_PENDING', { audience: 'host' }), '참석 확인 대기');
+  assert.equal(
+    storeMatchingDisplayStatusLabel('ATTENDANCE_PENDING', { audience: 'participant' }),
+    '점주 참석 확인 대기',
+  );
+  assert.ok(
+    storeMatchingOwnerListPriority('ATTENDANCE_PENDING') <
+      storeMatchingOwnerListPriority('RECRUITING'),
+  );
+  assert.equal(
+    canConfirmMatchingAttendance({
+      now: new Date('2026-08-26T15:00:00.000Z'),
+      status: 'CONFIRMED',
+      scheduledEndAt: end,
+    }),
+    true,
+  );
+  assert.equal(
+    canConfirmMatchingAttendance({
+      now: new Date('2026-08-26T12:00:00.000Z'),
+      status: 'CONFIRMED',
+      scheduledEndAt: end,
+    }),
+    false,
   );
 });

@@ -19,6 +19,10 @@ import { t } from '@jjoin/i18n';
 import type { JoinListItemDto, MyJoinsResponse } from '@jjoin/types';
 import { getApiClient } from '../../src/lib/api';
 import { getSecureSessionStore } from '../../src/session/SessionContext';
+import {
+  isStoreMatchingJoin,
+  matchingDisplayStatusLabel,
+} from '../../src/features/store/matching-join-ui';
 
 function joinDetailHref(joinId: string): Href {
   return { pathname: '/join/[joinId]', params: { joinId } } as Href;
@@ -26,7 +30,10 @@ function joinDetailHref(joinId: string): Href {
 
 function JoinRow({ item, onPress }: { item: JoinListItemDto; onPress: () => void }) {
   const start = new Date(item.startAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
-  const badge = resolveJoinDiscoveryBadge(item);
+  const matchingLabel = matchingDisplayStatusLabel(item, item.myRole === 'HOST' ? 'host' : 'participant');
+  const badge = matchingLabel
+    ? { label: matchingLabel, kind: item.displayStatus === 'IN_PROGRESS' ? 'ongoing' : 'upcoming' }
+    : resolveJoinDiscoveryBadge(item);
   return (
     <Pressable
       accessibilityRole="button"
@@ -49,7 +56,11 @@ function JoinRow({ item, onPress }: { item: JoinListItemDto; onPress: () => void
           </Text>
           <Text variant="caption" tone="tertiary">
             {item.confirmedPlayerCount}/{item.plannedPlayerCount}
-            {item.myParticipationStatus ? ` · 나: ${item.myParticipationStatus}` : ''}
+            {isStoreMatchingJoin(item) && item.displaySubtitle
+              ? ` · ${item.displaySubtitle}`
+              : item.myParticipationStatus
+                ? ` · 나: ${item.myParticipationStatus}`
+                : ''}
             {item.pendingApplicantCount > 0 ? ` · 신청 ${item.pendingApplicantCount}` : ''}
           </Text>
         </Stack>

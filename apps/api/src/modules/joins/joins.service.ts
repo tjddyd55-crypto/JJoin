@@ -39,10 +39,16 @@ import {
   estimateEndAt,
   formatMatchingRecruitmentLabel,
   aggregateFacilityJoinActivity,
+  buildStoreMatchingSecondaryLabel,
+  canConfirmMatchingAttendance,
+  computeMatchingRemainingSlots,
   isOngoingJoin,
   isTodayValidJoin,
   mapGenderDisplay,
   nextJoinStatusAfterRoster,
+  resolveStoreMatchingDisplayStatus,
+  storeMatchingDisplayStatusLabel,
+  storeMatchingOwnerListPriority,
   subCoinAmounts,
 } from '@jjoin/domain';
 import { createJoinSchema, joinCoinPreviewSchema } from '@jjoin/validation';
@@ -903,6 +909,8 @@ export class JoinsService {
       targetFemaleCount?: number | null;
       matchingRewardTarget?: string | null;
       storeOwnershipId?: string | null;
+      confirmedAt?: Date | null;
+      cancelledAt?: Date | null;
       rewardPerParticipant: Prisma.Decimal;
       roomCreationFeeAmount: Prisma.Decimal;
       rewardHoldTotalAmount: Prisma.Decimal;
@@ -953,6 +961,7 @@ export class JoinsService {
       verifiedBadge: true,
       appliedAt: p.appliedAt.toISOString(),
       approvedAt: p.approvedAt?.toISOString() ?? null,
+      gender: (p.user.profile?.gender as JoinParticipantDto['gender']) ?? null,
     }));
 
     const mine = viewerUserId
@@ -961,12 +970,19 @@ export class JoinsService {
 
     const matchingExtras = this.buildMatchingExtras({
       joinKind: join.joinKind,
+      status: join.status,
+      startAt: join.startAt,
+      scheduledEndAt: join.scheduledEndAt,
+      plannedPlayerCount: join.plannedPlayerCount,
+      confirmedPlayerCount: join.confirmedPlayerCount,
       recruitClosesAt: join.recruitClosesAt,
       minimumPlayers: join.minimumPlayers,
       targetMaleCount: join.targetMaleCount,
       targetFemaleCount: join.targetFemaleCount,
       matchingRewardTarget: join.matchingRewardTarget,
       storeOwnershipId: join.storeOwnershipId,
+      confirmedAt: join.confirmedAt,
+      cancelledAt: join.cancelledAt,
       participants: join.participants,
     });
 
@@ -1019,6 +1035,8 @@ export class JoinsService {
       targetFemaleCount?: number | null;
       matchingRewardTarget?: string | null;
       storeOwnershipId?: string | null;
+      confirmedAt?: Date | null;
+      cancelledAt?: Date | null;
       rewardPerParticipant: Prisma.Decimal;
       roomCreationFeeAmount: Prisma.Decimal;
       rewardHoldTotalAmount: Prisma.Decimal;
@@ -1036,12 +1054,19 @@ export class JoinsService {
     const mine = join.participants.find((p) => p.userId === userId);
     const matchingExtras = this.buildMatchingExtras({
       joinKind: join.joinKind,
+      status: join.status,
+      startAt: join.startAt,
+      scheduledEndAt: join.scheduledEndAt,
+      plannedPlayerCount: join.plannedPlayerCount,
+      confirmedPlayerCount: join.confirmedPlayerCount,
       recruitClosesAt: join.recruitClosesAt,
       minimumPlayers: join.minimumPlayers,
       targetMaleCount: join.targetMaleCount,
       targetFemaleCount: join.targetFemaleCount,
       matchingRewardTarget: join.matchingRewardTarget,
       storeOwnershipId: join.storeOwnershipId,
+      confirmedAt: join.confirmedAt,
+      cancelledAt: join.cancelledAt,
       participants: join.participants,
     });
     return {
@@ -1066,12 +1091,19 @@ export class JoinsService {
 
   private buildMatchingExtras(join: {
     joinKind?: string;
+    status?: string;
+    startAt?: Date;
+    scheduledEndAt?: Date;
+    plannedPlayerCount?: number;
+    confirmedPlayerCount?: number;
     recruitClosesAt?: Date | null;
     minimumPlayers?: number | null;
     targetMaleCount?: number | null;
     targetFemaleCount?: number | null;
     matchingRewardTarget?: string | null;
     storeOwnershipId?: string | null;
+    confirmedAt?: Date | null;
+    cancelledAt?: Date | null;
     participants?: Array<{
       role: string;
       participationStatus: string;
@@ -1097,6 +1129,31 @@ export class JoinsService {
       else if (gender === 'FEMALE') confirmedFemale += 1;
     }
 
+    const now = new Date();
+    const startAt = join.startAt ?? now;
+    const scheduledEndAt = join.scheduledEndAt ?? now;
+    const confirmedPlayerCount = join.confirmedPlayerCount ?? 0;
+    const plannedPlayerCount = join.plannedPlayerCount ?? confirmedPlayerCount;
+    const status = join.status ?? 'OPEN';
+    const displayStatus = resolveStoreMatchingDisplayStatus({
+      now,
+      status,
+      recruitClosesAt: join.recruitClosesAt,
+      startAt,
+      scheduledEndAt,
+      confirmedPlayerCount,
+      minimumPlayers: join.minimumPlayers,
+      confirmedAt: join.confirmedAt,
+      cancelledAt: join.cancelledAt,
+    });
+    const remainingSlots = computeMatchingRemainingSlots(plannedPlayerCount, confirmedPlayerCount);
+    const recruitmentLabel = formatMatchingRecruitmentLabel({
+      targetMaleCount: maleTarget,
+      targetFemaleCount: femaleTarget,
+      confirmedMale,
+      confirmedFemale,
+    });
+
     return {
       joinKind: JoinKind.STORE_MATCHING,
       recruitClosesAt: join.recruitClosesAt?.toISOString() ?? null,
@@ -1104,15 +1161,30 @@ export class JoinsService {
       targetMaleCount: join.targetMaleCount ?? null,
       targetFemaleCount: join.targetFemaleCount ?? null,
       matchingRewardTarget: (join.matchingRewardTarget as MatchingJoinExtras['matchingRewardTarget']) ?? null,
-      recruitmentLabel: formatMatchingRecruitmentLabel({
-        targetMaleCount: maleTarget,
-        targetFemaleCount: femaleTarget,
-        confirmedMale,
-        confirmedFemale,
-      }),
+      recruitmentLabel,
       confirmedMaleCount: confirmedMale,
       confirmedFemaleCount: confirmedFemale,
       storeOwnershipId: join.storeOwnershipId ?? null,
+      displayStatus,
+      displayStatusLabel: storeMatchingDisplayStatusLabel(displayStatus, {
+        audience: 'host',
+        confirmedPlayerCount,
+      }),
+      displaySubtitle: buildStoreMatchingSecondaryLabel({
+        displayStatus,
+        recruitmentLabel,
+        remainingSlots,
+        confirmedPlayerCount,
+        recruitClosesAt: join.recruitClosesAt,
+        now,
+      }),
+      canConfirmAttendance: canConfirmMatchingAttendance({
+        now,
+        status,
+        scheduledEndAt,
+      }),
+      remainingSlots,
+      ownerListPriority: storeMatchingOwnerListPriority(displayStatus),
     };
   }
 
