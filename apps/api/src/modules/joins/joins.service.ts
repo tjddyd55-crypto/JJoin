@@ -35,6 +35,7 @@ import {
   compareJoinDiscoveryPriority,
   computeConfirmedPlayerCount,
   computeJoinCoinRequirement,
+  countMatchingGenderComposition,
   DISCOVERY_JOIN_STATUSES,
   estimateEndAt,
   formatMatchingRecruitmentLabel,
@@ -1153,23 +1154,17 @@ export class JoinsService {
 
     const maleTarget = join.targetMaleCount ?? 0;
     const femaleTarget = join.targetFemaleCount ?? 0;
-    let confirmedMale = 0;
-    let confirmedFemale = 0;
-
-    for (const p of join.participants ?? []) {
-      if (p.role === 'HOST') continue;
-      // COMPLETED remains part of the filled roster after settlement; exclude leave/cancel/no-show.
-      if (
-        p.participationStatus !== 'APPROVED' &&
-        p.participationStatus !== 'CONFIRMED' &&
-        p.participationStatus !== 'COMPLETED'
-      ) {
-        continue;
-      }
-      const gender = p.user?.profile?.gender;
-      if (gender === 'MALE') confirmedMale += 1;
-      else if (gender === 'FEMALE') confirmedFemale += 1;
-    }
+    // Composition counts confirmed roster across lifecycle (incl. COMPLETED/NO_SHOW after settlement).
+    // CANCELLED/APPLIED rows are excluded so leave and leave→rejoin stay correct.
+    const composition = countMatchingGenderComposition(
+      (join.participants ?? []).map((p) => ({
+        role: p.role,
+        participationStatus: p.participationStatus,
+        gender: (p.user?.profile?.gender as 'MALE' | 'FEMALE' | null | undefined) ?? null,
+      })),
+    );
+    const confirmedMale = composition.male;
+    const confirmedFemale = composition.female;
 
     const now = new Date();
     const startAt = join.startAt ?? now;

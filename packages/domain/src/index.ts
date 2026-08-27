@@ -234,17 +234,20 @@ export {
   computeMatchingPlannedPlayerCount,
   computeMatchingRemainingSlots,
   computeMatchingRewardEligibleSlots,
+  countMatchingGenderComposition,
   countMatchingRosterByGender,
   emptyMatchingDeadlineBatchSummary,
   evaluateMatchingDeadline,
   formatMatchingDeadlineHint,
   formatMatchingRecruitmentLabel,
   isRewardEligibleMatchingGender,
+  isStoreMatchingRosterParticipantStatus,
   remainingMatchingHoldRefund,
   resolveMatchingRewardDisposition,
   resolveStoreMatchingDisplayStatus,
   storeMatchingDisplayStatusLabel,
   storeMatchingOwnerListPriority,
+  STORE_MATCHING_ROSTER_PARTICIPANT_STATUSES,
   summarizeMatchingSettlement,
   type MatchingDeadlineBatchSummary,
   type MatchingDeadlineOutcome,
@@ -255,6 +258,7 @@ export {
   type MatchingTargetComposition,
   type StoreMatchingDisplayAudience,
   type StoreMatchingDisplayStatus,
+  type StoreMatchingRosterParticipantStatus,
 } from './store-matching';
 
 export {
