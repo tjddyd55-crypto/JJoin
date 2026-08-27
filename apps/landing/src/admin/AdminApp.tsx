@@ -989,8 +989,7 @@ function CoinSupplyPage() {
       </div>
 
       <p className="coin-ops-note">
-        테스트·DEV_SEED 데이터는 production DB에서 자동 초기화되지 않습니다. 운영 판단 시 DEV_SEED 제외 필터를
-        사용하세요.
+        DEV_SEED 등 테스트 발행 데이터는 자동으로 삭제되지 않습니다. 운영 전 정리 정책에 따라 별도 처리하세요.
       </p>
 
       <ManualIssuanceDialog open={grantOpen} onClose={() => setGrantOpen(false)} onDone={() => void load()} />
