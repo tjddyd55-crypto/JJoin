@@ -202,27 +202,36 @@ export class CoinLedgerService {
         return;
       }
       const creditAmount = subCoinAmounts(target, available);
-      let idempotencyKey = `dev-funding:${personaLabel}:${coinAsset.code}:to-${target}:from-${available}`;
+      // Include userId so KAKAO/NAVER/GOOGLE personas do not share funding ledger keys.
+      let idempotencyKey = `dev-funding:${personaLabel}:${userId}:${coinAsset.code}:to-${target}:from-${available}`;
       const existing = await tx.coinIssuance.findUnique({ where: { idempotencyKey } });
       if (existing) {
         // Same available balance can recur after spend — allow another TEST top-up.
-        idempotencyKey = `dev-funding:${personaLabel}:${coinAsset.code}:${randomUUID()}`;
+        idempotencyKey = `dev-funding:${personaLabel}:${userId}:${coinAsset.code}:${randomUUID()}`;
       }
 
-      await this.issueCoins(
-        {
-          userId,
-          amount: creditAmount,
-          issuanceType: 'DEV_SEED',
-          reason: `DEV funding to ${target}`,
-          referenceType: 'DEV_FUNDING',
-          referenceId: userId,
-          idempotencyKey,
-          metadata: { policy: 'TEST_ONLY', persona: personaLabel },
-          coinAssetId: coinAsset.id,
-        },
-        tx,
-      );
+      try {
+        await this.issueCoins(
+          {
+            userId,
+            amount: creditAmount,
+            issuanceType: 'DEV_SEED',
+            reason: `DEV funding to ${target}`,
+            referenceType: 'DEV_FUNDING',
+            referenceId: userId,
+            idempotencyKey,
+            metadata: { policy: 'TEST_ONLY', persona: personaLabel },
+            coinAssetId: coinAsset.id,
+          },
+          tx,
+        );
+      } catch (err) {
+        // Orphan CoinTransaction without CoinIssuance for a prior key — skip top-up; sign-in proceeds.
+        if (err instanceof ConflictException) {
+          return;
+        }
+        throw err;
+      }
     });
   }
 
