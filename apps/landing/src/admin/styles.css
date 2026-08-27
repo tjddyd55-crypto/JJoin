@@ -1,157 +1,557 @@
-body {
+@import './tokens.css';
+
+.admin-root {
   margin: 0;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  background: #f6f7f9;
-  color: #111;
+  font-family:
+    'Pretendard',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    'Noto Sans KR',
+    sans-serif;
+  background: var(--admin-background);
+  color: var(--admin-text-primary);
+  min-height: 100dvh;
 }
 
-a {
+.admin-root a {
   color: inherit;
 }
 
-.layout {
+.admin-root .layout {
   max-width: 960px;
   margin: 0 auto;
-  padding: 24px;
+  padding: var(--admin-space-lg);
 }
 
-.layout-wide {
+.admin-root .layout-wide {
   max-width: 1200px;
 }
 
-.admin-nav a {
-  text-decoration: none;
-  padding: 6px 10px;
-  border-radius: 8px;
-  border: 1px solid transparent;
+/* Navigation */
+.admin-root .admin-nav {
+  align-items: center;
+  gap: var(--admin-space-xs);
+  margin-bottom: var(--admin-space-lg);
+  padding: var(--admin-space-sm) var(--admin-space-md);
+  box-shadow: var(--admin-shadow-nav);
 }
 
-.admin-nav a.nav-active {
-  border-color: #1f7a4d;
-  background: #eaf6f0;
-}
-
-.kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.kpi-label {
-  font-size: 12px;
-  color: #555;
-}
-
-.kpi-value {
-  font-size: 22px;
+.admin-root .admin-nav strong {
+  margin-right: var(--admin-space-sm);
+  font-size: var(--admin-font-meta);
   font-weight: 700;
-  margin-top: 4px;
+  color: var(--admin-primary);
+  letter-spacing: 0.04em;
 }
 
-.kpi-sub {
-  font-size: 12px;
-  color: #777;
-  margin-top: 4px;
+.admin-root .admin-nav a {
+  text-decoration: none;
+  padding: var(--admin-space-xs) var(--admin-space-sm);
+  border-radius: var(--admin-radius-sm);
+  border: 1px solid transparent;
+  font-size: var(--admin-font-meta);
+  font-weight: 500;
+  color: var(--admin-text-secondary);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 8px;
-  font-size: 13px;
+.admin-root .admin-nav a:hover {
+  color: var(--admin-text-primary);
+  background: var(--admin-primary-soft);
 }
 
-.data-table th,
-.data-table td {
-  border-bottom: 1px solid #eee;
-  text-align: left;
-  padding: 8px 6px;
-  vertical-align: top;
-}
-
-.ok-text {
-  color: #1f7a4d;
+.admin-root .admin-nav a.nav-active {
+  color: var(--admin-primary);
+  border-color: var(--admin-primary);
+  background: var(--admin-primary-soft);
   font-weight: 600;
 }
 
-.error-text {
-  color: #8b1e1e;
-  font-weight: 600;
+.admin-root .admin-nav .btn-ghost {
+  margin-left: auto;
 }
 
-label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 13px;
+/* Cards */
+.admin-root .card {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  padding: var(--admin-space-md);
+  margin-bottom: var(--admin-space-sm);
+  box-shadow: var(--admin-shadow-card);
 }
 
-.card {
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 12px;
-}
-
-.row {
+.admin-root .row {
   display: flex;
-  gap: 8px;
+  gap: var(--admin-space-xs);
   flex-wrap: wrap;
+  align-items: center;
 }
 
-button,
-input,
-textarea,
-select {
+/* Buttons */
+.admin-root button,
+.admin-root input,
+.admin-root textarea,
+.admin-root select {
   font: inherit;
 }
 
-button {
+.admin-root button {
   cursor: pointer;
-  border: 1px solid #ccc;
-  background: #fff;
-  border-radius: 8px;
-  padding: 8px 12px;
+  border: 1px solid var(--admin-border-strong);
+  background: var(--admin-surface);
+  border-radius: var(--admin-radius-sm);
+  padding: 10px var(--admin-space-md);
+  font-size: var(--admin-font-meta);
+  font-weight: 600;
+  color: var(--admin-text-primary);
+  min-height: 40px;
+  transition: background 0.15s, border-color 0.15s;
 }
 
-button.primary {
-  background: #1f7a4d;
-  color: #fff;
-  border-color: #1f7a4d;
+.admin-root button:hover:not(:disabled) {
+  background: var(--admin-background);
 }
 
-button.danger {
-  background: #8b1e1e;
-  color: #fff;
-  border-color: #8b1e1e;
+.admin-root button.btn-primary,
+.admin-root button.primary {
+  background: var(--admin-primary);
+  color: var(--admin-surface);
+  border-color: var(--admin-primary);
 }
 
-button:disabled {
-  opacity: 0.6;
+.admin-root button.btn-primary:hover:not(:disabled),
+.admin-root button.primary:hover:not(:disabled) {
+  background: #085a48;
+  border-color: #085a48;
+}
+
+.admin-root button.btn-secondary {
+  background: var(--admin-surface);
+  color: var(--admin-text-primary);
+  border-color: var(--admin-border-strong);
+}
+
+.admin-root button.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--admin-text-secondary);
+  min-height: auto;
+  padding: var(--admin-space-xs) var(--admin-space-sm);
+}
+
+.admin-root button.btn-ghost:hover:not(:disabled) {
+  background: var(--admin-background);
+  color: var(--admin-text-primary);
+}
+
+.admin-root button.danger {
+  background: var(--admin-danger);
+  color: var(--admin-surface);
+  border-color: var(--admin-danger);
+}
+
+.admin-root button:disabled {
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
-textarea,
-input {
+.admin-root textarea,
+.admin-root input:not([type='checkbox']),
+.admin-root select {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  padding: 8px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  padding: 10px var(--admin-space-sm);
+  font-size: var(--admin-font-body);
+  color: var(--admin-text-primary);
+  background: var(--admin-surface);
 }
 
-.modal-backdrop {
+.admin-root input:focus,
+.admin-root select:focus,
+.admin-root textarea:focus {
+  outline: 2px solid var(--admin-primary-soft);
+  border-color: var(--admin-primary);
+}
+
+.admin-root label {
+  display: block;
+  margin-bottom: var(--admin-space-xs);
+  font-size: var(--admin-font-meta);
+  color: var(--admin-text-secondary);
+}
+
+/* Tables */
+.admin-root .data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: var(--admin-space-sm);
+  font-size: var(--admin-font-meta);
+}
+
+.admin-root .data-table th,
+.admin-root .data-table td {
+  border-bottom: 1px solid var(--admin-border);
+  text-align: left;
+  padding: var(--admin-space-sm) var(--admin-space-xs);
+  vertical-align: middle;
+}
+
+.admin-root .data-table th {
+  font-size: var(--admin-font-caption);
+  font-weight: 600;
+  color: var(--admin-text-secondary);
+  text-transform: none;
+  background: var(--admin-background);
+}
+
+.admin-root .data-table tbody tr:hover td {
+  background: rgba(10, 107, 86, 0.03);
+}
+
+.admin-root .data-table .col-num,
+.admin-root .data-table th.col-num,
+.admin-root .data-table td.col-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.admin-root .ok-text {
+  color: var(--admin-success);
+  font-weight: 600;
+}
+
+.admin-root .error-text {
+  color: var(--admin-danger);
+  font-weight: 600;
+}
+
+/* Modal */
+.admin-root .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--admin-overlay);
   display: grid;
   place-items: center;
+  z-index: 100;
 }
 
-.modal {
-  background: #fff;
-  border-radius: 12px;
-  padding: 20px;
+.admin-root .modal {
+  background: var(--admin-surface);
+  border-radius: var(--admin-radius-md);
+  padding: var(--admin-space-lg);
   width: min(480px, 92vw);
+  box-shadow: var(--admin-shadow-card);
+}
+
+/* ── Coin management page ── */
+
+.admin-root .coin-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--admin-space-lg);
+}
+
+.admin-root .coin-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--admin-space-md);
+}
+
+.admin-root .coin-page-title {
+  margin: 0;
+  font-size: var(--admin-font-screen-title);
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+}
+
+.admin-root .coin-page-desc {
+  margin: var(--admin-space-xxs) 0 0;
+  font-size: var(--admin-font-meta);
+  color: var(--admin-text-secondary);
+  max-width: 36rem;
+}
+
+.admin-root .coin-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--admin-space-xs);
+}
+
+.admin-root .coin-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--admin-space-sm);
+  padding: var(--admin-space-sm) var(--admin-space-md);
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  box-shadow: var(--admin-shadow-card);
+}
+
+.admin-root .coin-filter-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--admin-space-xs);
+  margin: 0;
+  font-size: var(--admin-font-meta);
+  font-weight: 500;
+  color: var(--admin-text-primary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.admin-root .coin-filter-check input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--admin-primary);
+  cursor: pointer;
+}
+
+.admin-root .coin-filter-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--admin-border);
+  flex-shrink: 0;
+}
+
+.admin-root .coin-filter-hint {
+  flex: 1 1 220px;
+  margin: 0;
+  font-size: var(--admin-font-caption);
+  color: var(--admin-text-secondary);
+  line-height: 1.5;
+}
+
+.admin-root .coin-scope-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--admin-space-xs);
+  border-radius: var(--admin-radius-xs);
+  font-size: var(--admin-font-caption);
+  font-weight: 600;
+}
+
+.admin-root .coin-scope-badge--prod {
+  color: var(--admin-primary);
+  background: var(--admin-primary-soft);
+}
+
+.admin-root .coin-scope-badge--all {
+  color: var(--admin-warning);
+  background: var(--admin-warning-soft);
+}
+
+.admin-root .coin-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: var(--admin-space-sm);
+}
+
+@media (min-width: 900px) {
+  .admin-root .coin-kpi-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.admin-root .coin-kpi-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--admin-space-xxs);
+  padding: var(--admin-space-md);
+  margin-bottom: 0;
+  min-height: 108px;
+}
+
+.admin-root .coin-kpi-label {
+  font-size: var(--admin-font-caption);
+  font-weight: 600;
+  color: var(--admin-text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.admin-root .coin-kpi-value {
+  font-size: var(--admin-font-kpi);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  margin-top: var(--admin-space-xxs);
+}
+
+.admin-root .coin-kpi-sub {
+  margin-top: auto;
+  padding-top: var(--admin-space-xs);
+  font-size: var(--admin-font-caption);
+  color: var(--admin-text-muted);
+  line-height: 1.45;
+}
+
+.admin-root .coin-kpi-card--issued .coin-kpi-value {
+  color: var(--admin-text-primary);
+}
+
+.admin-root .coin-kpi-card--supply .coin-kpi-value {
+  color: var(--admin-text-primary);
+}
+
+.admin-root .coin-kpi-card--available .coin-kpi-value {
+  color: var(--admin-info);
+}
+
+.admin-root .coin-kpi-card--held .coin-kpi-value {
+  color: var(--admin-warning);
+}
+
+.admin-root .coin-kpi-card--burned .coin-kpi-value {
+  color: var(--admin-danger);
+}
+
+.admin-root .coin-kpi-card--period .coin-kpi-value {
+  font-size: var(--admin-font-kpi-sm);
+  color: var(--admin-primary);
+}
+
+.admin-root .coin-section {
+  margin-bottom: 0;
+}
+
+.admin-root .coin-section-header {
+  margin-bottom: var(--admin-space-sm);
+}
+
+.admin-root .coin-section-title {
+  display: block;
+  font-size: var(--admin-font-section-title);
+  font-weight: 600;
+  color: var(--admin-text-primary);
+}
+
+.admin-root .coin-section-desc {
+  margin: var(--admin-space-xxs) 0 0;
+  font-size: var(--admin-font-caption);
+  color: var(--admin-text-secondary);
+  line-height: 1.5;
+}
+
+.admin-root .coin-recon-lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--admin-space-xs);
+  margin-top: var(--admin-space-sm);
+}
+
+.admin-root .coin-recon-line {
+  margin: 0;
+  font-size: var(--admin-font-meta);
+  color: var(--admin-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-root .coin-recon-line strong {
+  font-weight: 600;
+  color: var(--admin-text-secondary);
+}
+
+.admin-root .coin-recon-status {
+  margin: var(--admin-space-sm) 0 0;
+  padding: var(--admin-space-sm) var(--admin-space-md);
+  border-radius: var(--admin-radius-sm);
+  font-size: var(--admin-font-meta);
+  font-weight: 600;
+}
+
+.admin-root .coin-recon-status--ok {
+  color: var(--admin-success);
+  background: var(--admin-success-soft);
+}
+
+.admin-root .coin-recon-status--error {
+  color: var(--admin-danger);
+  background: var(--admin-danger-soft);
+}
+
+.admin-root .coin-table-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--admin-space-xs);
+  margin-bottom: var(--admin-space-sm);
+}
+
+.admin-root .coin-table-toolbar .coin-section-title {
+  margin-right: auto;
+}
+
+.admin-root .coin-table-toolbar select {
+  width: auto;
+  min-width: 120px;
+}
+
+.admin-root .coin-user-lookup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--admin-space-xs);
+  margin-top: var(--admin-space-sm);
+}
+
+.admin-root .coin-user-lookup input {
+  flex: 1 1 240px;
+  max-width: 360px;
+}
+
+.admin-root .coin-user-result {
+  margin-top: var(--admin-space-md);
+  padding-top: var(--admin-space-md);
+  border-top: 1px solid var(--admin-border);
+}
+
+.admin-root .coin-user-result p {
+  margin: 0 0 var(--admin-space-xs);
+  font-size: var(--admin-font-meta);
+  color: var(--admin-text-primary);
+}
+
+.admin-root .coin-user-result p:last-child {
+  margin-bottom: 0;
+  color: var(--admin-text-secondary);
+}
+
+.admin-root .coin-ops-note {
+  margin: 0;
+  padding: var(--admin-space-sm) var(--admin-space-md);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-info-soft);
+  border: 1px solid rgba(38, 116, 140, 0.2);
+  font-size: var(--admin-font-caption);
+  color: var(--admin-info);
+  line-height: 1.55;
+}
+
+/* Login (admin-root scoped) */
+.admin-root .admin-login-card {
+  max-width: 420px;
+  margin: var(--admin-space-xxl) auto;
+  padding: var(--admin-space-lg);
+}
+
+.admin-root .admin-login-card h2 {
+  margin-top: 0;
+  font-size: var(--admin-font-section-title);
+}
+
+.admin-root .admin-login-card .login-hint {
+  color: var(--admin-text-secondary);
+  font-size: var(--admin-font-meta);
 }
