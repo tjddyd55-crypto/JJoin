@@ -843,7 +843,7 @@ export type DiscoverJoinCardDto = {
   canJoinState: 'JOINABLE' | 'FULL' | 'ALREADY_JOINED' | 'HOST' | 'UNAVAILABLE';
   ctaLabel: string | null;
   golfFacilityId: string | null;
-};
+} & MatchingJoinExtras;
 
 export type DiscoverJoinsResponse = {
   date: string;

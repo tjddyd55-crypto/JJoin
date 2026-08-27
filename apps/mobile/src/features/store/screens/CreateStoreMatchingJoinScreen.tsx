@@ -27,6 +27,11 @@ import { createStoreMatchingJoinSchema } from '@jjoin/validation';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
 import {
+  composeKstIso,
+  formatKstTime,
+  splitKstDateTime,
+} from '../matching-join-ui';
+import {
   GENDER_PRESETS,
   defaultRecruitClosesAtIso,
   defaultStoreJoinStartAtIso,
@@ -47,12 +52,16 @@ export function CreateStoreMatchingJoinScreen() {
   const params = useLocalSearchParams<{ storeOwnershipId?: string }>();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
 
+  const defaultStart = defaultStoreJoinStartAtIso();
+  const defaultClose = defaultRecruitClosesAtIso(defaultStart);
+  const defaultStartParts = splitKstDateTime(defaultStart);
+  const defaultCloseParts = splitKstDateTime(defaultClose);
+
   const [stores, setStores] = useState<StoreOwnershipDto[]>([]);
   const [storeOwnershipId, setStoreOwnershipId] = useState('');
-  const [startAt, setStartAt] = useState(defaultStoreJoinStartAtIso());
-  const [recruitClosesAt, setRecruitClosesAt] = useState(() =>
-    defaultRecruitClosesAtIso(defaultStoreJoinStartAtIso()),
-  );
+  const [gameDate, setGameDate] = useState(defaultStartParts.dateYmd);
+  const [startTime, setStartTime] = useState(defaultStartParts.timeHm);
+  const [closeTime, setCloseTime] = useState(defaultCloseParts.timeHm);
   const [targetMaleCount, setTargetMaleCount] = useState(2);
   const [targetFemaleCount, setTargetFemaleCount] = useState(2);
   const [minimumPlayers, setMinimumPlayers] = useState('3');
@@ -63,6 +72,22 @@ export function CreateStoreMatchingJoinScreen() {
   const [genderPresetLabel, setGenderPresetLabel] = useState('남2여2');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const startAt = useMemo(() => {
+    try {
+      return composeKstIso(gameDate, startTime);
+    } catch {
+      return '';
+    }
+  }, [gameDate, startTime]);
+
+  const recruitClosesAt = useMemo(() => {
+    try {
+      return composeKstIso(gameDate, closeTime);
+    } catch {
+      return '';
+    }
+  }, [closeTime, gameDate]);
 
   const loadStores = useCallback(async () => {
     const items = await api.getMyStores({ includeWallet: true });
@@ -117,6 +142,10 @@ export function CreateStoreMatchingJoinScreen() {
   }
 
   async function onCreate() {
+    if (!startAt || !recruitClosesAt) {
+      setError('날짜와 시간을 확인해 주세요.');
+      return;
+    }
     const parsed = createStoreMatchingJoinSchema.safeParse({
       storeOwnershipId,
       startAt,
@@ -133,17 +162,17 @@ export function CreateStoreMatchingJoinScreen() {
       return;
     }
     if (!canAfford) {
-      setError('매장 코인 잔액이 부족합니다.');
+      setError('코인이 부족합니다.');
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
-      const created = await api.createStoreJoin(parsed.data as CreateStoreMatchingJoinRequest);
-      router.replace({ pathname: '/join/[joinId]', params: { joinId: created.joinId } });
+      await api.createStoreJoin(parsed.data as CreateStoreMatchingJoinRequest);
+      router.replace('/my/stores');
     } catch (e) {
       const msg = e instanceof Error ? e.message : '';
-      setError(msg.includes('insufficient') ? '매장 코인 잔액이 부족합니다.' : '조인 생성에 실패했습니다.');
+      setError(msg.includes('insufficient') ? '코인이 부족합니다.' : '조인 생성에 실패했습니다.');
     } finally {
       setSubmitting(false);
     }
@@ -156,7 +185,7 @@ export function CreateStoreMatchingJoinScreen() {
           <Button
             label="모집 조인 만들기"
             loading={submitting}
-            disabled={!canAfford || !storeOwnershipId}
+            disabled={!canAfford || !storeOwnershipId || submitting}
             onPress={() => void onCreate()}
             fullWidth
           />
@@ -175,8 +204,15 @@ export function CreateStoreMatchingJoinScreen() {
         <>
           <Spacer size="md" />
           <Text variant="body" tone="error">
-            승인된 매장이 없습니다.
+            승인된 매장이 없습니다. 매장 인증을 먼저 완료해 주세요.
           </Text>
+          <Spacer size="md" />
+          <Button
+            label="매장 인증하기"
+            variant="secondary"
+            onPress={() => router.push('/my/store-verification')}
+            fullWidth
+          />
         </>
       ) : (
         <>
@@ -197,18 +233,28 @@ export function CreateStoreMatchingJoinScreen() {
           <Spacer size="lg" />
           <Section title="일정">
             <Input
-              label="시작 일시 (ISO)"
-              value={startAt}
-              onChangeText={setStartAt}
-              placeholder="2026-08-27T18:00:00.000Z"
+              label="게임 날짜 (YYYY-MM-DD)"
+              value={gameDate}
+              onChangeText={setGameDate}
+              placeholder="2026-08-28"
             />
             <Spacer size="sm" />
             <Input
-              label="모집 마감 일시 (ISO)"
-              value={recruitClosesAt}
-              onChangeText={setRecruitClosesAt}
-              placeholder="2026-08-27T17:00:00.000Z"
+              label="시작 시간 (HH:mm, KST)"
+              value={startTime}
+              onChangeText={setStartTime}
+              placeholder="20:00"
             />
+            <Spacer size="sm" />
+            <Input
+              label="모집 마감 시간 (HH:mm, KST)"
+              value={closeTime}
+              onChangeText={setCloseTime}
+              placeholder="18:00"
+            />
+            <Text variant="caption" tone="tertiary">
+              마감은 시작({startTime || '—'})보다 이전이어야 합니다.
+            </Text>
           </Section>
 
           <Spacer size="lg" />
@@ -231,14 +277,14 @@ export function CreateStoreMatchingJoinScreen() {
             </View>
             <Spacer size="sm" />
             <Text variant="caption" tone="tertiary">
-              남 {targetMaleCount} · 여 {targetFemaleCount}
+              목표 슬롯 · 남 {targetMaleCount} · 여 {targetFemaleCount}
             </Text>
           </Section>
 
           <Spacer size="lg" />
           <Section title="모집 조건">
             <Input
-              label="최소 인원"
+              label="최소 진행 인원"
               value={minimumPlayers}
               onChangeText={setMinimumPlayers}
               keyboardType="number-pad"
@@ -259,7 +305,7 @@ export function CreateStoreMatchingJoinScreen() {
             </View>
             <Spacer size="sm" />
             <Input
-              label="참가자당 리워드 (Coin)"
+              label="1인당 참가 보상 (Coin)"
               value={rewardPerParticipant}
               onChangeText={setRewardPerParticipant}
               keyboardType="number-pad"
@@ -276,24 +322,48 @@ export function CreateStoreMatchingJoinScreen() {
                 <Spacer size="sm" />
                 <Row justify="space-between">
                   <Text variant="body" tone="secondary">
-                    필요 홀드
+                    보유 코인
                   </Text>
                   <Text variant="bodyStrong" tone="primary">
-                    {coinRequirement.rewardHoldTotal} Coin
+                    {selectedStore?.walletAvailable ?? '0'}C
                   </Text>
                 </Row>
                 <Row justify="space-between">
                   <Text variant="body" tone="secondary">
-                    매장 사용 가능
+                    필요 HOLD
                   </Text>
                   <Text variant="bodyStrong" tone="primary">
-                    {selectedStore?.walletAvailable ?? '0'} Coin
+                    {coinRequirement.rewardHoldTotal}C
+                  </Text>
+                </Row>
+                <Row justify="space-between">
+                  <Text variant="body" tone="secondary">
+                    생성 후 사용 가능 예상
+                  </Text>
+                  <Text variant="bodyStrong" tone="primary">
+                    {canAfford
+                      ? String(
+                          Number(selectedStore?.walletAvailable ?? 0) -
+                            Number(coinRequirement.rewardHoldTotal),
+                        )
+                      : '—'}
+                    C
                   </Text>
                 </Row>
                 {!canAfford ? (
-                  <Text variant="body" tone="error" style={styles.shortfall}>
-                    잔액이 부족합니다.
-                  </Text>
+                  <>
+                    <Text variant="body" tone="error" style={styles.shortfall}>
+                      코인이 부족합니다. 필요 {coinRequirement.rewardHoldTotal}C / 보유{' '}
+                      {selectedStore?.walletAvailable ?? '0'}C
+                    </Text>
+                    <Spacer size="sm" />
+                    <Button
+                      label="코인 충전"
+                      variant="secondary"
+                      onPress={() => router.push('/my/wallet')}
+                      fullWidth
+                    />
+                  </>
                 ) : null}
               </Card>
             </>
@@ -309,6 +379,12 @@ export function CreateStoreMatchingJoinScreen() {
           </Text>
         </>
       ) : null}
+
+      {startAt && recruitClosesAt ? (
+        <Text variant="caption" tone="tertiary" style={styles.preview}>
+          시작 {formatKstTime(startAt)} · 마감 {formatKstTime(recruitClosesAt)}
+        </Text>
+      ) : null}
     </FormScreenFrame>
   );
 }
@@ -322,5 +398,8 @@ const styles = StyleSheet.create({
   },
   shortfall: {
     marginTop: 8,
+  },
+  preview: {
+    marginTop: 12,
   },
 });

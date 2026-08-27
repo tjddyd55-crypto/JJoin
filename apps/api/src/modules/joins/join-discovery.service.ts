@@ -11,21 +11,24 @@ import {
   buildWeekStrip,
   compareDiscoverJoinOrder,
   findAdminDistrict,
+  formatMatchingRecruitmentLabel,
   kstDayBoundsUtc,
   localDayKey,
   partitionDiscoverJoins,
   resolveDiscoverCanJoin,
   sundayOfWeek,
 } from '@jjoin/domain';
-import type {
-  AdminDistrictCatalogResponse,
-  DiscoverJoinCardDto,
-  DiscoverJoinsResponse,
-  DiscoverWeeklyCountsResponse,
-  JoinDiscoveryJoinability,
-  JoinDiscoveryRegionMode,
-  JoinDiscoverySort,
-  JoinStatus,
+import {
+  JoinKind,
+  type AdminDistrictCatalogResponse,
+  type DiscoverJoinCardDto,
+  type DiscoverJoinsResponse,
+  type DiscoverWeeklyCountsResponse,
+  type JoinDiscoveryJoinability,
+  type JoinDiscoveryRegionMode,
+  type JoinDiscoverySort,
+  type JoinStatus,
+  type MatchingJoinExtras,
 } from '@jjoin/types';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -57,8 +60,14 @@ export type DiscoverWeeklyCountsQuery = {
 type DiscoveryJoinRow = {
   id: string;
   status: string;
+  joinKind: string;
   startAt: Date;
   scheduledEndAt: Date;
+  recruitClosesAt: Date | null;
+  minimumPlayers: number | null;
+  targetMaleCount: number | null;
+  targetFemaleCount: number | null;
+  matchingRewardTarget: string | null;
   plannedPlayerCount: number;
   confirmedPlayerCount: number;
   rewardPerParticipant: Prisma.Decimal;
@@ -76,7 +85,12 @@ type DiscoveryJoinRow = {
     } | null;
   };
   host: { profile: { nickname: string } | null };
-  participants: Array<{ userId: string; role: string }>;
+  participants: Array<{
+    userId: string;
+    role: string;
+    participationStatus: string;
+    user?: { profile: { gender: string | null } | null };
+  }>;
 };
 
 type ResolvedRegion = {
@@ -112,9 +126,10 @@ export class JoinDiscoveryService {
       now,
     });
 
-    const filtered = this.filterByRegion(rows, region);
+    const discoverable = rows.filter((row) => this.isDiscoverable(row, now));
+    const filtered = this.filterByRegion(discoverable, region);
     const cards = filtered
-      .map((row) => this.toCard(row, userId, region))
+      .map((row) => this.toCard(row, userId, region, now))
       .filter((card) => (joinability === 'JOINABLE' ? card.canJoin : true))
       .sort((a, b) =>
         compareDiscoverJoinOrder(a, b, { sort, now }),
@@ -156,7 +171,8 @@ export class JoinDiscoveryService {
       now,
     });
 
-    const filtered = this.filterByRegion(rows, region);
+    const discoverable = rows.filter((row) => this.isDiscoverable(row, now));
+    const filtered = this.filterByRegion(discoverable, region);
     const weekDays = buildWeekStrip(weekStart, { now }).map((d) => d.date);
     const counts = aggregateWeeklyDayCounts(filtered, weekDays, { now });
 
@@ -201,7 +217,14 @@ export class JoinDiscoveryService {
           },
         },
         host: { include: { profile: { select: { nickname: true } } } },
-        participants: { select: { userId: true, role: true } },
+        participants: {
+          select: {
+            userId: true,
+            role: true,
+            participationStatus: true,
+            user: { select: { profile: { select: { gender: true } } } },
+          },
+        },
       },
       orderBy: { startAt: 'asc' },
     });
@@ -241,10 +264,56 @@ export class JoinDiscoveryService {
     return region.includes(sigungu) || region.includes(sido);
   }
 
+  private isDiscoverable(row: DiscoveryJoinRow, now: Date): boolean {
+    if (row.joinKind !== 'STORE_MATCHING') return true;
+    if (!row.recruitClosesAt) return true;
+    const recruiting = row.status === 'OPEN' || row.status === 'FULL' || row.status === 'DRAFT';
+    if (!recruiting) return true;
+    return row.recruitClosesAt.getTime() > now.getTime();
+  }
+
+  private buildMatchingExtrasForDiscovery(row: DiscoveryJoinRow): MatchingJoinExtras {
+    if (row.joinKind !== 'STORE_MATCHING') return {};
+
+    const maleTarget = row.targetMaleCount ?? 0;
+    const femaleTarget = row.targetFemaleCount ?? 0;
+    let confirmedMale = 0;
+    let confirmedFemale = 0;
+
+    for (const p of row.participants) {
+      if (p.role === 'HOST') continue;
+      if (p.participationStatus !== 'APPROVED' && p.participationStatus !== 'CONFIRMED') {
+        continue;
+      }
+      const gender = p.user?.profile?.gender;
+      if (gender === 'MALE') confirmedMale += 1;
+      else if (gender === 'FEMALE') confirmedFemale += 1;
+    }
+
+    return {
+      joinKind: JoinKind.STORE_MATCHING,
+      recruitClosesAt: row.recruitClosesAt?.toISOString() ?? null,
+      minimumPlayers: row.minimumPlayers ?? null,
+      targetMaleCount: row.targetMaleCount ?? null,
+      targetFemaleCount: row.targetFemaleCount ?? null,
+      matchingRewardTarget:
+        (row.matchingRewardTarget as MatchingJoinExtras['matchingRewardTarget']) ?? null,
+      recruitmentLabel: formatMatchingRecruitmentLabel({
+        targetMaleCount: maleTarget,
+        targetFemaleCount: femaleTarget,
+        confirmedMale,
+        confirmedFemale,
+      }),
+      confirmedMaleCount: confirmedMale,
+      confirmedFemaleCount: confirmedFemale,
+    };
+  }
+
   private toCard(
     row: DiscoveryJoinRow,
     userId: string,
     region: ResolvedRegion,
+    now: Date,
   ): DiscoverJoinCardDto {
     const latitude = Number(row.venue.latitude);
     const longitude = Number(row.venue.longitude);
@@ -274,11 +343,25 @@ export class JoinDiscoveryService {
       isParticipant,
     });
 
+    const matchingClosed =
+      row.joinKind === 'STORE_MATCHING' &&
+      row.recruitClosesAt != null &&
+      row.recruitClosesAt.getTime() <= now.getTime();
+    const canJoin = canJoinResult.canJoin && !matchingClosed;
+    const canJoinState = matchingClosed ? 'UNAVAILABLE' : canJoinResult.state;
+    const ctaLabel =
+      canJoin && row.joinKind === 'STORE_MATCHING'
+        ? '참가 신청'
+        : canJoin
+          ? canJoinResult.ctaLabel
+          : null;
+
     const gf = row.venue.golfFacility;
     const availableSlots = Math.max(
       0,
       row.plannedPlayerCount - row.confirmedPlayerCount,
     );
+    const matchingExtras = this.buildMatchingExtrasForDiscovery(row);
 
     return {
       joinId: row.id,
@@ -300,10 +383,11 @@ export class JoinDiscoveryService {
       hostNickname: row.host.profile?.nickname ?? '호스트',
       isHost,
       isParticipant,
-      canJoin: canJoinResult.canJoin,
-      canJoinState: canJoinResult.state,
-      ctaLabel: canJoinResult.ctaLabel,
+      canJoin,
+      canJoinState,
+      ctaLabel,
       golfFacilityId: gf?.id ?? null,
+      ...matchingExtras,
     };
   }
 
