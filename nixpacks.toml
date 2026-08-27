@@ -8,7 +8,7 @@ cmds = ["pnpm install --frozen-lockfile --prod=false"]
 
 [phases.build]
 cmds = [
-  "sh -c 'if [ \"$JJOIN_SERVICE_ROLE\" = \"landing\" ]; then pnpm --filter @jjoin/landing build; else pnpm --filter @jjoin/types build && pnpm --filter @jjoin/domain build && pnpm --filter @jjoin/validation build && pnpm exec prisma generate --schema=prisma/schema.prisma && pnpm --filter @jjoin/api build; fi'"
+  "sh -c 'if [ \"$JJOIN_SERVICE_ROLE\" = \"landing\" ]; then pnpm --filter @jjoin/types build && pnpm --filter @jjoin/landing build; else pnpm --filter @jjoin/types build && pnpm --filter @jjoin/domain build && pnpm --filter @jjoin/validation build && pnpm exec prisma generate --schema=prisma/schema.prisma && pnpm --filter @jjoin/api build; fi'"
 ]
 
 [start]
