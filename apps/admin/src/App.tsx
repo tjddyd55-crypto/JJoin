@@ -55,26 +55,82 @@ const RELATION_LABELS: Record<StoreOwnerRelation, string> = {
 };
 
 function LoginBar() {
+  const [loginId, setLoginId] = useState('');
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
-  async function signIn(persona: MockAuthPersona) {
+  const [error, setError] = useState<string | null>(null);
+
+  async function signInAdmin() {
     setBusy(true);
+    setError(null);
     try {
-      const res = await api<{ session: { accessToken: string } }>('/auth/social/mock-sign-in', {
+      const res = await api<{ session: { accessToken: string } }>('/auth/admin/login', {
         method: 'POST',
-        body: JSON.stringify({ provider: SocialProvider.KAKAO, persona }),
+        body: JSON.stringify({ loginId, password }),
       });
       localStorage.setItem(TOKEN_KEY, res.session.accessToken);
       window.location.reload();
+    } catch {
+      setError('로그인에 실패했습니다. ID/비밀번호를 확인하세요.');
     } finally {
       setBusy(false);
     }
   }
+
+  async function signInDevAdmin() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await api<{ session: { accessToken: string } }>('/auth/social/mock-sign-in', {
+        method: 'POST',
+        body: JSON.stringify({
+          provider: SocialProvider.KAKAO,
+          persona: MockAuthPersona.DEV_ADMIN,
+        }),
+      });
+      localStorage.setItem(TOKEN_KEY, res.session.accessToken);
+      window.location.reload();
+    } catch {
+      setError('DEV_ADMIN 로그인 실패');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <div className="card row">
-      <strong>Admin Login (mock)</strong>
-      <button disabled={busy} onClick={() => void signIn(MockAuthPersona.DEV_ADMIN)}>
-        DEV_ADMIN
+    <div className="card" style={{ maxWidth: 420, margin: '48px auto', padding: 24 }}>
+      <h2 style={{ marginTop: 0 }}>관리자 로그인</h2>
+      <p style={{ color: '#666', fontSize: 14 }}>
+        Railway <code>JJOIN_ADMIN_LOGIN_ID</code> / <code>JJOIN_ADMIN_LOGIN_PASSWORD</code> 계정
+      </p>
+      <label style={{ display: 'block', marginBottom: 8 }}>
+        ID
+        <input
+          style={{ display: 'block', width: '100%', marginTop: 4, boxSizing: 'border-box' }}
+          value={loginId}
+          onChange={(e) => setLoginId(e.target.value)}
+          autoComplete="username"
+        />
+      </label>
+      <label style={{ display: 'block', marginBottom: 12 }}>
+        Password
+        <input
+          style={{ display: 'block', width: '100%', marginTop: 4, boxSizing: 'border-box' }}
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="current-password"
+        />
+      </label>
+      {error ? <div style={{ color: '#b00020', marginBottom: 8 }}>{error}</div> : null}
+      <button disabled={busy || !loginId || !password} onClick={() => void signInAdmin()}>
+        로그인
       </button>
+      <div style={{ marginTop: 16, borderTop: '1px solid #eee', paddingTop: 12 }}>
+        <button disabled={busy} onClick={() => void signInDevAdmin()}>
+          DEV_ADMIN (mock)
+        </button>
+      </div>
     </div>
   );
 }
@@ -85,6 +141,13 @@ function Shell({ children }: { children: React.ReactNode }) {
   const coinActive = loc.pathname === '/' || loc.pathname.startsWith('/coin');
   const disputeActive = loc.pathname.startsWith('/disputes');
   const storeVerificationActive = loc.pathname.startsWith('/store-verifications');
+  if (!token) {
+    return (
+      <div className="layout layout-wide">
+        <LoginBar />
+      </div>
+    );
+  }
   return (
     <div className="layout layout-wide">
       <header className="admin-nav card row">
@@ -101,7 +164,14 @@ function Shell({ children }: { children: React.ReactNode }) {
         >
           매장 인증
         </Link>
-        {!token ? <LoginBar /> : null}
+        <button
+          onClick={() => {
+            localStorage.removeItem(TOKEN_KEY);
+            window.location.reload();
+          }}
+        >
+          로그아웃
+        </button>
       </header>
       {children}
     </div>

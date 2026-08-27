@@ -511,7 +511,7 @@ export class JoinsService {
     if (!applicant?.profile?.gender) {
       throw new BadRequestException({
         code: 'GENDER_REQUIRED',
-        message: '성별 정보가 필요합니다.',
+        message: '참가하려면 프로필에서 성별을 설정해주세요.',
       });
     }
     const applicantGender = applicant.profile.gender;

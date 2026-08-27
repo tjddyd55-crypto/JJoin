@@ -10,6 +10,7 @@
 import type { CreateJoinRequest, JoinCoinPreviewRequest } from '@jjoin/types';
 import { JoinsService } from './joins.service';
 import { JoinDiscoveryService } from './join-discovery.service';
+import { MatchingJoinsService } from './matching-joins.service';
 import { CurrentUserId, MockAuthGuard } from '../../common/mock-auth.guard';
 
 @Controller('joins')
@@ -17,6 +18,7 @@ export class JoinsController {
   constructor(
     private readonly service: JoinsService,
     private readonly discovery: JoinDiscoveryService,
+    private readonly matchingJoins: MatchingJoinsService,
   ) {}
 
   @Get('_meta')
@@ -45,7 +47,7 @@ export class JoinsController {
   /** Must be registered before `@Get(':joinId')`. */
   @Get('discover')
   @UseGuards(MockAuthGuard)
-  discover(
+  async discover(
     @CurrentUserId() userId: string,
     @Query('date') date?: string,
     @Query('regionMode') regionMode?: string,
@@ -57,6 +59,7 @@ export class JoinsController {
     @Query('sort') sort?: string,
     @Query('joinability') joinability?: string,
   ) {
+    await this.matchingJoins.reconcileDueMatchingDeadlines(20);
     return this.discovery.discover(userId, {
       date,
       regionMode,
