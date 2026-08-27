@@ -15,6 +15,10 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api-production-2d67e.up.railway.app",
+        "EXPO_PUBLIC_INTERNAL_TOOLS_ENABLED": "false"
       }
     },
     "production": {
