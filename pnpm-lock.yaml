@@ -109,6 +109,9 @@ importers:
 
   apps/landing:
     dependencies:
+      '@jjoin/domain':
+        specifier: workspace:^
+        version: link:../../packages/domain
       '@jjoin/types':
         specifier: workspace:*
         version: link:../../packages/types

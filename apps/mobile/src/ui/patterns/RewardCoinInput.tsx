@@ -10,6 +10,8 @@ import {
 import {
   REWARD_QUICK_ADD_DENOMINATIONS,
   addRewardQuickIncrement,
+  formatCoinWithLabel,
+  formatNumber,
   normalizeRewardPerParticipantInput,
 } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
@@ -139,9 +141,9 @@ export function RewardCoinInput({
           { borderTopColor: theme.colors.border.subtle },
         ]}
       >
-        <SummaryRow label={t('create.reward.targetCount')} value={`${rewardEligibleSlots}명`} />
-        <SummaryRow label={t('create.reward.perPerson')} value={`${value} Coin`} highlight />
-        <SummaryRow label={t('create.reward.total')} value={`${totalReward} Coin`} highlight />
+        <SummaryRow label={t('create.reward.targetCount')} value={`${formatNumber(rewardEligibleSlots)}명`} />
+        <SummaryRow label={t('create.reward.perPerson')} value={formatCoinWithLabel(value)} highlight />
+        <SummaryRow label={t('create.reward.total')} value={formatCoinWithLabel(totalReward)} highlight />
       </View>
     </View>
   );

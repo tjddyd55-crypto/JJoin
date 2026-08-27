@@ -16,6 +16,7 @@ import {
 import {
   canAffordMatchingJoinCreate,
   computeMatchingJoinCoinRequirement,
+  formatCoin,
 } from '@jjoin/domain';
 import {
   MatchingRewardTarget,
@@ -325,7 +326,7 @@ export function CreateStoreMatchingJoinScreen() {
                     보유 코인
                   </Text>
                   <Text variant="bodyStrong" tone="primary">
-                    {selectedStore?.walletAvailable ?? '0'}C
+                    {formatCoin(selectedStore?.walletAvailable ?? '0')}
                   </Text>
                 </Row>
                 <Row justify="space-between">
@@ -333,7 +334,7 @@ export function CreateStoreMatchingJoinScreen() {
                     필요 HOLD
                   </Text>
                   <Text variant="bodyStrong" tone="primary">
-                    {coinRequirement.rewardHoldTotal}C
+                    {formatCoin(coinRequirement.rewardHoldTotal)}
                   </Text>
                 </Row>
                 <Row justify="space-between">
@@ -342,19 +343,18 @@ export function CreateStoreMatchingJoinScreen() {
                   </Text>
                   <Text variant="bodyStrong" tone="primary">
                     {canAfford
-                      ? String(
+                      ? formatCoin(
                           Number(selectedStore?.walletAvailable ?? 0) -
                             Number(coinRequirement.rewardHoldTotal),
                         )
                       : '—'}
-                    C
                   </Text>
                 </Row>
                 {!canAfford ? (
                   <>
                     <Text variant="body" tone="error" style={styles.shortfall}>
-                      코인이 부족합니다. 필요 {coinRequirement.rewardHoldTotal}C / 보유{' '}
-                      {selectedStore?.walletAvailable ?? '0'}C
+                      코인이 부족합니다. 필요 {formatCoin(coinRequirement.rewardHoldTotal)} / 보유{' '}
+                      {formatCoin(selectedStore?.walletAvailable ?? '0')}
                     </Text>
                     <Spacer size="sm" />
                     <Button
