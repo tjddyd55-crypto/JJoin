@@ -235,6 +235,8 @@ export {
   evaluateMatchingDeadline,
   formatMatchingRecruitmentLabel,
   isRewardEligibleMatchingGender,
+  resolveMatchingRewardDisposition,
+  summarizeMatchingSettlement,
   type MatchingDeadlineOutcome,
   type MatchingGender,
   type MatchingJoinCoinRequirement,

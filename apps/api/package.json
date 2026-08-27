@@ -9,7 +9,7 @@
     "start:prod": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo \"lint placeholder\"",
-    "test": "echo \"no api unit tests yet\""
+    "test": "node --import tsx --test src/auth/password.test.ts"
   },
   "dependencies": {
     "@jjoin/domain": "workspace:*",
@@ -28,6 +28,7 @@
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.7",
     "prisma": "^6.3.1",
+    "tsx": "^4.19.2",
     "typescript": "^5.7.3"
   }
 }

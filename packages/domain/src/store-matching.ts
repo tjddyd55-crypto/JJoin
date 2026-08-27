@@ -220,3 +220,57 @@ export function assertValidMinimumPlayers(
     throw new Error('invalid_minimum_players');
   }
 }
+
+/**
+ * Matching settlement disposition for one participant after attendance marking.
+ * PAY only when attended AND gender matches reward target.
+ */
+export function resolveMatchingRewardDisposition(params: {
+  attended: boolean;
+  gender: MatchingGender;
+  matchingRewardTarget: MatchingRewardTarget;
+}): 'PAY' | 'REFUND' {
+  if (
+    params.attended &&
+    isRewardEligibleMatchingGender(params.gender, params.matchingRewardTarget)
+  ) {
+    return 'PAY';
+  }
+  return 'REFUND';
+}
+
+/** Aggregate payout vs unused hold after attendance marking (for tests / UI preview). */
+export function summarizeMatchingSettlement(params: {
+  rewardPerParticipant: string;
+  heldTotal: string;
+  participants: Array<{
+    attended: boolean;
+    gender: MatchingGender;
+  }>;
+  matchingRewardTarget: MatchingRewardTarget;
+}): { payoutTotal: string; refundToHost: string; paidCount: number } {
+  let paidCount = 0;
+  let payout = zeroCoinAmount();
+  for (const p of params.participants) {
+    if (
+      resolveMatchingRewardDisposition({
+        attended: p.attended,
+        gender: p.gender,
+        matchingRewardTarget: params.matchingRewardTarget,
+      }) === 'PAY'
+    ) {
+      paidCount += 1;
+      payout = addCoinAmounts(payout, params.rewardPerParticipant);
+    }
+  }
+  // Remaining hold returns to host (heldTotal - payout). If payout exceeds hold, clamp to 0.
+  const held = params.heldTotal;
+  const heldNum = Number(held);
+  const payNum = Number(payout);
+  const refund =
+    Number.isFinite(heldNum) && Number.isFinite(payNum) && heldNum >= payNum
+      ? String(heldNum - payNum)
+      : zeroCoinAmount();
+  return { payoutTotal: payout, refundToHost: refund, paidCount };
+}
+

@@ -6,6 +6,8 @@ import {
   evaluateMatchingDeadline,
   formatMatchingRecruitmentLabel,
   isRewardEligibleMatchingGender,
+  resolveMatchingRewardDisposition,
+  summarizeMatchingSettlement,
 } from './store-matching';
 
 test('HOLDs reward slots by female target', () => {
@@ -96,4 +98,61 @@ test('reward eligibility respects target', () => {
   assert.equal(isRewardEligibleMatchingGender('FEMALE', 'FEMALE'), true);
   assert.equal(isRewardEligibleMatchingGender('MALE', 'FEMALE'), false);
   assert.equal(isRewardEligibleMatchingGender('MALE', 'ALL'), true);
+});
+
+test('settlement pays only attended eligible genders', () => {
+  assert.equal(
+    resolveMatchingRewardDisposition({
+      attended: true,
+      gender: 'FEMALE',
+      matchingRewardTarget: 'FEMALE',
+    }),
+    'PAY',
+  );
+  assert.equal(
+    resolveMatchingRewardDisposition({
+      attended: false,
+      gender: 'FEMALE',
+      matchingRewardTarget: 'FEMALE',
+    }),
+    'REFUND',
+  );
+  assert.equal(
+    resolveMatchingRewardDisposition({
+      attended: true,
+      gender: 'MALE',
+      matchingRewardTarget: 'FEMALE',
+    }),
+    'REFUND',
+  );
+
+  const summary = summarizeMatchingSettlement({
+    rewardPerParticipant: '5000',
+    heldTotal: '10000',
+    matchingRewardTarget: 'FEMALE',
+    participants: [
+      { attended: true, gender: 'MALE' },
+      { attended: true, gender: 'MALE' },
+      { attended: true, gender: 'FEMALE' },
+      { attended: false, gender: 'FEMALE' },
+    ],
+  });
+  assert.equal(summary.paidCount, 1);
+  assert.equal(summary.payoutTotal, '5000');
+  assert.equal(summary.refundToHost, '5000');
+});
+
+test('deadline confirms full roster before close', () => {
+  const closes = new Date('2026-08-26T09:00:00.000Z');
+  assert.deepEqual(
+    evaluateMatchingDeadline({
+      now: new Date('2026-08-26T08:00:00.000Z'),
+      recruitClosesAt: closes,
+      confirmedPlayerCount: 4,
+      minimumPlayers: 3,
+      plannedPlayerCount: 4,
+      alreadyClosed: false,
+    }),
+    { action: 'confirm', reason: 'FULL' },
+  );
 });

@@ -25,7 +25,7 @@ import {
   countMatchingRosterByGender,
   evaluateMatchingDeadline,
   estimateEndAt,
-  isRewardEligibleMatchingGender,
+  resolveMatchingRewardDisposition,
   settlementRefundIdempotencyKey,
   settlementRowIdempotencyKey,
   settlementTransferIdempotencyKey,
@@ -236,6 +236,7 @@ export class MatchingJoinsService {
   }
 
   async mine(hostUserId: string): Promise<JoinListItemDto[]> {
+    await this.reconcileDueMatchingDeadlines(20);
     const rows = await this.prisma.join.findMany({
       where: { hostUserId, joinKind: 'STORE_MATCHING' },
       include: {
@@ -268,6 +269,15 @@ export class MatchingJoinsService {
         coinAssetId: join.coinAssetId,
         joinId,
         idempotencyKey: `store-join:${joinId}:cancel-hold-refund`,
+      });
+
+      await tx.joinParticipant.updateMany({
+        where: {
+          joinId,
+          role: 'PARTICIPANT',
+          participationStatus: { in: ['APPLIED', 'APPROVED', 'CONFIRMED'] },
+        },
+        data: { participationStatus: 'CANCELLED', cancelledAt: new Date() },
       });
 
       await tx.join.update({
@@ -375,8 +385,11 @@ export class MatchingJoinsService {
         }
 
         if (
-          attended &&
-          isRewardEligibleMatchingGender(gender, rewardTarget as 'FEMALE' | 'MALE' | 'ALL')
+          resolveMatchingRewardDisposition({
+            attended,
+            gender,
+            matchingRewardTarget: rewardTarget as 'FEMALE' | 'MALE' | 'ALL',
+          }) === 'PAY'
         ) {
           const participantWallet = await this.ledger.getOrCreateWallet(
             participant.userId,
@@ -456,6 +469,85 @@ export class MatchingJoinsService {
     return this.joins.getDetail(joinId, hostUserId);
   }
 
+  async reconcileDueMatchingDeadlines(
+    limit = 50,
+  ): Promise<{ processed: number; joinIds: string[] }> {
+    const now = new Date();
+    const due = await this.prisma.join.findMany({
+      where: {
+        joinKind: 'STORE_MATCHING',
+        status: { in: ['OPEN', 'FULL'] },
+        recruitClosesAt: { lte: now },
+      },
+      select: { id: true },
+      take: Math.max(1, Math.min(limit, 200)),
+      orderBy: { recruitClosesAt: 'asc' },
+    });
+    for (const row of due) {
+      await this.ensureMatchingDeadline(row.id);
+    }
+    return { processed: due.length, joinIds: due.map((d) => d.id) };
+  }
+
+  async leaveAsParticipant(joinId: string, userId: string): Promise<JoinDetailDto> {
+    await this.prisma.$transaction(async (tx) => {
+      const join = await tx.join.findUnique({
+        where: { id: joinId },
+        include: {
+          participants: {
+            include: { settlement: true, user: { include: { profile: true } } },
+          },
+        },
+      });
+      if (!join) throw new NotFoundException('join_not_found');
+      if (join.joinKind !== 'STORE_MATCHING') {
+        throw new BadRequestException('not_store_matching_join');
+      }
+      if (!this.isStoreMatchingJoinable(join)) {
+        throw new BadRequestException('recruitment_closed');
+      }
+      const mine = join.participants.find((p) => p.userId === userId && p.role !== 'HOST');
+      if (!mine) throw new NotFoundException('participation_not_found');
+      if (mine.participationStatus === 'CANCELLED') return;
+
+      // Slot returns immediately. JOIN-level HOLD is reconciled on cancel/complete/deadline.
+      if (mine.settlement && mine.settlement.rewardStatus === 'HELD') {
+        await tx.rewardSettlement.update({
+          where: { id: mine.settlement.id },
+          data: { rewardStatus: 'REFUNDED', refundedAt: new Date() },
+        });
+      }
+
+      await tx.joinParticipant.update({
+        where: { id: mine.id },
+        data: { participationStatus: 'CANCELLED', cancelledAt: new Date() },
+      });
+
+      const remaining = join.participants.filter(
+        (p) =>
+          p.id !== mine.id &&
+          p.role !== 'HOST' &&
+          (p.participationStatus === 'APPROVED' || p.participationStatus === 'CONFIRMED'),
+      );
+      const rosterCount = remaining.length;
+      const scheduledEndAt = estimateEndAt({
+        startAt: join.startAt,
+        playerCount: Math.max(rosterCount, 1),
+        rule: SCREEN_GOLF_DURATION_RULE,
+      });
+      await tx.join.update({
+        where: { id: joinId },
+        data: {
+          confirmedPlayerCount: rosterCount,
+          scheduledEndAt,
+          status: rosterCount >= join.plannedPlayerCount ? 'FULL' : 'OPEN',
+        },
+      });
+    });
+
+    return this.joins.getDetail(joinId, userId);
+  }
+
   async ensureMatchingDeadline(joinId: string): Promise<void> {
     const now = new Date();
     await this.prisma.$transaction(async (tx) => {
@@ -492,6 +584,14 @@ export class MatchingJoinsService {
           coinAssetId: join.coinAssetId,
           joinId,
           idempotencyKey: `store-join:${joinId}:deadline-cancel-refund`,
+        });
+        await tx.joinParticipant.updateMany({
+          where: {
+            joinId,
+            role: 'PARTICIPANT',
+            participationStatus: { in: ['APPLIED', 'APPROVED', 'CONFIRMED'] },
+          },
+          data: { participationStatus: 'CANCELLED', cancelledAt: now },
         });
         await tx.join.update({
           where: { id: joinId },

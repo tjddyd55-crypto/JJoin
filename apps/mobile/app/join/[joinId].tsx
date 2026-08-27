@@ -163,6 +163,7 @@ export default function JoinDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [statement, setStatement] = useState('');
   const [busy, setBusy] = useState(false);
+  const [attendance, setAttendance] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async () => {
     if (!joinId) return;
@@ -170,6 +171,13 @@ export default function JoinDetailScreen() {
       const next = await api.getJoin(joinId);
       setDetail(next);
       setError(null);
+      const initial: Record<string, boolean> = {};
+      for (const p of next.participants) {
+        if (p.role === 'HOST') continue;
+        if (p.participationStatus === 'COMPLETED') initial[p.participantId] = true;
+        else if (p.participationStatus === 'NO_SHOW') initial[p.participantId] = false;
+      }
+      setAttendance(initial);
     } catch {
       setError('조인을 불러오지 못했습니다.');
     }
@@ -210,6 +218,46 @@ export default function JoinDetailScreen() {
     }
   }
 
+  async function onLeaveStoreJoin() {
+    if (!joinId || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await api.leaveStoreJoin(joinId);
+      setDetail(next);
+    } catch {
+      setError('참가 취소에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onCompleteMatching() {
+    if (!joinId || busy || !detail) return;
+    const roster = detail.participants.filter((p) => p.role !== 'HOST');
+    for (const p of roster) {
+      if (attendance[p.participantId] === undefined) {
+        setError('모든 참가자의 참석/노쇼를 선택해주세요.');
+        return;
+      }
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await api.completeStoreJoin(joinId, {
+        attendance: roster.map((p) => ({
+          participantId: p.participantId,
+          attended: attendance[p.participantId] === true,
+        })),
+      });
+      setDetail(next);
+    } catch {
+      setError('정산에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function onApply() {
     if (!joinId) return;
     const gate = requestGatedAction({ type: 'APPLY_JOIN', joinId });
@@ -225,7 +273,9 @@ export default function JoinDetailScreen() {
       const msg = e instanceof Error ? e.message : '';
       if (msg.includes('409') || msg.includes('already')) setError('이미 신청했습니다.');
       else if (msg.includes('403')) setError('호스트는 참가 신청할 수 없습니다.');
-      else setError('참가 신청에 실패했습니다.');
+      else if (msg.includes('GENDER_REQUIRED') || msg.includes('성별')) {
+        setError('참가하려면 프로필에서 성별을 설정해주세요.');
+      } else setError('참가 신청에 실패했습니다.');
     } finally {
       setBusy(false);
     }
@@ -324,6 +374,20 @@ export default function JoinDetailScreen() {
     isHost &&
     (detail.status === JoinStatus.OPEN || detail.status === JoinStatus.FULL) &&
     detail.confirmedPlayerCount <= 1;
+  const canLeaveMatching =
+    matching &&
+    !isHost &&
+    Boolean(detail.myParticipation) &&
+    (detail.status === JoinStatus.OPEN || detail.status === JoinStatus.FULL);
+  const canMarkAttendance =
+    matching &&
+    isHost &&
+    detail.status !== JoinStatus.CANCELLED &&
+    detail.status !== JoinStatus.COMPLETED &&
+    new Date(detail.scheduledEndAt).getTime() <= Date.now();
+  const matchingRoster = matching
+    ? detail.participants.filter((p) => p.role !== 'HOST')
+    : [];
 
   return (
     <View style={styles.root}>
@@ -470,6 +534,44 @@ export default function JoinDetailScreen() {
           </Section>
         ) : null}
 
+        {canMarkAttendance ? (
+          <Section title="참석 확인">
+            <Text variant="caption" tone="tertiary">
+              참석한 보상 대상자에게만 코인이 지급됩니다. 미사용 HOLD는 점주에게 반환됩니다.
+            </Text>
+            {matchingRoster.map((p) => (
+              <Card key={p.participantId} variant="base" padding="md" style={styles.attendanceCard}>
+                <Text variant="bodyStrong" tone="primary">
+                  {p.nickname}
+                </Text>
+                <View style={styles.issueRow}>
+                  <Button
+                    label="참석"
+                    variant={attendance[p.participantId] === true ? 'primary' : 'secondary'}
+                    fullWidth={false}
+                    onPress={() =>
+                      setAttendance((prev) => ({ ...prev, [p.participantId]: true }))
+                    }
+                  />
+                  <Button
+                    label="노쇼"
+                    variant={attendance[p.participantId] === false ? 'primary' : 'secondary'}
+                    fullWidth={false}
+                    onPress={() =>
+                      setAttendance((prev) => ({ ...prev, [p.participantId]: false }))
+                    }
+                  />
+                </View>
+              </Card>
+            ))}
+            <Button
+              label="참석 확인 후 정산 완료"
+              loading={busy}
+              onPress={() => void onCompleteMatching()}
+            />
+          </Section>
+        ) : null}
+
         {isHost && pending && pending.length > 0 ? (
           <Section title="참가 신청">
             {pending.map((p) => (
@@ -530,6 +632,14 @@ export default function JoinDetailScreen() {
             onPress={() => void onCancelStoreJoin()}
           />
         ) : null}
+        {canLeaveMatching ? (
+          <Button
+            label="참가 취소"
+            variant="secondary"
+            loading={busy}
+            onPress={() => void onLeaveStoreJoin()}
+          />
+        ) : null}
         <Button
           label="내 조인"
           variant="secondary"
@@ -552,6 +662,10 @@ const styles = StyleSheet.create({
   issueRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: 8,
+  },
+  attendanceCard: {
+    marginTop: 8,
     gap: 8,
   },
 });

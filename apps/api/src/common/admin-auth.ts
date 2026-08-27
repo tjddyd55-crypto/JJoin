@@ -10,10 +10,17 @@ export function parseAdminUserIds(): string[] {
 }
 
 export async function isAdminUser(
-  prisma: Pick<PrismaService, 'socialAccount'>,
+  prisma: Pick<PrismaService, 'socialAccount' | 'adminLoginCredential'>,
   userId: string,
 ): Promise<boolean> {
   if (parseAdminUserIds().includes(userId)) return true;
+
+  const credential = await prisma.adminLoginCredential.findUnique({
+    where: { userId },
+    select: { id: true },
+  });
+  if (credential) return true;
+
   const socialMode = (process.env.SOCIAL_AUTH_MODE ?? 'mock').trim().toLowerCase();
   if (socialMode !== 'mock' && socialMode !== 'hybrid') return false;
   const account = await prisma.socialAccount.findFirst({
