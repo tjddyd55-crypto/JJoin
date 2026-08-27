@@ -32,7 +32,11 @@ export class StoreJoinsController {
   @Post('matching/deadline/run')
   async runDeadline(@Headers('x-settlement-cron-secret') secret?: string) {
     const expected = process.env.SETTLEMENT_CRON_SECRET?.trim();
-    if (expected && secret !== expected) {
+    // Require configured secret in production; never leave public when unset.
+    if (!expected) {
+      throw new UnauthorizedException('cron_secret_not_configured');
+    }
+    if (secret !== expected) {
       throw new UnauthorizedException('invalid_cron_secret');
     }
     const limit = Number(process.env.MATCHING_DEADLINE_BATCH_SIZE ?? 50);
