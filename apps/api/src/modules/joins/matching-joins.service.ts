@@ -28,6 +28,7 @@ import {
   evaluateMatchingDeadline,
   estimateEndAt,
   resolveMatchingRewardDisposition,
+  isRewardEligibleMatchingGender,
   settlementRefundIdempotencyKey,
   settlementRowIdempotencyKey,
   settlementTransferIdempotencyKey,
@@ -352,14 +353,8 @@ export class MatchingJoinsService {
         }
       }
 
-      for (const participant of join.participants) {
-        if (participant.role === 'HOST') continue;
-
-        const attended = attendanceMap.get(participant.id) ?? false;
-        const gender = participant.user.profile?.gender ?? null;
-        const rewardTarget = join.matchingRewardTarget ?? 'ALL';
-        const rewardAmount = String(join.rewardPerParticipant);
-
+      const nonHost = join.participants.filter((p) => p.role !== 'HOST');
+      const ensureSettlement = async (participant: (typeof nonHost)[number]) => {
         let settlement = participant.settlement;
         if (!settlement) {
           const hold = await tx.coinHold.findFirst({
@@ -370,7 +365,7 @@ export class MatchingJoinsService {
               joinId,
               joinParticipantId: participant.id,
               coinAssetId: join.coinAssetId,
-              amount: new Prisma.Decimal(rewardAmount),
+              amount: new Prisma.Decimal(String(join.rewardPerParticipant)),
               rewardStatus: 'HELD',
               holdId: hold?.id ?? null,
               settlementAvailableAt: join.scheduledEndAt,
@@ -379,12 +374,24 @@ export class MatchingJoinsService {
               idempotencyKey: settlementRowIdempotencyKey(participant.id),
             },
           });
+          participant.settlement = settlement;
         }
+        return settlement;
+      };
+
+      // Pass 1: pay attended + gender-eligible first so HOLD is not drained by ineligible refunds.
+      for (const participant of nonHost) {
+        const attended = attendanceMap.get(participant.id) ?? false;
+        const gender = participant.user.profile?.gender ?? null;
+        const rewardTarget = (join.matchingRewardTarget ?? 'ALL') as 'FEMALE' | 'MALE' | 'ALL';
+        const rewardAmount = String(join.rewardPerParticipant);
+        const settlement = await ensureSettlement(participant);
 
         if (
           settlement.rewardStatus === 'PAID' ||
           settlement.rewardStatus === 'AUTO_PAID' ||
-          settlement.rewardStatus === 'REFUNDED'
+          settlement.rewardStatus === 'REFUNDED' ||
+          settlement.rewardStatus === 'NOT_ELIGIBLE'
         ) {
           continue;
         }
@@ -393,36 +400,69 @@ export class MatchingJoinsService {
           resolveMatchingRewardDisposition({
             attended,
             gender,
-            matchingRewardTarget: rewardTarget as 'FEMALE' | 'MALE' | 'ALL',
+            matchingRewardTarget: rewardTarget,
+          }) !== 'PAY'
+        ) {
+          continue;
+        }
+
+        const participantWallet = await this.ledger.getOrCreateWallet(
+          participant.userId,
+          join.coinAssetId,
+          tx,
+        );
+        await this.ledger.applyRewardTransfer(tx, {
+          hostWalletId: hostWallet.id,
+          participantWalletId: participantWallet.id,
+          participantUserId: participant.userId,
+          coinAssetId: join.coinAssetId,
+          amount: rewardAmount,
+          settlementId: settlement.id,
+          joinId,
+          idempotencyKey: settlementTransferIdempotencyKey(settlement.id),
+        });
+        if (settlement.holdId) {
+          await this.ledger.refreshCoinHoldStatus(tx, settlement.holdId);
+        }
+        await tx.rewardSettlement.update({
+          where: { id: settlement.id },
+          data: { rewardStatus: 'PAID', paidAt: now },
+        });
+        await tx.joinParticipant.update({
+          where: { id: participant.id },
+          data: { participationStatus: 'COMPLETED', confirmedAt: participant.confirmedAt ?? now },
+        });
+      }
+
+      // Pass 2: non-pay — only hold-backed slots (eligible gender) move ledger on NO_SHOW/etc.
+      for (const participant of nonHost) {
+        const attended = attendanceMap.get(participant.id) ?? false;
+        const gender = participant.user.profile?.gender ?? null;
+        const rewardTarget = (join.matchingRewardTarget ?? 'ALL') as 'FEMALE' | 'MALE' | 'ALL';
+        const rewardAmount = String(join.rewardPerParticipant);
+        const settlement = await ensureSettlement(participant);
+
+        if (
+          settlement.rewardStatus === 'PAID' ||
+          settlement.rewardStatus === 'AUTO_PAID' ||
+          settlement.rewardStatus === 'REFUNDED' ||
+          settlement.rewardStatus === 'NOT_ELIGIBLE'
+        ) {
+          continue;
+        }
+
+        if (
+          resolveMatchingRewardDisposition({
+            attended,
+            gender,
+            matchingRewardTarget: rewardTarget,
           }) === 'PAY'
         ) {
-          const participantWallet = await this.ledger.getOrCreateWallet(
-            participant.userId,
-            join.coinAssetId,
-            tx,
-          );
-          await this.ledger.applyRewardTransfer(tx, {
-            hostWalletId: hostWallet.id,
-            participantWalletId: participantWallet.id,
-            participantUserId: participant.userId,
-            coinAssetId: join.coinAssetId,
-            amount: rewardAmount,
-            settlementId: settlement.id,
-            joinId,
-            idempotencyKey: settlementTransferIdempotencyKey(settlement.id),
-          });
-          if (settlement.holdId) {
-            await this.ledger.refreshCoinHoldStatus(tx, settlement.holdId);
-          }
-          await tx.rewardSettlement.update({
-            where: { id: settlement.id },
-            data: { rewardStatus: 'PAID', paidAt: now },
-          });
-          await tx.joinParticipant.update({
-            where: { id: participant.id },
-            data: { participationStatus: 'COMPLETED', confirmedAt: participant.confirmedAt ?? now },
-          });
-        } else {
+          continue;
+        }
+
+        const holdBacked = isRewardEligibleMatchingGender(gender, rewardTarget);
+        if (holdBacked) {
           await this.ledger.applyRewardRefund(tx, {
             hostWalletId: hostWallet.id,
             coinAssetId: join.coinAssetId,
@@ -436,18 +476,22 @@ export class MatchingJoinsService {
           }
           await tx.rewardSettlement.update({
             where: { id: settlement.id },
-            data: {
-              rewardStatus: 'REFUNDED',
-              refundedAt: now,
-            },
+            data: { rewardStatus: 'REFUNDED', refundedAt: now },
           });
-          await tx.joinParticipant.update({
-            where: { id: participant.id },
-            data: {
-              participationStatus: attended ? 'COMPLETED' : 'NO_SHOW',
-            },
+        } else {
+          // Gender outside reward target was never included in JOIN HOLD pool.
+          await tx.rewardSettlement.update({
+            where: { id: settlement.id },
+            data: { rewardStatus: 'NOT_ELIGIBLE', refundedAt: null },
           });
         }
+
+        await tx.joinParticipant.update({
+          where: { id: participant.id },
+          data: {
+            participationStatus: attended ? 'COMPLETED' : 'NO_SHOW',
+          },
+        });
       }
 
       await this.ledger.refundRemainingJoinHold(tx, {
