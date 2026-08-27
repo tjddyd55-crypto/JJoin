@@ -1,15 +1,19 @@
-# Standalone static landing deploy (path-as-root from apps/landing)
+# Build from monorepo root: docker build -f apps/landing/Dockerfile .
 FROM node:22-alpine AS build
 WORKDIR /app
-COPY package.json ./
-RUN npm install
-COPY . .
-RUN npm run build
+RUN corepack enable
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY packages/types packages/types
+COPY apps/landing apps/landing
+RUN pnpm install --frozen-lockfile
+ARG VITE_API_URL=https://api-production-2d67e.up.railway.app
+ENV VITE_API_URL=$VITE_API_URL
+RUN pnpm --filter @jjoin/landing exec vite build
 
 FROM node:22-alpine AS run
 WORKDIR /app
 RUN npm install -g serve@14.2.4
-COPY --from=build /app/dist ./dist
+COPY --from=build /app/apps/landing/dist ./dist
 ENV PORT=3000
 EXPOSE 3000
 CMD ["sh", "-c", "serve dist -s -l ${PORT}"]
