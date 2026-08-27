@@ -50,6 +50,7 @@ import {
   storeMatchingDisplayStatusLabel,
   storeMatchingOwnerListPriority,
   subCoinAmounts,
+  computeAutoPayAt,
 } from '@jjoin/domain';
 import { createJoinSchema, joinCoinPreviewSchema } from '@jjoin/validation';
 import { Prisma } from '@prisma/client';
@@ -632,6 +633,23 @@ export class JoinsService {
         rewardPerParticipant: join.rewardPerParticipant,
         coinAssetId: join.coinAssetId,
       });
+
+      // Leave marks settlement NOT_ELIGIBLE without moving JOIN hold; rejoin must restore HELD.
+      const settlement = await tx.rewardSettlement.findUnique({
+        where: { joinParticipantId: participant.id },
+      });
+      if (settlement?.rewardStatus === 'NOT_ELIGIBLE') {
+        await tx.rewardSettlement.update({
+          where: { id: settlement.id },
+          data: {
+            rewardStatus: 'HELD',
+            heldAt: now,
+            refundedAt: null,
+            settlementAvailableAt: scheduledEndAt,
+            autoPayAt: computeAutoPayAt(scheduledEndAt),
+          },
+        });
+      }
     });
 
     return this.getDetail(joinId, userId);

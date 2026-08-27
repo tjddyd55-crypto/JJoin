@@ -551,11 +551,17 @@ export class MatchingJoinsService {
       if (!mine) throw new NotFoundException('participation_not_found');
       if (mine.participationStatus === 'CANCELLED') return;
 
-      // Slot returns immediately. JOIN-level HOLD is reconciled on cancel/complete/deadline.
-      if (mine.settlement && mine.settlement.rewardStatus === 'HELD') {
+      // Slot returns immediately. JOIN-level HOLD stays pooled until cancel/complete/deadline.
+      // Do NOT mark REFUNDED here — that status means coins already moved via ledger refund
+      // and would under-refund remaining hold on deadline cancel.
+      if (
+        mine.settlement &&
+        (mine.settlement.rewardStatus === 'HELD' ||
+          mine.settlement.rewardStatus === 'PENDING_CONFIRMATION')
+      ) {
         await tx.rewardSettlement.update({
           where: { id: mine.settlement.id },
-          data: { rewardStatus: 'REFUNDED', refundedAt: new Date() },
+          data: { rewardStatus: 'NOT_ELIGIBLE', refundedAt: null },
         });
       }
 
