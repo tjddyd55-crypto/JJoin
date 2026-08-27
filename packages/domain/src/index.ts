@@ -217,6 +217,13 @@ export {
 } from './coin-amount';
 
 export {
+  formatCoin,
+  formatCoinWithLabel,
+  formatNumber,
+  formatSignedCoin,
+} from './display-number';
+
+export {
   canAffordJoinCreate,
   computeJoinCoinRequirement,
   computeRewardEligibleSlots,

@@ -35,7 +35,8 @@ import {
   matchingSlotProgressLabel,
   formatKstTime,
 } from '../../src/features/store/matching-join-ui';
-import { summarizeMatchingSettlement } from '@jjoin/domain';
+import { summarizeMatchingSettlement, formatCoinWithLabel } from '@jjoin/domain';
+import { isInternalToolsEnabled } from '../../src/lib/internal-tools';
 
 function rewardStatusLabel(status: RewardStatus): string {
   switch (status) {
@@ -114,7 +115,7 @@ function SettlementRowHost(props: {
           {props.row.nickname}
         </Text>
         <Text variant="caption" tone="secondary">
-          {props.row.rewardAmount} Coin ·{' '}
+          {formatCoinWithLabel(props.row.rewardAmount)} ·{' '}
           {props.row.dispute?.userFacingMessage ?? rewardStatusLabel(props.row.rewardStatus)}
         </Text>
         <Badge
@@ -342,7 +343,7 @@ export default function JoinDetailScreen() {
   }
 
   async function onQaAdvance(mode: 'open' | 'autopay') {
-    if (!joinId || !__DEV__) return;
+    if (!joinId || !isInternalToolsEnabled()) return;
     setBusy(true);
     try {
       await api.qaAdvanceSettlementClock(joinId, mode);
@@ -501,7 +502,7 @@ export default function JoinDetailScreen() {
 
         <Section title="보상">
           <Text variant="coinMedium" style={{ color: theme.colors.reward.primary }}>
-            {detail.rewardPerParticipant} Coin
+            {formatCoinWithLabel(detail.rewardPerParticipant)}
           </Text>
           <Text variant="caption" tone="tertiary">
             1인당 참가 보상
@@ -513,7 +514,7 @@ export default function JoinDetailScreen() {
             <Card variant="elevated" padding="md">
               <Stack gap="sm">
                 <Text variant="bodyStrong" tone="primary">
-                  보상 {mySettlement.rewardAmount} Coin
+                  보상 {formatCoinWithLabel(mySettlement.rewardAmount)}
                 </Text>
                 <Badge
                   label={
@@ -659,7 +660,7 @@ export default function JoinDetailScreen() {
           </Section>
         ) : null}
 
-        {__DEV__ && isHost && detail.settlement && !detail.settlement.settlementOpen ? (
+        {isInternalToolsEnabled() && isHost && detail.settlement && !detail.settlement.settlementOpen ? (
           <Section title="DEV QA">
             <View style={styles.issueRow}>
               <Button

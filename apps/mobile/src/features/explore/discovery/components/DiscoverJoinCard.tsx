@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Badge, Button, Text, Stack, spacing, useTheme } from '@jjoin/design-system';
+import { formatSignedCoin } from '@jjoin/domain';
 import type { DiscoverJoinCardDto } from '@jjoin/types';
 import {
   formatKstDate,
@@ -123,7 +124,7 @@ export function DiscoverJoinCard({ join, onPress, onJoinPress }: Props) {
               {join.availableSlots > 0 ? ` · ${join.availableSlots}자리 남음` : ''}
             </Text>
             <Text variant="meta" tone="tertiary">
-              +{join.rewardPerParticipant} Coin
+              {formatSignedCoin(join.rewardPerParticipant)}
             </Text>
           </>
         )}

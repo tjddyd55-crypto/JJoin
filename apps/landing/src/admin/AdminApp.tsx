@@ -26,6 +26,7 @@ import {
   type CoinSupplyReconciliationDto,
   type StoreOwnershipRequestDto,
 } from '@jjoin/types';
+import { formatNumber } from '@jjoin/domain';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:3000';
 const TOKEN_KEY = 'jjoin_admin_token';
@@ -47,9 +48,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 function formatCoin(v: string | number) {
-  const n = Number(v);
-  if (Number.isNaN(n)) return String(v);
-  return n.toLocaleString('ko-KR');
+  return formatNumber(v);
 }
 
 function formatDate(iso: string) {
@@ -1296,7 +1295,7 @@ function UserCoinPage() {
                 <tr key={tx.id}>
                   <td>{new Date(tx.createdAt).toLocaleString('ko-KR')}</td>
                   <td>{tx.type}</td>
-                  <td className="col-num">{tx.amount}</td>
+                  <td className="col-num">{formatCoin(tx.amount)}</td>
                   <td>{tx.label}</td>
                 </tr>
               ))}

@@ -1,5 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 import { Card, Divider, Row, Text, useTheme } from '@jjoin/design-system';
+import { formatCoinWithLabel, formatNumber } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
 
 export type CoinSummaryCardProps = {
@@ -66,27 +67,27 @@ export function CoinSummaryCard({
         {t('create.reward.summaryTitle')}
       </Text>
       <View style={styles.rows}>
-        <SummaryRow label={t('create.coin.fee')} value={`${roomCreationFee} Coin`} />
+        <SummaryRow label={t('create.coin.fee')} value={formatCoinWithLabel(roomCreationFee)} />
         <SummaryRow
           label={t('create.coin.reward')}
-          value={`${rewardPerParticipant} × ${rewardEligibleSlots}`}
-          suffix={`${rewardHoldTotal} Coin`}
+          value={`${formatNumber(rewardPerParticipant)} × ${formatNumber(rewardEligibleSlots ?? 0)}`}
+          suffix={formatCoinWithLabel(rewardHoldTotal)}
         />
         <Divider />
         <SummaryRow
           highlight
           label={t('create.coin.total')}
-          value={`${totalRequiredCoin} Coin`}
+          value={formatCoinWithLabel(totalRequiredCoin)}
         />
-        <SummaryRow label={t('create.coin.available')} value={`${walletAvailable} Coin`} />
+        <SummaryRow label={t('create.coin.available')} value={formatCoinWithLabel(walletAvailable)} />
         <SummaryRow
           label={t('create.coin.after')}
-          value={`${walletAfterCreation ?? walletAvailable} Coin`}
+          value={formatCoinWithLabel(walletAfterCreation ?? walletAvailable)}
         />
       </View>
       {shortfall ? (
         <Text variant="body" tone="error" style={styles.shortfall}>
-          {t('create.coin.insufficientAmount').replace('{amount}', shortfall)}
+          {t('create.coin.insufficientAmount').replace('{amount}', formatNumber(shortfall))}
         </Text>
       ) : null}
     </Card>

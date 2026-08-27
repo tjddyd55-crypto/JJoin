@@ -23,6 +23,7 @@ import {
 } from '../features/auth/social/social-auth-errors';
 import { pendingActionRoute, resolveAuthAppState } from '@jjoin/domain';
 import { getApiClient } from '../lib/api';
+import { isInternalToolsEnabled } from '../lib/internal-tools';
 import { createExpoSecureSessionStore } from './expo-secure-session-store';
 import {
   consumePendingAction,
@@ -109,12 +110,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       try {
         let res;
-        if (mockPersona) {
+        if (mockPersona && isInternalToolsEnabled()) {
           res = await api.mockSocialSignIn({
             provider,
             persona: mockPersona,
           });
-        } else if (__DEV__ && useMockSocialAuthFlow()) {
+        } else if (isInternalToolsEnabled() && useMockSocialAuthFlow()) {
           res = await api.mockSocialSignIn({
             provider,
             scenario: mockScenario,

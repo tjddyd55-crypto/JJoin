@@ -9,6 +9,7 @@ export default defineConfig({
     alias: {
       // Source ESM for Vite; package main is CJS for Nest.
       '@jjoin/types': path.resolve(__dirname, '../../packages/types/src/index.ts'),
+      '@jjoin/domain': path.resolve(__dirname, '../../packages/domain/src/index.ts'),
     },
   },
 });

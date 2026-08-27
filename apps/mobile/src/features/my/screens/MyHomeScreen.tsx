@@ -15,6 +15,7 @@ import {
   useTheme,
 } from '@jjoin/design-system';
 import { t } from '@jjoin/i18n';
+import { formatNumber } from '@jjoin/domain';
 import { StoreOwnershipStatus } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
@@ -112,7 +113,7 @@ export function MyHomeScreen() {
                 {t('wallet.available')}
               </Text>
               <Text variant="coinLarge" style={{ color: theme.colors.reward.primary }}>
-                {available}
+                {formatNumber(available)}
               </Text>
             </View>
             <View style={styles.walletStat}>
@@ -120,7 +121,7 @@ export function MyHomeScreen() {
                 {t('wallet.hold')}
               </Text>
               <Text variant="sectionTitle" tone="primary">
-                {held}
+                {formatNumber(held)}
               </Text>
             </View>
           </Row>

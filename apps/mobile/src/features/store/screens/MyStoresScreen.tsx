@@ -11,6 +11,7 @@ import {
   Spacer,
   Text,
 } from '@jjoin/design-system';
+import { formatCoinWithLabel } from '@jjoin/domain';
 import { StoreOwnershipStatus, type JoinListItemDto, type StoreOwnershipDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
@@ -174,8 +175,8 @@ export function MyStoresScreen() {
             ) : null}
             <Spacer size="sm" />
             <Row gap="sm">
-              <Badge label={`사용 가능 ${store.walletAvailable ?? '0'} Coin`} variant="success" />
-              <Badge label={`홀드 ${store.walletHeld ?? '0'} Coin`} variant="neutral" />
+              <Badge label={`사용 가능 ${formatCoinWithLabel(store.walletAvailable ?? '0')}`} variant="success" />
+              <Badge label={`홀드 ${formatCoinWithLabel(store.walletHeld ?? '0')}`} variant="neutral" />
             </Row>
           </Card>
         ))

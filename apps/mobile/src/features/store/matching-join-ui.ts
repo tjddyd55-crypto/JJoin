@@ -2,6 +2,7 @@ import {
   buildStoreMatchingSecondaryLabel,
   canConfirmMatchingAttendance,
   formatMatchingDeadlineHint,
+  formatSignedCoin,
   resolveStoreMatchingDisplayStatus,
   storeMatchingDisplayStatusLabel,
   storeMatchingOwnerListPriority,
@@ -78,13 +79,14 @@ export function matchingRewardBenefitLabel(
 ): string | null {
   const n = Number(amount);
   if (!Number.isFinite(n) || n <= 0) return null;
+  const signed = formatSignedCoin(amount);
   switch (target) {
     case MatchingRewardTarget.FEMALE:
-      return `여성 참가 혜택 +${amount}C`;
+      return `여성 참가 혜택 ${signed}`;
     case MatchingRewardTarget.MALE:
-      return `남성 참가 혜택 +${amount}C`;
+      return `남성 참가 혜택 ${signed}`;
     case MatchingRewardTarget.ALL:
-      return `참가 혜택 +${amount}C`;
+      return `참가 혜택 ${signed}`;
     default:
       return null;
   }
@@ -215,7 +217,7 @@ export function matchingRewardResultLabel(params: {
   if (!params.completed) return null;
   if (params.noshow) return '보상 미지급';
   if (params.paidAmount && Number(params.paidAmount) > 0) {
-    return `+${params.paidAmount}C 지급`;
+    return `${formatSignedCoin(params.paidAmount)} 지급`;
   }
   return null;
 }

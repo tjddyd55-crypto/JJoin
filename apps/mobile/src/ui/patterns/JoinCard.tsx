@@ -1,5 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 import { Badge, Card, Icon, Row, Text, useTheme } from '@jjoin/design-system';
+import { formatCoinWithLabel } from '@jjoin/domain';
 
 export type JoinCardProps = {
   sport?: string;
@@ -68,7 +69,7 @@ export function JoinCard({
           1인 보상
         </Text>
         <Text variant="bodyStrong" style={{ color: theme.colors.reward.primary }}>
-          {rewardPerParticipant} Coin
+          {formatCoinWithLabel(rewardPerParticipant)}
         </Text>
       </Row>
     </Card>

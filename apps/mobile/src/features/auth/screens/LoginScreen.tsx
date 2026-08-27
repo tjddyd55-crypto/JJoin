@@ -14,6 +14,7 @@ import { useSession } from '../../../session/SessionContext';
 import { SocialLoginCancelledError } from '../social/social-auth-errors';
 import { useMockSocialAuthFlow } from '../social/social-auth-config';
 import { SocialLoginButton } from '../../../ui/patterns/SocialLoginButton';
+import { isInternalToolsEnabled } from '../../../lib/internal-tools';
 
 function routeForNextStep(nextStep: string) {
   switch (nextStep) {
@@ -46,7 +47,7 @@ export function LoginScreen() {
   const theme = useTheme();
   const [loading, setLoading] = useState<SocialProvider | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
-  const mockSocialAuthEnabled = __DEV__ && useMockSocialAuthFlow();
+  const mockSocialAuthEnabled = isInternalToolsEnabled() && useMockSocialAuthFlow();
 
   async function handleProvider(provider: SocialProvider) {
     setLoading(provider);
@@ -58,7 +59,7 @@ export function LoginScreen() {
       if (e instanceof SocialLoginCancelledError) {
         return;
       }
-      if (__DEV__) {
+      if (isInternalToolsEnabled()) {
         const msg = e instanceof Error ? e.message : String(e);
         console.warn('[auth.login]', {
           provider,
@@ -97,7 +98,7 @@ export function LoginScreen() {
           </Text>
         </View>
 
-        {__DEV__ ? (
+        {isInternalToolsEnabled() ? (
           <View style={styles.devBlock}>
             <Text variant="caption" tone="tertiary">
               DEV USER (mock only)

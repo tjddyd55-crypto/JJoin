@@ -10,6 +10,7 @@ import {
 import { t } from '@jjoin/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { getApiClient } from '../../../lib/api';
+import { isInternalToolsEnabled } from '../../../lib/internal-tools';
 import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
 
 export function IdentityScreen() {
@@ -142,7 +143,7 @@ export function IdentityScreen() {
         ) : null}
         {status === 'pending' && capability?.canStart ? (
           <>
-            {__DEV__ ? (
+            {isInternalToolsEnabled() ? (
               <>
                 <Button label="Mock 성공" loading={loading} onPress={() => void onSuccess()} />
                 <Button label="Mock 실패" variant="danger" loading={loading} onPress={() => void onFail()} />

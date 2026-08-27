@@ -14,7 +14,7 @@ import {
   Card,
   useTheme,
 } from '@jjoin/design-system';
-import { pickHomeHostedJoins, resolveJoinDiscoveryBadge } from '@jjoin/domain';
+import { pickHomeHostedJoins, resolveJoinDiscoveryBadge, formatNumber } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
 import type { JoinListItemDto, MyJoinsResponse } from '@jjoin/types';
 import { useSession, getSecureSessionStore } from '../../src/session/SessionContext';
@@ -91,7 +91,7 @@ export default function HomeScreen() {
             {t('wallet.available')}
           </Text>
           <Text variant="coinLarge" style={{ color: theme.colors.reward.primary }}>
-            {available}
+            {available === '—' ? available : formatNumber(available)}
           </Text>
         </View>
       </Section>

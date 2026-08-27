@@ -4,6 +4,7 @@ import {
   StoreVerificationStatus,
   type JoinListItemDto,
 } from '@jjoin/types';
+import { formatCoinWithLabel } from '@jjoin/domain';
 import {
   isStoreMatchingJoin,
   matchingDisplayStatusLabel,
@@ -164,7 +165,7 @@ export function filterStoreJoins(
 export function storeJoinCardCaption(item: JoinListItemDto): string {
   const statusLabel = matchingDisplayStatusLabel(item, 'host');
   const subtitle = matchingDisplaySubtitle(item);
-  const base = `${item.confirmedPlayerCount}/${item.plannedPlayerCount}명 · ${item.rewardPerParticipant} Coin`;
+  const base = `${item.confirmedPlayerCount}/${item.plannedPlayerCount}명 · ${formatCoinWithLabel(item.rewardPerParticipant)}`;
   if (statusLabel && subtitle) return `${statusLabel} · ${subtitle}`;
   if (statusLabel) return `${statusLabel} · ${base}`;
   if (item.recruitmentLabel) return `${base} · ${item.recruitmentLabel}`;
