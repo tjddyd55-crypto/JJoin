@@ -12,6 +12,7 @@ import {
   compareDiscoverJoinOrder,
   findAdminDistrict,
   formatMatchingRecruitmentLabel,
+  countMatchingGenderComposition,
   kstDayBoundsUtc,
   localDayKey,
   partitionDiscoverJoins,
@@ -285,18 +286,15 @@ export class JoinDiscoveryService {
 
     const maleTarget = row.targetMaleCount ?? 0;
     const femaleTarget = row.targetFemaleCount ?? 0;
-    let confirmedMale = 0;
-    let confirmedFemale = 0;
-
-    for (const p of row.participants) {
-      if (p.role === 'HOST') continue;
-      if (p.participationStatus !== 'APPROVED' && p.participationStatus !== 'CONFIRMED') {
-        continue;
-      }
-      const gender = p.user?.profile?.gender;
-      if (gender === 'MALE') confirmedMale += 1;
-      else if (gender === 'FEMALE') confirmedFemale += 1;
-    }
+    const composition = countMatchingGenderComposition(
+      row.participants.map((p) => ({
+        role: p.role,
+        participationStatus: p.participationStatus,
+        gender: (p.user?.profile?.gender as 'MALE' | 'FEMALE' | null | undefined) ?? null,
+      })),
+    );
+    const confirmedMale = composition.male;
+    const confirmedFemale = composition.female;
 
     const now = new Date();
     const displayStatus = resolveStoreMatchingDisplayStatus({

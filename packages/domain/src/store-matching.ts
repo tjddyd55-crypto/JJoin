@@ -126,6 +126,43 @@ export function countMatchingRosterByGender(
   return { male, female, other, total: male + female + other };
 }
 
+/**
+ * Participant statuses that still count toward matching gender composition.
+ * Includes post-settlement COMPLETED / NO_SHOW so COMPLETED detail keeps 남x/여x.
+ * Excludes leave/cancel (CANCELLED), applied-only, and disputed rows.
+ */
+export const STORE_MATCHING_ROSTER_PARTICIPANT_STATUSES = [
+  'APPROVED',
+  'CONFIRMED',
+  'COMPLETED',
+  'NO_SHOW',
+] as const;
+
+export type StoreMatchingRosterParticipantStatus =
+  (typeof STORE_MATCHING_ROSTER_PARTICIPANT_STATUSES)[number];
+
+export function isStoreMatchingRosterParticipantStatus(
+  status: string,
+): status is StoreMatchingRosterParticipantStatus {
+  return (STORE_MATCHING_ROSTER_PARTICIPANT_STATUSES as readonly string[]).includes(status);
+}
+
+/** Gender composition for display / recruitment labels across join lifecycle. */
+export function countMatchingGenderComposition(
+  participants: Array<{
+    role: string;
+    participationStatus: string;
+    gender?: MatchingGender;
+  }>,
+): MatchingRosterCounts {
+  const genders = participants
+    .filter(
+      (p) => p.role !== 'HOST' && isStoreMatchingRosterParticipantStatus(p.participationStatus),
+    )
+    .map((p) => p.gender ?? null);
+  return countMatchingRosterByGender(genders);
+}
+
 export function canApplyMatchingGenderSlot(params: {
   applicantGender: MatchingGender;
   targetMaleCount: number;

@@ -13,6 +13,8 @@ import {
   storeMatchingDisplayStatusLabel,
   storeMatchingOwnerListPriority,
   summarizeMatchingSettlement,
+  countMatchingGenderComposition,
+  isStoreMatchingRosterParticipantStatus,
 } from './store-matching';
 
 test('HOLDs reward slots by female target', () => {
@@ -140,6 +142,67 @@ test('REFUNDED after ledger move reduces remaining hold (no double refund)', () 
     }),
     '0',
   );
+});
+
+test('gender composition keeps COMPLETED/NO_SHOW and drops CANCELLED leave', () => {
+  // Recruiting: 남1 여1
+  assert.deepEqual(
+    countMatchingGenderComposition([
+      { role: 'HOST', participationStatus: 'APPROVED', gender: 'MALE' },
+      { role: 'PARTICIPANT', participationStatus: 'APPROVED', gender: 'MALE' },
+      { role: 'PARTICIPANT', participationStatus: 'APPROVED', gender: 'FEMALE' },
+    ]),
+    { male: 1, female: 1, other: 0, total: 2 },
+  );
+
+  // Confirmed roster 남2 여1
+  assert.deepEqual(
+    countMatchingGenderComposition([
+      { role: 'HOST', participationStatus: 'APPROVED', gender: 'MALE' },
+      { role: 'PARTICIPANT', participationStatus: 'CONFIRMED', gender: 'MALE' },
+      { role: 'PARTICIPANT', participationStatus: 'CONFIRMED', gender: 'MALE' },
+      { role: 'PARTICIPANT', participationStatus: 'CONFIRMED', gender: 'FEMALE' },
+    ]),
+    { male: 2, female: 1, other: 0, total: 3 },
+  );
+
+  // After settlement: COMPLETED + NO_SHOW still count (canonical bug regression)
+  assert.deepEqual(
+    countMatchingGenderComposition([
+      { role: 'HOST', participationStatus: 'APPROVED', gender: 'MALE' },
+      { role: 'PARTICIPANT', participationStatus: 'COMPLETED', gender: 'MALE' },
+      { role: 'PARTICIPANT', participationStatus: 'COMPLETED', gender: 'MALE' },
+      { role: 'PARTICIPANT', participationStatus: 'COMPLETED', gender: 'FEMALE' },
+    ]),
+    { male: 2, female: 1, other: 0, total: 3 },
+  );
+  assert.deepEqual(
+    countMatchingGenderComposition([
+      { role: 'PARTICIPANT', participationStatus: 'COMPLETED', gender: 'MALE' },
+      { role: 'PARTICIPANT', participationStatus: 'NO_SHOW', gender: 'FEMALE' },
+    ]),
+    { male: 1, female: 1, other: 0, total: 2 },
+  );
+
+  // Leave: CANCELLED excluded; leave→rejoin keeps single APPROVED row
+  assert.deepEqual(
+    countMatchingGenderComposition([
+      { role: 'PARTICIPANT', participationStatus: 'CANCELLED', gender: 'MALE' },
+      { role: 'PARTICIPANT', participationStatus: 'APPROVED', gender: 'FEMALE' },
+    ]),
+    { male: 0, female: 1, other: 0, total: 1 },
+  );
+  assert.deepEqual(
+    countMatchingGenderComposition([
+      { role: 'PARTICIPANT', participationStatus: 'APPROVED', gender: 'MALE' }, // rejoined same row
+    ]),
+    { male: 1, female: 0, other: 0, total: 1 },
+  );
+
+  assert.equal(isStoreMatchingRosterParticipantStatus('APPLIED'), false);
+  assert.equal(isStoreMatchingRosterParticipantStatus('CANCELLED'), false);
+  assert.equal(isStoreMatchingRosterParticipantStatus('COMPLETED'), true);
+  assert.equal(isStoreMatchingRosterParticipantStatus('NO_SHOW'), true);
 });
 
 test('settlement pays only attended eligible genders', () => {
