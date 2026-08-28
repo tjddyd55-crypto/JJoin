@@ -889,6 +889,40 @@ export type DiscoverWeeklyCountsResponse = {
   days: DiscoverWeeklyCountItemDto[];
 };
 
+export type DiscoverRegionSummaryItemDto = {
+  sido: string;
+  sigungu?: string;
+  label: string;
+  count: number;
+  hasChildren: boolean;
+};
+
+export type DiscoverRegionSummaryResponse = {
+  date: string;
+  joinability: JoinDiscoveryJoinability;
+  parentSido?: string;
+  parentSigungu?: string;
+  items: DiscoverRegionSummaryItemDto[];
+};
+
+export type DiscoverFacilityJoinItemDto = {
+  venueId: string;
+  venueName: string;
+  golfFacilityId: string | null;
+  sido: string | null;
+  sigungu: string | null;
+  distanceMeters: number | null;
+  joinCount: number;
+  startTimes: string[];
+};
+
+export type DiscoverFacilityJoinsResponse = {
+  date: string;
+  regionLabel: string;
+  totalJoinCount: number;
+  facilities: DiscoverFacilityJoinItemDto[];
+};
+
 export type AdminDistrictDto = {
   sido: string;
   sigungu: string;

@@ -1,0 +1,54 @@
+---
+description: JJOINZONE 모바일 — 기존 설치 앱 우선, 불필요 재빌드 금지
+alwaysApply: true
+---
+
+# JJOINZONE 모바일 개발 운영
+
+## 기본 흐름
+
+코드 수정 → 최소 typecheck/테스트 → 로컬 확인 → (검증 후) commit/push → 서버 반영 → **현재 설치 앱**으로 확인.
+
+불필요하게 Dev Client/APK/AAB를 매번 재빌드·재설치하지 않는다.
+
+## 변경 유형 분류 (작업 완료 전 필수)
+
+| 유형 | 예 | 행동 |
+|------|-----|------|
+| **[A] 즉시** | RN TS/TSX, UI, API 호출, 서버/DB | 재설치 금지. Metro Fast Refresh / Reload. API면 서버만 반영 |
+| **[B] 재실행** | 앱 시작 1회 설정, auth/session, nav root | APK 재설치 금지. Reload 또는 앱 완전 종료 후 재실행 |
+| **[C] 네이티브** | android/ios, Manifest, Gradle, native module, Expo config plugin, permission | **임의 빌드 금지.** 재빌드 필요 이유·작업을 먼저 보고 후 사용자 확인 |
+
+## 실기기 / ADB / Metro
+
+- Dev Client + Metro가 살아 있으면 재사용. JS 변경은 Fast Refresh → 필요 시 Reload.
+- `adb reverse`는 USB 재연결·재부팅·연결 해제·API 실패 시에만 재확인. 이미 살아 있으면 재실행 금지.
+- Metro 정상 시 재시작하지 않는다. API 변경은 앱 재빌드하지 않고 서버 반영 후 화면 재진입/Reload.
+
+## Git / QA seed
+
+- 검증된 기능 단위만 commit/push. QA 중간·실패·임시 debug·local-only seed를 main에 올리지 않는다.
+- QA seed는 local DB만. production 금지. `_tmp-*`는 종료 전 제거하거나 유지 이유 보고.
+
+## 버전
+
+- UI/API만 바꾸면 versionName/versionCode **올리지 않는다**. 새 APK/AAB/스토어 빌드 단위에서만 검토.
+- SSOT를 먼저 확인. 여러 파일에 임의 중복 수정 금지. 설치 버전 숫자가 그대로여도 JS/API는 최신일 수 있음(정상).
+
+## 작업 시작
+
+API / Metro / Dev Client / adb 필요 여부 / git branch·dirty를 확인하되, 정상이면 **재시작하지 않고 재사용**.
+
+## 모바일 작업 완료 보고 (맨 아래 필수)
+
+```
+## 휴대폰 확인 방법
+변경 유형: [A / B / C]
+앱 재설치: 필요 / 불필요
+서버 재배포: 필요 / 불필요
+Metro: Fast Refresh 가능 / Reload 필요 / 관계없음
+버전 변경: 없음 / 변경됨
+현재 버전: x.x.x
+versionCode: x
+내가 할 일: (한 줄)
+```
