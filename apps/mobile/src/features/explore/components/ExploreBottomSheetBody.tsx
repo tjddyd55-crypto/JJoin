@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import {
   Badge,
   Button,
@@ -8,6 +8,7 @@ import {
   Spacer,
   Stack,
   Row,
+  Icon,
   useTheme,
   spacing,
 } from '@jjoin/design-system';
@@ -58,6 +59,8 @@ export function ExploreBottomSheetBody(props: {
   onVenueDetail: () => void;
   onOpenProfile: () => void;
   onJoinPress: (joinId: string) => void;
+  /** 선택된 장소 해제 — marker/card 닫기 */
+  onDismissSelection?: () => void;
   /** Override primary CTA label (e.g. GolfFacility confirm). */
   createJoinLabel?: string;
   /** Presence ON/OFF — Join tab only; Screen facility map hides them. */
@@ -153,6 +156,19 @@ export function ExploreBottomSheetBody(props: {
     return (
       <BottomSheetFrame showHandle={false}>
         <Stack gap="md">
+          {props.onDismissSelection ? (
+            <Row align="center" justify="flex-end">
+              <Pressable
+                onPress={props.onDismissSelection}
+                accessibilityRole="button"
+                accessibilityLabel="선택 해제"
+                hitSlop={8}
+                style={styles.dismissBtn}
+              >
+                <Icon name="close" size="md" tone="secondary" />
+              </Pressable>
+            </Row>
+          ) : null}
           <VenuePreviewCard
             name={v.name}
             category={v.categoryName}
@@ -322,4 +338,9 @@ export function ExploreBottomSheetBody(props: {
 
 const styles = StyleSheet.create({
   infoCard: { gap: spacing.xs, padding: spacing.sm, borderWidth: 1 },
+  dismissBtn: {
+    marginTop: -spacing.xs,
+    marginBottom: -spacing.sm,
+    padding: spacing.xs,
+  },
 });

@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from 'expo-router';
 import {
@@ -84,7 +83,6 @@ export function ExploreMapScreen({
   const venuePickMode = params.venuePick === '1' || params.venuePick === 'true';
   const { requestGatedAction } = useSession();
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const store = getSecureSessionStore();
   const discovery = useJoinDiscoveryOptional();
   const mapRef = useRef<MapCameraHandle | null>(null);
@@ -404,7 +402,18 @@ export function ExploreMapScreen({
     }
   }, [data, selectedVenueId]);
 
+  const clearVenueSelection = useCallback(() => {
+    setSelectedVenueId(null);
+    setSelectedUserId(null);
+    setSheetMode('PEEK');
+    sheetRef.current?.snapToIndex(0);
+  }, []);
+
   const onVenuePress = (venueId: string) => {
+    if (venueId === selectedVenueId && sheetMode === 'VENUE') {
+      clearVenueSelection();
+      return;
+    }
     setSelectedVenueId(venueId);
     setSelectedUserId(null);
     setSheetMode('VENUE');
@@ -698,7 +707,7 @@ export function ExploreMapScreen({
         <View
           style={[
             styles.topChrome,
-            { top: insets.top + spacing.xs },
+            { top: spacing.xs },
           ]}
           pointerEvents="box-none"
         >
@@ -877,6 +886,7 @@ export function ExploreMapScreen({
             onJoinPress={(joinId) => {
               router.push({ pathname: '/join/[joinId]', params: { joinId } } as Href);
             }}
+            onDismissSelection={clearVenueSelection}
             createJoinLabel={screenCreateJoinLabel}
           />
         </BottomSheetScrollView>

@@ -122,7 +122,7 @@ export function RegionSummaryList({
 
 const styles = StyleSheet.create({
   list: {
-    flexGrow: 1,
+    paddingTop: spacing.xs,
   },
   row: {
     flexDirection: 'row',

@@ -14,6 +14,8 @@ import {
   buildRegionBreadcrumb,
   localDayKey,
   regionExploreHasChildren,
+  shiftWeekAnchor,
+  sundayOfWeek,
 } from '@jjoin/domain';
 import type {
   DiscoverFacilityJoinItemDto,
@@ -21,10 +23,10 @@ import type {
 } from '@jjoin/types';
 import { getSecureSessionStore } from '../../../session/SessionContext';
 import { getApiClient } from '../../../lib/api';
-import { RegionDateSelector } from './components/RegionDateSelector';
 import { RegionSummaryList } from './components/RegionSummaryList';
 import { RegionFacilityList } from './components/RegionFacilityList';
 import { RegionJoinListPanel } from './components/RegionJoinListPanel';
+import { WeekStrip } from '../discovery/components/WeekStrip';
 import {
   fetchFacilityJoins,
   fetchRegionSummary,
@@ -56,7 +58,8 @@ type Props = {
   onSwitchToMap?: () => void;
 };
 
-const TAB_BAR_ESTIMATE = 56;
+const TAB_BAR_ESTIMATE = 64;
+const FAB_CLEARANCE = 56 + spacing.md;
 
 export function RegionJoinExploreScreen({ embedded = false, onSwitchToMap }: Props) {
   const theme = useTheme();
@@ -64,6 +67,9 @@ export function RegionJoinExploreScreen({ embedded = false, onSwitchToMap }: Pro
   const gold = theme.colors.action.primary;
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [selectedDate, setSelectedDate] = useState(() => localDayKey(new Date()));
+  const [weekAnchorDate, setWeekAnchorDate] = useState(() =>
+    sundayOfWeek(localDayKey(new Date())),
+  );
   const [viewStack, setViewStack] = useState<ExploreView[]>([{ kind: 'root' }]);
   const [summaryItems, setSummaryItems] = useState<
     DiscoverRegionSummaryItemDto[]
@@ -87,7 +93,38 @@ export function RegionJoinExploreScreen({ embedded = false, onSwitchToMap }: Pro
 
   const currentView = viewStack[viewStack.length - 1]!;
   const showBack = viewStack.length > 1;
-  const listBottomPad = Math.max(insets.bottom, spacing.md) + TAB_BAR_ESTIMATE;
+  const listBottomPad =
+    Math.max(insets.bottom, spacing.md) + TAB_BAR_ESTIMATE + FAB_CLEARANCE;
+
+  const shiftWeek = useCallback((deltaWeeks: number) => {
+    setWeekAnchorDate((prevAnchor) => {
+      const nextSunday = shiftWeekAnchor(sundayOfWeek(prevAnchor), deltaWeeks);
+      setSelectedDate((prevDate) => {
+        const prevSunday = sundayOfWeek(prevDate);
+        const offsetDays = Math.round(
+          (Date.parse(`${prevDate}T12:00:00+09:00`) -
+            Date.parse(`${prevSunday}T12:00:00+09:00`)) /
+            86_400_000,
+        );
+        const nextDateParts = nextSunday.split('-').map(Number);
+        const shifted = new Date(
+          Date.UTC(
+            nextDateParts[0]!,
+            nextDateParts[1]! - 1,
+            nextDateParts[2]! + offsetDays,
+            3,
+            0,
+            0,
+          ),
+        );
+        const y = shifted.getUTCFullYear();
+        const m = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+        const d = String(shifted.getUTCDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      });
+      return nextSunday;
+    });
+  }, []);
 
   const headerTitle = useMemo(() => {
     if (currentView.kind === 'root') {
@@ -404,9 +441,12 @@ export function RegionJoinExploreScreen({ embedded = false, onSwitchToMap }: Pro
       {(currentView.kind === 'root' ||
         currentView.kind === 'regions' ||
         currentView.kind === 'nearby') && (
-        <RegionDateSelector
+        <WeekStrip
+          weekAnchorDate={weekAnchorDate}
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
+          onPrevWeek={() => shiftWeek(-1)}
+          onNextWeek={() => shiftWeek(1)}
         />
       )}
 

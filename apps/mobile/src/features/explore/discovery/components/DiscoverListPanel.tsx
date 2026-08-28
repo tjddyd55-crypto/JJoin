@@ -8,8 +8,8 @@ import {
   View,
 } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  Button,
   Text,
   Section,
   Spacer,
@@ -24,6 +24,9 @@ import { getApiClient } from '../../../../lib/api';
 import { useJoinDiscovery } from '../JoinDiscoveryContext';
 import { fetchDiscoverJoins } from '../api/join-discover-api';
 import { DiscoverJoinCard } from './DiscoverJoinCard';
+import { CompactTextAction } from './CompactTextAction';
+
+const FAB_CLEARANCE = 56 + spacing.md;
 
 function joinDetailHref(joinId: string): Href {
   return { pathname: '/join/[joinId]', params: { joinId } } as Href;
@@ -36,6 +39,7 @@ type Props = {
 
 export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const { filter, setDate, patchFilter } = useJoinDiscovery();
@@ -112,6 +116,8 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
   const upcomingTitle =
     filter.date === todayKey ? '예정된 조인' : '선택한 날 조인';
   const empty = !loading && !error && (data?.totalCount ?? 0) === 0;
+  const listBottomPad =
+    Math.max(insets.bottom, spacing.sm) + theme.sizes.bottomNav + FAB_CLEARANCE;
 
   return (
     <View style={styles.root}>
@@ -163,7 +169,7 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingBottom: listBottomPad }]}
         refreshControl={
           <RefreshControl refreshing={loading} onRefresh={() => void load()} />
         }
@@ -175,24 +181,22 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
           </Text>
         ) : null}
         {empty ? (
-          <Stack gap="md">
+          <Stack gap="sm">
             <Text variant="body" tone="secondary">
               선택한 날짜로 지역에 조인이 없습니다.
             </Text>
-            <Button
-              label="오늘로 이동"
-              variant="secondary"
-              onPress={() => setDate(todayKey)}
-            />
-            <Button
-              label="지도에서 보기"
-              variant="secondary"
-              onPress={() => patchFilter({ view: 'MAP' })}
-            />
-            <Button
-              label="조인 만들기"
-              onPress={() => router.push('/(tabs)/create')}
-            />
+            <View style={styles.emptyActions}>
+              {filter.date !== todayKey ? (
+                <CompactTextAction
+                  label="오늘로 이동"
+                  onPress={() => setDate(todayKey)}
+                />
+              ) : null}
+              <CompactTextAction
+                label="지도에서 보기"
+                onPress={() => patchFilter({ view: 'MAP' })}
+              />
+            </View>
           </Stack>
         ) : null}
 
@@ -238,9 +242,9 @@ const styles = StyleSheet.create({
   filterRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
+    gap: spacing.xs,
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
+    paddingBottom: spacing.xs,
   },
   filterChip: {
     borderWidth: 1,
@@ -250,7 +254,11 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.xl,
-    gap: spacing.md,
+    gap: spacing.sm,
+  },
+  emptyActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
 });

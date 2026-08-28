@@ -7,6 +7,7 @@ import { JoinDiscoveryProvider, useJoinDiscovery } from './JoinDiscoveryContext'
 import { DiscoverListPanel } from './components/DiscoverListPanel';
 import { DiscoveryFilterChrome } from './components/DiscoveryFilterChrome';
 import { MapDiscoveryChrome } from './components/MapDiscoveryChrome';
+import { JoinCreateFab } from './components/JoinCreateFab';
 import { ExploreMapScreen } from '../screens/ExploreMapScreen';
 import { RegionJoinExploreScreen } from '../region-explore/RegionJoinExploreScreen';
 import type { MapCoordinate } from '../model/map-types';
@@ -136,6 +137,7 @@ function ExploreDiscoveryBody() {
           />
         </>
       )}
+      <JoinCreateFab />
     </SafeAreaView>
   );
 }

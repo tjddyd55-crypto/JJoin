@@ -149,7 +149,8 @@ const styles = StyleSheet.create({
   wrap: {
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
   },
   wrapCompact: {
     paddingTop: spacing.xs,
