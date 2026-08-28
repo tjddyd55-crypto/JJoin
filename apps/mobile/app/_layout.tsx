@@ -15,7 +15,11 @@ import { resolveOnboardingStep } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
 import { isInternalToolsEnabled } from '../src/lib/internal-tools';
 
-export { ErrorBoundary } from 'expo-router';
+if (__DEV__) {
+  console.log('[BOOT 01] module _layout loaded');
+}
+
+export { ErrorBoundary } from './RootErrorBoundary';
 
 export const unstable_settings = {
   initialRouteName: '(tabs)',
@@ -46,6 +50,14 @@ function AuthGateBootstrap({ children }: { children: React.ReactNode }) {
   const { appState, bootstrapping, me } = useSession();
   const segments = useSegments();
   const router = useRouter();
+
+  if (__DEV__) {
+    console.log('[BOOT 06] AuthGateBootstrap render', {
+      appState,
+      bootstrapping,
+      segmentRoot: (segments as unknown as string[])[0] ?? '',
+    });
+  }
 
   useEffect(() => {
     if (bootstrapping) return;
@@ -149,6 +161,14 @@ function SplashBootstrapScreen() {
 }
 
 export default function RootLayout() {
+  if (__DEV__) {
+    console.log('[BOOT 02] RootLayout render');
+    console.log('[BOOT 03] Gesture root render');
+    console.log('[BOOT 04] ThemeProvider render');
+    console.log('[BOOT 05] SessionProvider render');
+    console.log('[BOOT 07] Stack render');
+  }
+
   return (
     <GestureHandlerRootView style={styles.root}>
       <ThemeProvider theme={clubMinimalTheme}>

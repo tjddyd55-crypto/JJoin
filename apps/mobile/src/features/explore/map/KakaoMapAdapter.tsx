@@ -42,6 +42,8 @@ export type KakaoMapAdapterProps = {
   selectedVenueId: string | null;
   selectedUserId: string | null;
   onCameraGesture?: (center: MapCoordinate, bounds?: MapBounds) => void;
+  /** Fires after map engine is ready — use to sync viewport fetch. */
+  onMapEngineReady?: () => void;
   onVenuePress: (venueId: string) => void;
   onUserPress: (userId: string) => void;
   mapRef?: React.RefObject<MapCameraHandle | null>;
@@ -61,6 +63,7 @@ export function KakaoMapAdapter({
   selectedVenueId,
   selectedUserId,
   onCameraGesture,
+  onMapEngineReady,
   onVenuePress,
   onUserPress,
   mapRef,
@@ -131,6 +134,15 @@ export function KakaoMapAdapter({
     return list;
   }, [venues, users, myLocation, selectedVenueId, selectedUserId]);
 
+  React.useEffect(() => {
+    if (!__DEV__) return;
+    const venueMarkers = markers.filter((m) => m.kind === 'venue');
+    console.log('[ExploreMap:markers:dto]', {
+      venueDtoCount: venueMarkers.length,
+      totalDtoCount: markers.length,
+    });
+  }, [markers]);
+
   const zoomLevel = latitudeDeltaToZoomLevel(initialRegion.latitudeDelta);
 
   return (
@@ -159,13 +171,14 @@ export function KakaoMapAdapter({
             surfaceHeight: ev.surfaceHeight,
             vulkan: ev.vulkan,
           });
+          onMapEngineReady?.();
         }}
         onMapError={(e) => {
           console.warn('[KakaoMap] error', e.nativeEvent);
         }}
         onCameraChanged={(e) => {
           const ev = e.nativeEvent;
-          if (ev.reason !== 'Gesture') return;
+          if (ev.reason !== 'Gesture' && ev.reason !== 'Program') return;
           onCameraGesture?.(
             { latitude: ev.latitude, longitude: ev.longitude },
             {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import {
   Badge,
   Button,
@@ -8,6 +8,7 @@ import {
   Spacer,
   Stack,
   Row,
+  Icon,
   useTheme,
   spacing,
 } from '@jjoin/design-system';
@@ -19,6 +20,7 @@ import { VenueCard } from '../../../ui/patterns/VenueCard';
 import { VenuePreviewCard } from '../../../ui/patterns/VenuePreviewCard';
 import { useJoinDiscoveryOptional } from '../discovery/JoinDiscoveryContext';
 import { localDayKey } from '@jjoin/domain';
+import type { ExploreFilterId } from '../model/map-types';
 
 function PresenceStatusBlock({ presence }: { presence: PresenceVisibility }) {
   const on = presence === PresenceVisibilityEnum.AVAILABLE;
@@ -46,6 +48,8 @@ export function ExploreBottomSheetBody(props: {
   selectedVenue: ExploreVenueDto | null;
   selectedUser: PublicNearbyUserDto | null;
   presence: PresenceVisibility;
+  /** Screen tab collapsed sheet — header line only */
+  compactPeek?: boolean;
   onSelectVenue: (id: string) => void;
   onSelectUser: (id: string) => void;
   onOpenPresence: () => void;
@@ -56,15 +60,24 @@ export function ExploreBottomSheetBody(props: {
   onVenueDetail: () => void;
   onOpenProfile: () => void;
   onJoinPress: (joinId: string) => void;
+  /** 선택된 장소 해제 — marker/card 닫기 */
+  onDismissSelection?: () => void;
   /** Override primary CTA label (e.g. GolfFacility confirm). */
   createJoinLabel?: string;
   /** Presence ON/OFF — Join tab only; Screen facility map hides them. */
   showPresence?: boolean;
+  /** Screen tab — active map filter for list emphasis */
+  mapFilter?: ExploreFilterId;
+  /** Incremental venue list cap (Screen tab expanded sheet). */
+  venueListLimit?: number;
+  onLoadMoreVenues?: () => void;
   peekTitle?: string;
   peekSubtitle?: string;
 }) {
   const theme = useTheme();
   const showPresence = props.showPresence !== false;
+  const mapFilter = props.mapFilter ?? 'ALL';
+  const venueListLimit = props.venueListLimit ?? props.venues.length;
   const discovery = useJoinDiscoveryOptional();
   const selectedDate = discovery?.filter.date;
   const isSelectedToday =
@@ -151,6 +164,19 @@ export function ExploreBottomSheetBody(props: {
     return (
       <BottomSheetFrame showHandle={false}>
         <Stack gap="md">
+          {props.onDismissSelection ? (
+            <Row align="center" justify="flex-end">
+              <Pressable
+                onPress={props.onDismissSelection}
+                accessibilityRole="button"
+                accessibilityLabel="선택 해제"
+                hitSlop={8}
+                style={styles.dismissBtn}
+              >
+                <Icon name="close" size="md" tone="secondary" />
+              </Pressable>
+            </Row>
+          ) : null}
           <VenuePreviewCard
             name={v.name}
             category={v.categoryName}
@@ -246,11 +272,37 @@ export function ExploreBottomSheetBody(props: {
 
   const presenceOn = props.presence === PresenceVisibilityEnum.AVAILABLE;
   const peekTitle = props.peekTitle ?? '내 주변';
+  const venueCount = props.venues.length;
+  const userCount = props.users.length;
+  const showVenueList = mapFilter !== 'USER';
+  const showUserList = mapFilter === 'USER' || mapFilter === 'ALL';
+  const visibleVenues = showVenueList
+    ? props.venues.slice(0, venueListLimit)
+    : [];
+  const hasMoreVenues = showVenueList && venueCount > visibleVenues.length;
+  const peekLine = showPresence
+    ? `${peekTitle} · ${venueCount}곳 · 조인 가능 ${userCount}명`
+    : mapFilter === 'USER'
+      ? `${peekTitle} · 조인 가능 ${userCount}명`
+      : `${peekTitle} · ${venueCount}곳`;
+
+  if (props.compactPeek) {
+    return (
+      <BottomSheetFrame showHandle={false}>
+        <Text variant="bodyStrong" tone="primary" numberOfLines={1}>
+          {peekLine}
+        </Text>
+      </BottomSheetFrame>
+    );
+  }
+
   const peekSubtitle =
     props.peekSubtitle ??
     (showPresence
-      ? `스크린골프장 ${props.venues.length}곳 · 지금 조인 가능 ${props.users.length}명`
-      : `주변 스크린골프장 ${props.venues.length}곳`);
+      ? `스크린골프장 ${venueCount}곳 · 지금 조인 가능 ${userCount}명`
+      : mapFilter === 'USER'
+        ? `지금 조인 가능 ${userCount}명`
+        : `주변 스크린골프장 ${venueCount}곳`);
 
   return (
     <BottomSheetFrame showHandle={false}>
@@ -273,8 +325,13 @@ export function ExploreBottomSheetBody(props: {
             />
           </>
         ) : null}
+        {mapFilter === 'USER' && userCount === 0 ? (
+          <Text variant="caption" tone="tertiary">
+            주변에 조인 가능 상태인 사용자가 없습니다.
+          </Text>
+        ) : null}
         <Stack gap="sm">
-          {props.venues.slice(0, showPresence ? 2 : 4).map((v) => (
+          {visibleVenues.map((v) => (
             <VenueCard
               key={v.venueId}
               name={v.name}
@@ -286,8 +343,15 @@ export function ExploreBottomSheetBody(props: {
               onPress={() => props.onSelectVenue(v.venueId)}
             />
           ))}
-          {showPresence
-            ? props.users.slice(0, 1).map((u) => (
+          {hasMoreVenues && props.onLoadMoreVenues ? (
+            <Button
+              label={`더 보기 (${venueCount - visibleVenues.length}곳 남음)`}
+              variant="secondary"
+              onPress={props.onLoadMoreVenues}
+            />
+          ) : null}
+          {showUserList
+            ? props.users.map((u) => (
                 <VenueCard
                   key={u.userId}
                   name={`${u.nickname}${u.verifiedBadge ? ' ✓' : ''}`}
@@ -305,4 +369,9 @@ export function ExploreBottomSheetBody(props: {
 
 const styles = StyleSheet.create({
   infoCard: { gap: spacing.xs, padding: spacing.sm, borderWidth: 1 },
+  dismissBtn: {
+    marginTop: -spacing.xs,
+    marginBottom: -spacing.sm,
+    padding: spacing.xs,
+  },
 });

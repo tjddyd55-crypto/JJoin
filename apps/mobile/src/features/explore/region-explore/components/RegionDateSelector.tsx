@@ -37,19 +37,19 @@ export function RegionDateSelector({ selectedDate, onSelectDate }: Props) {
             accessibilityLabel={`${cell.isToday ? '오늘 ' : ''}${cell.dayOfMonth}일 ${cell.weekdayLabel}요일`}
             style={styles.day}
           >
-            {cell.isToday ? (
-              <Text variant="meta" style={{ color: gold, fontSize: 10 }}>
-                오늘
-              </Text>
-            ) : (
-              <Text
-                variant="meta"
-                tone="tertiary"
-                style={isWeekend ? { color: theme.colors.text.secondary } : undefined}
-              >
-                {cell.weekdayLabel}
-              </Text>
-            )}
+            <Text
+              variant="meta"
+              tone={cell.isToday && !selected ? undefined : 'tertiary'}
+              style={[
+                styles.weekday,
+                cell.isToday && !selected ? { color: gold } : undefined,
+                isWeekend && !selected && !cell.isToday
+                  ? { color: theme.colors.text.secondary }
+                  : undefined,
+              ]}
+            >
+              {cell.isToday ? '오늘' : cell.weekdayLabel}
+            </Text>
             <View
               style={[
                 styles.dayNum,
@@ -59,16 +59,16 @@ export function RegionDateSelector({ selectedDate, onSelectDate }: Props) {
               ]}
             >
               <Text
-                variant="body"
+                variant="meta"
                 tone="primary"
-                style={selected ? { color: theme.colors.text.onGold } : undefined}
+                style={[
+                  styles.dayNumText,
+                  selected ? { color: theme.colors.text.onGold, fontWeight: '700' } : undefined,
+                ]}
               >
                 {cell.dayOfMonth}
               </Text>
             </View>
-            <Text variant="meta" tone="tertiary" style={{ fontSize: 10 }}>
-              {Number(cell.date.slice(5, 7))}/{cell.dayOfMonth}
-            </Text>
           </Pressable>
         );
       })}
@@ -79,20 +79,28 @@ export function RegionDateSelector({ selectedDate, onSelectDate }: Props) {
 const styles = StyleSheet.create({
   strip: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing.xs,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   day: {
     alignItems: 'center',
     gap: 2,
-    minWidth: 44,
-    paddingVertical: spacing.xs,
+    minWidth: 40,
+    paddingVertical: 2,
+  },
+  weekday: {
+    fontSize: 11,
+    lineHeight: 14,
   },
   dayNum: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  dayNumText: {
+    fontSize: 15,
+    lineHeight: 18,
   },
 });

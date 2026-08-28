@@ -1,9 +1,12 @@
 import {
   LOCALDATA_GOLF_VENUE_PROVIDER,
+  JoinStatus,
   type ExploreMapResponse,
   type ExploreVenueDto,
   type GolfFacilityMapDto,
+  type PublicNearbyUserDto,
 } from '@jjoin/types';
+import { isDiscoveryJoinStatus, localDayKey } from '@jjoin/domain';
 import { getApiClient } from '../../../lib/api';
 import type { SecureSessionStore } from '../../../session/secure-session-store';
 import type { MapCoordinate, MapRegion } from '../model/map-types';
@@ -87,13 +90,50 @@ export function golfFacilityToExploreVenue(
   };
 }
 
+/** Today (KST) with at least one JOINABLE join — reuses discovery join status SSOT. */
+export function venueHasJoinableJoinToday(
+  venue: ExploreVenueDto,
+  now = new Date(),
+): boolean {
+  if (venue.hasOngoingJoin) return true;
+  const todayKey = localDayKey(now);
+  const previews = venue.joinPreviews ?? [];
+  return previews.some((preview) => {
+    if (preview.status === JoinStatus.FULL) return false;
+    if (!isDiscoveryJoinStatus(preview.status)) return false;
+    if (preview.currentParticipants >= preview.maxParticipants) return false;
+    return localDayKey(preview.startAt) === todayKey;
+  });
+}
+
+export async function fetchNearbyUsersForMap(input: {
+  store: SecureSessionStore;
+  center: MapCoordinate;
+  region: MapRegion;
+  signal?: AbortSignal;
+}): Promise<PublicNearbyUserDto[]> {
+  const { fetchExploreMap } = await import('./explore-api');
+  const result = await fetchExploreMap({
+    store: input.store,
+    filter: 'USER',
+    center: input.center,
+    region: input.region,
+  });
+  if (input.signal?.aborted) {
+    throw new Error('Aborted');
+  }
+  return result.users;
+}
+
 export async function fetchGolfFacilitiesInRegion(input: {
   store: SecureSessionStore;
   center: MapCoordinate;
   region: MapRegion;
   signal?: AbortSignal;
-  /** When true, keep only facilities with selected-date/ongoing joins. */
+  /** When true, keep only facilities with JOINABLE joins today. */
   todayJoinOnly?: boolean;
+  /** When set, also load nearby presence users (Screen tab filters). */
+  includeUsers?: boolean;
   date?: string;
   regionMode?: 'NEARBY' | 'DISTRICT';
   sido?: string;
@@ -124,20 +164,37 @@ export async function fetchGolfFacilitiesInRegion(input: {
   let venues = result.items
     .map((f) => golfFacilityToExploreVenue(f, input.center))
     .filter((v): v is ExploreVenueDto => v != null);
-  if (input.todayJoinOnly) {
-    venues = venues.filter(
-      (v) => v.hasTodayJoin || v.hasOngoingJoin || v.openJoinCount > 0,
-    );
+  if (__DEV__) {
+    console.log('[ExploreMap:api]', {
+      rawCount: result.items.length,
+      mappedCount: venues.length,
+      invalidCoordinateCount: result.items.length - venues.length,
+      truncated: result.truncated,
+    });
   }
+  if (input.todayJoinOnly) {
+    venues = venues.filter((v) => venueHasJoinableJoinToday(v));
+  }
+
+  let users: PublicNearbyUserDto[] = [];
+  if (input.includeUsers) {
+    users = await fetchNearbyUsersForMap({
+      store: input.store,
+      center: input.center,
+      region: input.region,
+      signal: input.signal,
+    });
+  }
+
   return {
     venues,
-    users: [],
+    users,
     metadata: {
       sportCode: 'SCREEN_GOLF',
       filter: input.todayJoinOnly ? 'TODAY_JOIN' : 'VENUE',
       source: 'live',
       venueCount: venues.length,
-      userCount: 0,
+      userCount: users.length,
     },
   };
 }

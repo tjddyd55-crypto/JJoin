@@ -1,5 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
   Badge,
@@ -23,8 +27,16 @@ import {
   type StoreOwnershipRequestDto,
 } from '@jjoin/types';
 import { createStoreOwnershipRequestSchema } from '@jjoin/validation';
+import {
+  brandLabel,
+  facilityTypeLabel,
+} from '../../explore/api/golf-facility-explore';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
+import {
+  formatFacilityRegion,
+} from '../api/store-facility-search';
+import { StoreFacilityFinderModal } from '../components/StoreFacilityFinderModal';
 import {
   RELATION_LABELS,
   VERIFICATION_STATUS_LABELS,
@@ -45,18 +57,25 @@ function latestRequest(requests: StoreOwnershipRequestDto[]): StoreOwnershipRequ
   )[0]!;
 }
 
+function facilitySubtitle(facility: GolfFacilityMapDto): string {
+  const brand = brandLabel(facility.primaryBrand);
+  const typeLabel = facilityTypeLabel(facility.facilityType);
+  const category = brand ? `${typeLabel} · ${brand}` : typeLabel;
+  const region = formatFacilityRegion(facility);
+  return [category, region].filter(Boolean).join(' · ');
+}
+
 export function StoreVerificationScreen() {
   const router = useRouter();
   const theme = useTheme();
+  const gold = theme.colors.action.primary;
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
 
   const [requests, setRequests] = useState<StoreOwnershipRequestDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchHits, setSearchHits] = useState<GolfFacilityMapDto[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
+  const [finderOpen, setFinderOpen] = useState(false);
   const [selectedFacility, setSelectedFacility] = useState<GolfFacilityMapDto | null>(null);
 
   const [applicantName, setApplicantName] = useState('');
@@ -89,25 +108,18 @@ export function StoreVerificationScreen() {
     }, [load]),
   );
 
-  const runSearch = useCallback(async () => {
-    const q = searchQuery.trim();
-    if (q.length < 1) return;
-    setSearchLoading(true);
+  const clearSelectedFacility = useCallback(() => {
+    setSelectedFacility(null);
+  }, []);
+
+  const onSelectFacility = useCallback((facility: GolfFacilityMapDto) => {
+    setSelectedFacility(facility);
     setFormError(null);
-    try {
-      const result = await api.searchGolfFacilities({ q, limit: 30 });
-      setSearchHits(result.items);
-    } catch {
-      setSearchHits([]);
-      setFormError('시설 검색에 실패했습니다.');
-    } finally {
-      setSearchLoading(false);
-    }
-  }, [api, searchQuery]);
+  }, []);
 
   async function onSubmit() {
     if (!selectedFacility) {
-      setFormError('매장을 검색해서 선택해 주세요.');
+      setFormError('먼저 매장을 선택해주세요.');
       return;
     }
     const parsed = createStoreOwnershipRequestSchema.safeParse({
@@ -127,9 +139,7 @@ export function StoreVerificationScreen() {
     try {
       await api.createStoreVerification(parsed.data as CreateStoreOwnershipRequest);
       await load();
-      setSelectedFacility(null);
-      setSearchQuery('');
-      setSearchHits([]);
+      clearSelectedFacility();
     } catch (e) {
       const msg = e instanceof Error ? e.message : '';
       setFormError(msg.includes('409') ? '이미 진행 중인 인증 요청이 있습니다.' : '제출에 실패했습니다.');
@@ -239,60 +249,52 @@ export function StoreVerificationScreen() {
       ) : null}
 
       <Spacer size="lg" />
-      <Section title="매장 검색">
-        <Input
-          label="매장명 또는 주소"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="예) 강남 스크린골프"
-          returnKeyType="search"
-          onSubmitEditing={() => void runSearch()}
-        />
-        <Spacer size="sm" />
-        <Button label="검색" variant="secondary" onPress={() => void runSearch()} loading={searchLoading} />
+      <Section title="매장 선택">
         {selectedFacility ? (
           <Card variant="elevated" padding="md" style={styles.selectedFacility}>
+            <Text variant="meta" style={{ color: gold }}>
+              ✓ 선택한 매장
+            </Text>
+            <Spacer size="xs" />
             <Text variant="bodyStrong" tone="primary">
-              선택: {selectedFacility.displayName}
+              {selectedFacility.displayName}
             </Text>
             {selectedFacility.roadAddress ? (
               <Text variant="caption" tone="secondary">
                 {selectedFacility.roadAddress}
               </Text>
             ) : null}
-          </Card>
-        ) : null}
-        {searchHits.map((facility) => (
-          <Pressable
-            key={facility.id}
-            accessibilityRole="button"
-            onPress={() => {
-              setSelectedFacility(facility);
-              setFormError(null);
-            }}
-            style={({ pressed }) => [
-              styles.hitRow,
-              {
-                borderBottomColor: theme.colors.border.subtle,
-                backgroundColor:
-                  selectedFacility?.id === facility.id
-                    ? theme.colors.surface.elevated
-                    : 'transparent',
-                opacity: pressed ? 0.85 : 1,
-              },
-            ]}
-          >
-            <Text variant="body" tone="primary">
-              {facility.displayName}
+            <Text variant="caption" tone="tertiary">
+              {facilitySubtitle(selectedFacility)}
             </Text>
-            {facility.roadAddress ? (
-              <Text variant="caption" tone="secondary">
-                {facility.roadAddress}
-              </Text>
-            ) : null}
-          </Pressable>
-        ))}
+            <Spacer size="sm" />
+            <Button
+              label="변경"
+              variant="ghost"
+              fullWidth={false}
+              onPress={() => setFinderOpen(true)}
+            />
+          </Card>
+        ) : (
+          <Button
+            label="매장 찾기"
+            variant="secondary"
+            onPress={() => setFinderOpen(true)}
+          />
+        )}
+        <Spacer size="sm" />
+        <Text variant="caption" tone="tertiary">
+          지역을 선택한 뒤 스크린골프 매장 목록에서 찾을 수 있습니다. DB에 없는
+          매장은 현재 golfFacilityId 없이 인증할 수 없습니다.
+        </Text>
       </Section>
+
+      <StoreFacilityFinderModal
+        visible={finderOpen}
+        api={api}
+        onClose={() => setFinderOpen(false)}
+        onSelect={onSelectFacility}
+      />
 
       <Spacer size="lg" />
       <Section title="신청 정보">
@@ -347,6 +349,18 @@ export function StoreVerificationScreen() {
 }
 
 const styles = StyleSheet.create({
+  searchStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  searchFeedback: {
+    marginTop: 8,
+  },
+  resultList: {
+    marginTop: 8,
+  },
   hitRow: {
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,

@@ -14,6 +14,8 @@ import {
   buildRegionBreadcrumb,
   localDayKey,
   regionExploreHasChildren,
+  shiftWeekAnchor,
+  sundayOfWeek,
 } from '@jjoin/domain';
 import type {
   DiscoverFacilityJoinItemDto,
@@ -21,10 +23,10 @@ import type {
 } from '@jjoin/types';
 import { getSecureSessionStore } from '../../../session/SessionContext';
 import { getApiClient } from '../../../lib/api';
-import { RegionDateSelector } from './components/RegionDateSelector';
 import { RegionSummaryList } from './components/RegionSummaryList';
 import { RegionFacilityList } from './components/RegionFacilityList';
 import { RegionJoinListPanel } from './components/RegionJoinListPanel';
+import { WeekStrip } from '../discovery/components/WeekStrip';
 import {
   fetchFacilityJoins,
   fetchRegionSummary,
@@ -51,14 +53,22 @@ type ExploreView =
     };
 
 type Props = {
+  /** 조인 탭 내부 서브뷰 — 상위 SafeArea·탭 스위치와 중복 패딩 방지 */
+  embedded?: boolean;
   onSwitchToMap?: () => void;
 };
 
-export function RegionJoinExploreScreen({ onSwitchToMap }: Props) {
+const FAB_SIZE = 56;
+const FAB_CLEARANCE = FAB_SIZE + spacing.md + spacing.sm;
+
+export function RegionJoinExploreScreen({ embedded = false, onSwitchToMap }: Props) {
   const theme = useTheme();
   const gold = theme.colors.action.primary;
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [selectedDate, setSelectedDate] = useState(() => localDayKey(new Date()));
+  const [weekAnchorDate, setWeekAnchorDate] = useState(() =>
+    sundayOfWeek(localDayKey(new Date())),
+  );
   const [viewStack, setViewStack] = useState<ExploreView[]>([{ kind: 'root' }]);
   const [summaryItems, setSummaryItems] = useState<
     DiscoverRegionSummaryItemDto[]
@@ -81,12 +91,46 @@ export function RegionJoinExploreScreen({ onSwitchToMap }: Props) {
   const requestSeq = useRef(0);
 
   const currentView = viewStack[viewStack.length - 1]!;
+  const showBack = viewStack.length > 1;
+  const listBottomPad = FAB_CLEARANCE;
+
+  const shiftWeek = useCallback((deltaWeeks: number) => {
+    setWeekAnchorDate((prevAnchor) => {
+      const nextSunday = shiftWeekAnchor(sundayOfWeek(prevAnchor), deltaWeeks);
+      setSelectedDate((prevDate) => {
+        const prevSunday = sundayOfWeek(prevDate);
+        const offsetDays = Math.round(
+          (Date.parse(`${prevDate}T12:00:00+09:00`) -
+            Date.parse(`${prevSunday}T12:00:00+09:00`)) /
+            86_400_000,
+        );
+        const nextDateParts = nextSunday.split('-').map(Number);
+        const shifted = new Date(
+          Date.UTC(
+            nextDateParts[0]!,
+            nextDateParts[1]! - 1,
+            nextDateParts[2]! + offsetDays,
+            3,
+            0,
+            0,
+          ),
+        );
+        const y = shifted.getUTCFullYear();
+        const m = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+        const d = String(shifted.getUTCDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      });
+      return nextSunday;
+    });
+  }, []);
 
   const headerTitle = useMemo(() => {
-    if (currentView.kind === 'root') return '지역별 조인';
+    if (currentView.kind === 'root') {
+      return embedded ? '지역별' : '지역별 조인';
+    }
     if (currentView.kind === 'nearby') return '내 위치';
     return currentView.title;
-  }, [currentView]);
+  }, [currentView, embedded]);
 
   const breadcrumbs = useMemo(() => {
     if (currentView.kind === 'regions') {
@@ -97,6 +141,8 @@ export function RegionJoinExploreScreen({ onSwitchToMap }: Props) {
     }
     return [];
   }, [currentView]);
+
+  const showRootHeader = !(embedded && currentView.kind === 'root' && !showBack);
 
   const popView = useCallback(() => {
     setViewStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
@@ -357,46 +403,50 @@ export function RegionJoinExploreScreen({ onSwitchToMap }: Props) {
     [],
   );
 
-  const showBack = viewStack.length > 1;
-
-  return (
-    <SafeAreaView
-      style={[styles.root, { backgroundColor: theme.colors.surface.base }]}
-      edges={['top']}
-    >
-      <View style={styles.header}>
-        {showBack ? (
-          <Pressable
-            onPress={popView}
-            accessibilityRole="button"
-            accessibilityLabel="뒤로"
-            hitSlop={8}
-            style={styles.backBtn}
-          >
-            <Text variant="meta" style={{ color: gold }}>
-              {'\u2039'} 뒤로
+  const content = (
+    <>
+      {showRootHeader ? (
+        <View style={styles.header}>
+          {showBack ? (
+            <Pressable
+              onPress={popView}
+              accessibilityRole="button"
+              accessibilityLabel="뒤로"
+              hitSlop={8}
+              style={styles.backBtn}
+            >
+              <Text variant="meta" style={{ color: gold }}>
+                {'\u2039'} 뒤로
+              </Text>
+            </Pressable>
+          ) : (
+            <View style={styles.backBtn} />
+          )}
+          <View style={styles.headerCenter}>
+            <Text variant="sectionTitle" tone="primary">
+              {headerTitle}
             </Text>
-          </Pressable>
-        ) : (
+            {breadcrumbs.length > 1 ? (
+              <Text variant="meta" tone="tertiary" numberOfLines={1}>
+                {breadcrumbs.map((b) => b.label).join(' > ')}
+              </Text>
+            ) : null}
+          </View>
           <View style={styles.backBtn} />
-        )}
-        <View style={styles.headerCenter}>
-          <Text variant="sectionTitle" tone="primary">
-            {headerTitle}
-          </Text>
-          {breadcrumbs.length > 1 ? (
-            <Text variant="meta" tone="tertiary" numberOfLines={1}>
-              {breadcrumbs.map((b) => b.label).join(' > ')}
-            </Text>
-          ) : null}
         </View>
-        <View style={styles.backBtn} />
-      </View>
+      ) : null}
 
-      <RegionDateSelector
-        selectedDate={selectedDate}
-        onSelectDate={setSelectedDate}
-      />
+      {(currentView.kind === 'root' ||
+        currentView.kind === 'regions' ||
+        currentView.kind === 'nearby') && (
+        <WeekStrip
+          weekAnchorDate={weekAnchorDate}
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+          onPrevWeek={() => shiftWeek(-1)}
+          onNextWeek={() => shiftWeek(1)}
+        />
+      )}
 
       <View style={styles.body}>
         {currentView.kind === 'root' ? (
@@ -406,6 +456,7 @@ export function RegionJoinExploreScreen({ onSwitchToMap }: Props) {
             error={summaryError}
             onRetry={() => void loadSummary()}
             onSelect={handleRegionSelect}
+            bottomPadding={listBottomPad}
             leadingItem={{
               key: 'NEARBY',
               label: '내 위치',
@@ -422,6 +473,7 @@ export function RegionJoinExploreScreen({ onSwitchToMap }: Props) {
             error={summaryError}
             onRetry={() => void loadSummary()}
             onSelect={handleSummarySelectFromRegions}
+            bottomPadding={listBottomPad}
           />
         ) : null}
 
@@ -435,6 +487,7 @@ export function RegionJoinExploreScreen({ onSwitchToMap }: Props) {
             onRetry={() => void loadFacilities()}
             onSelectFacility={handleFacilitySelect}
             onSwitchToMap={onSwitchToMap}
+            bottomPadding={listBottomPad}
           />
         ) : null}
 
@@ -445,9 +498,27 @@ export function RegionJoinExploreScreen({ onSwitchToMap }: Props) {
             venueName={currentView.venueName}
             sido={currentView.sido}
             sigungu={currentView.sigungu}
+            bottomPadding={listBottomPad}
           />
         ) : null}
       </View>
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <View style={[styles.root, { backgroundColor: theme.colors.surface.base }]}>
+        {content}
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaView
+      style={[styles.root, { backgroundColor: theme.colors.surface.base }]}
+      edges={['top']}
+    >
+      {content}
     </SafeAreaView>
   );
 }
@@ -458,7 +529,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
     gap: spacing.sm,
   },
   backBtn: {
@@ -471,5 +543,6 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
+    minHeight: 0,
   },
 });
