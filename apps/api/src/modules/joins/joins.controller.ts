@@ -98,6 +98,51 @@ export class JoinsController {
     });
   }
 
+  @Get('discover/region-summary')
+  @UseGuards(MockAuthGuard)
+  discoverRegionSummary(
+    @CurrentUserId() userId: string,
+    @Query('date') date?: string,
+    @Query('joinability') joinability?: string,
+    @Query('sido') sido?: string,
+    @Query('sigungu') sigungu?: string,
+  ) {
+    return this.discovery.regionSummary(userId, {
+      date,
+      joinability,
+      sido,
+      sigungu,
+    });
+  }
+
+  @Get('discover/facilities')
+  @UseGuards(MockAuthGuard)
+  async discoverFacilities(
+    @CurrentUserId() userId: string,
+    @Query('date') date?: string,
+    @Query('joinability') joinability?: string,
+    @Query('regionMode') regionMode?: string,
+    @Query('lat') lat?: string,
+    @Query('lng') lng?: string,
+    @Query('radiusMeters') radiusMeters?: string,
+    @Query('sido') sido?: string,
+    @Query('sigungu') sigungu?: string,
+    @Query('sort') sort?: string,
+  ) {
+    await this.matchingJoins.reconcileDueMatchingDeadlines(20);
+    return this.discovery.facilityJoins(userId, {
+      date,
+      joinability,
+      regionMode,
+      lat: optionalNum(lat),
+      lng: optionalNum(lng),
+      radiusMeters: optionalNum(radiusMeters),
+      sido,
+      sigungu,
+      sort,
+    });
+  }
+
   @Get(':joinId')
   @UseGuards(MockAuthGuard)
   detail(@Param('joinId') joinId: string, @CurrentUserId() userId: string) {

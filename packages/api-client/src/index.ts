@@ -55,6 +55,8 @@ import {
   type CoinIssuanceType,
   type DiscoverJoinsResponse,
   type DiscoverWeeklyCountsResponse,
+  type DiscoverRegionSummaryResponse,
+  type DiscoverFacilityJoinsResponse,
   type AdminDistrictCatalogResponse,
   type UserJoinRegionPreferenceListResponse,
   type UserJoinRegionPreferenceDto,
@@ -440,6 +442,51 @@ export class ApiClient {
     });
     const res = await request(
       `${this.config.baseUrl}/joins/discover/weekly?${params.toString()}`,
+      { headers: await this.headers(true), signal },
+    );
+    return parseJson(res);
+  }
+
+  async getDiscoverRegionSummary(
+    query: {
+      date: string;
+      joinability?: JoinDiscoveryJoinability;
+      sido?: string;
+      sigungu?: string;
+    },
+    signal?: AbortSignal,
+  ): Promise<DiscoverRegionSummaryResponse> {
+    const params = new URLSearchParams();
+    Object.entries(query).forEach(([k, v]) => {
+      if (v != null && v !== '') params.set(k, String(v));
+    });
+    const res = await request(
+      `${this.config.baseUrl}/joins/discover/region-summary?${params.toString()}`,
+      { headers: await this.headers(true), signal },
+    );
+    return parseJson(res);
+  }
+
+  async getDiscoverFacilityJoins(
+    query: {
+      date: string;
+      joinability?: JoinDiscoveryJoinability;
+      regionMode: JoinDiscoveryRegionMode;
+      lat?: number;
+      lng?: number;
+      radiusMeters?: number;
+      sido?: string;
+      sigungu?: string;
+      sort?: JoinDiscoverySort;
+    },
+    signal?: AbortSignal,
+  ): Promise<DiscoverFacilityJoinsResponse> {
+    const params = new URLSearchParams();
+    Object.entries(query).forEach(([k, v]) => {
+      if (v != null && v !== '') params.set(k, String(v));
+    });
+    const res = await request(
+      `${this.config.baseUrl}/joins/discover/facilities?${params.toString()}`,
       { headers: await this.headers(true), signal },
     );
     return parseJson(res);

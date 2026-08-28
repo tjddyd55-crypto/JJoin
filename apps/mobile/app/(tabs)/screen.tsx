@@ -1,10 +1,11 @@
 import React from 'react';
-import { ExploreMapScreen } from '../../src/features/explore/screens/ExploreMapScreen';
+import { ScreenExploreScreen } from '../../src/features/explore/screen-explore/ScreenExploreScreen';
 
 /**
- * 스크린 탭 — GolfFacility 지도/검색 (조인 유무와 무관하게 매장 탐색).
- * discovery 필터와 상태 분리: discoveryLinked=false.
+ * 스크린 탭 — [지역별 | 지도] 탐색.
+ * 지도 탭: 기존 GolfFacility Kakao 지도 (discoveryLinked=false).
+ * 지역별 탭: 날짜 × 행정구역 기반 조인 탐색 (실험 UI).
  */
 export default function ScreenTab() {
-  return <ExploreMapScreen />;
+  return <ScreenExploreScreen />;
 }

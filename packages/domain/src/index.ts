@@ -333,6 +333,23 @@ export {
 } from './admin-districts';
 
 export {
+  REGION_EXPLORE_TOP_SIDO,
+  buildRegionBreadcrumb,
+  buildRegionDateStrip,
+  findSidoGroup,
+  listRegionExploreNodes,
+  listTopLevelSido,
+  matchesRegionScope,
+  normalizeFacilityDistrict,
+  normalizeSido,
+  regionExploreHasChildren,
+  resolveRegionScopeSigungu,
+  type RegionExploreBreadcrumb,
+  type RegionExploreNode,
+  type NormalizedFacilityDistrict,
+} from './region-explore-catalog';
+
+export {
   classifyCoinSupplyEffect,
   currentSupply,
   isBurnLedgerType,

@@ -14,6 +14,12 @@ import {
   formatMatchingRecruitmentLabel,
   countMatchingGenderComposition,
   kstDayBoundsUtc,
+  listRegionExploreNodes,
+  listTopLevelSido,
+  matchesRegionScope,
+  normalizeSido,
+  regionExploreHasChildren,
+  resolveRegionScopeSigungu,
   localDayKey,
   partitionDiscoverJoins,
   resolveDiscoverCanJoin,
@@ -31,6 +37,9 @@ import {
   type DiscoverJoinCardDto,
   type DiscoverJoinsResponse,
   type DiscoverWeeklyCountsResponse,
+  type DiscoverRegionSummaryResponse,
+  type DiscoverFacilityJoinsResponse,
+  type DiscoverFacilityJoinItemDto,
   type JoinDiscoveryJoinability,
   type JoinDiscoveryRegionMode,
   type JoinDiscoverySort,
@@ -62,6 +71,25 @@ export type DiscoverWeeklyCountsQuery = {
   radiusMeters?: number;
   sido?: string;
   sigungu?: string;
+};
+
+export type DiscoverRegionSummaryQuery = {
+  date?: string;
+  joinability?: string;
+  sido?: string;
+  sigungu?: string;
+};
+
+export type DiscoverFacilityJoinsQuery = {
+  date?: string;
+  joinability?: string;
+  regionMode?: string;
+  lat?: number;
+  lng?: number;
+  radiusMeters?: number;
+  sido?: string;
+  sigungu?: string;
+  sort?: string;
 };
 
 type DiscoveryJoinRow = {
@@ -206,6 +234,218 @@ export class JoinDiscoveryService {
         })),
       })),
     };
+  }
+
+  async regionSummary(
+    userId: string,
+    query: DiscoverRegionSummaryQuery,
+  ): Promise<DiscoverRegionSummaryResponse> {
+    const now = new Date();
+    const date = this.resolveDateKey(query.date, now);
+    const joinability = this.resolveJoinability(query.joinability ?? 'JOINABLE');
+    const cards = await this.loadJoinableCardsForDate(userId, date, now, joinability);
+
+    const parentSido = query.sido?.trim();
+    const parentSigungu = query.sigungu?.trim();
+
+    if (!parentSido) {
+      const items = listTopLevelSido().map(({ sido, label }) => ({
+        sido,
+        label,
+        count: this.countCardsInSido(cards, sido),
+        hasChildren: listRegionExploreNodes(sido).length > 0,
+      }));
+      return { date, joinability, items };
+    }
+
+    const canonicalSido = normalizeSido(parentSido) ?? parentSido;
+
+    if (!parentSigungu) {
+      const nodes = listRegionExploreNodes(canonicalSido);
+      const items = nodes.map((node) => ({
+        sido: node.sido,
+        sigungu: node.sigungu,
+        label: node.label,
+        count: this.countCardsInScope(
+          cards,
+          node.sido,
+          node.sigungu,
+          node.hasChildren,
+        ),
+        hasChildren: node.hasChildren,
+      }));
+      return {
+        date,
+        joinability,
+        parentSido: canonicalSido,
+        items,
+      };
+    }
+
+    if (regionExploreHasChildren(canonicalSido, parentSigungu)) {
+      const nodes = listRegionExploreNodes(canonicalSido, parentSigungu);
+      const items = nodes.map((node) => ({
+        sido: node.sido,
+        sigungu: node.sigungu,
+        label: node.label,
+        count: this.countCardsInScope(cards, node.sido, node.sigungu, false),
+        hasChildren: false,
+      }));
+      return {
+        date,
+        joinability,
+        parentSido: canonicalSido,
+        parentSigungu,
+        items,
+      };
+    }
+
+    return {
+      date,
+      joinability,
+      parentSido: canonicalSido,
+      parentSigungu,
+      items: [],
+    };
+  }
+
+  async facilityJoins(
+    userId: string,
+    query: DiscoverFacilityJoinsQuery,
+  ): Promise<DiscoverFacilityJoinsResponse> {
+    const now = new Date();
+    const date = this.resolveDateKey(query.date, now);
+    const joinability = this.resolveJoinability(query.joinability ?? 'JOINABLE');
+    const sort = this.resolveSort(query.sort);
+    const region = this.resolveRegion({
+      regionMode: query.regionMode,
+      lat: query.lat,
+      lng: query.lng,
+      radiusMeters: query.radiusMeters,
+      sido: query.sido,
+      sigungu: query.sigungu,
+    });
+
+    const cards = await this.loadJoinableCardsForDate(userId, date, now, joinability);
+    const scoped = this.filterCardsByResolvedRegion(cards, region);
+    const sorted = [...scoped].sort((a, b) =>
+      compareDiscoverJoinOrder(a, b, { sort, now }),
+    );
+
+    const byVenue = new Map<string, DiscoverJoinCardDto[]>();
+    for (const card of sorted) {
+      const list = byVenue.get(card.venueId) ?? [];
+      list.push(card);
+      byVenue.set(card.venueId, list);
+    }
+
+    const facilities: DiscoverFacilityJoinItemDto[] = [];
+    for (const [, joins] of byVenue) {
+      const first = joins[0]!;
+      facilities.push({
+        venueId: first.venueId,
+        venueName: first.venueName,
+        golfFacilityId: first.golfFacilityId,
+        sido: first.sido,
+        sigungu: first.sigungu,
+        distanceMeters: first.distanceMeters,
+        joinCount: joins.length,
+        startTimes: joins.map((j) => j.startAt),
+      });
+    }
+
+    if (sort === 'DISTANCE') {
+      facilities.sort(
+        (a, b) =>
+          (a.distanceMeters ?? Number.POSITIVE_INFINITY) -
+          (b.distanceMeters ?? Number.POSITIVE_INFINITY),
+      );
+    }
+
+    return {
+      date,
+      regionLabel: region.label,
+      totalJoinCount: sorted.length,
+      facilities,
+    };
+  }
+
+  private async loadJoinableCardsForDate(
+    userId: string,
+    date: string,
+    now: Date,
+    joinability: JoinDiscoveryJoinability,
+  ): Promise<DiscoverJoinCardDto[]> {
+    const { start: dayStart, end: dayEnd } = kstDayBoundsUtc(date);
+    const rows = await this.findDiscoveryJoins({
+      startAtGte: dayStart,
+      startAtLt: dayEnd,
+      now,
+    });
+    const discoverable = rows.filter((row) => this.isDiscoverable(row, now));
+    const region: ResolvedRegion = {
+      mode: 'NEARBY',
+      label: '전국',
+      radiusMeters: DEFAULT_NEARBY_RADIUS_METERS,
+    };
+    const cards = discoverable
+      .map((row) => this.toCard(row, userId, region, now))
+      .filter((card) => (joinability === 'JOINABLE' ? card.canJoin : true));
+    return cards;
+  }
+
+  private countCardsInSido(
+    cards: DiscoverJoinCardDto[],
+    sido: string,
+  ): number {
+    return cards.filter((c) =>
+      matchesRegionScope(c.sido, c.sigungu, sido),
+    ).length;
+  }
+
+  private countCardsInScope(
+    cards: DiscoverJoinCardDto[],
+    sido: string,
+    sigungu: string,
+    includeChildScope: boolean,
+  ): number {
+    return cards.filter((c) => {
+      if (!matchesRegionScope(c.sido, null, sido)) return false;
+      if (!includeChildScope) {
+        return matchesRegionScope(c.sido, c.sigungu, sido, sigungu);
+      }
+      const scope = resolveRegionScopeSigungu(sido, sigungu);
+      return c.sigungu != null && scope.includes(c.sigungu);
+    }).length;
+  }
+
+  private filterCardsByResolvedRegion(
+    cards: DiscoverJoinCardDto[],
+    region: ResolvedRegion,
+  ): DiscoverJoinCardDto[] {
+    if (region.mode === 'NEARBY') {
+      const lat = region.lat!;
+      const lng = region.lng!;
+      const radius = region.radiusMeters;
+      return cards.filter((c) => {
+        if (
+          c.latitude == null ||
+          c.longitude == null ||
+          !Number.isFinite(c.latitude) ||
+          !Number.isFinite(c.longitude)
+        ) {
+          return false;
+        }
+        return haversineMeters(lat, lng, c.latitude, c.longitude) <= radius;
+      });
+    }
+    const hasChildren =
+      region.sido != null &&
+      region.sigungu != null &&
+      regionExploreHasChildren(region.sido, region.sigungu);
+    return cards.filter((c) =>
+      this.countCardsInScope([c], region.sido!, region.sigungu!, hasChildren) > 0,
+    );
   }
 
   private async findDiscoveryJoins(input: {
