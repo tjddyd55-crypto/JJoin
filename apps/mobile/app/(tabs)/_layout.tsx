@@ -70,6 +70,10 @@ function ClubMinimalTabBar(props: {
 }
 
 export default function TabLayout() {
+  if (__DEV__) {
+    console.log('[BOOT 08] tabs route render');
+  }
+
   return (
     <ThemeProvider theme={clubMinimalTheme}>
       <Tabs
