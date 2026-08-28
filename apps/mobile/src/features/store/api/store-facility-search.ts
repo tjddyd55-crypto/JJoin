@@ -22,21 +22,31 @@ export function dedupeGolfFacilities(items: GolfFacilityMapDto[]): GolfFacilityM
   return out;
 }
 
-export async function searchStoreFacilities(
+/** Store verification — screen-eligible facilities only (existing SSOT). */
+export function isStoreVerificationEligible(facility: GolfFacilityMapDto): boolean {
+  return facility.isScreenJoinEligible === true;
+}
+
+export function formatFacilityRegion(facility: GolfFacilityMapDto): string | null {
+  const parts = [facility.sido, facility.sigungu].filter(Boolean);
+  return parts.length > 0 ? parts.join(' ') : null;
+}
+
+async function searchFacilities(
   api: ApiClient,
-  query: string,
-  limit = 30,
+  query: {
+    q?: string;
+    sido?: string;
+    sigungu?: string;
+    limit?: number;
+  },
 ): Promise<GolfFacilityMapDto[]> {
-  const q = query.trim();
-  if (q.length < 1) {
-    throw new StoreFacilitySearchError(
-      '매장명 또는 주소를 입력해주세요.',
-      'EMPTY_QUERY',
-    );
-  }
   try {
-    const result = await api.searchGolfFacilities({ q, limit });
-    return dedupeGolfFacilities(result.items);
+    const result = await api.searchGolfFacilities({
+      ...query,
+      screenOnly: true,
+    });
+    return dedupeGolfFacilities(result.items.filter(isStoreVerificationEligible));
   } catch (e) {
     const msg = e instanceof Error ? e.message : '';
     if (msg.includes('api_error:401') || msg.includes('api_error:403')) {
@@ -58,7 +68,29 @@ export async function searchStoreFacilities(
   }
 }
 
-export function formatFacilityRegion(facility: GolfFacilityMapDto): string | null {
-  const parts = [facility.sido, facility.sigungu].filter(Boolean);
-  return parts.length > 0 ? parts.join(' ') : null;
+export async function searchStoreFacilities(
+  api: ApiClient,
+  query: string,
+  limit = 30,
+): Promise<GolfFacilityMapDto[]> {
+  const q = query.trim();
+  if (q.length < 1) {
+    throw new StoreFacilitySearchError(
+      '매장명 또는 주소를 입력해주세요.',
+      'EMPTY_QUERY',
+    );
+  }
+  return searchFacilities(api, { q, limit });
+}
+
+export async function listStoreFacilitiesByDistrict(
+  api: ApiClient,
+  input: { sido: string; sigungu: string; q?: string; limit?: number },
+): Promise<GolfFacilityMapDto[]> {
+  return searchFacilities(api, {
+    sido: input.sido,
+    sigungu: input.sigungu,
+    q: input.q?.trim() || undefined,
+    limit: input.limit ?? 100,
+  });
 }

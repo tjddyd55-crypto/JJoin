@@ -527,13 +527,21 @@ export class ApiClient {
 
   /** Search GolfFacility master — no Venue side effects. */
   async searchGolfFacilities(query: {
-    q: string;
+    q?: string;
+    sido?: string;
+    sigungu?: string;
+    screenOnly?: boolean;
     limit?: number;
     cursor?: string;
   }): Promise<GolfFacilitySearchResponse> {
     const params = new URLSearchParams();
     Object.entries(query).forEach(([k, v]) => {
-      if (v != null && v !== '') params.set(k, String(v));
+      if (v == null || v === '') return;
+      if (k === 'screenOnly') {
+        if (v) params.set(k, 'true');
+        return;
+      }
+      params.set(k, String(v));
     });
     const res = await request(
       `${this.config.baseUrl}/golf-facilities/search?${params.toString()}`,

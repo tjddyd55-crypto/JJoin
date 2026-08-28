@@ -80,6 +80,16 @@ export function WeekStrip({
   );
 }
 
+/** Muted weekend tones — selected (gold) state always wins. */
+function weekendTextColor(
+  weekdayIndex: number,
+  theme: ReturnType<typeof useTheme>,
+): string | undefined {
+  if (weekdayIndex === 0) return theme.colors.status.error;
+  if (weekdayIndex === 6) return theme.colors.status.info;
+  return undefined;
+}
+
 function DayCell({
   cell,
   selected,
@@ -96,6 +106,7 @@ function DayCell({
   onPress: () => void;
 }) {
   const theme = useTheme();
+  const weekendColor = weekendTextColor(cell.weekdayIndex, theme);
   const a11y = [
     `${cell.weekdayLabel}요일 ${cell.dayOfMonth}일`,
     cell.isToday ? '오늘' : null,
@@ -116,7 +127,9 @@ function DayCell({
       <Text
         variant="meta"
         tone={selected ? 'primary' : 'tertiary'}
-        style={selected ? { color: gold } : undefined}
+        style={
+          selected ? { color: gold } : weekendColor ? { color: weekendColor } : undefined
+        }
       >
         {cell.weekdayLabel}
       </Text>
@@ -131,7 +144,13 @@ function DayCell({
         <Text
           variant={compact ? 'meta' : 'body'}
           tone="primary"
-          style={selected ? { color: theme.colors.text.onGold } : undefined}
+          style={
+            selected
+              ? { color: theme.colors.text.onGold }
+              : weekendColor
+                ? { color: weekendColor }
+                : undefined
+          }
         >
           {cell.dayOfMonth}
         </Text>

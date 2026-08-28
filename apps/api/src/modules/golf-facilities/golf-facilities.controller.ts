@@ -67,11 +67,17 @@ export class GolfFacilitiesController {
   @UseGuards(MockAuthGuard)
   search(
     @Query('q') q?: string,
+    @Query('sido') sido?: string,
+    @Query('sigungu') sigungu?: string,
+    @Query('screenOnly') screenOnly?: string,
     @Query('limit') limit?: string,
     @Query('cursor') cursor?: string,
   ) {
     return this.service.search({
-      q: q ?? '',
+      q,
+      sido,
+      sigungu,
+      screenOnly: screenOnly === 'true' || screenOnly === '1',
       limit: optionalInt(limit),
       cursor,
     });

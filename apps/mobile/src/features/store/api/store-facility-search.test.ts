@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   dedupeGolfFacilities,
   formatFacilityRegion,
+  isStoreVerificationEligible,
 } from './store-facility-search';
 import type { GolfFacilityMapDto } from '@jjoin/types';
 
@@ -35,4 +36,12 @@ test('dedupeGolfFacilities keeps first occurrence', () => {
 
 test('formatFacilityRegion joins sido and sigungu', () => {
   assert.equal(formatFacilityRegion(sample('a')), '서울특별시 강남구');
+});
+
+test('isStoreVerificationEligible uses isScreenJoinEligible SSOT', () => {
+  assert.equal(isStoreVerificationEligible(sample('a')), true);
+  assert.equal(
+    isStoreVerificationEligible(sample('b', { isScreenJoinEligible: false })),
+    false,
+  );
 });

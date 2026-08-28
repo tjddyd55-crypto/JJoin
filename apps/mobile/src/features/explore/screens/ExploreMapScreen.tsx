@@ -28,6 +28,7 @@ import { isInternalToolsEnabled } from '../../../lib/internal-tools';
 import { fetchExploreMap, REGION_SEARCH_FIXTURES } from '../api/explore-api';
 import {
   fetchGolfFacilitiesInRegion,
+  fetchNearbyUsersForMap,
   searchGolfFacilitiesForExplore,
 } from '../api/golf-facility-explore';
 import {
@@ -71,6 +72,7 @@ type PlaceSource = 'GOLF_FACILITY' | 'KAKAO';
 const VIEWPORT_DEBOUNCE_MS = 350;
 const SEARCH_DEBOUNCE_MS = 300;
 const MIN_SEARCH_CHARS = 1;
+const VENUE_LIST_PAGE_SIZE = 20;
 
 export type ExploreMapScreenProps = {
   /** When embedded in Weekly+Regional Explore — share date/region filter. */
@@ -123,6 +125,8 @@ export function ExploreMapScreen({
   const [myStores, setMyStores] = useState<StoreOwnershipDto[]>([]);
   const [sheetIndex, setSheetIndex] = useState(0);
   const [mapViewportBounds, setMapViewportBounds] = useState<GeoBounds | null>(null);
+  const [venueListLimit, setVenueListLimit] = useState(VENUE_LIST_PAGE_SIZE);
+  const [sortFromDeviceLocation, setSortFromDeviceLocation] = useState(false);
   const mapReadySyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const runtime = getMapRuntimeStatus();
@@ -136,7 +140,7 @@ export function ExploreMapScreen({
     async (
       center: MapCoordinate,
       region: MapRegion = searchRegion,
-      todayJoinOnly = filter === 'TODAY_JOIN',
+      nextFilter: ExploreFilterId = filter,
     ) => {
       const seq = ++requestSeq.current;
       abortRef.current?.abort();
@@ -147,36 +151,72 @@ export function ExploreMapScreen({
       try {
         const disc = discoveryLinked ? discovery?.filter : null;
         const regionMode = disc?.region.mode;
-        const result = await fetchGolfFacilitiesInRegion({
-          store,
-          center,
-          region: {
-            ...region,
-            latitude: center.latitude,
-            longitude: center.longitude,
+        const fetchVenues = nextFilter !== 'USER';
+        const fetchUsers = nextFilter === 'USER' || nextFilter === 'ALL';
+
+        let venues: ExploreMapResponse['venues'] = [];
+        let users: ExploreMapResponse['users'] = [];
+
+        if (fetchVenues) {
+          const result = await fetchGolfFacilitiesInRegion({
+            store,
+            center,
+            region: {
+              ...region,
+              latitude: center.latitude,
+              longitude: center.longitude,
+            },
+            signal: ac.signal,
+            todayJoinOnly: discoveryLinked
+              ? true
+              : nextFilter === 'TODAY_JOIN',
+            includeUsers: false,
+            date: disc?.date,
+            regionMode,
+            sido: disc?.region.mode === 'DISTRICT' ? disc.region.sido : undefined,
+            sigungu:
+              disc?.region.mode === 'DISTRICT' ? disc.region.sigungu : undefined,
+            lat:
+              regionMode === 'NEARBY'
+                ? (externalLocation ?? deviceLocation)?.latitude
+                : (externalLocation ?? deviceLocation)?.latitude,
+            lng:
+              regionMode === 'NEARBY'
+                ? (externalLocation ?? deviceLocation)?.longitude
+                : (externalLocation ?? deviceLocation)?.longitude,
+            radiusMeters:
+              regionMode === 'NEARBY' ? DEFAULT_NEARBY_RADIUS_METERS : undefined,
+          });
+          if (seq !== requestSeq.current) return;
+          venues = result.venues;
+        }
+
+        if (fetchUsers) {
+          users = await fetchNearbyUsersForMap({
+            store,
+            center,
+            region: {
+              ...region,
+              latitude: center.latitude,
+              longitude: center.longitude,
+            },
+            signal: ac.signal,
+          });
+          if (seq !== requestSeq.current) return;
+        }
+
+        setData({
+          venues,
+          users,
+          metadata: {
+            sportCode: 'SCREEN_GOLF',
+            filter: nextFilter as ExploreFilter,
+            source: 'live',
+            venueCount: venues.length,
+            userCount: users.length,
           },
-          signal: ac.signal,
-          // Join tab (discoveryLinked): only places with joins for the selected date.
-          // Screen tab: never force this — show all GolfFacility markers.
-          todayJoinOnly: discoveryLinked ? true : todayJoinOnly,
-          date: disc?.date,
-          regionMode,
-          sido: disc?.region.mode === 'DISTRICT' ? disc.region.sido : undefined,
-          sigungu:
-            disc?.region.mode === 'DISTRICT' ? disc.region.sigungu : undefined,
-          lat:
-            regionMode === 'NEARBY'
-              ? (externalLocation ?? deviceLocation)?.latitude
-              : (externalLocation ?? deviceLocation)?.latitude,
-          lng:
-            regionMode === 'NEARBY'
-              ? (externalLocation ?? deviceLocation)?.longitude
-              : (externalLocation ?? deviceLocation)?.longitude,
-          radiusMeters:
-            regionMode === 'NEARBY' ? DEFAULT_NEARBY_RADIUS_METERS : undefined,
         });
-        if (seq !== requestSeq.current) return;
-        setData(result);
+        setVenueListLimit(VENUE_LIST_PAGE_SIZE);
       } catch (e) {
         if (ac.signal.aborted) return;
         if (seq !== requestSeq.current) return;
@@ -262,7 +302,7 @@ export function ExploreMapScreen({
       kakaoQuery?: string,
     ) => {
       if (source === 'GOLF_FACILITY') {
-        await loadGolfFacilityMap(center, region, nextFilter === 'TODAY_JOIN');
+        await loadGolfFacilityMap(center, region, nextFilter);
         return;
       }
       await loadKakaoMap(center, nextFilter, kakaoQuery ?? '스크린골프', region);
@@ -286,7 +326,7 @@ export function ExploreMapScreen({
         const region = regionFromBounds(bounds);
         setLastCameraCenter(center);
         setSearchRegion(region);
-        await loadGolfFacilityMap(center, region, filter === 'TODAY_JOIN');
+        await loadGolfFacilityMap(center, region, filter);
         if (__DEV__) {
           console.log('[ExploreMap:viewport]', { reason, bounds });
         }
@@ -454,6 +494,58 @@ export function ExploreMapScreen({
     [data, selectedUserId],
   );
 
+  const sortedVenues = useMemo(() => {
+    const venues = data?.venues ?? [];
+    if (venues.length <= 1) return venues;
+    const ref = sortFromDeviceLocation ? deviceLocation : lastCameraCenter;
+    if (!ref) return venues;
+    return [...venues].sort((a, b) => {
+      const da =
+        a.distanceMeters ??
+        Math.hypot(a.latitude - ref.latitude, a.longitude - ref.longitude) * 111_000;
+      const db =
+        b.distanceMeters ??
+        Math.hypot(b.latitude - ref.latitude, b.longitude - ref.longitude) * 111_000;
+      return da - db;
+    });
+  }, [data?.venues, sortFromDeviceLocation, deviceLocation, lastCameraCenter]);
+
+  const mapVenues = useMemo(() => {
+    if (filter === 'USER') return [];
+    return sortedVenues;
+  }, [filter, sortedVenues]);
+
+  const mapUsers = useMemo(() => {
+    if (filter === 'VENUE' || filter === 'TODAY_JOIN') return [];
+    return data?.users ?? [];
+  }, [filter, data?.users]);
+
+  const screenPeekSubtitle = useMemo(() => {
+    const venueCount = sortedVenues.length;
+    const userCount = data?.users.length ?? 0;
+    switch (filter) {
+      case 'USER':
+        return `지금 조인 가능 ${userCount}명`;
+      case 'TODAY_JOIN':
+        return `오늘 조인 ${venueCount}곳`;
+      case 'VENUE':
+        return `주변 스크린골프장 ${venueCount}곳`;
+      default:
+        return `스크린골프장 ${venueCount}곳 · 조인 가능 ${userCount}명`;
+    }
+  }, [filter, sortedVenues.length, data?.users.length]);
+
+  useEffect(() => {
+    if (!__DEV__) return;
+    console.log('[ScreenExplore]', {
+      viewportFacilities: sortedVenues.length,
+      markers: mapVenues.length + mapUsers.length,
+      listTotal: sortedVenues.length,
+      listVisible: Math.min(venueListLimit, sortedVenues.length),
+      filter,
+    });
+  }, [sortedVenues.length, mapVenues.length, mapUsers.length, venueListLimit, filter]);
+
   useEffect(() => {
     if (!selectedVenueId) return;
     if (!data?.venues.some((v) => v.venueId === selectedVenueId)) {
@@ -506,11 +598,11 @@ export function ExploreMapScreen({
       if (placeSource !== 'GOLF_FACILITY') return;
       if (viewportTimer.current) clearTimeout(viewportTimer.current);
       viewportTimer.current = setTimeout(() => {
-        void loadGolfFacilityMap(center, region);
+        void loadGolfFacilityMap(center, region, filter);
         setCameraDirty(false);
       }, VIEWPORT_DEBOUNCE_MS);
     },
-    [placeSource, loadGolfFacilityMap],
+    [placeSource, loadGolfFacilityMap, filter],
   );
 
   const goMyLocation = () => {
@@ -527,6 +619,7 @@ export function ExploreMapScreen({
     setCameraKey((k) => k + 1);
     setLastCameraCenter(deviceLocation);
     setCameraDirty(false);
+    setSortFromDeviceLocation(true);
     const nextRegion = {
       ...searchRegion,
       latitude: deviceLocation.latitude,
@@ -718,6 +811,7 @@ export function ExploreMapScreen({
       setSearchRegion(nextRegion);
     }
     setCameraDirty(true);
+    setSortFromDeviceLocation(false);
     scheduleViewportFetch(center, nextRegion);
   };
 
@@ -750,8 +844,8 @@ export function ExploreMapScreen({
         cameraKey={cameraKey}
         cameraTarget={cameraTarget}
         myLocation={deviceLocation}
-        venues={data?.venues ?? []}
-        users={data?.users ?? []}
+        venues={mapVenues}
+        users={mapUsers}
         selectedVenueId={selectedVenueId}
         selectedUserId={selectedUserId}
         onCameraGesture={onCameraGesture}
@@ -829,8 +923,13 @@ export function ExploreMapScreen({
           <ExploreBottomSheetBody
             mode={sheetMode}
             compactPeek={!discoveryLinked && sheetIndex === 0 && sheetMode === 'PEEK'}
-            venues={data?.venues ?? []}
-            users={data?.users ?? []}
+            venues={sortedVenues}
+            users={mapUsers}
+            mapFilter={filter}
+            venueListLimit={venueListLimit}
+            onLoadMoreVenues={() =>
+              setVenueListLimit((n) => n + VENUE_LIST_PAGE_SIZE)
+            }
             selectedVenue={selectedVenue}
             selectedUser={selectedUser}
             presence={presence}
@@ -838,8 +937,8 @@ export function ExploreMapScreen({
             peekTitle={discoveryLinked ? '조인이 있는 장소' : '주변 스크린골프장'}
             peekSubtitle={
               discoveryLinked
-                ? `선택일 기준 조인 장소 ${data?.venues.length ?? 0}곳`
-                : `주변 스크린골프장 ${data?.venues.length ?? 0}곳`
+                ? `선택일 기준 조인 장소 ${sortedVenues.length}곳`
+                : screenPeekSubtitle
             }
             onSelectVenue={onVenuePress}
             onSelectUser={onUserPress}

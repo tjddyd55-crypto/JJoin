@@ -15,6 +15,7 @@ import {
   aggregateFacilityJoinActivityForDate,
   compareJoinDiscoveryPriority,
   localDayKey,
+  matchesRegionScope,
 } from '@jjoin/domain';
 import {
   GOLF_FACILITY_MAP_DEFAULT_LIMIT,
@@ -209,12 +210,19 @@ export class GolfFacilitiesService {
    * May include MISSING coords (selectable=false). No Venue side effects.
    */
   async search(input: {
-    q: string;
+    q?: string;
+    sido?: string;
+    sigungu?: string;
+    screenOnly?: boolean;
     limit?: number;
     cursor?: string;
   }): Promise<GolfFacilitySearchResponse> {
-    const q = input.q.trim();
-    if (q.length < 1) {
+    const q = (input.q ?? '').trim();
+    const sido = input.sido?.trim();
+    const sigungu = input.sigungu?.trim();
+    const hasDistrict = Boolean(sido && sigungu);
+
+    if (q.length < 1 && !hasDistrict) {
       throw new BadRequestException({
         code: 'INVALID_SEARCH_QUERY',
         message: '검색어를 입력해 주세요.',
@@ -227,29 +235,45 @@ export class GolfFacilitiesService {
       });
     }
 
-    const limit = clampLimit(input.limit, GOLF_FACILITY_SEARCH_DEFAULT_LIMIT, 50);
+    const limit = clampLimit(input.limit, GOLF_FACILITY_SEARCH_DEFAULT_LIMIT, 100);
     const cursorId = input.cursor?.trim() || undefined;
 
     const rows = await this.prisma.golfFacility.findMany({
       where: {
         isActive: true,
-        OR: [
-          { displayName: { contains: q, mode: 'insensitive' } },
-          { sourceName: { contains: q, mode: 'insensitive' } },
-          { roadAddress: { contains: q, mode: 'insensitive' } },
-          { lotAddress: { contains: q, mode: 'insensitive' } },
-          { sido: { contains: q, mode: 'insensitive' } },
-          { sigungu: { contains: q, mode: 'insensitive' } },
-        ],
+        ...(input.screenOnly ? { isScreenJoinEligible: true } : {}),
         ...(cursorId ? { id: { gt: cursorId } } : {}),
       },
       select: MAP_SELECT,
-      orderBy: [{ id: 'asc' }],
-      take: limit + 1,
+      orderBy: [{ displayName: 'asc' }, { id: 'asc' }],
+      take: hasDistrict ? 2000 : limit + 1,
     });
 
-    const page = rows.slice(0, limit);
-    const nextCursor = rows.length > limit ? page[page.length - 1]?.id ?? null : null;
+    const qLower = q.toLowerCase();
+    const textMatch = (row: (typeof rows)[number]) => {
+      if (!q) return true;
+      const hay = [
+        row.displayName,
+        row.sourceName,
+        row.roadAddress,
+        row.lotAddress,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return hay.includes(qLower);
+    };
+
+    const filtered = rows.filter((row) => {
+      if (hasDistrict && !matchesRegionScope(row.sido, row.sigungu, sido!, sigungu!)) {
+        return false;
+      }
+      return textMatch(row);
+    });
+
+    const page = filtered.slice(0, limit);
+    const nextCursor =
+      filtered.length > limit ? page[page.length - 1]?.id ?? null : null;
     const activityByFacility = await this.joinActivityByGolfFacilityIds(
       page.map((r) => r.id),
     );
