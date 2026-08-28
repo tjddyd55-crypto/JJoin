@@ -1,8 +1,13 @@
 # JJOIN PUBLIC GOLF FACILITY SYNC REPORT
 
-날짜: 2026-08-25  
-작업 트리: `C:\workspace\jjoin-main`  
-결과: **PUBLIC_GOLF_SYNC_NEEDS_FIX** (로컬 PASS, production merge/deploy 미완)
+날짜: 2026-08-25 (schedule ops 갱신: 2026-08-28)  
+작업 트리: `C:\workspace\jjoin`  
+결과 (sync 기능): production 배포 후 운영 중  
+결과 (schedule 최적화 2026-08-28): **PUBLIC_GOLF_SYNC_DAILY_GATE_RETAINED**
+
+Railway는 cron timezone을 지원하지 않음(UTC only).  
+KST 1·16일 04:00를 day-of-month로 고정하면 월 경계에서 날짜가 하루 밀리거나 DOM이 달마다 달라지므로,  
+**매일 19:00 UTC wake + script KST calendar gate**를 유지하는 것이 정확성 우선 결정.
 
 ## Source
 
@@ -75,14 +80,32 @@ Idempotent rerun (fingerprint/TM reuse fix 후):
 
 ## Schedule (Railway)
 
-- service: `caring-solace` (`973a2ee2-9848-4a90-b7df-8e479772968e`) — display rename API 불가
+- service display name: `public-golf-sync` (historical Railway id `973a2ee2-9848-4a90-b7df-8e479772968e`; former random name `caring-solace`)
 - repo: `tjddyd55-crypto/JJoin` @ `main`
+- config: `railway.worker.json` (no HTTP healthcheck; start → work → exit)
 - startCommand: `pnpm exec tsx scripts/run-public-golf-facility-sync.ts`
-- cronSchedule: `0 19 * * *` UTC (= **04:00 KST daily**)
+- Railway cron (UTC only): `0 19 * * *` (= **매일 04:00 KST wake**)
 - calendar gate in script: KST **1일 / 16일**만 실동기화 (`--force`는 수동)
 - restartPolicy: NEVER
-- vars: `DATABASE_URL` (Postgres ref), `NODE_ENV`, `DATA_GO_KR_SERVICE_KEY` (PRESENT)
-- next calendar sync: **2026-09-01 04:00 KST** (2026-08-31 19:00 UTC cron)
+- vars: `DATABASE_URL` (Postgres ref), `NODE_ENV`, `DATA_GO_KR_SERVICE_KEY`
+- next calendar sync example: **2026-09-01 04:00 KST** (wake `2026-08-31 19:00 UTC`; non-run days skip inside script)
+
+### Why daily wake + KST gate (not `1,16` DOM)
+
+Railway cron is **UTC-only** (no per-service timezone). KST 04:00 = UTC previous calendar day 19:00, so:
+
+| Target KST | Equivalent UTC | UTC day-of-month |
+|------------|----------------|------------------|
+| 2026-09-01 04:00 | 2026-08-31 19:00 | **31** (Aug) |
+| 2026-09-16 04:00 | 2026-09-15 19:00 | **15** |
+| 2026-03-01 04:00 | 2026-02-28 19:00 | **28** (or 29 leap) |
+| 2027-01-01 04:00 | 2026-12-31 19:00 | **31** (Dec) |
+
+Naive `0 19 1,16 * *` would fire **KST 2일·17일 04:00** (하루 밀림) → FAIL.  
+Fixed `0 19 15,L * *` / multi-schedule also fails month length / Railway single-schedule limits.
+
+**Decision:** keep daily UTC wake + in-script KST gate as the accurate ops schedule.  
+Do not remove the gate (manual/`--force` safety + scheduler drift defense).
 
 ## Sample QA (Gwangjin)
 
@@ -119,16 +142,15 @@ pnpm exec tsx scripts/run-public-golf-facility-sync.ts --force
 - CLI `scripts/run-public-golf-facility-sync.ts` — cron/manual 진입점
 - migration `0009_public_golf_facility_sync` — additive (`lastSeenAt`, `consecutiveMissCount`, `sourceRawJson`, sync run table)
 
-## Remaining for READY
+## Remaining (historical — sync feature)
 
-1. sync 관련 변경을 `main`에 merge/push (현재 uncommitted / origin/main에 script·migration 없음)
-2. production `0009` migrate
-3. production `pnpm sync:public-golf-facilities:force` 1회
-4. production smoke (count + Gwangjin + map bounds)
+1. ~~sync 관련 변경을 `main`에 merge~~ (완료)
+2. ~~production migrate / force sync~~ (운영 중)
+3. schedule: Railway timezone 미지원 → daily+gate 유지 (`PUBLIC_GOLF_SYNC_DAILY_GATE_RETAINED`)
 
 ## Result
 
-**PUBLIC_GOLF_SYNC_NEEDS_FIX**
+**PUBLIC_GOLF_SYNC_DAILY_GATE_RETAINED** (2026-08-28 schedule review)
 
-로컬 게이트(전체 pagination, 분류 무관 upsert, UNKNOWN 지도 노출, idempotent, failure 보존, Railway cron 설정)는 충족.  
-production merge · migrate · smoke가 PASS gate 미충족.
+Railway cron = UTC only. Naive `1,16` DOM would mis-fire KST dates.  
+Production keeps `0 19 * * *` + script KST 1·16 gate + `--force`. DB sync logic unchanged.
