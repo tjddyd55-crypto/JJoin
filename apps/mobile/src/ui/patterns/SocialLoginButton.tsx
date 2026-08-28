@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, ActivityIndicator, type StyleProp, type ViewStyle } from 'react-native';
+import { Image, Pressable, StyleSheet, ActivityIndicator, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Text, useTheme, opacity } from '@jjoin/design-system';
 import type { SocialProvider } from '@jjoin/types';
 
@@ -12,11 +12,24 @@ export type SocialLoginButtonProps = {
 
 const PROVIDER_BRAND: Record<
   SocialProvider,
-  { background: string; text: string; border?: string }
+  { background: string; text: string; border?: string; logo: number }
 > = {
-  KAKAO: { background: '#FEE500', text: '#191600' },
-  NAVER: { background: '#03C75A', text: '#FFFFFF' },
-  GOOGLE: { background: '#FFFFFF', text: '#1F1F1F', border: '#DADCE0' },
+  KAKAO: {
+    background: '#FEE500',
+    text: '#191600',
+    logo: require('../../../assets/branding/kakao.png'),
+  },
+  NAVER: {
+    background: '#03C75A',
+    text: '#FFFFFF',
+    logo: require('../../../assets/branding/naver.png'),
+  },
+  GOOGLE: {
+    background: '#FFFFFF',
+    text: '#1F1F1F',
+    border: '#DADCE0',
+    logo: require('../../../assets/branding/google.png'),
+  },
 };
 
 /** Visual-only social CTA. OAuth handlers stay in the screen. */
@@ -52,9 +65,12 @@ export function SocialLoginButton({
       {loading ? (
         <ActivityIndicator color={brand.text} />
       ) : (
-        <Text variant="button" style={{ color: brand.text }}>
-          {label}
-        </Text>
+        <View style={styles.content}>
+          <Image source={brand.logo} style={styles.logo} accessibilityIgnoresInvertColors />
+          <Text variant="button" style={{ color: brand.text }}>
+            {label}
+          </Text>
+        </View>
       )}
     </Pressable>
   );
@@ -66,5 +82,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     alignSelf: 'stretch',
+  },
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  logo: {
+    width: 24,
+    height: 24,
   },
 });
