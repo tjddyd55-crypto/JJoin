@@ -224,6 +224,25 @@ export {
 } from './coin-join';
 
 export {
+  ENTITLEMENT_ROOM_CREATION_FEE_WAIVER,
+  JOIN_OPTION_MEMBERSHIP_SNAPSHOT,
+  MEMBERSHIP_PLAN_FREE,
+  MEMBERSHIP_PLAN_PREMIUM,
+  buildJoinMembershipSnapshot,
+  hasEntitlement,
+  isSubscriptionPeriodActive,
+  pickSubscriptionForResolution,
+  resolveEffectiveRoomCreationFee,
+  resolveMembershipFromSubscription,
+  type EntitlementCode,
+  type JoinMembershipSnapshot,
+  type MembershipPlanCode,
+  type ResolvedMembership,
+  type SubscriptionResolutionInput,
+  type SubscriptionStatusCode,
+} from './membership';
+
+export {
   REWARD_QUICK_ADD_DENOMINATIONS,
   addRewardQuickIncrement,
   computeCoinShortfall,

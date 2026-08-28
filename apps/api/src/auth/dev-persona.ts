@@ -17,6 +17,7 @@ import { CoinLedgerService } from '../modules/wallet/coin-ledger.service';
 import { isDevCoinFundingAllowed } from '../coin/dev-coin-policy';
 import type { PrismaService } from '../prisma/prisma.service';
 import { buildMeFromUser } from './user-me.mapper';
+import { loadUserMembershipDto } from '../modules/membership/membership.service';
 import { TERMS_VERSION, REQUIRED_CONSENT_TYPES } from './consent-policy';
 
 type PersonaFixture = {
@@ -197,7 +198,9 @@ export async function loadMeFromDb(prisma: PrismaClient, userId: string): Promis
     where: { userId, participationStatus: { in: ['APPROVED', 'CONFIRMED', 'COMPLETED'] } },
   });
 
-  return buildMeFromUser(user, participationCount);
+  const me = buildMeFromUser(user, participationCount);
+  const membership = await loadUserMembershipDto(prisma, userId);
+  return { ...me, membership };
 }
 
 async function seedDevPersonaConsents(prisma: PrismaClient, userId: string): Promise<void> {

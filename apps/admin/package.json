@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "typecheck": "echo \"admin typecheck via vite build in CI\"",
+    "typecheck": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@jjoin/api-client": "workspace:*",
     "@jjoin/types": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

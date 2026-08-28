@@ -15,6 +15,9 @@ import {
 } from '@jjoin/design-system';
 import { t } from '@jjoin/i18n';
 import { useSession } from '../../../session/SessionContext';
+import { useMembership } from '../../membership/useMembership';
+import { MembershipBadge } from '../../../ui/patterns/MembershipBadge';
+import { MembershipSummaryCard } from '../../../ui/patterns/MembershipSummaryCard';
 import { legalDocumentRoute } from '../../auth/legal';
 
 function showWithdrawTbd() {
@@ -23,6 +26,7 @@ function showWithdrawTbd() {
 
 export function MyHomeScreen() {
   const { me, logout } = useSession();
+  const { state: membershipState, presentation } = useMembership();
   const router = useRouter();
   const theme = useTheme();
   const profile = me?.publicProfile;
@@ -79,6 +83,9 @@ export function MyHomeScreen() {
             ) : (
               <Badge label="미인증" variant="warning" />
             )}
+            {membershipState === 'ready' && presentation ? (
+              <MembershipBadge presentation={presentation} />
+            ) : null}
           </Row>
         </View>
         <Icon name="chevronRight" tone="tertiary" size="sm" />
@@ -116,6 +123,15 @@ export function MyHomeScreen() {
         </Card>
       </Section>
 
+      <Spacer size="lg" />
+
+      {membershipState === 'ready' && presentation ? (
+        <Section title={t('my.membership')}>
+          <MembershipSummaryCard presentation={presentation} />
+          <Spacer size="sm" />
+        </Section>
+      ) : null}
+
       <Section title="설정">
         <Card variant="base" padding="none" style={styles.settingsCard}>
           <View style={styles.settingsInner}>
@@ -123,6 +139,18 @@ export function MyHomeScreen() {
               label={t('my.edit')}
               icon="edit"
               onPress={() => router.push('/my/edit-profile')}
+            />
+            <ListRow
+              label={t('my.membership')}
+              icon="verified"
+              subtitle={
+                membershipState === 'ready' && presentation
+                  ? presentation.settingsSubtitle
+                  : membershipState === 'loading' || membershipState === 'bootstrapping'
+                    ? t('common.loading')
+                    : undefined
+              }
+              onPress={() => router.push('/my/membership')}
             />
             <ListRow
               label={t('my.hosted')}

@@ -148,7 +148,29 @@ In new code, do not use raw `#09090A`, `fontSize: 17`, or `paddingHorizontal: 20
 | **Venue** | `BottomSheetFrame` inside `@gorhom/bottom-sheet` | `VenuePreviewCard`, `VenueCard`, `JoinCard` |
 | **Join Detail** | `ScrollScreenFrame` + `StickyActionFrame`, `Badge`, `Card` | status → Badge variant mapping |
 | **Join Create** | `FormScreenFrame` + `StickyActionFrame`, `Chip` | `RewardCoinInput`, `CoinSummaryCard` (preview props only) |
-| **MY / Profile** | `ScrollScreenFrame`, `Card`, `ListRow`, `Badge` | wallet summary Card, settings grouped list |
+| **MY / Profile** | `ScrollScreenFrame`, `Card`, `ListRow`, `Badge` | wallet summary Card, settings grouped list, **Membership** |
+
+### Membership (Phase E)
+
+Patterns live in `apps/mobile/src/ui/patterns/` — not DS core:
+
+- `MembershipBadge` — FREE `neutral` / PREMIUM `gold` (restrained)
+- `MembershipSummaryCard` — effective plan + period + cancel notice
+- `MembershipBenefitRow` — benefit lines
+- Access: `useMembership()` (Session `MeDto.membership` SSOT)
+
+```tsx
+import { MembershipBadge } from '../ui/patterns/MembershipBadge';
+import { useMembership } from '../features/membership/useMembership';
+
+const { state, presentation } = useMembership();
+{state === 'ready' && presentation ? (
+  <MembershipBadge presentation={presentation} />
+) : null}
+```
+
+Do **not** put Premium badge on public profile or JoinCard.
+Do **not** invent client `isPremium` or compute room fee locally — Join Create uses server coin-preview.
 
 ### Auth / Onboarding (Phase 1C)
 

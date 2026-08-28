@@ -32,6 +32,7 @@ import {
   estimateEndAt,
   mapGenderDisplay,
   nextJoinStatusAfterRoster,
+  resolveEffectiveRoomCreationFee,
   subCoinAmounts,
 } from '@jjoin/domain';
 import { createJoinSchema, joinCoinPreviewSchema } from '@jjoin/validation';
@@ -54,6 +55,7 @@ import { UserAccountService } from '../users/user-account.service';
 import { mockUserStore } from '../../mock/mock-user.store';
 import { NotificationEventService } from '../notifications/notification-event.service';
 import { NotificationType } from '@prisma/client';
+import { MembershipService } from '../membership/membership.service';
 
 const ACTIVE_JOIN_STATUSES: JoinStatus[] = [JoinStatus.OPEN, JoinStatus.FULL];
 
@@ -65,6 +67,7 @@ export class JoinsService {
     private readonly settlement: SettlementService,
     private readonly accounts: UserAccountService,
     private readonly notifications: NotificationEventService,
+    private readonly membership: MembershipService,
   ) {}
 
   ping() {
@@ -81,10 +84,10 @@ export class JoinsService {
       throw new BadRequestException('invalid_coin_preview');
     }
     let reward: string;
-    let roomCreationFee: string;
+    let policyFee: string;
     try {
       reward = parsed.data.rewardPerParticipant ?? resolveDefaultRewardPerParticipant();
-      roomCreationFee = resolveRoomCreationFee();
+      policyFee = resolveRoomCreationFee();
     } catch (e) {
       if (e instanceof CoinPolicyDisabledError) {
         throw new ServiceUnavailableException({
@@ -94,6 +97,11 @@ export class JoinsService {
       }
       throw e;
     }
+    const membership = await this.membership.resolveUserMembership(hostUserId);
+    const roomCreationFee = resolveEffectiveRoomCreationFee({
+      policyRoomCreationFee: policyFee,
+      membership,
+    });
     const requirement = computeJoinCoinRequirement({
       plannedPlayerCount: parsed.data.plannedPlayerCount,
       rewardPerParticipant: reward,
@@ -115,6 +123,8 @@ export class JoinsService {
       walletAvailable,
       walletAfterCreation,
       canCreate,
+      roomCreationFeeWaived: membership.hasRoomCreationFeeWaiver,
+      effectiveMembershipPlan: membership.effectivePlanCode,
     };
   }
 
@@ -152,10 +162,10 @@ export class JoinsService {
     }
 
     let rewardPerParticipant: string;
-    let roomCreationFee: string;
+    let policyFee: string;
     try {
       rewardPerParticipant = input.rewardPerParticipant ?? resolveDefaultRewardPerParticipant();
-      roomCreationFee = resolveRoomCreationFee();
+      policyFee = resolveRoomCreationFee();
     } catch (e) {
       if (e instanceof CoinPolicyDisabledError) {
         throw new ServiceUnavailableException({
@@ -165,11 +175,19 @@ export class JoinsService {
       }
       throw e;
     }
+    // Create-time server resolution — must match preview/create via same resolver.
+    const resolvedAt = new Date();
+    const membership = await this.membership.resolveUserMembership(hostUserId, resolvedAt);
+    const roomCreationFee = resolveEffectiveRoomCreationFee({
+      policyRoomCreationFee: policyFee,
+      membership,
+    });
     const requirement = computeJoinCoinRequirement({
       plannedPlayerCount: input.plannedPlayerCount,
       rewardPerParticipant,
       roomCreationFee,
     });
+    const membershipOption = this.membership.buildJoinOptionData(membership, resolvedAt);
 
     const scheduledEndAt = estimateEndAt({
       startAt,
@@ -273,13 +291,20 @@ export class JoinsService {
                 confirmedAt: new Date(),
               },
             },
-            ...(clientIdempotencyKey
+            ...(clientIdempotencyKey || membershipOption
               ? {
                   options: {
-                    create: {
-                      optionKey: 'client_idempotency_key',
-                      optionValueJson: { key: clientIdempotencyKey },
-                    },
+                    create: [
+                      ...(clientIdempotencyKey
+                        ? [
+                            {
+                              optionKey: 'client_idempotency_key',
+                              optionValueJson: { key: clientIdempotencyKey },
+                            },
+                          ]
+                        : []),
+                      membershipOption,
+                    ],
                   },
                 }
               : {}),

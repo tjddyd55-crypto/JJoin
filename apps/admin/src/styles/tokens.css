@@ -1,0 +1,33 @@
+:root {
+  /* Neutral dark / charcoal + subtle gold — ops console, not casino dashboard */
+  --admin-bg: #141618;
+  --admin-bg-elevated: #1c1f23;
+  --admin-bg-muted: #24282e;
+  --admin-surface: #1a1d21;
+  --admin-border: #2e343c;
+  --admin-border-strong: #3d4550;
+  --admin-text: #e8eaed;
+  --admin-text-secondary: #a8b0bb;
+  --admin-text-muted: #7a8491;
+  --admin-accent: #c4a35a;
+  --admin-accent-hover: #d4b56e;
+  --admin-accent-muted: rgba(196, 163, 90, 0.14);
+  --admin-text-on-accent: #141618;
+  --admin-danger: #c45c5c;
+  --admin-danger-hover: #d47070;
+  --admin-danger-muted: rgba(196, 92, 92, 0.16);
+  --admin-success: #6a9e78;
+  --admin-success-muted: rgba(106, 158, 120, 0.16);
+  --admin-warning: #c9a227;
+  --admin-info: #6b8cae;
+  --admin-overlay: rgba(0, 0, 0, 0.55);
+  --admin-sidebar-width: 232px;
+  --admin-header-height: 56px;
+  --admin-radius-sm: 6px;
+  --admin-radius: 10px;
+  --admin-radius-lg: 14px;
+  --admin-font: 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  --admin-mono: 'Cascadia Code', 'Consolas', ui-monospace, monospace;
+  --admin-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  --admin-focus-ring: 0 0 0 2px var(--admin-bg), 0 0 0 4px var(--admin-accent);
+}

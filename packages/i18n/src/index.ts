@@ -93,6 +93,19 @@ const koKR = {
   'my.withdraw': '회원탈퇴',
   'my.account.title': '계정',
   'my.account.linkingTbd': 'Account Linking · AUTH_POLICY_TBD',
+  'my.membership': '멤버십',
+  'membership.title': '멤버십',
+  'membership.benefitsTitle': '혜택',
+  'membership.benefit.feeWaiver': '조인 생성 이용료 면제',
+  'membership.benefit.active': '적용 중',
+  'membership.benefit.premiumOnly': 'Premium',
+  'membership.copy.feeWaiver':
+    'Premium 회원은 구독 기간 동안 조인 생성 이용료가 면제됩니다.',
+  'membership.copy.rewardStillRequired':
+    '참가자 보상 Coin은 Premium과 관계없이 호스트 Wallet에서 보류됩니다.',
+  'membership.free.intro':
+    'Premium 회원은 구독 기간 동안 조인 생성 횟수 제한 없이 생성 이용료가 면제됩니다. 참가 보상 Coin은 그대로 필요합니다.',
+  'membership.create.premiumBenefit': 'Premium 혜택',
   'wallet.available': '사용 가능',
   'wallet.hold': '보류 중',
   'wallet.total': '보유',

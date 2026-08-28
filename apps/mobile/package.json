@@ -11,6 +11,7 @@
     "prebuild": "expo prebuild",
     "web": "expo start --web",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --import tsx --test src/features/explore/map/map-geo.node-test.ts src/features/membership/membership-presentation.node-test.ts",
     "lint": "echo \"mobile lint placeholder\""
   },
   "dependencies": {
@@ -53,6 +54,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "tsx": "^4.19.2",
     "typescript": "~5.7.3"
   }
 }

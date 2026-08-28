@@ -12,6 +12,7 @@ import {
 } from '@jjoin/types';
 import { issueSessionToken } from '../auth/session-token';
 import { buildMeFromUser, resolveNextOnboardingStep } from '../auth/user-me.mapper';
+import { loadUserMembershipDto } from '../modules/membership/membership.service';
 import {
   isMockSocialCredential,
   resolveSocialAuthMode,
@@ -104,7 +105,8 @@ export class SocialAuthService {
 
     let me = buildMeFromUser(user, participationCount);
     const walletSummary = await this.wallet.getSummary(user.id);
-    me = { ...me, walletSummary };
+    const membership = await loadUserMembershipDto(this.prisma, user.id);
+    me = { ...me, walletSummary, membership };
 
     const accessToken = issueSessionToken(user.id);
     mockUserStore.hydrateFromMe(user.id, me, provider);

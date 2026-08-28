@@ -1,5 +1,6 @@
+import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Card, Divider, Row, Text, useTheme } from '@jjoin/design-system';
+import { Badge, Card, Divider, Row, Text, useTheme } from '@jjoin/design-system';
 import { t } from '@jjoin/i18n';
 
 export type CoinSummaryCardProps = {
@@ -13,6 +14,8 @@ export type CoinSummaryCardProps = {
   loading?: boolean;
   error?: string | null;
   shortfall?: string | null;
+  /** Server SSOT — do not invent client-side. */
+  roomCreationFeeWaived?: boolean;
 };
 
 /** Displays server preview numbers only — does not compute coin math. */
@@ -27,9 +30,8 @@ export function CoinSummaryCard({
   loading,
   error,
   shortfall,
+  roomCreationFeeWaived,
 }: CoinSummaryCardProps) {
-  const theme = useTheme();
-
   if (loading) {
     return (
       <Card variant="elevated" padding="md">
@@ -60,13 +62,23 @@ export function CoinSummaryCard({
     );
   }
 
+  const showPremiumFeeLabel = Boolean(roomCreationFeeWaived);
+
   return (
     <Card variant="elevated" padding="md">
       <Text variant="sectionTitle" tone="primary">
         {t('create.reward.summaryTitle')}
       </Text>
       <View style={styles.rows}>
-        <SummaryRow label={t('create.coin.fee')} value={`${roomCreationFee} Coin`} />
+        <SummaryRow
+          label={t('create.coin.fee')}
+          value={`${roomCreationFee} Coin`}
+          badge={
+            showPremiumFeeLabel ? (
+              <Badge label={t('membership.create.premiumBenefit')} variant="gold" />
+            ) : undefined
+          }
+        />
         <SummaryRow
           label={t('create.coin.reward')}
           value={`${rewardPerParticipant} × ${rewardEligibleSlots}`}
@@ -98,18 +110,23 @@ function SummaryRow({
   value,
   suffix,
   highlight,
+  badge,
 }: {
   label: string;
   value: string;
   suffix?: string;
   highlight?: boolean;
+  badge?: ReactNode;
 }) {
   const theme = useTheme();
   return (
     <Row justify="space-between" align="flex-start">
-      <Text variant="body" tone="secondary">
-        {label}
-      </Text>
+      <View style={styles.labelCol}>
+        <Text variant="body" tone="secondary">
+          {label}
+        </Text>
+        {badge ? <View style={styles.badgeWrap}>{badge}</View> : null}
+      </View>
       <View style={styles.valueCol}>
         <Text
           variant="bodyStrong"
@@ -132,6 +149,8 @@ function SummaryRow({
 
 const styles = StyleSheet.create({
   rows: { gap: 8, marginTop: 12 },
+  labelCol: { flex: 1, gap: 4, paddingRight: 8 },
+  badgeWrap: { alignSelf: 'flex-start' },
   valueCol: { alignItems: 'flex-end', gap: 2 },
   shortfall: { marginTop: 12 },
 });

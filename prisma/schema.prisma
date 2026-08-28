@@ -205,6 +205,8 @@ model User {
   notifications         AppNotification[]
   coinIssuancesReceived CoinIssuance[]         @relation("IssuanceRecipient")
   coinIssuancesCreated  CoinIssuance[]         @relation("IssuanceCreatedBy")
+  subscriptions         Subscription[]
+  subscriptionAuditsActed SubscriptionAuditEvent[] @relation("SubscriptionAuditActor")
   pushNotificationsEnabled Boolean @default(true) @map("push_notifications_enabled")
 
   @@map("users")
@@ -944,4 +946,115 @@ model PublicGolfFacilitySyncRun {
   @@index([startedAt])
   @@index([status, startedAt])
   @@map("public_golf_facility_sync_runs")
+}
+
+// ---------------------------------------------------------------------------
+// Membership / Subscription / Entitlement SSOT
+// Premium benefit = ROOM_CREATION_FEE_WAIVER only (not coin mint / not free reward).
+// FREE users need no Subscription row — resolver defaults to FREE.
+// ---------------------------------------------------------------------------
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  PAST_DUE
+  PENDING
+}
+
+enum SubscriptionSource {
+  ADMIN_TEST
+  ADMIN_GRANT
+  APP_STORE
+  PLAY_STORE
+  WEB_PG
+}
+
+enum SubscriptionAuditAction {
+  ACTIVATED
+  CANCEL_SCHEDULED
+  EXPIRED
+  MARKED_PAST_DUE
+  ADMIN_ADJUSTED
+}
+
+model MembershipPlan {
+  id          String    @id @default(uuid()) @db.Uuid
+  /// Stable identifier: FREE | PREMIUM
+  code        String    @unique
+  nameKey     String    @map("name_i18n_key")
+  isActive    Boolean   @default(true) @map("is_active")
+  /// Billing product price — nullable until payment Phase; never hardcode production amounts.
+  priceAmount Decimal?  @map("price_amount") @db.Decimal(18, 4)
+  currency    String?   @db.Char(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  entitlements  MembershipPlanEntitlement[]
+  subscriptions Subscription[]
+
+  @@map("membership_plans")
+}
+
+model MembershipPlanEntitlement {
+  id              String   @id @default(uuid()) @db.Uuid
+  planId          String   @map("plan_id") @db.Uuid
+  /// e.g. ROOM_CREATION_FEE_WAIVER
+  entitlementCode String   @map("entitlement_code")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  plan MembershipPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, entitlementCode])
+  @@index([entitlementCode])
+  @@map("membership_plan_entitlements")
+}
+
+model Subscription {
+  id                     String             @id @default(uuid()) @db.Uuid
+  userId                 String             @map("user_id") @db.Uuid
+  planId                 String             @map("plan_id") @db.Uuid
+  status                 SubscriptionStatus @default(PENDING)
+  startsAt               DateTime           @map("starts_at") @db.Timestamptz(6)
+  currentPeriodStart     DateTime           @map("current_period_start") @db.Timestamptz(6)
+  currentPeriodEnd       DateTime           @map("current_period_end") @db.Timestamptz(6)
+  cancelAtPeriodEnd      Boolean            @default(false) @map("cancel_at_period_end")
+  cancelledAt            DateTime?          @map("cancelled_at") @db.Timestamptz(6)
+  endedAt                DateTime?          @map("ended_at") @db.Timestamptz(6)
+  source                 SubscriptionSource @default(ADMIN_TEST)
+  /// Future billing provider label (APP_STORE / PLAY / PG) — not required for ADMIN_* sources.
+  provider               String?
+  providerSubscriptionId String?            @map("provider_subscription_id")
+  /// Client/admin idempotency key — unique per user when set.
+  referenceId            String?            @map("reference_id")
+  reason                 String?
+  createdByAdminUserId   String?            @map("created_by_admin_user_id") @db.Uuid
+  createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user    User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan    MembershipPlan             @relation(fields: [planId], references: [id])
+  audits  SubscriptionAuditEvent[]
+
+  @@unique([userId, referenceId])
+  @@index([userId, status, currentPeriodEnd])
+  @@index([planId, status])
+  @@index([provider, providerSubscriptionId])
+  @@map("subscriptions")
+}
+
+model SubscriptionAuditEvent {
+  id             String                  @id @default(uuid()) @db.Uuid
+  subscriptionId String                  @map("subscription_id") @db.Uuid
+  action         SubscriptionAuditAction
+  actorUserId    String?                 @map("actor_user_id") @db.Uuid
+  reason         String?
+  metadata       Json?
+  createdAt      DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  actor        User?        @relation("SubscriptionAuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([subscriptionId, createdAt])
+  @@map("subscription_audit_events")
 }

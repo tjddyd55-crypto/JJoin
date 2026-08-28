@@ -159,7 +159,7 @@ export default function CreateScreen() {
             조인 생성 완료
           </Text>
           <Text variant="body" tone="secondary">
-            방 생성 수수료와 참가 보상 보류가 Ledger에 기록되었습니다.
+            조인이 생성되었습니다. Coin 회계는 서버 Ledger 기준입니다.
           </Text>
           <Button
             label="조인 상세"
@@ -271,6 +271,7 @@ export default function CreateScreen() {
           loading={previewLoading && !preview}
           error={previewError}
           shortfall={shortfall}
+          roomCreationFeeWaived={preview?.roomCreationFeeWaived}
         />
 
         {error ? (

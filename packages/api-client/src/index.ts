@@ -46,6 +46,24 @@ import {
   type AdminManualIssuanceResponse,
   type AdminUserCoinHistoryDto,
   type CoinIssuanceType,
+  type AdminDashboardDto,
+  type AdminPageResult,
+  type AdminMemberListItemDto,
+  type AdminMemberDetailDto,
+  type AdminJoinListItemDto,
+  type AdminJoinDetailDto,
+  type AdminVenueListItemDto,
+  type AdminVenueDetailDto,
+  type AdminAuditEventDto,
+  type JoinStatus,
+  type UserMembershipDto,
+  type MembershipPlanDto,
+  type AdminSubscriptionListItemDto,
+  type AdminActivateSubscriptionRequest,
+  type AdminActivateSubscriptionResponse,
+  type AdminScheduleCancelSubscriptionRequest,
+  type AdminUserMembershipDetailDto,
+  type AdminSubscriptionDetailDto,
 } from '@jjoin/types';
 
 export type ApiClientConfig = {
@@ -630,6 +648,190 @@ export class ApiClient {
     const res = await request(`${this.config.baseUrl}/admin/coin/users/${userId}`, {
       headers: await this.headers(true),
     });
+    return parseJson(res);
+  }
+
+  async getAdminDashboard(): Promise<AdminDashboardDto> {
+    const res = await request(`${this.config.baseUrl}/admin/dashboard`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async listAdminMembers(query?: {
+    q?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<AdminPageResult<AdminMemberListItemDto>> {
+    const params = new URLSearchParams();
+    if (query?.q) params.set('q', query.q);
+    if (query?.page != null) params.set('page', String(query.page));
+    if (query?.pageSize != null) params.set('pageSize', String(query.pageSize));
+    const qs = params.toString();
+    const res = await request(`${this.config.baseUrl}/admin/members${qs ? `?${qs}` : ''}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getAdminMember(userId: string): Promise<AdminMemberDetailDto> {
+    const res = await request(`${this.config.baseUrl}/admin/members/${userId}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async listAdminJoins(query?: {
+    q?: string;
+    status?: JoinStatus;
+    page?: number;
+    pageSize?: number;
+  }): Promise<AdminPageResult<AdminJoinListItemDto>> {
+    const params = new URLSearchParams();
+    if (query?.q) params.set('q', query.q);
+    if (query?.status) params.set('status', query.status);
+    if (query?.page != null) params.set('page', String(query.page));
+    if (query?.pageSize != null) params.set('pageSize', String(query.pageSize));
+    const qs = params.toString();
+    const res = await request(`${this.config.baseUrl}/admin/joins${qs ? `?${qs}` : ''}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getAdminJoin(joinId: string): Promise<AdminJoinDetailDto> {
+    const res = await request(`${this.config.baseUrl}/admin/joins/${joinId}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async listAdminVenues(query?: {
+    q?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<AdminPageResult<AdminVenueListItemDto>> {
+    const params = new URLSearchParams();
+    if (query?.q) params.set('q', query.q);
+    if (query?.page != null) params.set('page', String(query.page));
+    if (query?.pageSize != null) params.set('pageSize', String(query.pageSize));
+    const qs = params.toString();
+    const res = await request(`${this.config.baseUrl}/admin/venues${qs ? `?${qs}` : ''}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getAdminVenue(venueId: string): Promise<AdminVenueDetailDto> {
+    const res = await request(`${this.config.baseUrl}/admin/venues/${venueId}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async listAdminAuditEvents(query?: {
+    limit?: number;
+  }): Promise<{ items: AdminAuditEventDto[] }> {
+    const params = new URLSearchParams();
+    if (query?.limit != null) params.set('limit', String(query.limit));
+    const qs = params.toString();
+    const res = await request(
+      `${this.config.baseUrl}/admin/audit-events${qs ? `?${qs}` : ''}`,
+      { headers: await this.headers(true) },
+    );
+    return parseJson(res);
+  }
+
+  async getMyMembership(): Promise<UserMembershipDto> {
+    const res = await request(`${this.config.baseUrl}/me/membership`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async listMembershipPlans(): Promise<MembershipPlanDto[]> {
+    const res = await request(`${this.config.baseUrl}/admin/memberships/plans`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async listAdminSubscriptions(query?: {
+    userId?: string;
+    q?: string;
+    status?: string;
+    planCode?: string;
+    effectivePremium?: boolean;
+    cancelScheduled?: boolean;
+    periodEndFrom?: string;
+    periodEndTo?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<{
+    items: AdminSubscriptionListItemDto[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
+    const params = new URLSearchParams();
+    if (query?.userId) params.set('userId', query.userId);
+    if (query?.q) params.set('q', query.q);
+    if (query?.status) params.set('status', query.status);
+    if (query?.planCode) params.set('planCode', query.planCode);
+    if (query?.effectivePremium === true) params.set('effectivePremium', 'true');
+    if (query?.effectivePremium === false) params.set('effectivePremium', 'false');
+    if (query?.cancelScheduled === true) params.set('cancelScheduled', 'true');
+    if (query?.cancelScheduled === false) params.set('cancelScheduled', 'false');
+    if (query?.periodEndFrom) params.set('periodEndFrom', query.periodEndFrom);
+    if (query?.periodEndTo) params.set('periodEndTo', query.periodEndTo);
+    if (query?.page != null) params.set('page', String(query.page));
+    if (query?.pageSize != null) params.set('pageSize', String(query.pageSize));
+    const qs = params.toString();
+    const res = await request(
+      `${this.config.baseUrl}/admin/memberships/subscriptions${qs ? `?${qs}` : ''}`,
+      { headers: await this.headers(true) },
+    );
+    return parseJson(res);
+  }
+
+  async getAdminUserMembership(userId: string): Promise<AdminUserMembershipDetailDto> {
+    const res = await request(`${this.config.baseUrl}/admin/memberships/users/${userId}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getAdminSubscription(subscriptionId: string): Promise<AdminSubscriptionDetailDto> {
+    const res = await request(
+      `${this.config.baseUrl}/admin/memberships/subscriptions/${subscriptionId}`,
+      { headers: await this.headers(true) },
+    );
+    return parseJson(res);
+  }
+
+  async activateAdminSubscription(
+    body: AdminActivateSubscriptionRequest,
+  ): Promise<AdminActivateSubscriptionResponse> {
+    const res = await request(`${this.config.baseUrl}/admin/memberships/subscriptions`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async scheduleCancelAdminSubscription(
+    subscriptionId: string,
+    body: AdminScheduleCancelSubscriptionRequest,
+  ): Promise<AdminSubscriptionListItemDto> {
+    const res = await request(
+      `${this.config.baseUrl}/admin/memberships/subscriptions/${subscriptionId}/cancel`,
+      {
+        method: 'POST',
+        headers: await this.headers(true),
+        body: JSON.stringify(body),
+      },
+    );
     return parseJson(res);
   }
 

@@ -28,6 +28,7 @@ import { MockIdentityAdapter } from '../../providers/mock.adapters';
 import { MockMediaAdapter } from '../../providers/mock.adapters';
 import { PrismaService } from '../../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
+import { loadUserMembershipDto } from '../membership/membership.service';
 
 const USER_INCLUDE = {
   profile: true,
@@ -63,7 +64,8 @@ export class UserAccountService {
     });
     const me = buildMeFromUser(user, participationCount);
     const walletSummary = await this.wallet.getSummary(userId);
-    return { ...me, walletSummary };
+    const membership = await loadUserMembershipDto(this.prisma, userId);
+    return { ...me, walletSummary, membership };
   }
 
   async acceptTerms(userId: string, body: unknown): Promise<MeDto> {
