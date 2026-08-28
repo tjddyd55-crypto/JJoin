@@ -1,5 +1,11 @@
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Keyboard,
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
   Badge,
@@ -23,8 +29,17 @@ import {
   type StoreOwnershipRequestDto,
 } from '@jjoin/types';
 import { createStoreOwnershipRequestSchema } from '@jjoin/validation';
+import {
+  brandLabel,
+  facilityTypeLabel,
+} from '../../explore/api/golf-facility-explore';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
+import {
+  formatFacilityRegion,
+  searchStoreFacilities,
+  StoreFacilitySearchError,
+} from '../api/store-facility-search';
 import {
   RELATION_LABELS,
   VERIFICATION_STATUS_LABELS,
@@ -45,9 +60,18 @@ function latestRequest(requests: StoreOwnershipRequestDto[]): StoreOwnershipRequ
   )[0]!;
 }
 
+function facilitySubtitle(facility: GolfFacilityMapDto): string {
+  const brand = brandLabel(facility.primaryBrand);
+  const typeLabel = facilityTypeLabel(facility.facilityType);
+  const category = brand ? `${typeLabel} · ${brand}` : typeLabel;
+  const region = formatFacilityRegion(facility);
+  return [category, region].filter(Boolean).join(' · ');
+}
+
 export function StoreVerificationScreen() {
   const router = useRouter();
   const theme = useTheme();
+  const gold = theme.colors.action.primary;
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
 
   const [requests, setRequests] = useState<StoreOwnershipRequestDto[]>([]);
@@ -57,6 +81,8 @@ export function StoreVerificationScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchHits, setSearchHits] = useState<GolfFacilityMapDto[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [searchFeedback, setSearchFeedback] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
   const [selectedFacility, setSelectedFacility] = useState<GolfFacilityMapDto | null>(null);
 
   const [applicantName, setApplicantName] = useState('');
@@ -89,25 +115,61 @@ export function StoreVerificationScreen() {
     }, [load]),
   );
 
+  const clearSelectedFacility = useCallback(() => {
+    setSelectedFacility(null);
+    setSearchHits([]);
+    setHasSearched(false);
+    setSearchFeedback(null);
+  }, []);
+
   const runSearch = useCallback(async () => {
-    const q = searchQuery.trim();
-    if (q.length < 1) return;
     setSearchLoading(true);
+    setSearchFeedback(null);
     setFormError(null);
+    Keyboard.dismiss();
     try {
-      const result = await api.searchGolfFacilities({ q, limit: 30 });
-      setSearchHits(result.items);
-    } catch {
+      const items = await searchStoreFacilities(api, searchQuery, 30);
+      setHasSearched(true);
+      setSearchHits(items);
+      setSelectedFacility(null);
+      if (items.length === 0) {
+        setSearchFeedback(
+          '검색 결과가 없습니다.\n매장명 또는 주소를 다시 확인해주세요.',
+        );
+      }
+      if (__DEV__) {
+        console.log('[store-verification] search ok', {
+          q: searchQuery.trim(),
+          count: items.length,
+        });
+      }
+    } catch (e) {
+      setHasSearched(true);
       setSearchHits([]);
-      setFormError('시설 검색에 실패했습니다.');
+      if (e instanceof StoreFacilitySearchError) {
+        setSearchFeedback(e.message);
+      } else {
+        setSearchFeedback('매장을 불러오지 못했습니다. 다시 시도해주세요.');
+      }
+      if (__DEV__) {
+        console.warn('[store-verification] search failed', e);
+      }
     } finally {
       setSearchLoading(false);
     }
   }, [api, searchQuery]);
 
+  const onSelectFacility = useCallback((facility: GolfFacilityMapDto) => {
+    setSelectedFacility(facility);
+    setSearchHits([]);
+    setHasSearched(false);
+    setSearchFeedback(null);
+    setFormError(null);
+  }, []);
+
   async function onSubmit() {
     if (!selectedFacility) {
-      setFormError('매장을 검색해서 선택해 주세요.');
+      setFormError('먼저 매장을 검색해 선택해주세요.');
       return;
     }
     const parsed = createStoreOwnershipRequestSchema.safeParse({
@@ -127,9 +189,8 @@ export function StoreVerificationScreen() {
     try {
       await api.createStoreVerification(parsed.data as CreateStoreOwnershipRequest);
       await load();
-      setSelectedFacility(null);
+      clearSelectedFacility();
       setSearchQuery('');
-      setSearchHits([]);
     } catch (e) {
       const msg = e instanceof Error ? e.message : '';
       setFormError(msg.includes('409') ? '이미 진행 중인 인증 요청이 있습니다.' : '제출에 실패했습니다.');
@@ -243,55 +304,99 @@ export function StoreVerificationScreen() {
         <Input
           label="매장명 또는 주소"
           value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="예) 강남 스크린골프"
+          onChangeText={(text) => {
+            setSearchQuery(text);
+            if (searchFeedback) setSearchFeedback(null);
+          }}
+          placeholder="예) 골프존, 백석, 일산동구"
           returnKeyType="search"
           onSubmitEditing={() => void runSearch()}
+          editable={!searchLoading}
         />
         <Spacer size="sm" />
-        <Button label="검색" variant="secondary" onPress={() => void runSearch()} loading={searchLoading} />
+        <Button
+          label="검색"
+          variant="secondary"
+          onPress={() => void runSearch()}
+          loading={searchLoading}
+          disabled={searchLoading}
+        />
+        {searchLoading ? (
+          <View style={styles.searchStatusRow}>
+            <ActivityIndicator size="small" color={gold} />
+            <Text variant="caption" tone="secondary">
+              매장 검색 중…
+            </Text>
+          </View>
+        ) : null}
+        {searchFeedback ? (
+          <Text
+            variant="caption"
+            tone={searchFeedback.includes('없습니다') ? 'secondary' : 'error'}
+            style={styles.searchFeedback}
+          >
+            {searchFeedback}
+          </Text>
+        ) : null}
         {selectedFacility ? (
           <Card variant="elevated" padding="md" style={styles.selectedFacility}>
+            <Text variant="meta" style={{ color: gold }}>
+              ✓ 선택된 매장
+            </Text>
+            <Spacer size="xs" />
             <Text variant="bodyStrong" tone="primary">
-              선택: {selectedFacility.displayName}
+              {selectedFacility.displayName}
             </Text>
             {selectedFacility.roadAddress ? (
               <Text variant="caption" tone="secondary">
                 {selectedFacility.roadAddress}
               </Text>
             ) : null}
+            <Text variant="caption" tone="tertiary">
+              {facilitySubtitle(selectedFacility)}
+            </Text>
+            <Spacer size="sm" />
+            <Button
+              label="다른 매장 검색"
+              variant="ghost"
+              fullWidth={false}
+              onPress={clearSelectedFacility}
+            />
           </Card>
         ) : null}
-        {searchHits.map((facility) => (
-          <Pressable
-            key={facility.id}
-            accessibilityRole="button"
-            onPress={() => {
-              setSelectedFacility(facility);
-              setFormError(null);
-            }}
-            style={({ pressed }) => [
-              styles.hitRow,
-              {
-                borderBottomColor: theme.colors.border.subtle,
-                backgroundColor:
-                  selectedFacility?.id === facility.id
-                    ? theme.colors.surface.elevated
-                    : 'transparent',
-                opacity: pressed ? 0.85 : 1,
-              },
-            ]}
-          >
-            <Text variant="body" tone="primary">
-              {facility.displayName}
-            </Text>
-            {facility.roadAddress ? (
-              <Text variant="caption" tone="secondary">
-                {facility.roadAddress}
-              </Text>
-            ) : null}
-          </Pressable>
-        ))}
+        {!selectedFacility && hasSearched && searchHits.length > 0 ? (
+          <View style={styles.resultList}>
+            {searchHits.map((facility) => (
+              <Pressable
+                key={facility.id}
+                accessibilityRole="button"
+                accessibilityLabel={`${facility.displayName} 선택`}
+                onPress={() => onSelectFacility(facility)}
+                style={({ pressed }) => [
+                  styles.hitRow,
+                  {
+                    borderBottomColor: theme.colors.border.subtle,
+                    backgroundColor: pressed
+                      ? theme.colors.surface.elevated
+                      : 'transparent',
+                  },
+                ]}
+              >
+                <Text variant="bodyStrong" tone="primary">
+                  {facility.displayName}
+                </Text>
+                {facility.roadAddress ? (
+                  <Text variant="caption" tone="secondary">
+                    {facility.roadAddress}
+                  </Text>
+                ) : null}
+                <Text variant="caption" tone="tertiary">
+                  {facilitySubtitle(facility)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
       </Section>
 
       <Spacer size="lg" />
@@ -347,6 +452,18 @@ export function StoreVerificationScreen() {
 }
 
 const styles = StyleSheet.create({
+  searchStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  searchFeedback: {
+    marginTop: 8,
+  },
+  resultList: {
+    marginTop: 8,
+  },
   hitRow: {
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
