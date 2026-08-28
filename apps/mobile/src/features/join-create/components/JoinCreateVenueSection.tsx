@@ -338,7 +338,7 @@ export function JoinCreateVenueSection({ api, selected, onChange, onPickFromMap 
         <View style={[styles.modal, themed.modal]}>
           <Text variant="sectionTitle">주소 · 상호 검색</Text>
           <Text variant="caption" tone="secondary">
-            JJOIN 시설 DB 기준 · 예: 아차산, 광진, 골프존
+            JJOINZONE 시설 DB 기준 · 예: 아차산, 광진, 골프존
           </Text>
           <TextInput
             value={searchQuery}
