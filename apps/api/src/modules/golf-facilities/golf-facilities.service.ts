@@ -75,6 +75,7 @@ type FacilityActivity = {
 const MAP_SELECT = {
   id: true,
   displayName: true,
+  sourceName: true,
   facilityType: true,
   screenStatus: true,
   hasScreenGolf: true,
