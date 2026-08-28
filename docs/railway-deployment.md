@@ -42,6 +42,16 @@ Configured in:
 
 Workers must not use `railway.json` healthcheck — they run `start → work → exit` and have no `/health` listener.
 
+### Cron workers (production)
+
+| Service | Schedule (UTC) | Role |
+|---------|----------------|------|
+| `matching-deadline-cron` | `*/5 * * * *` | Join matching deadline |
+| `settlement-cron` | `*/10 * * * *` | Settlement / autopay batch |
+| `public-golf-sync` | `0 19 * * *` | LOCALDATA golf facility sync wake @ 04:00 KST; script gate keeps real sync on KST **1·16** only |
+
+Railway cron is UTC-only. Do **not** use `0 19 1,16 * *` for golf sync — that shifts runs to KST 2·17. See [`docs/PUBLIC_GOLF_FACILITY_SYNC_REPORT.md`](./PUBLIC_GOLF_FACILITY_SYNC_REPORT.md) Schedule section. Manual: `pnpm sync:public-golf-facilities:force`.
+
 Effective flow:
 
 1. `pnpm install --frozen-lockfile`
