@@ -161,7 +161,6 @@ export default function RootLayout() {
               <Stack.Screen name="my" />
               <Stack.Screen name="join/[joinId]" />
               <Stack.Screen name="user/[userId]" />
-              <Stack.Screen name="+not-found" options={{ title: '페이지 없음' }} />
               {isInternalToolsEnabled() ? (
                 <Stack.Screen name="dev" options={{ headerShown: false }} />
               ) : null}
