@@ -6,7 +6,7 @@ import {
   type JoinDiscoverySort,
 } from '@jjoin/domain';
 
-export type ExploreDiscoveryView = 'LIST' | 'MAP';
+export type ExploreDiscoveryView = 'LIST' | 'MAP' | 'REGION';
 
 export type JoinDiscoveryUiState = JoinDiscoveryFilterState & {
   view: ExploreDiscoveryView;

@@ -1,11 +1,24 @@
 import React from 'react';
-import { ScreenExploreScreen } from '../../src/features/explore/screen-explore/ScreenExploreScreen';
+import { StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme } from '@jjoin/design-system';
+import { ExploreMapScreen } from '../../src/features/explore/screens/ExploreMapScreen';
 
 /**
- * 스크린 탭 — [지역별 | 지도] 탐색.
- * 지도 탭: 기존 GolfFacility Kakao 지도 (discoveryLinked=false).
- * 지역별 탭: 날짜 × 행정구역 기반 조인 탐색 (실험 UI).
+ * 스크린 탭 — 스크린골프장 지도 탐색 · 장소 선택 · 조인 생성 연결.
  */
 export default function ScreenTab() {
-  return <ScreenExploreScreen />;
+  const theme = useTheme();
+  return (
+    <SafeAreaView
+      style={[styles.root, { backgroundColor: theme.colors.surface.base }]}
+      edges={['top']}
+    >
+      <ExploreMapScreen discoveryLinked={false} />
+    </SafeAreaView>
+  );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+});

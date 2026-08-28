@@ -19,6 +19,7 @@ type Props = {
   onRetry: () => void;
   onSelectFacility: (facility: DiscoverFacilityJoinItemDto) => void;
   onSwitchToMap?: () => void;
+  bottomPadding?: number;
 };
 
 function formatDistance(meters: number | null): string | null {
@@ -43,6 +44,7 @@ export function RegionFacilityList({
   onRetry,
   onSelectFacility,
   onSwitchToMap,
+  bottomPadding = spacing.xl,
 }: Props) {
   const theme = useTheme();
   const gold = theme.colors.action.primary;
@@ -91,7 +93,7 @@ export function RegionFacilityList({
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.list}>
+    <ScrollView contentContainerStyle={[styles.list, { paddingBottom: bottomPadding }]}>
       <View style={styles.header}>
         <Text variant="meta" tone="tertiary">
           {regionLabel}
@@ -139,7 +141,6 @@ const styles = StyleSheet.create({
   list: {
     padding: spacing.md,
     gap: spacing.sm,
-    paddingBottom: spacing.xl,
   },
   header: {
     paddingHorizontal: spacing.xs,

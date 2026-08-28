@@ -9,6 +9,7 @@ type Props = {
   error: string | null;
   onRetry: () => void;
   onSelect: (item: DiscoverRegionSummaryItemDto) => void;
+  bottomPadding?: number;
   leadingItem?: {
     key: string;
     label: string;
@@ -17,20 +18,33 @@ type Props = {
   };
 };
 
+function CountText({ count, gold, muted }: { count: number; gold: string; muted: string }) {
+  return (
+    <Text
+      variant="bodyStrong"
+      style={{ color: count > 0 ? gold : muted, minWidth: 24, textAlign: 'right' }}
+    >
+      {count}
+    </Text>
+  );
+}
+
 export function RegionSummaryList({
   items,
   loading,
   error,
   onRetry,
   onSelect,
+  bottomPadding = spacing.xl,
   leadingItem,
 }: Props) {
   const theme = useTheme();
   const gold = theme.colors.action.primary;
+  const muted = theme.colors.text.tertiary;
 
-  if (loading) {
+  if (loading && items.length === 0 && !leadingItem) {
     return (
-      <View style={styles.center}>
+      <View style={styles.loadingRow}>
         <ActivityIndicator color={gold} />
       </View>
     );
@@ -38,7 +52,7 @@ export function RegionSummaryList({
 
   if (error) {
     return (
-      <View style={styles.center}>
+      <View style={styles.errorBox}>
         <Text variant="body" tone="secondary">
           {error}
         </Text>
@@ -52,7 +66,15 @@ export function RegionSummaryList({
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.list}>
+    <ScrollView
+      contentContainerStyle={[styles.list, { paddingBottom: bottomPadding }]}
+      keyboardShouldPersistTaps="handled"
+    >
+      {loading ? (
+        <View style={styles.loadingInline}>
+          <ActivityIndicator color={gold} size="small" />
+        </View>
+      ) : null}
       {leadingItem ? (
         <Pressable
           onPress={leadingItem.onPress}
@@ -68,9 +90,7 @@ export function RegionSummaryList({
           </Text>
           <View style={styles.countWrap}>
             {leadingItem.count != null ? (
-              <Text variant="sectionTitle" style={{ color: gold }}>
-                {leadingItem.count}
-              </Text>
+              <CountText count={leadingItem.count} gold={gold} muted={muted} />
             ) : (
               <Text variant="meta" tone="tertiary">
                 {'\u203A'}
@@ -93,9 +113,7 @@ export function RegionSummaryList({
           <Text variant="body" tone="primary" style={styles.label}>
             {item.label}
           </Text>
-          <Text variant="sectionTitle" style={{ color: gold }}>
-            {item.count}
-          </Text>
+          <CountText count={item.count} gold={gold} muted={muted} />
         </Pressable>
       ))}
     </ScrollView>
@@ -104,16 +122,16 @@ export function RegionSummaryList({
 
 const styles = StyleSheet.create({
   list: {
-    paddingBottom: spacing.xl,
+    flexGrow: 1,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    minHeight: 52,
+    minHeight: 48,
   },
   label: {
     flex: 1,
@@ -122,11 +140,17 @@ const styles = StyleSheet.create({
     minWidth: 32,
     alignItems: 'flex-end',
   },
-  center: {
-    flex: 1,
+  loadingRow: {
+    paddingVertical: spacing.lg,
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.xl,
+  },
+  loadingInline: {
+    paddingVertical: spacing.xs,
+    alignItems: 'center',
+  },
+  errorBox: {
+    padding: spacing.lg,
+    alignItems: 'center',
     gap: spacing.md,
   },
   retry: {

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from 'expo-router';
 import {
@@ -83,6 +84,7 @@ export function ExploreMapScreen({
   const venuePickMode = params.venuePick === '1' || params.venuePick === 'true';
   const { requestGatedAction } = useSession();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const store = getSecureSessionStore();
   const discovery = useJoinDiscoveryOptional();
   const mapRef = useRef<MapCameraHandle | null>(null);
@@ -115,10 +117,12 @@ export function ExploreMapScreen({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [myStores, setMyStores] = useState<StoreOwnershipDto[]>([]);
+  const [sheetIndex, setSheetIndex] = useState(0);
 
   const runtime = getMapRuntimeStatus();
   const snapPoints = useMemo(
-    () => (discoveryLinked ? ['16%', '48%', '88%'] : ['28%', '52%', '88%']),
+    () =>
+      discoveryLinked ? ['14%', '48%', '86%'] : ['11%', '44%', '78%'],
     [discoveryLinked],
   );
 
@@ -694,12 +698,13 @@ export function ExploreMapScreen({
         <View
           style={[
             styles.topChrome,
-            { top: discoveryLinked ? 8 : 52 },
+            { top: insets.top + spacing.xs },
           ]}
           pointerEvents="box-none"
         >
-          <MapSearchBar onPress={() => setSearchOpen(true)} />
+          <MapSearchBar compact onPress={() => setSearchOpen(true)} />
           <MapFilterBar
+            compact
             value={filter}
             onChange={(next) => {
               if (loading) return;
@@ -708,17 +713,17 @@ export function ExploreMapScreen({
             }}
           />
           {locationDenied ? (
-            <Text variant="caption" tone="warning">
+            <Text variant="caption" tone="warning" style={styles.statusLine}>
               위치 권한 없음 · 지역 검색은 가능합니다
             </Text>
           ) : null}
           {error ? (
-            <Text variant="caption" tone="error">
+            <Text variant="caption" tone="error" style={styles.statusLine}>
               검색 오류 · 지도는 유지됩니다
             </Text>
           ) : null}
           {loading ? (
-            <Text variant="caption" tone="tertiary">
+            <Text variant="caption" tone="tertiary" style={styles.statusLine}>
               주변 불러오는 중…
             </Text>
           ) : null}
@@ -727,7 +732,7 @@ export function ExploreMapScreen({
         <View
           style={[
             styles.fabCol,
-            { bottom: discoveryLinked ? '18%' : '32%' },
+            { bottom: discoveryLinked ? '16%' : '13%' },
           ]}
           pointerEvents="box-none"
         >
@@ -743,12 +748,14 @@ export function ExploreMapScreen({
         index={0}
         snapPoints={snapPoints}
         enablePanDownToClose={false}
+        onChange={(index) => setSheetIndex(index)}
         backgroundStyle={{ backgroundColor: theme.colors.surface.elevated }}
         handleIndicatorStyle={{ backgroundColor: theme.colors.border.strong }}
       >
         <BottomSheetScrollView contentContainerStyle={styles.sheetContent}>
           <ExploreBottomSheetBody
             mode={sheetMode}
+            compactPeek={!discoveryLinked && sheetIndex === 0 && sheetMode === 'PEEK'}
             venues={data?.venues ?? []}
             users={data?.users ?? []}
             selectedVenue={selectedVenue}
@@ -1012,20 +1019,21 @@ const styles = StyleSheet.create({
   mapArea: { flex: 1, backgroundColor: 'transparent' },
   topChrome: {
     position: 'absolute',
-    top: 52,
     left: spacing.md,
     right: spacing.md,
-    gap: spacing.sm,
+    gap: spacing.xs,
+  },
+  statusLine: {
+    marginTop: -2,
   },
   fabCol: {
     position: 'absolute',
     right: spacing.md,
-    bottom: '32%',
     alignItems: 'flex-end',
     gap: spacing.sm,
   },
   sheetContent: {
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.md,
   },
   searchModal: {
     flex: 1,

@@ -6,7 +6,7 @@ import React, {
   useState,
 } from 'react';
 import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { Text, spacing, useTheme } from '@jjoin/design-system';
 import {
@@ -51,11 +51,16 @@ type ExploreView =
     };
 
 type Props = {
+  /** 조인 탭 내부 서브뷰 — 상위 SafeArea·탭 스위치와 중복 패딩 방지 */
+  embedded?: boolean;
   onSwitchToMap?: () => void;
 };
 
-export function RegionJoinExploreScreen({ onSwitchToMap }: Props) {
+const TAB_BAR_ESTIMATE = 56;
+
+export function RegionJoinExploreScreen({ embedded = false, onSwitchToMap }: Props) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const gold = theme.colors.action.primary;
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [selectedDate, setSelectedDate] = useState(() => localDayKey(new Date()));
@@ -81,12 +86,16 @@ export function RegionJoinExploreScreen({ onSwitchToMap }: Props) {
   const requestSeq = useRef(0);
 
   const currentView = viewStack[viewStack.length - 1]!;
+  const showBack = viewStack.length > 1;
+  const listBottomPad = Math.max(insets.bottom, spacing.md) + TAB_BAR_ESTIMATE;
 
   const headerTitle = useMemo(() => {
-    if (currentView.kind === 'root') return '지역별 조인';
+    if (currentView.kind === 'root') {
+      return embedded ? '지역별' : '지역별 조인';
+    }
     if (currentView.kind === 'nearby') return '내 위치';
     return currentView.title;
-  }, [currentView]);
+  }, [currentView, embedded]);
 
   const breadcrumbs = useMemo(() => {
     if (currentView.kind === 'regions') {
@@ -97,6 +106,8 @@ export function RegionJoinExploreScreen({ onSwitchToMap }: Props) {
     }
     return [];
   }, [currentView]);
+
+  const showRootHeader = !(embedded && currentView.kind === 'root' && !showBack);
 
   const popView = useCallback(() => {
     setViewStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
@@ -357,46 +368,47 @@ export function RegionJoinExploreScreen({ onSwitchToMap }: Props) {
     [],
   );
 
-  const showBack = viewStack.length > 1;
-
-  return (
-    <SafeAreaView
-      style={[styles.root, { backgroundColor: theme.colors.surface.base }]}
-      edges={['top']}
-    >
-      <View style={styles.header}>
-        {showBack ? (
-          <Pressable
-            onPress={popView}
-            accessibilityRole="button"
-            accessibilityLabel="뒤로"
-            hitSlop={8}
-            style={styles.backBtn}
-          >
-            <Text variant="meta" style={{ color: gold }}>
-              {'\u2039'} 뒤로
+  const content = (
+    <>
+      {showRootHeader ? (
+        <View style={styles.header}>
+          {showBack ? (
+            <Pressable
+              onPress={popView}
+              accessibilityRole="button"
+              accessibilityLabel="뒤로"
+              hitSlop={8}
+              style={styles.backBtn}
+            >
+              <Text variant="meta" style={{ color: gold }}>
+                {'\u2039'} 뒤로
+              </Text>
+            </Pressable>
+          ) : (
+            <View style={styles.backBtn} />
+          )}
+          <View style={styles.headerCenter}>
+            <Text variant="sectionTitle" tone="primary">
+              {headerTitle}
             </Text>
-          </Pressable>
-        ) : (
+            {breadcrumbs.length > 1 ? (
+              <Text variant="meta" tone="tertiary" numberOfLines={1}>
+                {breadcrumbs.map((b) => b.label).join(' > ')}
+              </Text>
+            ) : null}
+          </View>
           <View style={styles.backBtn} />
-        )}
-        <View style={styles.headerCenter}>
-          <Text variant="sectionTitle" tone="primary">
-            {headerTitle}
-          </Text>
-          {breadcrumbs.length > 1 ? (
-            <Text variant="meta" tone="tertiary" numberOfLines={1}>
-              {breadcrumbs.map((b) => b.label).join(' > ')}
-            </Text>
-          ) : null}
         </View>
-        <View style={styles.backBtn} />
-      </View>
+      ) : null}
 
-      <RegionDateSelector
-        selectedDate={selectedDate}
-        onSelectDate={setSelectedDate}
-      />
+      {(currentView.kind === 'root' ||
+        currentView.kind === 'regions' ||
+        currentView.kind === 'nearby') && (
+        <RegionDateSelector
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+        />
+      )}
 
       <View style={styles.body}>
         {currentView.kind === 'root' ? (
@@ -406,6 +418,7 @@ export function RegionJoinExploreScreen({ onSwitchToMap }: Props) {
             error={summaryError}
             onRetry={() => void loadSummary()}
             onSelect={handleRegionSelect}
+            bottomPadding={listBottomPad}
             leadingItem={{
               key: 'NEARBY',
               label: '내 위치',
@@ -422,6 +435,7 @@ export function RegionJoinExploreScreen({ onSwitchToMap }: Props) {
             error={summaryError}
             onRetry={() => void loadSummary()}
             onSelect={handleSummarySelectFromRegions}
+            bottomPadding={listBottomPad}
           />
         ) : null}
 
@@ -435,6 +449,7 @@ export function RegionJoinExploreScreen({ onSwitchToMap }: Props) {
             onRetry={() => void loadFacilities()}
             onSelectFacility={handleFacilitySelect}
             onSwitchToMap={onSwitchToMap}
+            bottomPadding={listBottomPad}
           />
         ) : null}
 
@@ -445,9 +460,27 @@ export function RegionJoinExploreScreen({ onSwitchToMap }: Props) {
             venueName={currentView.venueName}
             sido={currentView.sido}
             sigungu={currentView.sigungu}
+            bottomPadding={listBottomPad}
           />
         ) : null}
       </View>
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <View style={[styles.root, { backgroundColor: theme.colors.surface.base }]}>
+        {content}
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaView
+      style={[styles.root, { backgroundColor: theme.colors.surface.base }]}
+      edges={['top']}
+    >
+      {content}
     </SafeAreaView>
   );
 }
@@ -458,7 +491,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
     gap: spacing.sm,
   },
   backBtn: {
@@ -471,5 +505,6 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
+    minHeight: 0,
   },
 });

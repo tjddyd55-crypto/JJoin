@@ -46,6 +46,8 @@ export function ExploreBottomSheetBody(props: {
   selectedVenue: ExploreVenueDto | null;
   selectedUser: PublicNearbyUserDto | null;
   presence: PresenceVisibility;
+  /** Screen tab collapsed sheet — header line only */
+  compactPeek?: boolean;
   onSelectVenue: (id: string) => void;
   onSelectUser: (id: string) => void;
   onOpenPresence: () => void;
@@ -246,11 +248,26 @@ export function ExploreBottomSheetBody(props: {
 
   const presenceOn = props.presence === PresenceVisibilityEnum.AVAILABLE;
   const peekTitle = props.peekTitle ?? '내 주변';
+  const venueCount = props.venues.length;
+  const peekLine = showPresence
+    ? `${peekTitle} · ${venueCount}곳 · 조인 가능 ${props.users.length}명`
+    : `${peekTitle} · ${venueCount}곳`;
+
+  if (props.compactPeek) {
+    return (
+      <BottomSheetFrame showHandle={false}>
+        <Text variant="bodyStrong" tone="primary" numberOfLines={1}>
+          {peekLine}
+        </Text>
+      </BottomSheetFrame>
+    );
+  }
+
   const peekSubtitle =
     props.peekSubtitle ??
     (showPresence
-      ? `스크린골프장 ${props.venues.length}곳 · 지금 조인 가능 ${props.users.length}명`
-      : `주변 스크린골프장 ${props.venues.length}곳`);
+      ? `스크린골프장 ${venueCount}곳 · 지금 조인 가능 ${props.users.length}명`
+      : `주변 스크린골프장 ${venueCount}곳`);
 
   return (
     <BottomSheetFrame showHandle={false}>

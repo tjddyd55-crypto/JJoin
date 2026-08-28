@@ -24,6 +24,7 @@ type Props = {
   venueName: string;
   sido: string;
   sigungu: string;
+  bottomPadding?: number;
 };
 
 export function RegionJoinListPanel({
@@ -32,6 +33,7 @@ export function RegionJoinListPanel({
   venueName,
   sido,
   sigungu,
+  bottomPadding = spacing.xl,
 }: Props) {
   const theme = useTheme();
   const router = useRouter();
@@ -104,7 +106,7 @@ export function RegionJoinListPanel({
 
   return (
     <ScrollView
-      contentContainerStyle={styles.list}
+      contentContainerStyle={[styles.list, { paddingBottom: bottomPadding }]}
       refreshControl={
         <RefreshControl refreshing={loading} onRefresh={() => void load()} />
       }
@@ -134,7 +136,6 @@ const styles = StyleSheet.create({
   list: {
     padding: spacing.md,
     gap: spacing.md,
-    paddingBottom: spacing.xl,
   },
   subtitle: {
     paddingHorizontal: spacing.xs,
