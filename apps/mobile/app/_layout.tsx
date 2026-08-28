@@ -15,7 +15,7 @@ import { resolveOnboardingStep } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
 import { isInternalToolsEnabled } from '../src/lib/internal-tools';
 
-export { ErrorBoundary } from 'expo-router';
+export { ErrorBoundary } from './RootErrorBoundary';
 
 export const unstable_settings = {
   initialRouteName: '(tabs)',
@@ -161,6 +161,7 @@ export default function RootLayout() {
               <Stack.Screen name="my" />
               <Stack.Screen name="join/[joinId]" />
               <Stack.Screen name="user/[userId]" />
+              <Stack.Screen name="+not-found" options={{ title: '페이지 없음' }} />
               {isInternalToolsEnabled() ? (
                 <Stack.Screen name="dev" options={{ headerShown: false }} />
               ) : null}

@@ -1,15 +1,24 @@
 import { Link, Stack } from 'expo-router';
-import { StyleSheet } from 'react-native';
-import { Text, View } from '@/components/Themed';
+import { StyleSheet, View } from 'react-native';
+import { Text, spacing, useTheme } from '@jjoin/design-system';
 
+/**
+ * Unmatched route fallback — no useSession / app hooks (safe during HMR recovery).
+ */
 export default function NotFoundScreen() {
+  const theme = useTheme();
+
   return (
     <>
-      <Stack.Screen options={{ title: '페이지 없음' }} />
-      <View style={styles.container}>
-        <Text style={styles.title}>찾을 수 없는 화면입니다.</Text>
-        <Link href="/" style={styles.link}>
-          <Text style={styles.linkText}>홈으로 돌아가기</Text>
+      <Stack.Screen options={{ title: '페이지 없음', headerShown: false }} />
+      <View style={[styles.container, { backgroundColor: theme.colors.app.background }]}>
+        <Text variant="sectionTitle" tone="primary">
+          찾을 수 없는 화면입니다.
+        </Text>
+        <Link href="/(tabs)" style={styles.link}>
+          <Text variant="bodyStrong" style={{ color: theme.colors.action.primary }}>
+            홈으로 돌아가기
+          </Text>
         </Link>
       </View>
     </>
@@ -21,18 +30,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    padding: spacing.lg,
+    gap: spacing.md,
   },
   link: {
-    marginTop: 15,
-    paddingVertical: 15,
-  },
-  linkText: {
-    fontSize: 14,
-    color: '#0A6B56',
+    paddingVertical: spacing.sm,
   },
 });
