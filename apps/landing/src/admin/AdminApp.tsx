@@ -206,7 +206,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="admin-root">
       <div className="layout layout-wide">
         <header className="admin-nav card row">
-          <strong>JJOIN HQ</strong>
+          <strong>JJOINZONE HQ</strong>
           <Link to="/admin" className={dashActive ? 'nav-active' : undefined}>
             대시보드
           </Link>

@@ -57,7 +57,7 @@ export function LandingPage() {
   return (
     <div className="page">
       <header className="topbar">
-        <p className="brand">JJOIN</p>
+        <p className="brand">JJOINZONE</p>
       </header>
 
       <main>
@@ -85,7 +85,7 @@ export function LandingPage() {
 
         <section id="features" className="section" aria-labelledby="features-title">
           <h2 id="features-title" className="section-title">
-            JJOIN으로 할 수 있는 것
+            JJOINZONE으로 할 수 있는 것
           </h2>
           <p className="section-lead">
             근처 스크린골프장을 찾고, 함께 플레이할 사람을 모집하고, 원하는 조인에 참가할 수
@@ -136,7 +136,7 @@ export function LandingPage() {
 
         <section className="section section-soft" aria-labelledby="store-title">
           <h2 id="store-title" className="section-title">
-            스크린골프 매장도 JJOIN과 함께
+            스크린골프 매장도 JJOINZONE과 함께
           </h2>
           <p className="section-lead">
             매장 인증 후 직접 모집 조인을 만들고 참가 현황과 혜택을 관리할 수 있습니다. 앱에서
@@ -146,7 +146,7 @@ export function LandingPage() {
 
         <section className="download-band" aria-labelledby="download-title">
           <h2 id="download-title" className="section-title">
-            지금 JJOIN을 테스트해보세요
+            지금 JJOINZONE을 테스트해보세요
           </h2>
           <p className="section-lead">
             가까운 스크린골프장을 찾고 새로운 골프 친구를 만나보세요.
@@ -161,8 +161,8 @@ export function LandingPage() {
       </main>
 
       <footer className="footer">
-        <p className="brand footer-brand">JJOIN</p>
-        <p className="footer-copy">© JJOIN</p>
+        <p className="brand footer-brand">JJOINZONE</p>
+        <p className="footer-copy">© JJOINZONE</p>
       </footer>
     </div>
   );

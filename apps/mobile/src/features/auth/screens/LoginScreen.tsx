@@ -11,7 +11,10 @@ import {
 import { t } from '@jjoin/i18n';
 import { MockAuthPersona, MockAuthScenario, SocialProvider } from '@jjoin/types';
 import { useSession } from '../../../session/SessionContext';
-import { SocialLoginCancelledError } from '../social/social-auth-errors';
+import {
+  messageForSocialLoginError,
+  safeSocialLoginLog,
+} from '../social/social-login-user-message';
 import { useMockSocialAuthFlow } from '../social/social-auth-config';
 import { SocialLoginButton } from '../../../ui/patterns/SocialLoginButton';
 import { isInternalToolsEnabled } from '../../../lib/internal-tools';
@@ -56,23 +59,21 @@ export function LoginScreen() {
       const nextStep = await signInWithSocialProvider(provider);
       router.replace(routeForNextStep(nextStep));
     } catch (e) {
-      if (e instanceof SocialLoginCancelledError) {
+      const userMessage = messageForSocialLoginError(provider, e);
+      if (userMessage == null) {
         return;
       }
-      if (isInternalToolsEnabled()) {
-        const msg = e instanceof Error ? e.message : String(e);
-        console.warn('[auth.login]', {
-          provider,
-          path: '/auth/social/mock-sign-in',
-          error: msg.slice(0, 200),
-          apiBase: process.env.EXPO_PUBLIC_API_URL ? 'env_set' : 'default_localhost',
-        });
-      }
-      setLocalError(t('auth.login.fail'));
+      console.warn('[auth.login]', safeSocialLoginLog(provider, e));
+      setLocalError(userMessage);
     } finally {
       setLoading(null);
     }
   }
+
+  const sessionErrorMessage =
+    error === 'provider_not_configured' || error === 'login_failed'
+      ? t('auth.login.fail')
+      : error;
 
   return (
     <ScreenFrame>
@@ -154,9 +155,9 @@ export function LoginScreen() {
           </View>
         ) : null}
 
-        {(localError || error) && (
+        {(localError || sessionErrorMessage) && (
           <Text variant="body" tone="error">
-            {localError ?? error}
+            {localError ?? sessionErrorMessage}
           </Text>
         )}
       </View>

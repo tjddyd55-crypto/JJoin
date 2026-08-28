@@ -97,10 +97,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 
   return {
     ...config,
-    name: 'JJOIN',
+    name: 'JJOINZONE',
     slug: 'jjoin',
     owner: 'tjddyd55',
-    version: '0.0.1',
+    version: '0.0.2',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
     scheme: 'jjoin',
@@ -115,6 +115,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     android: {
       package: 'com.jjoin.app',
+      versionCode: 2,
       ...(hasGoogleServices ? { googleServicesFile: GOOGLE_SERVICES_FILE } : {}),
       adaptiveIcon: {
         backgroundColor: '#0A6B56',
