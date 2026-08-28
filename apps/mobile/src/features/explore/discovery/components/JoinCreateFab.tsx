@@ -1,7 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, spacing, useTheme } from '@jjoin/design-system';
 
 const FAB_SIZE = 56;
@@ -9,10 +8,10 @@ const FAB_SIZE = 56;
 /** 조인 탭 탐색 화면 공통 — create route 재사용 */
 export function JoinCreateFab() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const theme = useTheme();
-  const bottom =
-    Math.max(insets.bottom, spacing.sm) + theme.sizes.bottomNav + spacing.md;
+  // Tab screen content is laid out above BottomNavigation (see app/(tabs)/_layout).
+  // `bottom` is relative to the content area — do not add tab bar height again.
+  const bottom = spacing.sm;
 
   return (
     <View pointerEvents="box-none" style={[styles.host, { bottom }]}>

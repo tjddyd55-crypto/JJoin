@@ -124,6 +124,14 @@ export async function fetchGolfFacilitiesInRegion(input: {
   let venues = result.items
     .map((f) => golfFacilityToExploreVenue(f, input.center))
     .filter((v): v is ExploreVenueDto => v != null);
+  if (__DEV__) {
+    console.log('[ExploreMap:api]', {
+      rawCount: result.items.length,
+      mappedCount: venues.length,
+      invalidCoordinateCount: result.items.length - venues.length,
+      truncated: result.truncated,
+    });
+  }
   if (input.todayJoinOnly) {
     venues = venues.filter(
       (v) => v.hasTodayJoin || v.hasOngoingJoin || v.openJoinCount > 0,

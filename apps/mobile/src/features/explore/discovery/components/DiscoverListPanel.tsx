@@ -8,7 +8,6 @@ import {
   View,
 } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Text,
   Section,
@@ -26,7 +25,8 @@ import { fetchDiscoverJoins } from '../api/join-discover-api';
 import { DiscoverJoinCard } from './DiscoverJoinCard';
 import { CompactTextAction } from './CompactTextAction';
 
-const FAB_CLEARANCE = 56 + spacing.md;
+const FAB_SIZE = 56;
+const FAB_CLEARANCE = FAB_SIZE + spacing.md + spacing.sm;
 
 function joinDetailHref(joinId: string): Href {
   return { pathname: '/join/[joinId]', params: { joinId } } as Href;
@@ -39,7 +39,6 @@ type Props = {
 
 export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const { filter, setDate, patchFilter } = useJoinDiscovery();
@@ -116,8 +115,7 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
   const upcomingTitle =
     filter.date === todayKey ? '예정된 조인' : '선택한 날 조인';
   const empty = !loading && !error && (data?.totalCount ?? 0) === 0;
-  const listBottomPad =
-    Math.max(insets.bottom, spacing.sm) + theme.sizes.bottomNav + FAB_CLEARANCE;
+  const listBottomPad = FAB_CLEARANCE;
 
   return (
     <View style={styles.root}>

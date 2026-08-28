@@ -41,6 +41,50 @@ export function regionFromBounds(bounds: {
   };
 }
 
+export type GeoBounds = {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+};
+
+export function isCoordinateInBounds(
+  latitude: number,
+  longitude: number,
+  bounds: GeoBounds,
+): boolean {
+  return (
+    latitude >= bounds.south &&
+    latitude <= bounds.north &&
+    longitude >= bounds.west &&
+    longitude <= bounds.east
+  );
+}
+
+export function filterCoordinatesInBounds<T extends { latitude: number; longitude: number }>(
+  items: T[],
+  bounds: GeoBounds,
+): T[] {
+  return items.filter((item) =>
+    isCoordinateInBounds(item.latitude, item.longitude, bounds),
+  );
+}
+
+/** Count distinct coordinate buckets (detect stacked markers). */
+export function countUniqueCoordinateBuckets(
+  items: Array<{ latitude: number; longitude: number }>,
+  precision = 4,
+): number {
+  const factor = 10 ** precision;
+  const seen = new Set<string>();
+  for (const item of items) {
+    const lat = Math.round(item.latitude * factor) / factor;
+    const lng = Math.round(item.longitude * factor) / factor;
+    seen.add(`${lat},${lng}`);
+  }
+  return seen.size;
+}
+
 export function parseMarkerPressId(id: string): {
   kind: 'venue' | 'user' | 'unknown';
   entityId: string;

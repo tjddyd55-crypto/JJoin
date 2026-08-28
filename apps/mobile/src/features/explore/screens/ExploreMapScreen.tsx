@@ -40,7 +40,13 @@ import { ExploreBottomSheetBody } from '../components/ExploreBottomSheetBody';
 import { KakaoMapAdapter } from '../map/KakaoMapAdapter';
 import { MapUnavailablePanel } from '../map/MapUnavailablePanel';
 import type { MapCameraHandle } from '../map/map-handle';
-import { regionFromBounds } from '../map/map-geo';
+import {
+  countUniqueCoordinateBuckets,
+  filterCoordinatesInBounds,
+  regionFromBounds,
+  type GeoBounds,
+} from '../map/map-geo';
+import { logExploreMapMarkerPipeline } from '../map/explore-map-marker-debug';
 import { getMapRuntimeStatus } from '../map/map-runtime';
 import { resolveVenueForJoin } from '../../join-create/api/resolve-venue-for-join';
 import {
@@ -116,6 +122,8 @@ export function ExploreMapScreen({
   const [error, setError] = useState<string | null>(null);
   const [myStores, setMyStores] = useState<StoreOwnershipDto[]>([]);
   const [sheetIndex, setSheetIndex] = useState(0);
+  const [mapViewportBounds, setMapViewportBounds] = useState<GeoBounds | null>(null);
+  const mapReadySyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const runtime = getMapRuntimeStatus();
   const snapPoints = useMemo(
@@ -262,6 +270,58 @@ export function ExploreMapScreen({
     [filter, placeSource, searchRegion, loadGolfFacilityMap, loadKakaoMap],
   );
 
+  const syncViewportFromMap = useCallback(
+    async (reason: string) => {
+      if (placeSource !== 'GOLF_FACILITY' || !mapRef.current?.getViewportBounds) return;
+      try {
+        const vp = await mapRef.current.getViewportBounds();
+        const bounds: GeoBounds = {
+          west: vp.southWest.longitude,
+          south: vp.southWest.latitude,
+          east: vp.northEast.longitude,
+          north: vp.northEast.latitude,
+        };
+        setMapViewportBounds(bounds);
+        const center = vp.center;
+        const region = regionFromBounds(bounds);
+        setLastCameraCenter(center);
+        setSearchRegion(region);
+        await loadGolfFacilityMap(center, region, filter === 'TODAY_JOIN');
+        if (__DEV__) {
+          console.log('[ExploreMap:viewport]', { reason, bounds });
+        }
+      } catch {
+        /* map not ready */
+      }
+    },
+    [placeSource, filter, loadGolfFacilityMap],
+  );
+
+  const handleMapEngineReady = useCallback(() => {
+    if (mapReadySyncTimer.current) clearTimeout(mapReadySyncTimer.current);
+    mapReadySyncTimer.current = setTimeout(() => {
+      void syncViewportFromMap('map-ready');
+    }, 450);
+  }, [syncViewportFromMap]);
+
+  useEffect(() => {
+    if (!data?.venues) return;
+    const inViewport = mapViewportBounds
+      ? filterCoordinatesInBounds(data.venues, mapViewportBounds)
+      : data.venues;
+    logExploreMapMarkerPipeline({
+      reason: 'pipeline',
+      apiRawCount: data.metadata?.venueCount ?? data.venues.length,
+      apiMappedCount: data.venues.length,
+      invalidCoordinateCount: 0,
+      stateVenueCount: data.venues.length,
+      markerDtoCount: data.venues.length,
+      viewportBounds: mapViewportBounds,
+      inViewportCount: inViewport.length,
+      uniqueCoordinateBuckets: countUniqueCoordinateBuckets(data.venues),
+    });
+  }, [data, mapViewportBounds]);
+
   useEffect(() => {
     if (!discoveryLinked) return;
     if (externalLocation) {
@@ -351,6 +411,7 @@ export function ExploreMapScreen({
     return () => {
       if (viewportTimer.current) clearTimeout(viewportTimer.current);
       if (searchTimer.current) clearTimeout(searchTimer.current);
+      if (mapReadySyncTimer.current) clearTimeout(mapReadySyncTimer.current);
       abortRef.current?.abort();
     };
   }, []);
@@ -639,12 +700,14 @@ export function ExploreMapScreen({
     setLastCameraCenter(center);
     let nextRegion: MapRegion;
     if (bounds) {
-      nextRegion = regionFromBounds({
+      const geoBounds: GeoBounds = {
         west: bounds.southWest.longitude,
         south: bounds.southWest.latitude,
         east: bounds.northEast.longitude,
         north: bounds.northEast.latitude,
-      });
+      };
+      setMapViewportBounds(geoBounds);
+      nextRegion = regionFromBounds(geoBounds);
       setSearchRegion(nextRegion);
     } else {
       nextRegion = {
@@ -692,6 +755,7 @@ export function ExploreMapScreen({
         selectedVenueId={selectedVenueId}
         selectedUserId={selectedUserId}
         onCameraGesture={onCameraGesture}
+        onMapEngineReady={handleMapEngineReady}
         onVenuePress={onVenuePress}
         onUserPress={onUserPress}
       />

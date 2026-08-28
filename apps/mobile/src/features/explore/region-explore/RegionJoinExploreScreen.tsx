@@ -6,7 +6,7 @@ import React, {
   useState,
 } from 'react';
 import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { Text, spacing, useTheme } from '@jjoin/design-system';
 import {
@@ -58,12 +58,11 @@ type Props = {
   onSwitchToMap?: () => void;
 };
 
-const TAB_BAR_ESTIMATE = 64;
-const FAB_CLEARANCE = 56 + spacing.md;
+const FAB_SIZE = 56;
+const FAB_CLEARANCE = FAB_SIZE + spacing.md + spacing.sm;
 
 export function RegionJoinExploreScreen({ embedded = false, onSwitchToMap }: Props) {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const gold = theme.colors.action.primary;
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [selectedDate, setSelectedDate] = useState(() => localDayKey(new Date()));
@@ -93,8 +92,7 @@ export function RegionJoinExploreScreen({ embedded = false, onSwitchToMap }: Pro
 
   const currentView = viewStack[viewStack.length - 1]!;
   const showBack = viewStack.length > 1;
-  const listBottomPad =
-    Math.max(insets.bottom, spacing.md) + TAB_BAR_ESTIMATE + FAB_CLEARANCE;
+  const listBottomPad = FAB_CLEARANCE;
 
   const shiftWeek = useCallback((deltaWeeks: number) => {
     setWeekAnchorDate((prevAnchor) => {
