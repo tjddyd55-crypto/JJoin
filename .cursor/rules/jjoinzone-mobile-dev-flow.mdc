@@ -21,9 +21,34 @@ alwaysApply: true
 
 ## 실기기 / ADB / Metro
 
-- Dev Client + Metro가 살아 있으면 재사용. JS 변경은 Fast Refresh → 필요 시 Reload.
-- `adb reverse`는 USB 재연결·재부팅·연결 해제·API 실패 시에만 재확인. 이미 살아 있으면 재실행 금지.
-- Metro 정상 시 재시작하지 않는다. API 변경은 앱 재빌드하지 않고 서버 반영 후 화면 재진입/Reload.
+### USB Dev Client 시작 전 체크리스트
+
+1. `adb devices -l` — physical device가 `device`인지 확인
+2. `adb reverse --list` — reverse 목록 확인
+3. `tcp:3000 -> tcp:3000` 없으면 `adb reverse tcp:3000 tcp:3000`
+4. `tcp:8082 -> tcp:8082` 없으면 `adb reverse tcp:8082 tcp:8082`
+5. Metro `http://127.0.0.1:8082/status` → `packager-status:running`
+
+### ADB (유선 USB 기본)
+
+- **먼저** `adb devices -l`로 연결된 physical device 확인.
+- 정상 `device` 상태면 해당 기기 **재사용**. 별도 `adb connect` 하지 않는다.
+- **무선** `adb connect IP:PORT`는 사용자가 **별도로 요청한 경우에만** 사용.
+- 유선 연결이 정상인데 무선 디버깅으로 전환하지 **말 것**.
+- `adb reverse --list`에 이미 있으면 **중복 설정하지 않음**.
+- reverse 재확인은 USB 재연결·재부팅·연결 해제·API 실패 시에만.
+
+### Metro / Dev Client
+
+- Metro는 항상 **127.0.0.1 + 8082**로 연결한다 (Dev Launcher Recently Opened URL).
+- Windows에서 `expo start --localhost`만 쓰면 **IPv6(`[::1]:8082`)만** listen 되어
+  `adb reverse` → `127.0.0.1:8082` 연결이 실패할 수 있다 (`Failed to connect to /127.0.0.1:8082`).
+- USB reverse용 Metro 기동 예:
+  `REACT_NATIVE_PACKAGER_HOSTNAME=127.0.0.1 npx expo start --dev-client --port 8082`
+  (`netstat`에 `0.0.0.0:8082` 또는 `127.0.0.1:8082` LISTENING 확인; `Invoke-WebRequest http://127.0.0.1:8082/status`)
+- LAN IP(`192.168.x.x`)를 Dev Launcher 기본 연결로 사용하지 않는다.
+- Dev Client + Metro가 살아 있으면 **재사용**. JS 변경은 Fast Refresh → 필요 시 Reload.
+- Metro 정상 시 **재시작하지 않는다**. API 변경은 앱 재빌드하지 않고 서버 반영 후 화면 재진입/Reload.
 
 ## Git / QA seed
 
