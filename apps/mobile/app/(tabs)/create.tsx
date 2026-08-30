@@ -46,13 +46,23 @@ export default function CreateScreen() {
     venueId?: string;
     venueName?: string;
     venueAddress?: string;
+    players?: string;
+    rewardPerParticipant?: string;
   }>();
   const routeVenueId = typeof params.venueId === 'string' ? params.venueId : undefined;
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
 
   const [selectedVenue, setSelectedVenue] = useState<JoinCreateVenueSelection | null>(null);
-  const [players, setPlayers] = useState(4);
-  const [rewardPerParticipant, setRewardPerParticipant] = useState('0');
+  const [players, setPlayers] = useState(() => {
+    const n = Number(params.players);
+    return Number.isFinite(n) && n >= 2 ? Math.floor(n) : 4;
+  });
+  const [rewardPerParticipant, setRewardPerParticipant] = useState(
+    () =>
+      typeof params.rewardPerParticipant === 'string' && params.rewardPerParticipant
+        ? params.rewardPerParticipant
+        : '0',
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [doneJoinId, setDoneJoinId] = useState<string | null>(null);

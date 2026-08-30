@@ -23,49 +23,63 @@ import {
   isStoreMatchingJoin,
   matchingDisplayStatusLabel,
 } from '../../src/features/store/matching-join-ui';
+import { reopenJoinHref } from '../../src/features/engagement/reopen-join';
 
 function joinDetailHref(joinId: string): Href {
   return { pathname: '/join/[joinId]', params: { joinId } } as Href;
 }
 
-function JoinRow({ item, onPress }: { item: JoinListItemDto; onPress: () => void }) {
+function JoinRow({
+  item,
+  onPress,
+  onReopen,
+}: {
+  item: JoinListItemDto;
+  onPress: () => void;
+  onReopen?: () => void;
+}) {
   const start = new Date(item.startAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
   const matchingLabel = matchingDisplayStatusLabel(item, item.myRole === 'HOST' ? 'host' : 'participant');
   const badge = matchingLabel
     ? { label: matchingLabel, kind: item.displayStatus === 'IN_PROGRESS' ? 'ongoing' : 'upcoming' }
     : resolveJoinDiscoveryBadge(item);
   return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}
-    >
-      <Card variant="interactive" padding="md" style={styles.joinCard}>
-        <Stack gap="xs">
-          <Row justify="space-between" align="center">
-            <Text variant="body" tone="primary" style={styles.title}>
-              {item.venueName}
+    <Card variant="interactive" padding="md" style={styles.joinCard} onPress={onPress}>
+      <Stack gap="xs">
+        <Row justify="space-between" align="center">
+          <Text variant="body" tone="primary" style={styles.title}>
+            {item.venueName}
+          </Text>
+          <Badge
+            label={badge.label}
+            variant={badge.kind === 'ongoing' ? 'gold' : 'neutral'}
+          />
+        </Row>
+        <Text variant="caption" tone="secondary">
+          {start}
+        </Text>
+        <Text variant="caption" tone="tertiary">
+          {item.confirmedPlayerCount}/{item.plannedPlayerCount}
+          {isStoreMatchingJoin(item) && item.displaySubtitle
+            ? ` · ${item.displaySubtitle}`
+            : item.myParticipationStatus
+              ? ` · 나: ${item.myParticipationStatus}`
+              : ''}
+          {item.pendingApplicantCount > 0 ? ` · 신청 ${item.pendingApplicantCount}` : ''}
+        </Text>
+        {onReopen ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={onReopen}
+            style={styles.reopenBtn}
+          >
+            <Text variant="caption" tone="primary">
+              다시 모집
             </Text>
-            <Badge
-              label={badge.label}
-              variant={badge.kind === 'ongoing' ? 'gold' : 'neutral'}
-            />
-          </Row>
-          <Text variant="caption" tone="secondary">
-            {start}
-          </Text>
-          <Text variant="caption" tone="tertiary">
-            {item.confirmedPlayerCount}/{item.plannedPlayerCount}
-            {isStoreMatchingJoin(item) && item.displaySubtitle
-              ? ` · ${item.displaySubtitle}`
-              : item.myParticipationStatus
-                ? ` · 나: ${item.myParticipationStatus}`
-                : ''}
-            {item.pendingApplicantCount > 0 ? ` · 신청 ${item.pendingApplicantCount}` : ''}
-          </Text>
-        </Stack>
-      </Card>
-    </Pressable>
+          </Pressable>
+        ) : null}
+      </Stack>
+    </Card>
   );
 }
 
@@ -119,6 +133,15 @@ export default function MyJoinsScreen() {
   const hosted = splitActivePast(data?.hosted ?? []);
   const participating = splitActivePast(data?.participating ?? []);
 
+  async function onReopen(joinId: string) {
+    try {
+      const prefill = await api.getJoinPrefill(joinId);
+      router.push(reopenJoinHref(prefill));
+    } catch {
+      setError('다시 모집 정보를 불러오지 못했습니다.');
+    }
+  }
+
   return (
     <ScrollScreenFrame ref={scrollRef}>
       <Text variant="screenTitle" tone="primary">
@@ -167,6 +190,7 @@ export default function MyJoinsScreen() {
                       key={item.joinId}
                       item={item}
                       onPress={() => router.push(joinDetailHref(item.joinId))}
+                      onReopen={() => void onReopen(item.joinId)}
                     />
                   ))}
                 </Stack>
@@ -225,4 +249,8 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   title: { flex: 1, paddingRight: 8 },
+  reopenBtn: {
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+  },
 });

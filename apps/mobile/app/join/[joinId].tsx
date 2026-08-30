@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AppState, StyleSheet, View } from 'react-native';
+import { AppState, Pressable, Share, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Text,
   Badge,
   Button,
   Card,
+  Icon,
   Input,
+  Row,
   ScrollScreenFrame,
   Section,
   StickyActionFrame,
@@ -37,6 +39,8 @@ import {
 } from '../../src/features/store/matching-join-ui';
 import { summarizeMatchingSettlement, formatCoinWithLabel } from '@jjoin/domain';
 import { isInternalToolsEnabled } from '../../src/lib/internal-tools';
+import { publicJoinShareUrl } from '../../src/lib/landing-url';
+import { reopenJoinHref } from '../../src/features/engagement/reopen-join';
 
 function rewardStatusLabel(status: RewardStatus): string {
   switch (status) {
@@ -355,6 +359,66 @@ export default function JoinDetailScreen() {
     }
   }
 
+  async function onToggleBookmark() {
+    if (!joinId || !detail || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      if (detail.bookmarked) {
+        await api.unbookmarkJoin(joinId);
+        setDetail({ ...detail, bookmarked: false });
+      } else {
+        await api.bookmarkJoin(joinId);
+        setDetail({ ...detail, bookmarked: true });
+      }
+    } catch {
+      setError('찜 처리에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onShare() {
+    if (!detail || !joinId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      let slug = detail.shareSlug?.trim() || '';
+      if (!slug) {
+        const created = await api.ensureJoinShareLink(joinId);
+        slug = created.shareSlug?.trim() || '';
+        if (slug) {
+          setDetail({ ...detail, shareSlug: slug });
+        }
+      }
+      if (!slug) {
+        setError('공유 링크를 아직 준비하지 못했습니다.');
+        return;
+      }
+      const url = publicJoinShareUrl(slug);
+      const message = `${detail.venue.name} 조인에 함께해요\n${url}`;
+      await Share.share({ message, url, title: 'JJOINZONE 조인 공유' });
+    } catch {
+      setError('공유에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onReopenJoin() {
+    if (!joinId || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const prefill = await api.getJoinPrefill(joinId);
+      router.push(reopenJoinHref(prefill));
+    } catch {
+      setError('다시 모집 정보를 불러오지 못했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!detail) {
     return (
       <ScrollScreenFrame>
@@ -425,13 +489,51 @@ export default function JoinDetailScreen() {
             mySettlement.rewardStatus === RewardStatus.NOT_ELIGIBLE),
       })
     : null;
+  const canReopen =
+    isHost &&
+    (detail.status === JoinStatus.COMPLETED ||
+      detail.status === JoinStatus.CANCELLED ||
+      new Date(detail.startAt).getTime() < Date.now());
 
   return (
     <View style={styles.root}>
       <ScrollScreenFrame contentPaddingBottom={24}>
         <Section title={detail.venue.name} subtitle={startLabel}>
-          {matching ? <Badge label="매장 인증" variant="gold" /> : null}
-          <Badge label={matchingStatusLabel ?? detail.status} variant="gold" />
+          <Row justify="space-between" align="center" style={styles.headerActions}>
+            <Row gap="sm" align="center" style={styles.badgeRow}>
+              {matching ? <Badge label="매장 인증" variant="gold" /> : null}
+              <Badge label={matchingStatusLabel ?? detail.status} variant="gold" />
+            </Row>
+            <Row gap="sm" align="center">
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={detail.bookmarked ? '찜 해제' : '찜하기'}
+                onPress={() => void onToggleBookmark()}
+                hitSlop={8}
+                style={styles.iconHit}
+              >
+                <Text
+                  variant="sectionTitle"
+                  style={{
+                    color: detail.bookmarked
+                      ? theme.colors.action.primary
+                      : theme.colors.text.tertiary,
+                  }}
+                >
+                  {detail.bookmarked ? '♥' : '♡'}
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="공유"
+                onPress={() => void onShare()}
+                hitSlop={8}
+                style={styles.iconHit}
+              >
+                <Icon name="share" size="md" tone="secondary" />
+              </Pressable>
+            </Row>
+          </Row>
           {matchingSubtitle ? (
             <Text variant="caption" tone="secondary">
               {matchingSubtitle}
@@ -485,6 +587,14 @@ export default function JoinDetailScreen() {
             {detail.host.nickname}
             {detail.host.verifiedBadge ? ' · 인증' : ''}
           </Text>
+          {detail.host.completedJoinCount != null || detail.host.noShowCount != null ? (
+            <Text variant="meta" tone="secondary">
+              참석 {detail.host.completedJoinCount ?? 0} · 노쇼 {detail.host.noShowCount ?? 0}
+              {detail.host.attendanceRatePercent != null
+                ? ` · 참석률 ${detail.host.attendanceRatePercent}%`
+                : ''}
+            </Text>
+          ) : null}
         </Section>
 
         <Section title="참가자">
@@ -498,6 +608,21 @@ export default function JoinDetailScreen() {
               {detail.myParticipation.role})
             </Text>
           ) : null}
+          {detail.participants.map((p) => (
+            <Card key={p.participantId} variant="base" padding="md" style={styles.attendanceCard}>
+              <Text variant="bodyStrong" tone="primary">
+                {p.nickname}
+                {p.role === 'HOST' ? ' · 호스트' : ''}
+              </Text>
+              <Text variant="meta" tone="secondary">
+                {p.participationStatus}
+                {p.completedJoinCount != null || p.noShowCount != null
+                  ? ` · 참석 ${p.completedJoinCount ?? 0} · 노쇼 ${p.noShowCount ?? 0}`
+                  : ''}
+                {p.attendanceRatePercent != null ? ` · ${p.attendanceRatePercent}%` : ''}
+              </Text>
+            </Card>
+          ))}
         </Section>
 
         <Section title="보상">
@@ -708,6 +833,13 @@ export default function JoinDetailScreen() {
             onPress={() => void onLeaveStoreJoin()}
           />
         ) : null}
+        {canReopen ? (
+          <Button
+            label="다시 모집"
+            loading={busy}
+            onPress={() => void onReopenJoin()}
+          />
+        ) : null}
         <Button
           label="내 조인"
           variant="secondary"
@@ -721,6 +853,16 @@ export default function JoinDetailScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  headerActions: {
+    width: '100%',
+  },
+  badgeRow: {
+    flex: 1,
+    flexWrap: 'wrap',
+  },
+  iconHit: {
+    padding: 4,
+  },
   pendingRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -19,6 +19,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { RegionsModule } from './modules/regions/regions.module';
 import { StoreOwnershipModule } from './modules/store-ownership/store-ownership.module';
+import { EngagementModule } from './modules/engagement/engagement.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -44,6 +45,7 @@ import { PrismaModule } from './prisma/prisma.module';
     AdminModule,
     NotificationsModule,
     StoreOwnershipModule,
+    EngagementModule,
   ],
 })
 export class AppModule {}

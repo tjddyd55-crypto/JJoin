@@ -68,6 +68,14 @@ import {
   type StoreOwnershipDto,
   type StoreOwnershipRequestDto,
   type StoreVerificationStatus,
+  type JoinAlertSubscriptionDto,
+  type CreateJoinAlertSubscriptionRequest,
+  type UpdateJoinAlertSubscriptionRequest,
+  type JoinBookmarkDto,
+  type GolfFacilityFollowDto,
+  type PublicJoinShareDto,
+  type JoinPrefillDto,
+  type FacilityWeeklyJoinsResponse,
 } from '@jjoin/types';
 
 export type ApiClientConfig = {
@@ -1051,6 +1059,143 @@ export class ApiClient {
       method: 'POST',
       headers: await this.headers(true),
       body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  /* ─── Join engagement (alerts / bookmarks / follows / share) ─── */
+
+  async listJoinAlerts(): Promise<JoinAlertSubscriptionDto[]> {
+    const res = await request(`${this.config.baseUrl}/me/join-alerts`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async createJoinAlert(
+    body: CreateJoinAlertSubscriptionRequest,
+  ): Promise<JoinAlertSubscriptionDto> {
+    const res = await request(`${this.config.baseUrl}/me/join-alerts`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async updateJoinAlert(
+    id: string,
+    body: UpdateJoinAlertSubscriptionRequest,
+  ): Promise<JoinAlertSubscriptionDto> {
+    const res = await request(`${this.config.baseUrl}/me/join-alerts/${id}`, {
+      method: 'PATCH',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async deleteJoinAlert(id: string): Promise<{ ok: true }> {
+    const res = await request(`${this.config.baseUrl}/me/join-alerts/${id}`, {
+      method: 'DELETE',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async listJoinBookmarks(): Promise<JoinBookmarkDto[]> {
+    const res = await request(`${this.config.baseUrl}/me/join-bookmarks`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async bookmarkJoin(joinId: string): Promise<JoinBookmarkDto> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/bookmark`, {
+      method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async unbookmarkJoin(joinId: string): Promise<{ ok: true }> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/bookmark`, {
+      method: 'DELETE',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async listFacilityFollows(): Promise<GolfFacilityFollowDto[]> {
+    const res = await request(`${this.config.baseUrl}/me/facility-follows`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async followFacility(golfFacilityId: string): Promise<GolfFacilityFollowDto> {
+    const res = await request(
+      `${this.config.baseUrl}/golf-facilities/${golfFacilityId}/follow`,
+      {
+        method: 'POST',
+        headers: await this.headers(true),
+      },
+    );
+    return parseJson(res);
+  }
+
+  async unfollowFacility(golfFacilityId: string): Promise<{ ok: true }> {
+    const res = await request(
+      `${this.config.baseUrl}/golf-facilities/${golfFacilityId}/follow`,
+      {
+        method: 'DELETE',
+        headers: await this.headers(true),
+      },
+    );
+    return parseJson(res);
+  }
+
+  async getJoinPrefill(joinId: string): Promise<JoinPrefillDto> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/prefill`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async ensureJoinShareLink(joinId: string): Promise<{ shareSlug: string | null }> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/share-link`, {
+      method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async resolveJoinShareSlug(shareSlug: string): Promise<{ joinId: string; shareSlug: string }> {
+    const res = await request(
+      `${this.config.baseUrl}/joins/by-share/${encodeURIComponent(shareSlug)}`,
+      { headers: await this.headers(true) },
+    );
+    return parseJson(res);
+  }
+
+  async getFacilityWeeklyJoins(
+    golfFacilityId: string,
+    date?: string,
+  ): Promise<FacilityWeeklyJoinsResponse> {
+    const params = new URLSearchParams();
+    if (date) params.set('date', date);
+    const qs = params.toString();
+    const res = await request(
+      `${this.config.baseUrl}/golf-facilities/${golfFacilityId}/weekly-joins${qs ? `?${qs}` : ''}`,
+      { headers: await this.headers(true) },
+    );
+    return parseJson(res);
+  }
+
+  /** Public share payload — no auth token. */
+  async getPublicJoin(shareSlug: string): Promise<PublicJoinShareDto> {
+    const res = await request(`${this.config.baseUrl}/public/joins/${shareSlug}`, {
+      headers: await this.headers(false),
     });
     return parseJson(res);
   }

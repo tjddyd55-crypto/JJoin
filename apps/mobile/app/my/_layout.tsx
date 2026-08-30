@@ -23,6 +23,9 @@ export default function MyLayout() {
         <Stack.Screen name="store-verification" options={{ title: '스크린골프 매장 인증' }} />
         <Stack.Screen name="stores" options={{ title: '내 매장' }} />
         <Stack.Screen name="create-store-join" options={{ title: '모집 조인 만들기' }} />
+        <Stack.Screen name="join-alerts" options={{ title: '조인 알림' }} />
+        <Stack.Screen name="bookmarks" options={{ title: '찜한 조인' }} />
+        <Stack.Screen name="followed-stores" options={{ title: '팔로우한 매장' }} />
         <Stack.Screen name="wallet" options={{ title: '월렛' }} />
         <Stack.Screen name="edit-profile" options={{ title: '프로필 수정' }} />
         <Stack.Screen name="account" options={{ title: '계정' }} />

@@ -453,7 +453,7 @@ class JjoinKakaoMapView(context: Context, appContext: AppContext) : ExpoView(con
       val caption = item.optString("caption", "")
       val kind = item.optString("kind", "venue")
       val selected = item.optBoolean("selected", false)
-      val styles = stylesFor(map, kind, selected)
+      val styles = stylesFor(map, kind, selected, caption)
       val options =
         LabelOptions.from(LatLng.from(lat, lng))
           .setStyles(styles)
@@ -469,17 +469,24 @@ class JjoinKakaoMapView(context: Context, appContext: AppContext) : ExpoView(con
     }
   }
 
-  private fun stylesFor(map: KakaoMap, kind: String, selected: Boolean): LabelStyles {
+  private fun stylesFor(
+    map: KakaoMap,
+    kind: String,
+    selected: Boolean,
+    caption: String,
+  ): LabelStyles {
     val icon =
       when (kind) {
         "user" -> userMarkerIcon(selected)
         "me" -> meMarkerIcon()
-        else -> venuePinIcon(selected)
+        else -> venuePinIcon(selected, caption)
       }
     val style =
       LabelStyle.from(icon)
         .setApplyDpScale(true)
         .setAnchorPoint(anchorFor(kind))
+        // Kakao ignores LabelTexts unless text styles are set on LabelStyle.
+        .setTextStyles(28, Color.WHITE)
     return requireNotNull(map.labelManager!!.addLabelStyles(LabelStyles.from(style)))
   }
 
@@ -491,19 +498,36 @@ class JjoinKakaoMapView(context: Context, appContext: AppContext) : ExpoView(con
     }
   }
 
-  private fun venuePinIcon(selected: Boolean): Bitmap {
-    val key = (if (selected) 1 else 0) shl 20 or 0x101
+  private fun venuePinIcon(selected: Boolean, caption: String = ""): Bitmap {
+    val hasBadge = caption.isNotBlank()
+    val key =
+      ((if (selected) 1 else 0) shl 20) or
+        ((if (hasBadge) 1 else 0) shl 19) or
+        (caption.hashCode() and 0x3ffff)
     markerIconCache[key]?.let { return it }
     val density = resources.displayMetrics.density
-    val widthDp = if (selected) 26f else 14f
-    val heightDp = if (selected) 36f else 20f
+    // Badge pins need more head room so the digit stays readable on the map.
+    val widthDp =
+      when {
+        hasBadge && selected -> 34f
+        hasBadge -> 28f
+        selected -> 26f
+        else -> 14f
+      }
+    val heightDp =
+      when {
+        hasBadge && selected -> 44f
+        hasBadge -> 36f
+        selected -> 36f
+        else -> 20f
+      }
     val w = (widthDp * density).toInt().coerceAtLeast(16)
     val h = (heightDp * density).toInt().coerceAtLeast(22)
     val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     val fill = if (selected) Color.parseColor("#023D31") else Color.parseColor("#0A6B56")
     val cx = w / 2f
-    val headR = w * (if (selected) 0.38f else 0.34f)
+    val headR = w * (if (hasBadge) 0.42f else if (selected) 0.38f else 0.34f)
     val headCy = headR + density * 0.8f
     val tipY = h - density * 0.4f
 
@@ -550,7 +574,17 @@ class JjoinKakaoMapView(context: Context, appContext: AppContext) : ExpoView(con
       }
     canvas.drawPath(path, fillPaint)
     canvas.drawPath(path, strokePaint)
-    if (selected) {
+    if (hasBadge) {
+      val textPaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+          color = Color.WHITE
+          textAlign = Paint.Align.CENTER
+          textSize = headR * (if (caption.length > 1) 0.95f else 1.15f)
+          isFakeBoldText = true
+        }
+      val textY = headCy - (textPaint.descent() + textPaint.ascent()) / 2f
+      canvas.drawText(caption, cx, textY, textPaint)
+    } else if (selected) {
       val halo =
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
           color = Color.parseColor("#0A6B56")

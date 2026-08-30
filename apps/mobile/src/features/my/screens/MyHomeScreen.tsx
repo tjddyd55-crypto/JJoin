@@ -1,5 +1,5 @@
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
   Badge,
@@ -93,6 +93,15 @@ export function MyHomeScreen() {
           ) : null}
           <Row gap="sm" style={styles.statsRow}>
             <Badge label={`${t('profile.participationCount')} ${profile.participationCount}`} variant="neutral" />
+            {profile.completedJoinCount != null || profile.noShowCount != null ? (
+              <Badge
+                label={`참석 ${profile.completedJoinCount ?? 0} · 노쇼 ${profile.noShowCount ?? 0}`}
+                variant="neutral"
+              />
+            ) : null}
+            {profile.attendanceRatePercent != null ? (
+              <Badge label={`참석률 ${profile.attendanceRatePercent}%`} variant="gold" />
+            ) : null}
             {profile.verifiedBadge ? (
               <Badge label={t('profile.verified')} variant="success" />
             ) : (
@@ -157,6 +166,29 @@ export function MyHomeScreen() {
                 showSeparator={false}
               />
             ) : null}
+          </View>
+        </Card>
+      </Section>
+
+      <Section title="활동">
+        <Card variant="base" padding="none" style={styles.settingsCard}>
+          <View style={styles.settingsInner}>
+            <ListRow
+              label="조인 알림"
+              icon="notification"
+              onPress={() => router.push('/my/join-alerts' as Href)}
+            />
+            <ListRow
+              label="찜한 조인"
+              icon="calendar"
+              onPress={() => router.push('/my/bookmarks' as Href)}
+            />
+            <ListRow
+              label="팔로우한 매장"
+              icon="location"
+              onPress={() => router.push('/my/followed-stores' as Href)}
+              showSeparator={false}
+            />
           </View>
         </Card>
       </Section>

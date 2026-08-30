@@ -54,4 +54,17 @@ export const REGION_SEARCH_FIXTURES: Record<string, MapRegion> = {
     latitudeDelta: 0.08,
     longitudeDelta: 0.08,
   },
+  // ASCII aliases for device automation / international keyboards
+  seoul: {
+    latitude: 37.5665,
+    longitude: 126.978,
+    latitudeDelta: 0.08,
+    longitudeDelta: 0.08,
+  },
+  Seoul: {
+    latitude: 37.5665,
+    longitude: 126.978,
+    latitudeDelta: 0.08,
+    longitudeDelta: 0.08,
+  },
 };

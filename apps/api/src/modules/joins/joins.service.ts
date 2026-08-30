@@ -23,6 +23,7 @@ import {
   type JoinDetailDto,
   type JoinListItemDto,
   type JoinParticipantDto,
+  type JoinPrefillDto,
   type MatchingJoinExtras,
   type MyJoinsResponse,
   type PublicUserProfileDto,
@@ -36,6 +37,7 @@ import {
   computeConfirmedPlayerCount,
   computeJoinCoinRequirement,
   countMatchingGenderComposition,
+  createJoinShareSlug,
   DISCOVERY_JOIN_STATUSES,
   estimateEndAt,
   formatMatchingRecruitmentLabel,
@@ -52,6 +54,7 @@ import {
   storeMatchingOwnerListPriority,
   subCoinAmounts,
   computeAutoPayAt,
+  computeAttendanceReliability,
 } from '@jjoin/domain';
 import { createJoinSchema, joinCoinPreviewSchema } from '@jjoin/validation';
 import { Prisma } from '@prisma/client';
@@ -75,8 +78,15 @@ import { mockUserStore } from '../../mock/mock-user.store';
 import { NotificationEventService } from '../notifications/notification-event.service';
 import { NotificationType } from '@prisma/client';
 import { MatchingJoinsService } from './matching-joins.service';
+import { JoinEngagementNotifyService } from '../engagement/join-engagement-notify.service';
 
 const ACTIVE_JOIN_STATUSES: JoinStatus[] = [JoinStatus.OPEN, JoinStatus.FULL];
+
+function generateJoinShareSlug(): string {
+  const bytes = new Uint8Array(10);
+  globalThis.crypto.getRandomValues(bytes);
+  return createJoinShareSlug(bytes);
+}
 
 @Injectable()
 export class JoinsService {
@@ -89,6 +99,8 @@ export class JoinsService {
     private readonly meVenues: MeVenuesService,
     @Inject(forwardRef(() => MatchingJoinsService))
     private readonly matchingJoins: MatchingJoinsService,
+    @Inject(forwardRef(() => JoinEngagementNotifyService))
+    private readonly engagementNotify: JoinEngagementNotifyService,
   ) {}
 
   ping() {
@@ -365,7 +377,98 @@ export class JoinsService {
       await this.meVenues.touchRecent(hostUserId, createdVenueId);
     }
 
+    await this.ensureShareSlug(joinId);
+    void this.engagementNotify.notifyNewJoinableJoin(joinId);
+
     return this.getDetail(joinId, hostUserId);
+  }
+
+  async getPrefill(sourceJoinId: string, userId: string): Promise<JoinPrefillDto> {
+    const join = await this.prisma.join.findUnique({
+      where: { id: sourceJoinId },
+      include: { venue: true },
+    });
+    if (!join) throw new NotFoundException('join_not_found');
+
+    const isHost = join.hostUserId === userId;
+    let isStoreOwner = false;
+    if (join.storeOwnershipId) {
+      const ownership = await this.prisma.storeOwnership.findFirst({
+        where: { id: join.storeOwnershipId, userId, status: 'ACTIVE' },
+        select: { id: true },
+      });
+      isStoreOwner = Boolean(ownership);
+    } else if (join.venue.golfFacilityId) {
+      const ownership = await this.prisma.storeOwnership.findFirst({
+        where: {
+          golfFacilityId: join.venue.golfFacilityId,
+          userId,
+          status: 'ACTIVE',
+        },
+        select: { id: true },
+      });
+      isStoreOwner = Boolean(ownership);
+    }
+    if (!isHost && !isStoreOwner) {
+      throw new ForbiddenException({
+        code: 'JOIN_PREFILL_FORBIDDEN',
+        message: '재오픈은 호스트 또는 매장 소유자만 가능합니다.',
+      });
+    }
+
+    return {
+      sourceJoinId: join.id,
+      venueId: join.venueId,
+      golfFacilityId: join.venue.golfFacilityId,
+      title: join.title,
+      description: join.description,
+      plannedPlayerCount: join.plannedPlayerCount,
+      targetMaleCount: join.targetMaleCount,
+      targetFemaleCount: join.targetFemaleCount,
+      rewardPerParticipant: String(join.rewardPerParticipant),
+      joinKind: join.joinKind as JoinKind,
+      matchingRewardTarget: join.matchingRewardTarget as JoinPrefillDto['matchingRewardTarget'],
+      storeOwnershipId: join.storeOwnershipId,
+      minimumPlayers: join.minimumPlayers,
+    };
+  }
+
+  /** Assign opaque share slug after commit when missing. */
+  async ensureShareSlug(joinId: string): Promise<string | null> {
+    const existing = await this.prisma.join.findUnique({
+      where: { id: joinId },
+      select: { shareSlug: true },
+    });
+    if (!existing) return null;
+    if (existing.shareSlug) return existing.shareSlug;
+
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const shareSlug = generateJoinShareSlug();
+      try {
+        await this.prisma.join.update({
+          where: { id: joinId },
+          data: { shareSlug },
+        });
+        return shareSlug;
+      } catch (e) {
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+          continue;
+        }
+        throw e;
+      }
+    }
+    return null;
+  }
+
+  async resolveShareSlug(shareSlug: string): Promise<{ joinId: string; shareSlug: string }> {
+    const slug = shareSlug?.trim();
+    if (!slug) throw new NotFoundException('join_not_found');
+    const join = await this.prisma.join.findUnique({
+      where: { shareSlug: slug },
+      select: { id: true, shareSlug: true },
+    });
+    if (!join?.shareSlug) throw new NotFoundException('join_not_found');
+    return { joinId: join.id, shareSlug: join.shareSlug };
   }
 
   async getDetail(joinId: string, viewerUserId?: string): Promise<JoinDetailDto> {
@@ -390,7 +493,19 @@ export class JoinsService {
       },
     });
     if (!join) throw new NotFoundException('join_not_found');
-    const detail = this.toDetail(join, viewerUserId);
+    let bookmarked = false;
+    if (viewerUserId) {
+      const bookmark = await this.prisma.joinBookmark.findUnique({
+        where: { userId_joinId: { userId: viewerUserId, joinId } },
+        select: { id: true },
+      });
+      bookmarked = Boolean(bookmark);
+    }
+    const reliabilityByUserId = await this.loadAttendanceReliabilityByUserIds([
+      join.hostUserId,
+      ...join.participants.map((p) => p.userId),
+    ]);
+    const detail = this.toDetail(join, viewerUserId, { bookmarked, reliabilityByUserId });
     if (viewerUserId) {
       try {
         detail.settlement = await this.settlement.getJoinSettlements(joinId, viewerUserId);
@@ -399,6 +514,68 @@ export class JoinsService {
       }
     }
     return detail;
+  }
+
+  private async loadAttendanceReliabilityByUserIds(
+    userIds: string[],
+  ): Promise<
+    Map<
+      string,
+      {
+        completedCount: number;
+        noShowCount: number;
+        attendanceRatePercent: number | null;
+      }
+    >
+  > {
+    const unique = [...new Set(userIds.filter(Boolean))];
+    const result = new Map<
+      string,
+      {
+        completedCount: number;
+        noShowCount: number;
+        attendanceRatePercent: number | null;
+      }
+    >();
+    for (const id of unique) {
+      result.set(id, {
+        completedCount: 0,
+        noShowCount: 0,
+        attendanceRatePercent: null,
+      });
+    }
+    if (unique.length === 0) return result;
+
+    const rows = await this.prisma.joinParticipant.groupBy({
+      by: ['userId', 'participationStatus'],
+      where: {
+        userId: { in: unique },
+        participationStatus: { in: ['COMPLETED', 'NO_SHOW'] },
+      },
+      _count: { _all: true },
+    });
+
+    const completed = new Map<string, number>();
+    const noshow = new Map<string, number>();
+    for (const row of rows) {
+      if (row.participationStatus === 'COMPLETED') {
+        completed.set(row.userId, row._count._all);
+      } else if (row.participationStatus === 'NO_SHOW') {
+        noshow.set(row.userId, row._count._all);
+      }
+    }
+    for (const id of unique) {
+      const reliability = computeAttendanceReliability({
+        completedCount: completed.get(id) ?? 0,
+        noShowCount: noshow.get(id) ?? 0,
+      });
+      result.set(id, {
+        completedCount: reliability.completedCount,
+        noShowCount: reliability.noShowCount,
+        attendanceRatePercent: reliability.attendanceRatePercent,
+      });
+    }
+    return result;
   }
 
   async myJoins(userId: string): Promise<MyJoinsResponse> {
@@ -949,6 +1126,7 @@ export class JoinsService {
       storeOwnershipId?: string | null;
       confirmedAt?: Date | null;
       cancelledAt?: Date | null;
+      shareSlug?: string | null;
       rewardPerParticipant: Prisma.Decimal;
       roomCreationFeeAmount: Prisma.Decimal;
       rewardHoldTotalAmount: Prisma.Decimal;
@@ -986,21 +1164,41 @@ export class JoinsService {
       }>;
     },
     viewerUserId?: string,
+    extras?: {
+      bookmarked?: boolean;
+      reliabilityByUserId?: Map<
+        string,
+        {
+          completedCount: number;
+          noShowCount: number;
+          attendanceRatePercent: number | null;
+        }
+      >;
+    },
   ): JoinDetailDto {
-    const hostProfile = this.toPublicHost(join.host);
+    const hostProfile = this.toPublicHost(
+      join.host,
+      extras?.reliabilityByUserId?.get(join.host.id),
+    );
     assertPublicProfileHasNoPrivateFields(hostProfile as unknown as Record<string, unknown>);
 
-    const participants: JoinParticipantDto[] = join.participants.map((p) => ({
-      participantId: p.id,
-      userId: p.userId,
-      role: p.role as ParticipantRole,
-      participationStatus: p.participationStatus as ParticipationStatus,
-      nickname: p.user.profile?.nickname ?? '참가자',
-      verifiedBadge: true,
-      appliedAt: p.appliedAt.toISOString(),
-      approvedAt: p.approvedAt?.toISOString() ?? null,
-      gender: (p.user.profile?.gender as JoinParticipantDto['gender']) ?? null,
-    }));
+    const participants: JoinParticipantDto[] = join.participants.map((p) => {
+      const reliability = extras?.reliabilityByUserId?.get(p.userId);
+      return {
+        participantId: p.id,
+        userId: p.userId,
+        role: p.role as ParticipantRole,
+        participationStatus: p.participationStatus as ParticipationStatus,
+        nickname: p.user.profile?.nickname ?? '참가자',
+        verifiedBadge: true,
+        appliedAt: p.appliedAt.toISOString(),
+        approvedAt: p.approvedAt?.toISOString() ?? null,
+        gender: (p.user.profile?.gender as JoinParticipantDto['gender']) ?? null,
+        completedJoinCount: reliability?.completedCount,
+        noShowCount: reliability?.noShowCount,
+        attendanceRatePercent: reliability?.attendanceRatePercent ?? null,
+      };
+    });
 
     const mine = viewerUserId
       ? participants.find((p) => p.userId === viewerUserId) ?? null
@@ -1040,6 +1238,8 @@ export class JoinsService {
       roomCreationFeeAmount: String(join.roomCreationFeeAmount),
       rewardHoldTotalAmount: String(join.rewardHoldTotalAmount),
       coinAccountingPending: false,
+      shareSlug: join.shareSlug ?? null,
+      bookmarked: extras?.bookmarked ?? false,
       venue: {
         venueId: join.venue.id,
         provider: join.venue.provider,
@@ -1225,18 +1425,25 @@ export class JoinsService {
     };
   }
 
-  private toPublicHost(host: {
-    id: string;
-    identityStatus: string;
-    profile: {
-      nickname: string;
-      gender: string | null;
-      ageBand: string | null;
-      regionLabel: string | null;
-      bio: string | null;
-    } | null;
-    sportProfiles: Array<{ skillLevel: string; sport: { code: string } }>;
-  }): PublicUserProfileDto {
+  private toPublicHost(
+    host: {
+      id: string;
+      identityStatus: string;
+      profile: {
+        nickname: string;
+        gender: string | null;
+        ageBand: string | null;
+        regionLabel: string | null;
+        bio: string | null;
+      } | null;
+      sportProfiles: Array<{ skillLevel: string; sport: { code: string } }>;
+    },
+    reliability?: {
+      completedCount: number;
+      noShowCount: number;
+      attendanceRatePercent: number | null;
+    },
+  ): PublicUserProfileDto {
     const profile = host.profile;
     return {
       id: host.id,
@@ -1252,6 +1459,9 @@ export class JoinsService {
         skillLevel: sp.skillLevel as never,
       })),
       participationCount: 0,
+      completedJoinCount: reliability?.completedCount,
+      noShowCount: reliability?.noShowCount,
+      attendanceRatePercent: reliability?.attendanceRatePercent ?? null,
     };
   }
 }

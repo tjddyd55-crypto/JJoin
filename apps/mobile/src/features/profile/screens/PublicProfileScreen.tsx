@@ -92,6 +92,22 @@ export function PublicProfileScreen() {
           {t('profile.participationCount')}
         </AppText>
         <AppText variant="body">{String(profile.participationCount)}</AppText>
+        <AppText variant="label" color="textSecondary">
+          참석
+        </AppText>
+        <AppText variant="body">{String(profile.completedJoinCount ?? 0)}</AppText>
+        <AppText variant="label" color="textSecondary">
+          노쇼
+        </AppText>
+        <AppText variant="body">{String(profile.noShowCount ?? 0)}</AppText>
+        <AppText variant="label" color="textSecondary">
+          참석률
+        </AppText>
+        <AppText variant="body">
+          {profile.attendanceRatePercent == null
+            ? '기록 없음'
+            : `${profile.attendanceRatePercent}%`}
+        </AppText>
         <AppText
           variant="caption"
           color="primary"
