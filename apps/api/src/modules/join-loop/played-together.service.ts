@@ -32,8 +32,8 @@ export class PlayedTogetherService {
         FROM join_participants jp
         INNER JOIN joins j ON j.id = jp.join_id
         WHERE jp.user_id = ${userId}::uuid
-          AND j.status = ${PLAYED_TOGETHER_ELIGIBLE_STATUS}
-          AND jp.participation_status = ${PLAYED_TOGETHER_ELIGIBLE_STATUS}
+          AND j.status::text = ${PLAYED_TOGETHER_ELIGIBLE_STATUS}
+          AND jp.participation_status::text = ${PLAYED_TOGETHER_ELIGIBLE_STATUS}
       ),
       co AS (
         SELECT
@@ -44,14 +44,14 @@ export class PlayedTogetherService {
         INNER JOIN joins j ON j.id = jp.join_id
         INNER JOIN my_completed mc ON mc.join_id = jp.join_id
         WHERE jp.user_id <> ${userId}::uuid
-          AND jp.participation_status = ${PLAYED_TOGETHER_ELIGIBLE_STATUS}
+          AND jp.participation_status::text = ${PLAYED_TOGETHER_ELIGIBLE_STATUS}
         GROUP BY jp.user_id
       ),
       reliability AS (
         SELECT
           jp.user_id,
-          COUNT(*) FILTER (WHERE jp.participation_status = 'COMPLETED')::int AS completed_count,
-          COUNT(*) FILTER (WHERE jp.participation_status = 'NO_SHOW')::int AS no_show_count
+          COUNT(*) FILTER (WHERE jp.participation_status::text = 'COMPLETED')::int AS completed_count,
+          COUNT(*) FILTER (WHERE jp.participation_status::text = 'NO_SHOW')::int AS no_show_count
         FROM join_participants jp
         WHERE jp.user_id IN (SELECT user_id FROM co)
         GROUP BY jp.user_id
