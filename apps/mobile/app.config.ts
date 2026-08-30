@@ -6,15 +6,94 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
  * Expo config — Kakao Map requires Development Build (not Expo Go).
  * Kakao Map Native App Key ≠ Kakao Login Native App Key ≠ REST API Key.
  *
+ * Variant SSOT: APP_VARIANT=development | production
+ * (set by eas.json profile env, or local shell/.env for Metro/prebuild)
+ *
  * EAS projectId is a public UUID (not a secret). Prefer env override for CI;
  * default matches @tjddyd55/jjoin created via `eas init`.
  */
 const DEFAULT_EAS_PROJECT_ID = '7882917d-f3be-4832-bb62-754702a7d205';
 const GOOGLE_SERVICES_FILE = './google-services.json';
 
+/** Production Railway API — SSOT for production/preview builds. */
+const PRODUCTION_API_URL = 'https://api-production-2d67e.up.railway.app';
+
+/** Development Railway API — SSOT for APP_VARIANT=development builds. */
+const DEVELOPMENT_API_URL = 'https://api-development-e387.up.railway.app';
+
+export type AppVariant = 'development' | 'production';
+
+function resolveAppVariant(): AppVariant {
+  return process.env.APP_VARIANT === 'development' ? 'development' : 'production';
+}
+
+type VariantIdentity = {
+  name: string;
+  /** Expo slug — drives Dev Client `exp+{slug}` scheme; keep distinct per variant. */
+  slug: string;
+  scheme: string;
+  androidPackage: string;
+  iosBundleIdentifier: string;
+};
+
+function identityFor(variant: AppVariant): VariantIdentity {
+  if (variant === 'development') {
+    return {
+      name: 'JJOINZONE DEV',
+      // Same EAS project slug as production (projectId ↔ slug must match).
+      // Side-by-side identity is package + custom scheme, not Expo slug.
+      slug: 'jjoin',
+      scheme: 'jjoindev',
+      androidPackage: 'com.jjoin.app.dev',
+      iosBundleIdentifier: 'com.jjoin.app.dev',
+    };
+  }
+  return {
+    name: 'JJOINZONE',
+    slug: 'jjoin',
+    scheme: 'jjoin',
+    androidPackage: 'com.jjoin.app',
+    iosBundleIdentifier: 'com.jjoin.app',
+  };
+}
+
+/**
+ * API URL resolution:
+ * - Explicit EXPO_PUBLIC_API_URL always wins (local override / EAS env).
+ * - production/preview default → Production API.
+ * - development default → Development API (never localhost).
+ */
+function resolveApiUrl(variant: AppVariant): string {
+  const explicit = process.env.EXPO_PUBLIC_API_URL?.trim();
+  if (explicit) return explicit;
+
+  if (variant === 'development') {
+    return (
+      process.env.EXPO_PUBLIC_DEVELOPMENT_API_URL?.trim() || DEVELOPMENT_API_URL
+    );
+  }
+
+  return PRODUCTION_API_URL;
+}
+
 export default ({ config }: ConfigContext): ExpoConfig => {
-  const kakaoMapNativeAppKey = process.env.EXPO_PUBLIC_KAKAO_MAP_NATIVE_APP_KEY ?? '';
-  const kakaoLoginNativeAppKey = process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY ?? '';
+  const variant = resolveAppVariant();
+  const identity = identityFor(variant);
+  const apiUrl = resolveApiUrl(variant);
+
+  /**
+   * Kakao Native App Keys — fully split by APP_VARIANT.
+   * Development uses *_DEV only (no fallback to Production keys).
+   * Production uses non-_DEV only. Never cross-wire.
+   */
+  const kakaoMapNativeAppKey =
+    variant === 'development'
+      ? process.env.EXPO_PUBLIC_KAKAO_MAP_NATIVE_APP_KEY_DEV?.trim() || ''
+      : process.env.EXPO_PUBLIC_KAKAO_MAP_NATIVE_APP_KEY?.trim() || '';
+  const kakaoLoginNativeAppKey =
+    variant === 'development'
+      ? process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY_DEV?.trim() || ''
+      : process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY?.trim() || '';
   const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '';
   const naverUrlScheme = process.env.EXPO_PUBLIC_NAVER_LOGIN_URL_SCHEME ?? 'jjoinnaverlogin';
   const easProjectId =
@@ -97,24 +176,24 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 
   return {
     ...config,
-    name: 'JJOINZONE',
-    slug: 'jjoin',
+    name: identity.name,
+    slug: identity.slug,
     owner: 'tjddyd55',
     version: '0.0.2',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
-    scheme: 'jjoin',
+    scheme: identity.scheme,
     userInterfaceStyle: 'light',
     ios: {
       supportsTablet: true,
-      bundleIdentifier: 'com.jjoin.app',
+      bundleIdentifier: identity.iosBundleIdentifier,
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
           '주변 스크린골프장과 조인을 찾기 위해 현재 위치를 사용합니다.',
       },
     },
     android: {
-      package: 'com.jjoin.app',
+      package: identity.androidPackage,
       versionCode: 2,
       ...(hasGoogleServices ? { googleServicesFile: GOOGLE_SERVICES_FILE } : {}),
       adaptiveIcon: {
@@ -140,6 +219,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       typedRoutes: true,
     },
     extra: {
+      appVariant: variant,
+      apiUrl,
       mapProvider: 'kakao' as const,
       kakaoMapNativeAppKeyConfigured: Boolean(kakaoMapNativeAppKey),
       kakaoLoginNativeAppKeyConfigured: Boolean(kakaoLoginNativeAppKey),
