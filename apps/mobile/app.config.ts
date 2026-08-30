@@ -40,7 +40,9 @@ function identityFor(variant: AppVariant): VariantIdentity {
   if (variant === 'development') {
     return {
       name: 'JJOINZONE DEV',
-      slug: 'jjoin-dev',
+      // Same EAS project slug as production (projectId ↔ slug must match).
+      // Side-by-side identity is package + custom scheme, not Expo slug.
+      slug: 'jjoin',
       scheme: 'jjoindev',
       androidPackage: 'com.jjoin.app.dev',
       iosBundleIdentifier: 'com.jjoin.app.dev',

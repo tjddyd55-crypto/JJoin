@@ -8,7 +8,7 @@
 | name | JJOINZONE | JJOINZONE DEV |
 | package | `com.jjoin.app` | `com.jjoin.app.dev` |
 | scheme | `jjoin` | `jjoindev` |
-| Dev Client scheme | `exp+jjoin` | `exp+jjoin-dev` |
+| Dev Client scheme | `exp+jjoin` (shared EAS slug) | `exp+jjoin` (shared EAS slug; custom scheme `jjoindev`) |
 | EAS profile | `production` / `preview` | `development` |
 | Kakao Native App Key | PROD keys (`EXPO_PUBLIC_KAKAO_*` without `_DEV`) | DEV keys (`EXPO_PUBLIC_KAKAO_*_DEV` only; no fallback) |
 | API | Production Railway | Development Railway |
