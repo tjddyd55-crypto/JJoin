@@ -187,6 +187,11 @@ export function MyHomeScreen() {
               label="팔로우한 매장"
               icon="location"
               onPress={() => router.push('/my/followed-stores' as Href)}
+            />
+            <ListRow
+              label="함께 친 사람"
+              icon="people"
+              onPress={() => router.push('/my/played-together' as Href)}
               showSeparator={false}
             />
           </View>

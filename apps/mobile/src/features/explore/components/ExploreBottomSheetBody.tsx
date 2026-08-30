@@ -159,6 +159,7 @@ export function ExploreBottomSheetBody(props: {
       v.distanceMeters != null ? `${(v.distanceMeters / 1000).toFixed(1)}km` : null;
     const today = v.todayJoinCount ?? 0;
     const ongoing = v.ongoingJoinCount ?? 0;
+    const urgent = v.urgentJoinCount ?? 0;
     const dateJoinLabel = isSelectedToday
       ? `오늘 조인 ${today}개`
       : `${selectedDate!.slice(5).replace('-', '/')} 조인 ${today}개`;
@@ -186,6 +187,7 @@ export function ExploreBottomSheetBody(props: {
             openJoinCount={v.openJoinCount}
             todayJoinCount={today}
             ongoingJoinCount={ongoing}
+            urgentJoinCount={urgent}
           />
           {v.golfFacilityId || v.source === 'GOLF_FACILITY' ? (
             <FacilityFollowWeeklySection
@@ -200,11 +202,12 @@ export function ExploreBottomSheetBody(props: {
             </Text>
           ) : (
             <Stack gap="sm">
-              {(ongoing > 0 || today > 0) && (
+              {(ongoing > 0 || today > 0 || urgent > 0) && (
                 <Text variant="meta" tone="secondary">
                   {[
                     ongoing > 0 ? `현재 진행 중 ${ongoing}개` : null,
                     today > 0 ? dateJoinLabel : null,
+                    urgent > 0 ? `긴급 모집 ${urgent}개` : null,
                   ]
                     .filter(Boolean)
                     .join(' · ')}
@@ -220,6 +223,7 @@ export function ExploreBottomSheetBody(props: {
                   host={j.hostNickname}
                   hostVerified={j.hostVerified}
                   rewardPerParticipant={j.rewardCoin}
+                  isUrgent={j.isUrgent}
                   onPress={() => props.onJoinPress(j.joinId)}
                 />
               ))}
@@ -306,11 +310,17 @@ export function ExploreBottomSheetBody(props: {
 
   const peekSubtitle =
     props.peekSubtitle ??
-    (showPresence
-      ? `스크린골프장 ${venueCount}곳 · 지금 조인 가능 ${userCount}명`
-      : mapFilter === 'USER'
-        ? `지금 조인 가능 ${userCount}명`
-        : `주변 스크린골프장 ${venueCount}곳`);
+    (() => {
+      const urgentTotal = props.venues.reduce((sum, v) => sum + (v.urgentJoinCount ?? 0), 0);
+      const urgentHint = urgentTotal > 0 ? ` · 긴급 ${urgentTotal}` : '';
+      if (showPresence) {
+        return `스크린골프장 ${venueCount}곳 · 지금 조인 가능 ${userCount}명${urgentHint}`;
+      }
+      if (mapFilter === 'USER') {
+        return `지금 조인 가능 ${userCount}명`;
+      }
+      return `주변 스크린골프장 ${venueCount}곳${urgentHint}`;
+    })();
 
   return (
     <BottomSheetFrame showHandle={false}>
@@ -349,6 +359,7 @@ export function ExploreBottomSheetBody(props: {
               regionLabel={v.regionLabel}
               openJoinCount={v.openJoinCount}
               todayJoinableCount={v.todayJoinableCount ?? 0}
+              urgentJoinCount={v.urgentJoinCount ?? 0}
               onPress={() => props.onSelectVenue(v.venueId)}
             />
           ))}

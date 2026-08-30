@@ -8,6 +8,8 @@ export type VenueCardProps = {
   regionLabel?: string | null;
   openJoinCount?: number;
   todayJoinableCount?: number;
+  /** Compact urgent vacancy count — not alarm spam. */
+  urgentJoinCount?: number;
   onPress?: () => void;
 };
 
@@ -18,6 +20,7 @@ export function VenueCard({
   regionLabel,
   openJoinCount = 0,
   todayJoinableCount = 0,
+  urgentJoinCount = 0,
   onPress,
 }: VenueCardProps) {
   const badgeLabel =
@@ -39,9 +42,14 @@ export function VenueCard({
             {[distance, regionLabel, category].filter(Boolean).join(' · ')}
           </Text>
         </View>
-        {badgeLabel ? (
-          <Badge label={badgeLabel} variant={todayJoinableCount > 0 ? 'gold' : 'neutral'} />
-        ) : null}
+        <View style={styles.badges}>
+          {urgentJoinCount > 0 ? (
+            <Badge label={`긴급 ${urgentJoinCount}`} variant="warning" />
+          ) : null}
+          {badgeLabel ? (
+            <Badge label={badgeLabel} variant={todayJoinableCount > 0 ? 'gold' : 'neutral'} />
+          ) : null}
+        </View>
       </Row>
     </Card>
   );
@@ -49,4 +57,5 @@ export function VenueCard({
 
 const styles = StyleSheet.create({
   body: { flex: 1, gap: 2 },
+  badges: { gap: 4, alignItems: 'flex-end' },
 });

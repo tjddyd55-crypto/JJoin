@@ -172,10 +172,13 @@ function HomeHostedJoinCard({
             <Text variant="body" tone="primary" style={styles.cardTitle}>
               {item.venueName}
             </Text>
-            <Badge
-              label={badge.label}
-              variant={badge.kind === 'ongoing' ? 'gold' : 'neutral'}
-            />
+            <Row gap="xs" align="center">
+              {item.isUrgent ? <Badge label="긴급" variant="warning" /> : null}
+              <Badge
+                label={badge.label}
+                variant={badge.kind === 'ongoing' ? 'gold' : 'neutral'}
+              />
+            </Row>
           </Row>
           <Text variant="caption" tone="secondary">
             {start}

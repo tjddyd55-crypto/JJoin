@@ -29,14 +29,20 @@ function joinDetailHref(joinId: string): Href {
   return { pathname: '/join/[joinId]', params: { joinId } } as Href;
 }
 
+function chatHref(joinId: string): Href {
+  return { pathname: '/join/[joinId]/chat', params: { joinId } } as Href;
+}
+
 function JoinRow({
   item,
   onPress,
   onReopen,
+  onChat,
 }: {
   item: JoinListItemDto;
   onPress: () => void;
   onReopen?: () => void;
+  onChat?: () => void;
 }) {
   const start = new Date(item.startAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
   const matchingLabel = matchingDisplayStatusLabel(item, item.myRole === 'HOST' ? 'host' : 'participant');
@@ -50,10 +56,13 @@ function JoinRow({
           <Text variant="body" tone="primary" style={styles.title}>
             {item.venueName}
           </Text>
-          <Badge
-            label={badge.label}
-            variant={badge.kind === 'ongoing' ? 'gold' : 'neutral'}
-          />
+          <Row gap="xs" align="center">
+            {item.isUrgent ? <Badge label="긴급" variant="warning" /> : null}
+            <Badge
+              label={badge.label}
+              variant={badge.kind === 'ongoing' ? 'gold' : 'neutral'}
+            />
+          </Row>
         </Row>
         <Text variant="caption" tone="secondary">
           {start}
@@ -67,16 +76,31 @@ function JoinRow({
               : ''}
           {item.pendingApplicantCount > 0 ? ` · 신청 ${item.pendingApplicantCount}` : ''}
         </Text>
-        {onReopen ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={onReopen}
-            style={styles.reopenBtn}
-          >
-            <Text variant="caption" tone="primary">
-              다시 모집
-            </Text>
-          </Pressable>
+        {onChat || onReopen ? (
+          <Row gap="md" align="center">
+            {onChat ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={onChat}
+                style={styles.reopenBtn}
+              >
+                <Text variant="caption" tone="primary">
+                  채팅
+                </Text>
+              </Pressable>
+            ) : null}
+            {onReopen ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={onReopen}
+                style={styles.reopenBtn}
+              >
+                <Text variant="caption" tone="primary">
+                  다시 모집
+                </Text>
+              </Pressable>
+            ) : null}
+          </Row>
         ) : null}
       </Stack>
     </Card>
@@ -176,6 +200,11 @@ export default function MyJoinsScreen() {
                       key={item.joinId}
                       item={item}
                       onPress={() => router.push(joinDetailHref(item.joinId))}
+                      onChat={
+                        item.chatAvailable
+                          ? () => router.push(chatHref(item.joinId))
+                          : undefined
+                      }
                     />
                   ))}
                 </Stack>
@@ -190,6 +219,11 @@ export default function MyJoinsScreen() {
                       key={item.joinId}
                       item={item}
                       onPress={() => router.push(joinDetailHref(item.joinId))}
+                      onChat={
+                        item.chatAvailable
+                          ? () => router.push(chatHref(item.joinId))
+                          : undefined
+                      }
                       onReopen={() => void onReopen(item.joinId)}
                     />
                   ))}
@@ -218,6 +252,11 @@ export default function MyJoinsScreen() {
                       key={item.joinId}
                       item={item}
                       onPress={() => router.push(joinDetailHref(item.joinId))}
+                      onChat={
+                        item.chatAvailable
+                          ? () => router.push(chatHref(item.joinId))
+                          : undefined
+                      }
                     />
                   ))}
                 </Stack>
@@ -232,6 +271,11 @@ export default function MyJoinsScreen() {
                       key={item.joinId}
                       item={item}
                       onPress={() => router.push(joinDetailHref(item.joinId))}
+                      onChat={
+                        item.chatAvailable
+                          ? () => router.push(chatHref(item.joinId))
+                          : undefined
+                      }
                     />
                   ))}
                 </Stack>
