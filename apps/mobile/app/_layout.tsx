@@ -170,12 +170,22 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={styles.root}>
+    <GestureHandlerRootView
+      style={[styles.root, { backgroundColor: clubMinimalTheme.colors.app.background }]}
+    >
       <ThemeProvider theme={clubMinimalTheme}>
         <SessionProvider>
           <AuthGateBootstrap>
             <PushBootstrap />
-            <Stack screenOptions={{ headerShown: false }}>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: {
+                  backgroundColor: clubMinimalTheme.colors.app.background,
+                },
+                animation: 'fade',
+              }}
+            >
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="auth" />
               <Stack.Screen name="my" />

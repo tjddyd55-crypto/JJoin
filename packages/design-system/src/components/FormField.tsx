@@ -1,21 +1,38 @@
 import { View, TextInput, StyleSheet, type TextInputProps } from 'react-native';
 import { AppText } from '../primitives/AppText';
-import { colors, radius, spacing } from '../tokens';
+import { spacing } from '../tokens';
+import { useTheme } from '../theme';
 
 type Props = TextInputProps & {
   label: string;
   error?: string;
 };
 
-export function FormField({ label, error, style, ...rest }: Props) {
+/** @deprecated Prefer `Input` — kept for legacy screens; uses Club Minimal theme tokens. */
+export function FormField({ label, error, style, editable = true, ...rest }: Props) {
+  const theme = useTheme();
+  const isDisabled = editable === false;
+
   return (
     <View style={styles.wrap}>
       <AppText variant="label" color="textSecondary">
         {label}
       </AppText>
       <TextInput
-        placeholderTextColor={colors.textSecondary}
-        style={[styles.input, error ? styles.inputError : null, style]}
+        placeholderTextColor={theme.colors.text.tertiary}
+        editable={editable}
+        style={[
+          styles.input,
+          {
+            minHeight: theme.sizes.input.md,
+            borderRadius: theme.radius.md,
+            backgroundColor: theme.colors.surface.card,
+            borderColor: error ? theme.colors.status.error : theme.colors.border.subtle,
+            color: theme.colors.text.primary,
+            opacity: isDisabled ? 0.5 : 1,
+          },
+          style,
+        ]}
         {...rest}
       />
       {error ? (
@@ -30,15 +47,9 @@ export function FormField({ label, error, style, ...rest }: Props) {
 const styles = StyleSheet.create({
   wrap: { gap: spacing.xxs },
   input: {
-    minHeight: 44,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    backgroundColor: colors.surface,
-    color: colors.textPrimary,
     fontSize: 15,
   },
-  inputError: { borderColor: colors.danger },
 });

@@ -12,18 +12,19 @@ import {
   Chip,
   FormScreenFrame,
   Input,
-  ScrollScreenFrame,
   Section,
   Spacer,
   StickyActionFrame,
   Text,
   useTheme,
 } from '@jjoin/design-system';
+import { formatKoreanPhoneDisplay, formatKoreanPhoneInput } from '@jjoin/domain';
 import {
   StoreOwnerRelation,
   StoreVerificationStatus,
   type CreateStoreOwnershipRequest,
   type GolfFacilityMapDto,
+  type StoreOwnershipDto,
   type StoreOwnershipRequestDto,
 } from '@jjoin/types';
 import { createStoreOwnershipRequestSchema } from '@jjoin/validation';
@@ -33,14 +34,12 @@ import {
 } from '../../explore/api/golf-facility-explore';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
-import {
-  formatFacilityRegion,
-} from '../api/store-facility-search';
+import { formatFacilityRegion } from '../api/store-facility-search';
 import { StoreFacilityFinderModal } from '../components/StoreFacilityFinderModal';
 import {
   RELATION_LABELS,
   VERIFICATION_STATUS_LABELS,
-  canSubmitStoreVerification,
+  canSubmitStoreVerificationForFacility,
 } from '../store-ui';
 
 const RELATION_OPTIONS = [
@@ -50,19 +49,21 @@ const RELATION_OPTIONS = [
   StoreOwnerRelation.OTHER,
 ] as const;
 
-function latestRequest(requests: StoreOwnershipRequestDto[]): StoreOwnershipRequestDto | null {
-  if (requests.length === 0) return null;
-  return [...requests].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  )[0]!;
-}
-
 function facilitySubtitle(facility: GolfFacilityMapDto): string {
   const brand = brandLabel(facility.primaryBrand);
   const typeLabel = facilityTypeLabel(facility.facilityType);
   const category = brand ? `${typeLabel} · ${brand}` : typeLabel;
   const region = formatFacilityRegion(facility);
   return [category, region].filter(Boolean).join(' · ');
+}
+
+function statusBadgeVariant(
+  status: StoreVerificationStatus,
+): 'success' | 'warning' | 'neutral' | 'error' {
+  if (status === StoreVerificationStatus.APPROVED) return 'success';
+  if (status === StoreVerificationStatus.PENDING) return 'warning';
+  if (status === StoreVerificationStatus.REJECTED) return 'error';
+  return 'neutral';
 }
 
 export function StoreVerificationScreen() {
@@ -72,6 +73,7 @@ export function StoreVerificationScreen() {
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
 
   const [requests, setRequests] = useState<StoreOwnershipRequestDto[]>([]);
+  const [stores, setStores] = useState<StoreOwnershipDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -86,14 +88,26 @@ export function StoreVerificationScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const current = useMemo(() => latestRequest(requests), [requests]);
-  const showForm = canSubmitStoreVerification(current?.status ?? null);
+  const ownershipFacilityIds = useMemo(
+    () => stores.map((s) => s.golfFacilityId),
+    [stores],
+  );
+
+  const canSubmitSelected = canSubmitStoreVerificationForFacility({
+    golfFacilityId: selectedFacility?.id,
+    requests,
+    ownershipFacilityIds,
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const items = await api.getMyStoreVerifications();
+      const [items, storeItems] = await Promise.all([
+        api.getMyStoreVerifications(),
+        api.getMyStores(),
+      ]);
       setRequests(items);
+      setStores(storeItems);
       setError(null);
     } catch {
       setError('인증 요청 내역을 불러오지 못했습니다.');
@@ -108,10 +122,6 @@ export function StoreVerificationScreen() {
     }, [load]),
   );
 
-  const clearSelectedFacility = useCallback(() => {
-    setSelectedFacility(null);
-  }, []);
-
   const onSelectFacility = useCallback((facility: GolfFacilityMapDto) => {
     setSelectedFacility(facility);
     setFormError(null);
@@ -122,10 +132,20 @@ export function StoreVerificationScreen() {
       setFormError('먼저 매장을 선택해주세요.');
       return;
     }
+    if (
+      !canSubmitStoreVerificationForFacility({
+        golfFacilityId: selectedFacility.id,
+        requests,
+        ownershipFacilityIds,
+      })
+    ) {
+      setFormError('이미 승인되었거나 심사 중인 매장입니다. 다른 매장을 선택해 주세요.');
+      return;
+    }
     const parsed = createStoreOwnershipRequestSchema.safeParse({
       golfFacilityId: selectedFacility.id,
       applicantName,
-      applicantPhone,
+      applicantPhone: formatKoreanPhoneDisplay(applicantPhone) || applicantPhone,
       relation,
       memo: memo.trim() || undefined,
       businessRegistrationNo: businessRegistrationNo.trim() || undefined,
@@ -138,11 +158,17 @@ export function StoreVerificationScreen() {
     setFormError(null);
     try {
       await api.createStoreVerification(parsed.data as CreateStoreOwnershipRequest);
+      setSelectedFacility(null);
       await load();
-      clearSelectedFacility();
     } catch (e) {
       const msg = e instanceof Error ? e.message : '';
-      setFormError(msg.includes('409') ? '이미 진행 중인 인증 요청이 있습니다.' : '제출에 실패했습니다.');
+      if (msg.includes('ACTIVE_OWNERSHIP') || msg.includes('이미 승인')) {
+        setFormError('이미 승인된 매장입니다. 다른 매장을 선택해 주세요.');
+      } else if (msg.includes('409') || msg.includes('PENDING')) {
+        setFormError('이미 진행 중인 인증 요청이 있습니다.');
+      } else {
+        setFormError('제출에 실패했습니다.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -150,66 +176,9 @@ export function StoreVerificationScreen() {
 
   if (loading) {
     return (
-      <ScrollScreenFrame>
-        <ActivityIndicator />
-      </ScrollScreenFrame>
-    );
-  }
-
-  if (!showForm) {
-    return (
-      <ScrollScreenFrame>
-        <Text variant="screenTitle" tone="primary">
-          스크린골프 매장 인증
-        </Text>
-        <Spacer size="md" />
-        {error ? (
-          <Text variant="body" tone="error">
-            {error}
-          </Text>
-        ) : null}
-        {current ? (
-          <Card variant="elevated" padding="md">
-            <Badge
-              label={VERIFICATION_STATUS_LABELS[current.status]}
-              variant={
-                current.status === StoreVerificationStatus.APPROVED
-                  ? 'success'
-                  : current.status === StoreVerificationStatus.PENDING
-                    ? 'warning'
-                    : 'neutral'
-              }
-            />
-            <Spacer size="sm" />
-            <Text variant="bodyStrong" tone="primary">
-              {current.facilityName}
-            </Text>
-            {current.facilityAddress ? (
-              <Text variant="caption" tone="secondary">
-                {current.facilityAddress}
-              </Text>
-            ) : null}
-            <Text variant="caption" tone="tertiary">
-              {RELATION_LABELS[current.relation]} · {current.applicantName} · {current.applicantPhone}
-            </Text>
-            {current.status === StoreVerificationStatus.REJECTED && current.rejectReason ? (
-              <Text variant="body" tone="error" style={styles.rejectReason}>
-                거절 사유: {current.rejectReason}
-              </Text>
-            ) : null}
-            {current.status === StoreVerificationStatus.APPROVED ? (
-              <>
-                <Spacer size="md" />
-                <Button
-                  label="내 매장 보기"
-                  onPress={() => router.push('/my/stores')}
-                  fullWidth
-                />
-              </>
-            ) : null}
-          </Card>
-        ) : null}
-      </ScrollScreenFrame>
+      <FormScreenFrame>
+        <ActivityIndicator color={gold} />
+      </FormScreenFrame>
     );
   }
 
@@ -217,7 +186,13 @@ export function StoreVerificationScreen() {
     <FormScreenFrame
       footer={
         <StickyActionFrame>
-          <Button label="인증 요청 제출" loading={submitting} onPress={() => void onSubmit()} fullWidth />
+          <Button
+            label="인증 요청 제출"
+            loading={submitting}
+            disabled={!canSubmitSelected || !selectedFacility}
+            onPress={() => void onSubmit()}
+            fullWidth
+          />
         </StickyActionFrame>
       }
     >
@@ -226,19 +201,9 @@ export function StoreVerificationScreen() {
       </Text>
       <Spacer size="sm" />
       <Text variant="body" tone="secondary">
-        스크린골프 매장을 운영하고 계신가요?
+        여러 매장을 운영 중이라면 매장마다 인증을 추가할 수 있습니다.
       </Text>
-      {current ? (
-        <>
-          <Spacer size="sm" />
-          <Card variant="base" padding="md">
-            <Text variant="caption" tone="tertiary">
-              이전 요청: {VERIFICATION_STATUS_LABELS[current.status]}
-              {current.rejectReason ? ` · ${current.rejectReason}` : ''}
-            </Text>
-          </Card>
-        </>
-      ) : null}
+
       {error ? (
         <>
           <Spacer size="sm" />
@@ -248,8 +213,49 @@ export function StoreVerificationScreen() {
         </>
       ) : null}
 
+      {requests.length > 0 ? (
+        <>
+          <Spacer size="lg" />
+          <Section title="내 인증 요청">
+            {requests.map((req) => (
+              <Card key={req.id} variant="base" padding="md" style={styles.requestCard}>
+                <Badge
+                  label={VERIFICATION_STATUS_LABELS[req.status]}
+                  variant={statusBadgeVariant(req.status)}
+                />
+                <Spacer size="xs" />
+                <Text variant="bodyStrong" tone="primary">
+                  {req.facilityName}
+                </Text>
+                {req.facilityAddress ? (
+                  <Text variant="caption" tone="secondary">
+                    {req.facilityAddress}
+                  </Text>
+                ) : null}
+                <Text variant="caption" tone="tertiary">
+                  {RELATION_LABELS[req.relation]} · {req.applicantName} ·{' '}
+                  {formatKoreanPhoneDisplay(req.applicantPhone)}
+                </Text>
+                {req.status === StoreVerificationStatus.REJECTED && req.rejectReason ? (
+                  <Text variant="caption" tone="error">
+                    거절 사유: {req.rejectReason}
+                  </Text>
+                ) : null}
+              </Card>
+            ))}
+            <Spacer size="sm" />
+            <Button
+              label="내 매장 보기"
+              variant="secondary"
+              onPress={() => router.push('/my/stores')}
+              fullWidth
+            />
+          </Section>
+        </>
+      ) : null}
+
       <Spacer size="lg" />
-      <Section title="매장 선택">
+      <Section title="새 매장 인증">
         {selectedFacility ? (
           <Card variant="elevated" padding="md" style={styles.selectedFacility}>
             <Text variant="meta" style={{ color: gold }}>
@@ -267,6 +273,14 @@ export function StoreVerificationScreen() {
             <Text variant="caption" tone="tertiary">
               {facilitySubtitle(selectedFacility)}
             </Text>
+            {!canSubmitSelected ? (
+              <>
+                <Spacer size="sm" />
+                <Text variant="caption" tone="error">
+                  이미 승인되었거나 심사 중인 매장입니다.
+                </Text>
+              </>
+            ) : null}
             <Spacer size="sm" />
             <Button
               label="변경"
@@ -284,8 +298,7 @@ export function StoreVerificationScreen() {
         )}
         <Spacer size="sm" />
         <Text variant="caption" tone="tertiary">
-          지역을 선택한 뒤 스크린골프 매장 목록에서 찾을 수 있습니다. DB에 없는
-          매장은 현재 golfFacilityId 없이 인증할 수 없습니다.
+          지역을 선택한 뒤 스크린골프 매장 목록에서 찾을 수 있습니다.
         </Text>
       </Section>
 
@@ -303,8 +316,9 @@ export function StoreVerificationScreen() {
         <Input
           label="연락처"
           value={applicantPhone}
-          onChangeText={setApplicantPhone}
+          onChangeText={(text) => setApplicantPhone(formatKoreanPhoneInput(text))}
           keyboardType="phone-pad"
+          placeholder="010-1234-5678"
         />
         <Spacer size="md" />
         <Text variant="meta" tone="secondary">
@@ -349,22 +363,6 @@ export function StoreVerificationScreen() {
 }
 
 const styles = StyleSheet.create({
-  searchStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 8,
-  },
-  searchFeedback: {
-    marginTop: 8,
-  },
-  resultList: {
-    marginTop: 8,
-  },
-  hitRow: {
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
   selectedFacility: {
     marginTop: 12,
   },
@@ -374,7 +372,7 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 8,
   },
-  rejectReason: {
-    marginTop: 8,
+  requestCard: {
+    marginBottom: 8,
   },
 });

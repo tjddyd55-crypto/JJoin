@@ -11,11 +11,18 @@ import {
   Spacer,
   Text,
 } from '@jjoin/design-system';
-import { formatCoinWithLabel } from '@jjoin/domain';
-import { StoreOwnershipStatus, type JoinListItemDto, type StoreOwnershipDto } from '@jjoin/types';
+import { formatCoinWithLabel, formatKoreanPhoneDisplay } from '@jjoin/domain';
+import {
+  StoreOwnershipStatus,
+  StoreVerificationStatus,
+  type JoinListItemDto,
+  type StoreOwnershipDto,
+  type StoreOwnershipRequestDto,
+} from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
 import {
+  VERIFICATION_STATUS_LABELS,
   filterStoreJoins,
   groupStoreJoins,
   storeJoinCardCaption,
@@ -100,6 +107,7 @@ export function MyStoresScreen() {
   const router = useRouter();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [stores, setStores] = useState<StoreOwnershipDto[]>([]);
+  const [requests, setRequests] = useState<StoreOwnershipRequestDto[]>([]);
   const [joins, setJoins] = useState<JoinListItemDto[]>([]);
   const [filter, setFilter] = useState<StoreJoinListFilter>('ALL');
   const [error, setError] = useState<string | null>(null);
@@ -108,17 +116,24 @@ export function MyStoresScreen() {
     () => stores.filter((store) => store.status === StoreOwnershipStatus.ACTIVE),
     [stores],
   );
+  const pendingRequests = useMemo(
+    () =>
+      requests.filter((r) => r.status === StoreVerificationStatus.PENDING),
+    [requests],
+  );
   const filteredJoins = useMemo(() => filterStoreJoins(joins, filter), [joins, filter]);
   const groups = useMemo(() => groupStoreJoins(filteredJoins), [filteredJoins]);
 
   const load = useCallback(async () => {
     try {
-      const [storeItems, joinItems] = await Promise.all([
+      const [storeItems, joinItems, requestItems] = await Promise.all([
         api.getMyStores({ includeWallet: true }),
         api.getMyStoreJoins(),
+        api.getMyStoreVerifications(),
       ]);
       setStores(storeItems);
       setJoins(joinItems);
+      setRequests(requestItems);
       setError(null);
     } catch {
       setError('매장 정보를 불러오지 못했습니다.');
@@ -165,9 +180,12 @@ export function MyStoresScreen() {
       ) : (
         activeStores.map((store) => (
           <Card key={store.id} variant="elevated" padding="md" style={styles.storeCard}>
-            <Text variant="bodyStrong" tone="primary">
-              {store.facilityName}
-            </Text>
+            <Row justify="space-between" align="center">
+              <Text variant="bodyStrong" tone="primary">
+                {store.facilityName}
+              </Text>
+              <Badge label="승인됨" variant="success" />
+            </Row>
             {store.facilityAddress ? (
               <Text variant="caption" tone="secondary">
                 {store.facilityAddress}
@@ -181,6 +199,45 @@ export function MyStoresScreen() {
           </Card>
         ))
       )}
+
+      {pendingRequests.length > 0 ? (
+        <>
+          <Spacer size="md" />
+          <Text variant="sectionTitle" tone="primary">
+            심사 중
+          </Text>
+          <Spacer size="sm" />
+          {pendingRequests.map((req) => (
+            <Card key={req.id} variant="base" padding="md" style={styles.storeCard}>
+              <Row justify="space-between" align="center">
+                <Text variant="bodyStrong" tone="primary">
+                  {req.facilityName}
+                </Text>
+                <Badge
+                  label={VERIFICATION_STATUS_LABELS[req.status]}
+                  variant="warning"
+                />
+              </Row>
+              {req.facilityAddress ? (
+                <Text variant="caption" tone="secondary">
+                  {req.facilityAddress}
+                </Text>
+              ) : null}
+              <Text variant="caption" tone="tertiary">
+                {req.applicantName} · {formatKoreanPhoneDisplay(req.applicantPhone)}
+              </Text>
+            </Card>
+          ))}
+        </>
+      ) : null}
+
+      <Spacer size="md" />
+      <Button
+        label="매장 인증 추가"
+        variant="secondary"
+        onPress={() => router.push('/my/store-verification')}
+        fullWidth
+      />
 
       <Spacer size="lg" />
 
