@@ -106,10 +106,12 @@ async function main() {
     });
   }
 
-  const { start: dayStart } = kstDayBoundsUtc(new Date());
+  const todayKey = localDayKey(new Date());
+  const { start: dayStart } = kstDayBoundsUtc(todayKey);
   let startAt = new Date(Date.now() + 3 * 60 * 60 * 1000);
-  if (localDayKey(startAt) !== localDayKey(new Date())) {
-    startAt = new Date(dayStart.getTime() + 20 * 60 * 60 * 1000); // 20:00 KST-ish
+  if (localDayKey(startAt) !== todayKey) {
+    // Keep “today” after late-night: park at 20:00 KST of todayKey
+    startAt = new Date(dayStart.getTime() + 20 * 60 * 60 * 1000);
   }
   const endAt = new Date(startAt.getTime() + 4 * 60 * 60 * 1000);
 
