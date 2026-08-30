@@ -56,6 +56,12 @@ export class PublicJoinsService {
     const regionLabel =
       regionParts.length > 0 ? regionParts.join(' ') : join.venue.region;
 
+    const scheme =
+      process.env.RAILWAY_ENVIRONMENT_NAME === 'production' ||
+      process.env.APP_VARIANT === 'production'
+        ? 'jjoin'
+        : 'jjoindev';
+
     return {
       shareSlug: join.shareSlug!,
       joinId: join.id,
@@ -72,7 +78,7 @@ export class PublicJoinsService {
       title: join.title,
       description: join.description,
       isJoinable,
-      appDeepLink: `jjoin://join/${join.id}`,
+      appDeepLink: `${scheme}://join/${join.id}`,
     };
   }
 }
