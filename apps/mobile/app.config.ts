@@ -18,6 +18,9 @@ const GOOGLE_SERVICES_FILE = './google-services.json';
 /** Production Railway API — SSOT for production/preview builds. */
 const PRODUCTION_API_URL = 'https://api-production-2d67e.up.railway.app';
 
+/** Development Railway API — SSOT for APP_VARIANT=development builds. */
+const DEVELOPMENT_API_URL = 'https://api-development-e387.up.railway.app';
+
 export type AppVariant = 'development' | 'production';
 
 function resolveAppVariant(): AppVariant {
@@ -56,16 +59,16 @@ function identityFor(variant: AppVariant): VariantIdentity {
  * API URL resolution:
  * - Explicit EXPO_PUBLIC_API_URL always wins (local override / EAS env).
  * - production/preview default → Production API.
- * - development has no localhost default; set EXPO_PUBLIC_API_URL (or
- *   EXPO_PUBLIC_DEVELOPMENT_API_URL) to the shared Development API.
+ * - development default → Development API (never localhost).
  */
 function resolveApiUrl(variant: AppVariant): string {
   const explicit = process.env.EXPO_PUBLIC_API_URL?.trim();
   if (explicit) return explicit;
 
   if (variant === 'development') {
-    const developmentApi = process.env.EXPO_PUBLIC_DEVELOPMENT_API_URL?.trim();
-    return developmentApi || '';
+    return (
+      process.env.EXPO_PUBLIC_DEVELOPMENT_API_URL?.trim() || DEVELOPMENT_API_URL
+    );
   }
 
   return PRODUCTION_API_URL;
@@ -77,22 +80,18 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const apiUrl = resolveApiUrl(variant);
 
   /**
-   * Kakao keys: shared by default (same Kakao app + package registration).
-   * Optional *_DEV overrides only when Development uses a separate Native App Key.
-   * Production always uses the non-_DEV variables — never overwritten by DEV slots.
+   * Kakao Native App Keys — fully split by APP_VARIANT.
+   * Development uses *_DEV only (no fallback to Production keys).
+   * Production uses non-_DEV only. Never cross-wire.
    */
   const kakaoMapNativeAppKey =
-    (variant === 'development'
-      ? process.env.EXPO_PUBLIC_KAKAO_MAP_NATIVE_APP_KEY_DEV?.trim()
-      : '') ||
-    process.env.EXPO_PUBLIC_KAKAO_MAP_NATIVE_APP_KEY?.trim() ||
-    '';
+    variant === 'development'
+      ? process.env.EXPO_PUBLIC_KAKAO_MAP_NATIVE_APP_KEY_DEV?.trim() || ''
+      : process.env.EXPO_PUBLIC_KAKAO_MAP_NATIVE_APP_KEY?.trim() || '';
   const kakaoLoginNativeAppKey =
-    (variant === 'development'
-      ? process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY_DEV?.trim()
-      : '') ||
-    process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY?.trim() ||
-    '';
+    variant === 'development'
+      ? process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY_DEV?.trim() || ''
+      : process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY?.trim() || '';
   const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '';
   const naverUrlScheme = process.env.EXPO_PUBLIC_NAVER_LOGIN_URL_SCHEME ?? 'jjoinnaverlogin';
   const easProjectId =

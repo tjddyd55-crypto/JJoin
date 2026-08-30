@@ -10,6 +10,9 @@
 | scheme | `jjoin` | `jjoindev` |
 | Dev Client scheme | `exp+jjoin` | `exp+jjoin-dev` |
 | EAS profile | `production` / `preview` | `development` |
+| Kakao Native App Key | PROD keys (`EXPO_PUBLIC_KAKAO_*` without `_DEV`) | DEV keys (`EXPO_PUBLIC_KAKAO_*_DEV` only; no fallback) |
+| API | Production Railway | Development Railway |
+| DB | Production Postgres | Development Postgres (isolated) |
 
 SSOT: `APP_VARIANT` in `eas.json` profile `env` (and local shell / `.env` for Metro).
 
@@ -19,29 +22,30 @@ Do not hand-edit package in a committed android tree.
 ## API
 
 - Production / preview: `https://api-production-2d67e.up.railway.app`
-- Development: set `EXPO_PUBLIC_API_URL` (or `EXPO_PUBLIC_DEVELOPMENT_API_URL`) to Development API
-- Localhost is explicit override only
+- Development default / EAS: `https://api-development-e387.up.railway.app`
+- Explicit `EXPO_PUBLIC_API_URL` always wins; localhost is override only
 
-## Railway Development backend (required before EAS DEV build)
+## Railway Development backend
 
-JJOIN Railway project currently has **production only**.
+Project **JJOIN** has a `development` environment (duplicated from production) with:
 
-Safe setup (user action in Railway dashboard):
+- Isolated Postgres (`api.DATABASE_URL` fingerprint ≠ production)
+- API public domain: `https://api-development-e387.up.railway.app`
+- Cron workers default inactive (schedule cleared / not relied on for DEV)
 
-1. Project **JJOIN** → environment dropdown → **+ New Environment**
-2. Choose **Duplicate Environment** from `production` (creates isolated service copies + new Postgres)
-3. Name: `development`
-4. Review **staged changes** → Deploy (do **not** sync back into production)
-5. On `development` → `api` → generate/public domain → copy HTTPS URL
-6. Confirm `api.DATABASE_URL` references **development** Postgres (`${{Postgres.DATABASE_URL}}` in that env), not production
-7. Prefer new `JWT_SECRET` / admin passwords for development
-8. Give Cursor the Development API HTTPS URL for `eas.json` / EAS env
+Never point Development API at production `DATABASE_URL`. Never overwrite production variables.
 
-Never point Development API at production `DATABASE_URL`.
+## Kakao
+
+- Login: `social-auth-config.ts` → `kakaoLoginAppKey()` by `APP_VARIANT`
+- Map: `app.config.ts` → `jjoin-kakao-map` plugin `nativeAppKey` by `APP_VARIANT`
+- Development must use `*_DEV` Native App Key slots only
+- Production Native App Key / key hash must not be changed for DEV work
+- Native App Key values live in local `.env` (gitignored) and EAS Project env `development` (sensitive) — never commit into `eas.json`
+
+DEV Android key hash (debug.keystore): `Xo8WBi6jzSxKDVR4drqm84yr9iU=`
 
 ## Signing (current DEV = Android debug.keystore)
-
-Used for local Dev Client / until EAS development credentials differ:
 
 | | Value |
 |---|---|
@@ -51,9 +55,9 @@ Used for local Dev Client / until EAS development credentials differ:
 
 If EAS development uses a different keystore, **add** (do not replace) that SHA/key hash on provider consoles.
 
-## Provider console (additive only)
+## Provider console
 
-- Kakao: add Android `com.jjoin.app.dev` + key hash on **existing** app
-- Naver: add Android `com.jjoin.app.dev` on **existing** application
-- Google: create **new** Android OAuth client (`com.jjoin.app.dev` + SHA-1); keep Web client
-- Firebase/FCM: deferred until FCM enabled
+- Kakao: separate DEV Native App Key for `com.jjoin.app.dev` (do not edit PROD key/hash)
+- Naver: `com.jjoin.app.dev` registered; reuse Client ID/Secret
+- Google: DEV Android OAuth client created; app code uses Web Client ID only
+- Firebase/FCM: deferred

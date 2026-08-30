@@ -11,14 +11,13 @@ function trimEnv(value: string | undefined): string {
 
 /**
  * Kakao Login Native App Key — NOT Map key, NOT REST key.
- * Optional EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY_DEV overrides for APP_VARIANT=development
- * when a separate Kakao Native App Key is used; otherwise the shared key is reused.
+ * APP_VARIANT=development → EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY_DEV only.
+ * APP_VARIANT=production  → EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY only.
+ * No cross-variant fallback.
  */
 export function kakaoLoginAppKey(): string {
-  const isDev = process.env.APP_VARIANT === 'development';
-  if (isDev) {
-    const devKey = trimEnv(process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY_DEV);
-    if (devKey) return devKey;
+  if (process.env.APP_VARIANT === 'development') {
+    return trimEnv(process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY_DEV);
   }
   return trimEnv(process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY);
 }

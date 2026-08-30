@@ -7,8 +7,10 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "environment": "development",
       "env": {
-        "APP_VARIANT": "development"
+        "APP_VARIANT": "development",
+        "EXPO_PUBLIC_API_URL": "https://api-development-e387.up.railway.app"
       },
       "android": {
         "buildType": "apk"
@@ -16,6 +18,7 @@
     },
     "preview": {
       "distribution": "internal",
+      "environment": "preview",
       "env": {
         "APP_VARIANT": "production",
         "EXPO_PUBLIC_API_URL": "https://api-production-2d67e.up.railway.app",
@@ -26,6 +29,7 @@
       }
     },
     "production": {
+      "environment": "preview",
       "env": {
         "APP_VARIANT": "production",
         "EXPO_PUBLIC_API_URL": "https://api-production-2d67e.up.railway.app"
