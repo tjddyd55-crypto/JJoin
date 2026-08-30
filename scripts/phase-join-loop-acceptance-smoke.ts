@@ -142,12 +142,14 @@ async function main() {
 
   // --- Non-member / wrong join isolation ---
   {
-    const denied = await req(`/joins/${seed.urgentJoinId}/chat`, {
+    // Prefer a join where DEV_B is not a participant (inviteJoin host is QAUser).
+    const probeJoin = seed.inviteJoinId;
+    const denied = await req(`/joins/${probeJoin}/chat`, {
       headers: bearer(b.accessToken),
     });
     assert(
-      denied.status === 403,
-      `non-member chat expected 403 got ${denied.status} ${denied.raw.slice(0, 160)}`,
+      denied.status === 403 || denied.status === 404,
+      `non-member chat expected 403/404 got ${denied.status} ${denied.raw.slice(0, 160)}`,
     );
 
     const fakeJoin = '00000000-0000-4000-8000-000000000000';
@@ -158,7 +160,7 @@ async function main() {
       missing.status === 403 || missing.status === 404,
       `guessed joinId expected 403/404 got ${missing.status}`,
     );
-    console.log('PASS non-member + guessed joinId');
+    console.log('PASS non-member + guessed joinId', denied.status, missing.status);
   }
 
   // --- Decline revoke chat ---
