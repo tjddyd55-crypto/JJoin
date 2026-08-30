@@ -1,14 +1,12 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
-  AppText,
-  BottomActionBar,
   Button,
-  FormField,
-  ScreenContainer,
-  Stack,
-  spacing,
+  FormScreenFrame,
+  Input,
+  Spacer,
+  StickyActionFrame,
+  Text,
 } from '@jjoin/design-system';
 import { t } from '@jjoin/i18n';
 import { profileEditSchema } from '@jjoin/validation';
@@ -51,35 +49,60 @@ export function EditProfileScreen() {
   }
 
   return (
-    <ScreenContainer padded={false}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Stack gap="md">
-          <AppText variant="title">{t('my.edit')}</AppText>
-          <AppText variant="caption" color="textSecondary">
-            Identity 데이터는 수정할 수 없습니다.
-          </AppText>
-          <FormField label={t('field.nickname')} value={nickname} onChangeText={setNickname} />
-          <FormField label={t('field.region')} value={regionLabel} onChangeText={setRegionLabel} />
-          <FormField label={t('field.bio')} value={bio} onChangeText={setBio} multiline />
-          <FormField
-            label={t('field.skill')}
-            value={skillLevel}
-            onChangeText={(v) => setSkillLevel(v as SportSkillLevel)}
-          />
-          {error ? (
-            <AppText color="danger" variant="body">
-              {error}
-            </AppText>
-          ) : null}
-        </Stack>
-      </ScrollView>
-      <BottomActionBar>
-        <Button label={t('common.save')} loading={loading} onPress={() => void onSave()} />
-      </BottomActionBar>
-    </ScreenContainer>
+    <FormScreenFrame
+      footer={
+        <StickyActionFrame>
+          <Button label={t('common.save')} loading={loading} onPress={() => void onSave()} />
+        </StickyActionFrame>
+      }
+    >
+      <Spacer size="md" />
+      <Text variant="title" tone="primary">
+        {t('my.edit')}
+      </Text>
+      <Spacer size="xs" />
+      <Text variant="caption" tone="secondary">
+        Identity 데이터는 수정할 수 없습니다.
+      </Text>
+      <Spacer size="md" />
+      <Input
+        label={t('field.nickname')}
+        value={nickname}
+        onChangeText={setNickname}
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+      <Spacer size="sm" />
+      <Input
+        label={t('field.region')}
+        value={regionLabel}
+        onChangeText={setRegionLabel}
+      />
+      <Spacer size="sm" />
+      <Input
+        label={t('field.bio')}
+        value={bio}
+        onChangeText={setBio}
+        multiline
+        textAlignVertical="top"
+        style={{ minHeight: 96 }}
+      />
+      <Spacer size="sm" />
+      <Input
+        label={t('field.skill')}
+        value={skillLevel}
+        onChangeText={(v) => setSkillLevel(v as SportSkillLevel)}
+        autoCapitalize="characters"
+        autoCorrect={false}
+      />
+      {error ? (
+        <>
+          <Spacer size="sm" />
+          <Text variant="body" tone="error">
+            {error}
+          </Text>
+        </>
+      ) : null}
+    </FormScreenFrame>
   );
 }
-
-const styles = StyleSheet.create({
-  scroll: { padding: spacing.lg },
-});
