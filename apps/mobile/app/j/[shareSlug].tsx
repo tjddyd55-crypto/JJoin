@@ -1,14 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Text, ScrollScreenFrame } from '@jjoin/design-system';
 import { getApiClient } from '../../src/lib/api';
-import { useSession } from '../../src/session/SessionContext';
+import { getSecureSessionStore } from '../../src/session/SessionContext';
 
 /** Deep link target: jjoin://j/{shareSlug} — resolves to join detail without public UUID leak. */
 export default function ShareSlugDeepLinkScreen() {
   const { shareSlug } = useLocalSearchParams<{ shareSlug: string }>();
   const router = useRouter();
-  const { store } = useSession();
+  const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -20,7 +20,6 @@ export default function ShareSlugDeepLinkScreen() {
     let cancelled = false;
     void (async () => {
       try {
-        const api = getApiClient(store);
         const resolved = await api.resolveJoinShareSlug(slug);
         if (cancelled) return;
         router.replace(`/join/${resolved.joinId}`);
@@ -31,7 +30,7 @@ export default function ShareSlugDeepLinkScreen() {
     return () => {
       cancelled = true;
     };
-  }, [shareSlug, router, store]);
+  }, [shareSlug, router, api]);
 
   return (
     <ScrollScreenFrame>
