@@ -1,4 +1,5 @@
 import { SocialProvider } from '@jjoin/types';
+import { isDevelopmentVariant } from '../../../lib/app-variant';
 
 /**
  * Expo/Metro inlines only *static* `process.env.EXPO_PUBLIC_*` access.
@@ -16,14 +17,14 @@ function trimEnv(value: string | undefined): string {
  * No cross-variant fallback.
  */
 export function kakaoLoginAppKey(): string {
-  if (process.env.APP_VARIANT === 'development') {
+  if (isDevelopmentVariant()) {
     return trimEnv(process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY_DEV);
   }
   return trimEnv(process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY);
 }
 
 export function naverLoginConfig() {
-  const isDev = process.env.APP_VARIANT === 'development';
+  const isDev = isDevelopmentVariant();
   return {
     consumerKey: trimEnv(process.env.EXPO_PUBLIC_NAVER_LOGIN_CLIENT_ID),
     consumerSecret: trimEnv(process.env.EXPO_PUBLIC_NAVER_LOGIN_CLIENT_SECRET),
