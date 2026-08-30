@@ -39,8 +39,12 @@ const DEVELOPMENT_ADAPTIVE_BACKGROUND_COLOR = '#0A6B56';
  * Background fill reuses Club Minimal darkest canvas token (palette.neutral950).
  */
 const PRODUCTION_APP_ICON = './assets/icons/jjoinzone-prod-icon.png';
+/**
+ * Adaptive foreground with transparent padding so JJOIN/ZONE/ball stay inside
+ * Android 66% safe zone. Original art kept at jjoinzone-prod-foreground.png.
+ */
 const PRODUCTION_ADAPTIVE_FOREGROUND =
-  './assets/icons/jjoinzone-prod-foreground.png';
+  './assets/icons/jjoinzone-prod-foreground-safe.png';
 const PRODUCTION_ADAPTIVE_BACKGROUND_COLOR = '#09090A';
 
 export type AppVariant = 'development' | 'production';
@@ -146,7 +150,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 
   const plugins: ExpoConfig['plugins'] = [
     'expo-router',
-    'expo-dev-client',
     [
       'expo-splash-screen',
       {
@@ -188,6 +191,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       },
     ],
   ];
+
+  // Dev Launcher only for Development identity (eas developmentClient).
+  // Production/preview standalone must not register expo-dev-client.
+  if (variant === 'development') {
+    plugins.splice(1, 0, 'expo-dev-client');
+  }
 
   if (kakaoLoginNativeAppKey) {
     plugins.push([
