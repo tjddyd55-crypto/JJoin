@@ -460,6 +460,17 @@ export class JoinsService {
     return null;
   }
 
+  async resolveShareSlug(shareSlug: string): Promise<{ joinId: string; shareSlug: string }> {
+    const slug = shareSlug?.trim();
+    if (!slug) throw new NotFoundException('join_not_found');
+    const join = await this.prisma.join.findUnique({
+      where: { shareSlug: slug },
+      select: { id: true, shareSlug: true },
+    });
+    if (!join?.shareSlug) throw new NotFoundException('join_not_found');
+    return { joinId: join.id, shareSlug: join.shareSlug };
+  }
+
   async getDetail(joinId: string, viewerUserId?: string): Promise<JoinDetailDto> {
     const joinMeta = await this.prisma.join.findUnique({
       where: { id: joinId },

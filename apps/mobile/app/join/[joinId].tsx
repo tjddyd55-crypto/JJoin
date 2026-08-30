@@ -379,18 +379,29 @@ export default function JoinDetailScreen() {
   }
 
   async function onShare() {
-    if (!detail) return;
-    const slug = detail.shareSlug?.trim();
-    if (!slug) {
-      setError('공유 링크를 아직 준비하지 못했습니다.');
-      return;
-    }
-    const url = publicJoinShareUrl(slug);
-    const message = `${detail.venue.name} 조인에 함께해요\n${url}`;
+    if (!detail || !joinId) return;
+    setBusy(true);
+    setError(null);
     try {
+      let slug = detail.shareSlug?.trim() || '';
+      if (!slug) {
+        const created = await api.ensureJoinShareLink(joinId);
+        slug = created.shareSlug?.trim() || '';
+        if (slug) {
+          setDetail({ ...detail, shareSlug: slug });
+        }
+      }
+      if (!slug) {
+        setError('공유 링크를 아직 준비하지 못했습니다.');
+        return;
+      }
+      const url = publicJoinShareUrl(slug);
+      const message = `${detail.venue.name} 조인에 함께해요\n${url}`;
       await Share.share({ message, url, title: 'JJOINZONE 조인 공유' });
     } catch {
       setError('공유에 실패했습니다.');
+    } finally {
+      setBusy(false);
     }
   }
 

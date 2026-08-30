@@ -105,7 +105,7 @@ export function PublicProfileScreen() {
         </AppText>
         <AppText variant="body">
           {profile.attendanceRatePercent == null
-            ? '-'
+            ? '기록 없음'
             : `${profile.attendanceRatePercent}%`}
         </AppText>
         <AppText

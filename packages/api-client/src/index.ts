@@ -1162,6 +1162,22 @@ export class ApiClient {
     return parseJson(res);
   }
 
+  async ensureJoinShareLink(joinId: string): Promise<{ shareSlug: string | null }> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/share-link`, {
+      method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async resolveJoinShareSlug(shareSlug: string): Promise<{ joinId: string; shareSlug: string }> {
+    const res = await request(
+      `${this.config.baseUrl}/joins/by-share/${encodeURIComponent(shareSlug)}`,
+      { headers: await this.headers(true) },
+    );
+    return parseJson(res);
+  }
+
   async getFacilityWeeklyJoins(
     golfFacilityId: string,
     date?: string,

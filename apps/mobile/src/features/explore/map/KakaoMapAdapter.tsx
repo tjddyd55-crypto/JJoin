@@ -147,6 +147,7 @@ export function KakaoMapAdapter({
     console.log('[ExploreMap:markers:dto]', {
       venueDtoCount: venueMarkers.length,
       totalDtoCount: markers.length,
+      captions: venueMarkers.map((m) => ({ id: m.id, caption: m.caption })),
     });
   }, [markers]);
 

@@ -149,6 +149,22 @@ export class JoinsController {
     return this.service.getPrefill(joinId, userId);
   }
 
+  /** Lazy-create opaque share slug for existing joins (shareSlug may be null). */
+  @Post(':joinId/share-link')
+  @UseGuards(MockAuthGuard)
+  async shareLink(@Param('joinId') joinId: string, @CurrentUserId() userId: string) {
+    await this.service.getDetail(joinId, userId);
+    const shareSlug = await this.service.ensureShareSlug(joinId);
+    return { shareSlug };
+  }
+
+  /** Resolve public share slug → joinId for authenticated deep-link open. */
+  @Get('by-share/:shareSlug')
+  @UseGuards(MockAuthGuard)
+  resolveShare(@Param('shareSlug') shareSlug: string) {
+    return this.service.resolveShareSlug(shareSlug);
+  }
+
   @Get(':joinId')
   @UseGuards(MockAuthGuard)
   detail(@Param('joinId') joinId: string, @CurrentUserId() userId: string) {

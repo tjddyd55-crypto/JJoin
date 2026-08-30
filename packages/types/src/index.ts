@@ -1270,7 +1270,6 @@ export type GolfFacilityFollowDto = {
 
 export type PublicJoinShareDto = {
   shareSlug: string;
-  joinId: string;
   status: JoinStatus;
   statusLabel: string;
   venueName: string;
@@ -1284,6 +1283,7 @@ export type PublicJoinShareDto = {
   title: string | null;
   description: string | null;
   isJoinable: boolean;
+  /** Opaque deep link by share slug — never embeds internal join UUID. */
   appDeepLink: string;
 };
 

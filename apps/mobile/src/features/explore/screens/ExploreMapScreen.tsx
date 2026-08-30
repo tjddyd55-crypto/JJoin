@@ -57,6 +57,7 @@ import {
 import { venueSelectionFromVenueDto } from '../../join-create/model/join-create-venue';
 import {
   GEOJE_DEMO_REGION,
+  SEOUL_FALLBACK_REGION,
   type ExploreFilterId,
   type MapBounds,
   type MapCoordinate,
@@ -65,9 +66,15 @@ import {
 } from '../model/map-types';
 import { useJoinDiscoveryOptional } from '../discovery/JoinDiscoveryContext';
 import { DEFAULT_NEARBY_RADIUS_METERS } from '@jjoin/domain';
+import { isDevelopmentVariant } from '../../../lib/app-variant';
 
 /** GolfFacility DB is default place SoT; Kakao Local remains as fallback. */
 type PlaceSource = 'GOLF_FACILITY' | 'KAKAO';
+
+/** DEV starts in Seoul so engagement QA facilities are in-viewport; Production keeps Geoje demo. */
+const DEFAULT_MAP_REGION: MapRegion = isDevelopmentVariant()
+  ? SEOUL_FALLBACK_REGION
+  : GEOJE_DEMO_REGION;
 
 const VIEWPORT_DEBOUNCE_MS = 350;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -103,11 +110,11 @@ export function ExploreMapScreen({
   const [placeSource, setPlaceSource] = useState<PlaceSource>('GOLF_FACILITY');
   const [filter, setFilter] = useState<ExploreFilterId>('ALL');
   const [data, setData] = useState<ExploreMapResponse | null>(null);
-  const [searchRegion, setSearchRegion] = useState<MapRegion>(GEOJE_DEMO_REGION);
+  const [searchRegion, setSearchRegion] = useState<MapRegion>(DEFAULT_MAP_REGION);
   const [deviceLocation, setDeviceLocation] = useState<MapCoordinate | null>(null);
   const [locationDenied, setLocationDenied] = useState(false);
   const [cameraDirty, setCameraDirty] = useState(false);
-  const [lastCameraCenter, setLastCameraCenter] = useState<MapCoordinate>(GEOJE_DEMO_REGION);
+  const [lastCameraCenter, setLastCameraCenter] = useState<MapCoordinate>(DEFAULT_MAP_REGION);
   const [cameraKey, setCameraKey] = useState(0);
   const [cameraTarget, setCameraTarget] = useState<MapCoordinate | null>(null);
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
@@ -340,7 +347,27 @@ export function ExploreMapScreen({
   const handleMapEngineReady = useCallback(() => {
     if (mapReadySyncTimer.current) clearTimeout(mapReadySyncTimer.current);
     mapReadySyncTimer.current = setTimeout(() => {
-      void syncViewportFromMap('map-ready');
+      void (async () => {
+        // Kakao native map may open at a stale Geoje default before JS initialRegion applies.
+        // In Development, force Seoul QA viewport before the first bounds sync.
+        if (isDevelopmentVariant()) {
+          try {
+            await mapRef.current?.animateCameraTo?.(
+              {
+                latitude: DEFAULT_MAP_REGION.latitude,
+                longitude: DEFAULT_MAP_REGION.longitude,
+              },
+              1,
+            );
+            setLastCameraCenter(DEFAULT_MAP_REGION);
+            setSearchRegion(DEFAULT_MAP_REGION);
+            await new Promise((r) => setTimeout(r, 200));
+          } catch {
+            /* fall through to viewport sync */
+          }
+        }
+        await syncViewportFromMap('map-ready');
+      })();
     }, 450);
   }, [syncViewportFromMap]);
 
@@ -394,17 +421,38 @@ export function ExploreMapScreen({
         longitude: here.longitude,
       }));
       void loadMap(here, filter, {
-        ...GEOJE_DEMO_REGION,
+        ...DEFAULT_MAP_REGION,
         latitude: here.latitude,
         longitude: here.longitude,
       });
       return;
     }
     void (async () => {
+      // Development: keep Seoul viewport for facility/join QA (GPS jumps away from seeded data).
+      if (isDevelopmentVariant()) {
+        await loadMap(DEFAULT_MAP_REGION);
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          try {
+            const pos = await Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.Balanced,
+            });
+            setDeviceLocation({
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+            });
+          } catch {
+            /* keep Seoul camera */
+          }
+        } else {
+          setLocationDenied(true);
+        }
+        return;
+      }
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         setLocationDenied(true);
-        await loadMap(GEOJE_DEMO_REGION);
+        await loadMap(DEFAULT_MAP_REGION);
         return;
       }
       try {
@@ -425,12 +473,12 @@ export function ExploreMapScreen({
         setCameraTarget(here);
         setCameraKey((k) => k + 1);
         await loadMap(here, filter, {
-          ...GEOJE_DEMO_REGION,
+          ...DEFAULT_MAP_REGION,
           latitude: here.latitude,
           longitude: here.longitude,
         });
       } catch {
-        await loadMap(GEOJE_DEMO_REGION);
+        await loadMap(DEFAULT_MAP_REGION);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps

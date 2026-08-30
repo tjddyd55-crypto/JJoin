@@ -139,13 +139,18 @@ async function main() {
   const createdJoinIds: string[] = [];
   let sampleSlug: string | null = null;
 
-  // Keep startAt on *today* (KST) even late at night: start slightly in the past,
-  // end in the future so JOINABLE (end > now) + todayKey still match.
+  // Keep startAt on *today* (KST). Just after midnight, "now - 30m" is yesterday —
+  // bump forward instead of walking further into the past.
   const todayKey = localDayKey(new Date());
   const baseStart = (() => {
-    let candidate = new Date(Date.now() - 30 * 60_000);
-    for (let guard = 0; guard < 12 && localDayKey(candidate) !== todayKey; guard += 1) {
-      candidate = new Date(candidate.getTime() - 60 * 60_000);
+    const now = new Date();
+    let candidate = new Date(now.getTime() - 5 * 60_000);
+    if (localDayKey(candidate) !== todayKey) {
+      candidate = new Date(now.getTime() + 10 * 60_000);
+    }
+    if (localDayKey(candidate) !== todayKey) {
+      // Extreme edge: force "now" which must be today.
+      candidate = now;
     }
     return candidate;
   })();
@@ -156,6 +161,9 @@ async function main() {
       const startAt = new Date(
         baseStart.getTime() + i * 20 * 60_000 + specs.indexOf(spec) * 5 * 60_000,
       );
+      // If staggered start slips past midnight into tomorrow, clamp to baseStart.
+      const safeStart =
+        localDayKey(startAt) === todayKey ? startAt : new Date(baseStart.getTime() + i * 60_000);
       const endAt = new Date(Date.now() + (3 + i) * 3600_000);
       const slug = createJoinShareSlug(randomBytes(10));
       sampleSlug ??= slug;
@@ -167,7 +175,7 @@ async function main() {
           title: `${TAG} ${spec.facility.displayName} #${i + 1}`,
           description: `${TAG} seed joinable`,
           status: JoinStatus.OPEN,
-          startAt,
+          startAt: safeStart,
           scheduledEndAt: endAt,
           plannedPlayerCount: 4,
           confirmedPlayerCount: 1,
@@ -186,7 +194,7 @@ async function main() {
         },
       });
       createdJoinIds.push(join.id);
-      console.log(`${TAG} join ${join.id} @ ${spec.facility.displayName} slug=${slug} start=${startAt.toISOString()}`);
+      console.log(`${TAG} join ${join.id} @ ${spec.facility.displayName} slug=${slug} start=${safeStart.toISOString()} day=${localDayKey(safeStart)}`);
     }
   }
 

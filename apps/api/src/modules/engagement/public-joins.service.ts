@@ -64,7 +64,6 @@ export class PublicJoinsService {
 
     return {
       shareSlug: join.shareSlug!,
-      joinId: join.id,
       status: join.status as JoinStatus,
       statusLabel: STATUS_LABEL[join.status] ?? join.status,
       venueName: join.venue.name,
@@ -78,7 +77,7 @@ export class PublicJoinsService {
       title: join.title,
       description: join.description,
       isJoinable,
-      appDeepLink: `${scheme}://join/${join.id}`,
+      appDeepLink: `${scheme}://j/${join.shareSlug}`,
     };
   }
 }
