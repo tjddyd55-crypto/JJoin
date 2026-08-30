@@ -194,6 +194,36 @@ enum NotificationType {
   BOOKMARK_JOIN_SPOT_LEFT
   BOOKMARK_JOIN_UPDATED
   BOOKMARK_JOIN_CANCELLED
+  URGENT_JOIN_OPENED
+  JOIN_ATTENDANCE_CONFIRM_REQUIRED
+  JOIN_INVITATION
+  JOIN_CHAT_SYSTEM
+  JOIN_STARTING_SOON
+}
+
+/// Pre-game attendance intent — distinct from ParticipationStatus COMPLETED/NO_SHOW.
+enum AttendanceIntent {
+  PENDING
+  CONFIRMED
+  DECLINED
+}
+
+enum JoinChatRoomStatus {
+  ACTIVE
+  READ_ONLY
+  CLOSED
+}
+
+enum JoinChatMessageKind {
+  TEXT
+  SYSTEM
+}
+
+enum JoinInvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
 }
 
 enum JoinAlertDateMode {
@@ -270,6 +300,10 @@ model User {
   storeOwnershipRequests   StoreOwnershipRequest[]    @relation("StoreOwnershipRequestApplicant")
   storeOwnerships          StoreOwnership[]
   storeRequestsReviewed    StoreOwnershipRequest[]    @relation("StoreOwnershipRequestReviewer")
+  joinChatMemberships      JoinChatMember[]
+  joinChatMessages         JoinChatMessage[]
+  joinInvitationsSent      JoinInvitation[]           @relation("JoinInvitationInviter")
+  joinInvitationsReceived  JoinInvitation[]           @relation("JoinInvitationInvitee")
 
   @@map("users")
 }
@@ -610,6 +644,10 @@ model Join {
   cancelledAt           DateTime?             @map("cancelled_at") @db.Timestamptz(6)
   /// Public share slug for Landing `/j/{shareSlug}` (opaque, not UUID).
   shareSlug             String?               @unique @map("share_slug")
+  /// Urgent vacancy recruitment (today, before start, seats remaining).
+  isUrgent              Boolean               @default(false) @map("is_urgent")
+  urgentUntil           DateTime?             @map("urgent_until") @db.Timestamptz(6)
+  urgentSeats           Int?                  @map("urgent_seats")
   createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -625,6 +663,8 @@ model Join {
   reports        Report[]
   disputes       DisputeCase[]
   bookmarks      JoinBookmark[]
+  chatRoom       JoinChatRoom?
+  invitations    JoinInvitation[]
 
   @@index([venueId, startAt])
   @@index([status, startAt])
@@ -632,6 +672,7 @@ model Join {
   @@index([sportId, startAt])
   @@index([joinKind, status, startAt])
   @@index([recruitClosesAt])
+  @@index([isUrgent, startAt])
   @@map("joins")
 }
 
@@ -777,6 +818,9 @@ model JoinParticipant {
   userId              String              @map("user_id") @db.Uuid
   role                ParticipantRole     @default(PARTICIPANT)
   participationStatus ParticipationStatus @default(APPLIED) @map("participation_status")
+  /// Pre-game intent; orthogonal to COMPLETED/NO_SHOW game outcome.
+  attendanceIntent    AttendanceIntent    @default(PENDING) @map("attendance_intent")
+  attendanceIntentAt  DateTime?           @map("attendance_intent_at") @db.Timestamptz(6)
   partySize           Int                 @default(1) @map("party_size")
   appliedAt           DateTime            @default(now()) @map("applied_at") @db.Timestamptz(6)
   approvedAt          DateTime?           @map("approved_at") @db.Timestamptz(6)
@@ -791,7 +835,79 @@ model JoinParticipant {
 
   @@unique([joinId, userId])
   @@index([userId])
+  @@index([joinId, attendanceIntent])
   @@map("join_participants")
+}
+
+/// One ephemeral chat room per Join (not a general messenger).
+model JoinChatRoom {
+  id         String            @id @default(uuid()) @db.Uuid
+  joinId     String            @unique @map("join_id") @db.Uuid
+  status     JoinChatRoomStatus @default(ACTIVE)
+  closedAt   DateTime?         @map("closed_at") @db.Timestamptz(6)
+  /// Soft-hide from UI after this instant; messages may still exist until purgeAfter.
+  hideAfter  DateTime?         @map("hide_after") @db.Timestamptz(6)
+  purgeAfter DateTime?         @map("purge_after") @db.Timestamptz(6)
+  createdAt  DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  join     Join              @relation(fields: [joinId], references: [id], onDelete: Cascade)
+  members  JoinChatMember[]
+  messages JoinChatMessage[]
+
+  @@index([status, purgeAfter])
+  @@map("join_chat_rooms")
+}
+
+model JoinChatMember {
+  id       String    @id @default(uuid()) @db.Uuid
+  roomId   String    @map("room_id") @db.Uuid
+  userId   String    @map("user_id") @db.Uuid
+  joinedAt DateTime  @default(now()) @map("joined_at") @db.Timestamptz(6)
+  leftAt   DateTime? @map("left_at") @db.Timestamptz(6)
+
+  room JoinChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+  @@index([userId])
+  @@map("join_chat_members")
+}
+
+model JoinChatMessage {
+  id           String             @id @default(uuid()) @db.Uuid
+  roomId       String             @map("room_id") @db.Uuid
+  /// Null for SYSTEM messages.
+  senderUserId String?            @map("sender_user_id") @db.Uuid
+  kind         JoinChatMessageKind @default(TEXT)
+  body         String
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  room   JoinChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender User?        @relation(fields: [senderUserId], references: [id], onDelete: SetNull)
+
+  @@index([roomId, createdAt])
+  @@map("join_chat_messages")
+}
+
+/// Targeted re-invite to a specific Join (not reopen-prefill).
+model JoinInvitation {
+  id            String               @id @default(uuid()) @db.Uuid
+  joinId        String               @map("join_id") @db.Uuid
+  inviterUserId String               @map("inviter_user_id") @db.Uuid
+  inviteeUserId String               @map("invitee_user_id") @db.Uuid
+  status        JoinInvitationStatus @default(PENDING)
+  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  respondedAt   DateTime?            @map("responded_at") @db.Timestamptz(6)
+
+  join    Join @relation(fields: [joinId], references: [id], onDelete: Cascade)
+  inviter User @relation("JoinInvitationInviter", fields: [inviterUserId], references: [id], onDelete: Cascade)
+  invitee User @relation("JoinInvitationInvitee", fields: [inviteeUserId], references: [id], onDelete: Cascade)
+
+  @@unique([joinId, inviteeUserId])
+  @@index([inviteeUserId, status, createdAt(sort: Desc)])
+  @@index([inviterUserId, createdAt(sort: Desc)])
+  @@map("join_invitations")
 }
 
 model RewardSettlement {

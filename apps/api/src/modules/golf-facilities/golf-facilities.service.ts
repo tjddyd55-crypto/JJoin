@@ -69,6 +69,7 @@ type FacilityRow = {
 type FacilityActivity = {
   todayJoinCount: number;
   todayJoinableCount: number;
+  urgentJoinCount: number;
   ongoingJoinCount: number;
   openJoinCount: number;
   hasTodayJoin: boolean;
@@ -411,6 +412,7 @@ export class GolfFacilitiesService {
     const joinActivity = activity ?? {
       ...emptyFacilityJoinActivity(),
       todayJoinableCount: 0,
+      urgentJoinCount: 0,
       selectedDateJoinCount: 0,
       hasSelectedDateJoin: false,
       previews: [] as ExploreJoinPreviewDto[],
@@ -434,6 +436,7 @@ export class GolfFacilitiesService {
       isScreenJoinEligible: row.isScreenJoinEligible,
       todayJoinCount: joinActivity.todayJoinCount,
       todayJoinableCount: joinActivity.todayJoinableCount,
+      urgentJoinCount: joinActivity.urgentJoinCount,
       ongoingJoinCount: joinActivity.ongoingJoinCount,
       openJoinCount: joinActivity.openJoinCount,
       hasTodayJoin: joinActivity.hasTodayJoin,
@@ -457,6 +460,7 @@ export class GolfFacilitiesService {
     const empty = (): FacilityActivity => ({
       ...emptyFacilityJoinActivity(),
       todayJoinableCount: 0,
+      urgentJoinCount: 0,
       selectedDateJoinCount: 0,
       hasSelectedDateJoin: false,
       previews: [],
@@ -496,6 +500,7 @@ export class GolfFacilitiesService {
         confirmedPlayerCount: true,
         plannedPlayerCount: true,
         rewardPerParticipant: true,
+        isUrgent: true,
         host: { select: { profile: { select: { nickname: true } } } },
       },
       orderBy: { startAt: 'asc' },
@@ -503,23 +508,30 @@ export class GolfFacilitiesService {
 
     const byFacility = new Map<string, ExploreJoinPreviewDto[]>();
     const todayJoinableByFacility = new Map<string, number>();
+    const urgentJoinByFacility = new Map<string, number>();
     for (const join of joins) {
       const facilityId = venueToFacility.get(join.venueId);
       if (!facilityId) continue;
 
       const dayKey = localDayKey(join.startAt);
-      if (
+      const joinableToday =
         dayKey === todayKey &&
         isJoinCapacityJoinable({
           status: join.status,
           currentParticipants: join.confirmedPlayerCount,
           maxParticipants: join.plannedPlayerCount,
-        })
-      ) {
+        });
+      if (joinableToday) {
         todayJoinableByFacility.set(
           facilityId,
           (todayJoinableByFacility.get(facilityId) ?? 0) + 1,
         );
+        if (join.isUrgent) {
+          urgentJoinByFacility.set(
+            facilityId,
+            (urgentJoinByFacility.get(facilityId) ?? 0) + 1,
+          );
+        }
       }
 
       const onSelectedDate = isValidOnSelectedDate({
@@ -562,17 +574,20 @@ export class GolfFacilitiesService {
         rewardCoin: String(join.rewardPerParticipant),
         hostNickname: join.host.profile?.nickname ?? '호스트',
         hostVerified: true,
+        isUrgent: join.isUrgent ?? false,
       });
       byFacility.set(facilityId, list);
     }
 
     for (const facilityId of golfFacilityIds) {
       const todayJoinableCount = todayJoinableByFacility.get(facilityId) ?? 0;
+      const urgentJoinCount = urgentJoinByFacility.get(facilityId) ?? 0;
       const previews = byFacility.get(facilityId);
       if (!previews) {
         result.set(facilityId, {
           ...empty(),
           todayJoinableCount,
+          urgentJoinCount,
         });
         continue;
       }
@@ -583,12 +598,13 @@ export class GolfFacilitiesService {
           resolvedDateKey,
           now,
         );
-        result.set(facilityId, { ...agg, todayJoinableCount, previews });
+        result.set(facilityId, { ...agg, todayJoinableCount, urgentJoinCount, previews });
       } else {
         const agg = aggregateFacilityJoinActivity(previews, now);
         result.set(facilityId, {
           ...agg,
           todayJoinableCount,
+          urgentJoinCount,
           selectedDateJoinCount: agg.todayJoinCount,
           hasSelectedDateJoin: agg.hasTodayJoin,
           previews,

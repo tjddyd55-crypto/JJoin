@@ -135,6 +135,31 @@ export enum RewardStatus {
   REFUNDED = 'REFUNDED',
 }
 
+/** Pre-game attendance intent — orthogonal to COMPLETED/NO_SHOW game outcome. */
+export enum AttendanceIntent {
+  PENDING = 'PENDING',
+  CONFIRMED = 'CONFIRMED',
+  DECLINED = 'DECLINED',
+}
+
+export enum JoinChatRoomStatus {
+  ACTIVE = 'ACTIVE',
+  READ_ONLY = 'READ_ONLY',
+  CLOSED = 'CLOSED',
+}
+
+export enum JoinChatMessageKind {
+  TEXT = 'TEXT',
+  SYSTEM = 'SYSTEM',
+}
+
+export enum JoinInvitationStatus {
+  PENDING = 'PENDING',
+  ACCEPTED = 'ACCEPTED',
+  DECLINED = 'DECLINED',
+  EXPIRED = 'EXPIRED',
+}
+
 export enum CoinTxType {
   ROOM_CREATION_FEE = 'ROOM_CREATION_FEE',
   JOIN_REWARD_HOLD = 'JOIN_REWARD_HOLD',
@@ -321,6 +346,8 @@ export type ExploreJoinPreviewDto = {
   rewardCoin: string;
   hostNickname: string;
   hostVerified: boolean;
+  /** Urgent vacancy recruitment flag. */
+  isUrgent?: boolean;
 };
 
 /** Venue source for Explore — Kakao live search never implies DB persistence. */
@@ -343,6 +370,8 @@ export type ExploreVenueDto = {
   todayJoinCount?: number;
   /** Today JOINABLE-only count (excludes FULL / no seats). */
   todayJoinableCount?: number;
+  /** Today urgent vacancy joins still joinable. */
+  urgentJoinCount?: number;
   /** Currently in progress joins. */
   ongoingJoinCount?: number;
   hasTodayJoin?: boolean;
@@ -472,6 +501,8 @@ export type GolfFacilityMapDto = {
    * Marker badges should prefer this over todayJoinCount.
    */
   todayJoinableCount?: number;
+  /** Today urgent vacancy joins still joinable. */
+  urgentJoinCount?: number;
   ongoingJoinCount?: number;
   openJoinCount?: number;
   hasTodayJoin?: boolean;
@@ -571,6 +602,9 @@ export type JoinParticipantDto = {
   userId: string;
   role: ParticipantRole;
   participationStatus: ParticipationStatus;
+  /** Pre-game attendance intent. */
+  attendanceIntent?: AttendanceIntent;
+  attendanceIntentAt?: string | null;
   nickname: string;
   verifiedBadge: boolean;
   appliedAt: string;
@@ -747,6 +781,12 @@ export type JoinDetailDto = {
   shareSlug?: string | null;
   /** True when the authenticated viewer has bookmarked this join. */
   bookmarked?: boolean;
+  /** Urgent vacancy recruitment flag. */
+  isUrgent?: boolean;
+  urgentUntil?: string | null;
+  urgentSeats?: number | null;
+  /** True when viewer can open the join chat room. */
+  chatAvailable?: boolean;
   venue: {
     venueId: string;
     provider: string;
@@ -764,6 +804,75 @@ export type JoinDetailDto = {
   settlement?: JoinSettlementSummaryDto | null;
 } & MatchingJoinExtras;
 
+export type ActivateUrgentVacancyRequest = {
+  seats?: number;
+};
+
+export type SetAttendanceIntentRequest = {
+  intent: 'CONFIRMED' | 'DECLINED';
+};
+
+export type JoinChatRoomDto = {
+  roomId: string;
+  joinId: string;
+  status: JoinChatRoomStatus;
+  canPost: boolean;
+  hideAfter: string | null;
+  purgeAfter: string | null;
+  createdAt: string;
+};
+
+export type JoinChatMessageDto = {
+  messageId: string;
+  roomId: string;
+  kind: JoinChatMessageKind;
+  body: string;
+  senderUserId: string | null;
+  senderNickname: string | null;
+  createdAt: string;
+};
+
+export type JoinChatMessagesResponse = {
+  items: JoinChatMessageDto[];
+  /** Cursor = createdAt ISO of the oldest item in this page (pass as `before`). Newest-first. */
+  nextCursor: string | null;
+};
+
+export type PostJoinChatMessageRequest = {
+  body: string;
+};
+
+export type CreateJoinInvitationsRequest = {
+  inviteeUserIds: string[];
+};
+
+export type JoinInvitationDto = {
+  invitationId: string;
+  joinId: string;
+  status: JoinInvitationStatus;
+  inviterUserId: string;
+  inviterNickname: string;
+  inviteeUserId: string;
+  inviteeNickname?: string;
+  venueName?: string;
+  startAt?: string;
+  createdAt: string;
+  respondedAt: string | null;
+};
+
+export type PlayedTogetherPersonDto = {
+  userId: string;
+  nickname: string;
+  verifiedBadge: boolean;
+  avatarUrl: string | null;
+  regionLabel: string | null;
+  playedCount: number;
+  lastPlayedAt: string;
+  completedJoinCount: number;
+  noShowCount: number;
+  attendanceRatePercent: number | null;
+};
+
 export type JoinListItemDto = {
   joinId: string;
   status: JoinStatus;
@@ -779,6 +888,10 @@ export type JoinListItemDto = {
   myRole: ParticipantRole | null;
   myParticipationStatus: ParticipationStatus | null;
   pendingApplicantCount: number;
+  /** Urgent vacancy recruitment flag. */
+  isUrgent?: boolean;
+  /** True when viewer can open the join chat room. */
+  chatAvailable?: boolean;
 } & MatchingJoinExtras;
 
 export type CreateStoreOwnershipRequest = {
@@ -1048,6 +1161,11 @@ export enum NotificationType {
   BOOKMARK_JOIN_SPOT_LEFT = 'BOOKMARK_JOIN_SPOT_LEFT',
   BOOKMARK_JOIN_UPDATED = 'BOOKMARK_JOIN_UPDATED',
   BOOKMARK_JOIN_CANCELLED = 'BOOKMARK_JOIN_CANCELLED',
+  URGENT_JOIN_OPENED = 'URGENT_JOIN_OPENED',
+  JOIN_ATTENDANCE_CONFIRM_REQUIRED = 'JOIN_ATTENDANCE_CONFIRM_REQUIRED',
+  JOIN_INVITATION = 'JOIN_INVITATION',
+  JOIN_CHAT_SYSTEM = 'JOIN_CHAT_SYSTEM',
+  JOIN_STARTING_SOON = 'JOIN_STARTING_SOON',
 }
 
 export enum JoinAlertDateMode {

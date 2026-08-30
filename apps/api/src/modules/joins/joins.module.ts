@@ -11,6 +11,7 @@ import { UsersModule } from '../users/users.module';
 import { VenuesModule } from '../venues/venues.module';
 import { GolfFacilitiesModule } from '../golf-facilities/golf-facilities.module';
 import { EngagementModule } from '../engagement/engagement.module';
+import { JoinLoopModule } from '../join-loop/join-loop.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { EngagementModule } from '../engagement/engagement.module';
     VenuesModule,
     GolfFacilitiesModule,
     forwardRef(() => EngagementModule),
+    forwardRef(() => JoinLoopModule),
   ],
   controllers: [JoinsController, StoreJoinsController],
   providers: [JoinsService, JoinDiscoveryService, MatchingJoinsService],

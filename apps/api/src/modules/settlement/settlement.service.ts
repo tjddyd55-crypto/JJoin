@@ -23,6 +23,8 @@ import {
   settlementRefundIdempotencyKey,
   settlementRowIdempotencyKey,
   settlementTransferIdempotencyKey,
+  chatHideAfterFrom,
+  chatPurgeAfterFrom,
 } from '@jjoin/domain';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -961,9 +963,18 @@ export class SettlementService {
       (p) => p.settlement && isTerminalRewardStatus(p.settlement.rewardStatus),
     );
     if (allTerminal) {
+      const now = new Date();
       await tx.join.update({
         where: { id: joinId },
         data: { status: 'COMPLETED' },
+      });
+      await tx.joinChatRoom.updateMany({
+        where: { joinId, status: { in: ['ACTIVE', 'READ_ONLY'] } },
+        data: {
+          status: 'READ_ONLY',
+          hideAfter: chatHideAfterFrom(now),
+          purgeAfter: chatPurgeAfterFrom(now),
+        },
       });
     }
   }
