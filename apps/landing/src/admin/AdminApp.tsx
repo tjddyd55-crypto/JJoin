@@ -19,6 +19,9 @@ import {
   StoreVerificationStatus,
   type AdminDisputeDetailDto,
   type AdminDisputeListItemDto,
+  type AdminStoreDetailDto,
+  type AdminStoreKpiPeriod,
+  type AdminStoreListItemDto,
   type AdminUserCoinHistoryDto,
   type CoinIssuanceDetailDto,
   type CoinIssuanceListItemDto,
@@ -26,7 +29,7 @@ import {
   type CoinSupplyReconciliationDto,
   type StoreOwnershipRequestDto,
 } from '@jjoin/types';
-import { formatNumber } from '@jjoin/domain';
+import { formatKoreanPhoneDisplay, formatNumber } from '@jjoin/domain';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:3000';
 const TOKEN_KEY = 'jjoin_admin_token';
@@ -199,6 +202,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   const coinActive = path.startsWith('/admin/coin');
   const disputeActive = path.startsWith('/admin/disputes');
   const storeVerificationActive = path.startsWith('/admin/store-verifications');
+  const approvedStoresActive = path.startsWith('/admin/stores');
   if (!token) {
     return <Navigate to="/admin/login" replace />;
   }
@@ -217,7 +221,10 @@ function Shell({ children }: { children: React.ReactNode }) {
             to="/admin/store-verifications"
             className={storeVerificationActive ? 'nav-active' : undefined}
           >
-            매장 인증
+            인증 대기
+          </Link>
+          <Link to="/admin/stores" className={approvedStoresActive ? 'nav-active' : undefined}>
+            승인 매장
           </Link>
           <Link to="/admin/disputes" className={disputeActive ? 'nav-active' : undefined}>
             분쟁 관리
@@ -283,8 +290,12 @@ function AdminDashboard() {
         <p className="admin-section-desc">자주 쓰는 운영 화면</p>
         <div className="dash-links" style={{ marginTop: 12 }}>
           <Link to="/admin/store-verifications" className="card dash-link-card">
-            <span className="dash-link-title">매장 인증</span>
+            <span className="dash-link-title">인증 대기</span>
             <span className="dash-link-desc">신청 목록 · 승인 · 거절</span>
+          </Link>
+          <Link to="/admin/stores" className="card dash-link-card">
+            <span className="dash-link-title">승인 매장</span>
+            <span className="dash-link-desc">ACTIVE ownership · KPI</span>
           </Link>
           <Link to="/admin/coin" className="card dash-link-card">
             <span className="dash-link-title">코인 관리</span>
@@ -572,6 +583,260 @@ function StoreVerificationDetailPage() {
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function formatKpiRate(rate: number | null): string {
+  if (rate == null) return '—';
+  return `${rate}%`;
+}
+
+function ApprovedStoresPage() {
+  const [items, setItems] = useState<AdminStoreListItemDto[]>([]);
+  const [q, setQ] = useState('');
+  const [period, setPeriod] = useState<AdminStoreKpiPeriod>('all');
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (q.trim()) params.set('q', q.trim());
+      params.set('period', period);
+      const res = await api<AdminStoreListItemDto[]>(`/admin/stores?${params}`);
+      setItems(res);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'load_failed');
+    }
+  }, [q, period]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return (
+    <div className="admin-page">
+      <div className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">승인 매장</h1>
+          <p className="admin-page-desc">ACTIVE StoreOwnership 목록과 모집 KPI</p>
+        </div>
+      </div>
+      <div className="row" style={{ marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
+        <input
+          placeholder="매장명 · 점주 · 연락처 · 주소"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          style={{ minWidth: 220 }}
+        />
+        <select
+          value={period}
+          onChange={(e) => setPeriod(e.target.value as AdminStoreKpiPeriod)}
+        >
+          <option value="all">전체 기간</option>
+          <option value="30d">최근 30일</option>
+          <option value="90d">최근 90일</option>
+        </select>
+        <button type="button" onClick={() => void load()}>
+          검색
+        </button>
+      </div>
+      {error ? <p className="admin-error-banner">{error}</p> : null}
+      <div className="card" style={{ overflowX: 'auto' }}>
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>매장명</th>
+              <th>점주</th>
+              <th>연락처</th>
+              <th>지역</th>
+              <th>승인일</th>
+              <th>시도</th>
+              <th>성사</th>
+              <th>성사율</th>
+              <th>최근 모집</th>
+              <th>상태</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((row) => (
+              <tr key={row.ownershipId}>
+                <td>{row.facilityName}</td>
+                <td>{row.ownerName ?? '—'}</td>
+                <td>{formatKoreanPhoneDisplay(row.ownerPhone) || '—'}</td>
+                <td>
+                  {[row.sido, row.sigungu].filter(Boolean).join(' ') || '—'}
+                </td>
+                <td>{formatDate(row.approvedAt)}</td>
+                <td>{row.kpi.attemptCount}</td>
+                <td>{row.kpi.succeededCount}</td>
+                <td>{formatKpiRate(row.kpi.successRatePercent)}</td>
+                <td>{row.kpi.lastJoinAt ? formatDate(row.kpi.lastJoinAt) : '—'}</td>
+                <td>{row.status}</td>
+                <td>
+                  <Link to={`/admin/stores/${row.ownershipId}`}>상세</Link>
+                </td>
+              </tr>
+            ))}
+            {items.length === 0 ? (
+              <tr>
+                <td colSpan={11}>승인 매장이 없습니다.</td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function ApprovedStoreDetailPage() {
+  const { ownershipId } = useParams();
+  const navigate = useNavigate();
+  const [detail, setDetail] = useState<AdminStoreDetailDto | null>(null);
+  const [period, setPeriod] = useState<AdminStoreKpiPeriod>('all');
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!ownershipId) return;
+    try {
+      const res = await api<AdminStoreDetailDto>(
+        `/admin/stores/${ownershipId}?period=${period}`,
+      );
+      setDetail(res);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'load_failed');
+    }
+  }, [ownershipId, period]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (error) {
+    return (
+      <div className="admin-page">
+        <button type="button" onClick={() => navigate('/admin/stores')}>
+          ← 목록
+        </button>
+        <p className="admin-error-banner">{error}</p>
+      </div>
+    );
+  }
+  if (!detail) {
+    return <div className="admin-page">불러오는 중…</div>;
+  }
+
+  const { ownership: o, kpi } = { ownership: detail.ownership, kpi: detail.ownership.kpi };
+
+  return (
+    <div className="admin-page">
+      <button type="button" onClick={() => navigate('/admin/stores')}>
+        ← 목록
+      </button>
+      <div className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">{o.facilityName}</h1>
+          <p className="admin-page-desc">승인 매장 상세 · KPI</p>
+        </div>
+        <select
+          value={period}
+          onChange={(e) => setPeriod(e.target.value as AdminStoreKpiPeriod)}
+        >
+          <option value="all">전체 기간</option>
+          <option value="30d">최근 30일</option>
+          <option value="90d">최근 90일</option>
+        </select>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+        <p>
+          <strong>GolfFacility</strong> {o.golfFacilityId}
+        </p>
+        <p>
+          <strong>점주</strong> {detail.applicantName ?? o.ownerName ?? '—'} ·{' '}
+          {formatKoreanPhoneDisplay(detail.applicantPhone ?? o.ownerPhone) || '—'}
+        </p>
+        <p>
+          <strong>주소</strong> {o.facilityAddress ?? '—'}
+        </p>
+        <p>
+          <strong>승인일</strong> {formatDate(o.approvedAt)} · <strong>상태</strong>{' '}
+          {o.status}
+        </p>
+        {detail.requestId ? (
+          <p>
+            <Link to={`/admin/store-verifications/${detail.requestId}`}>
+              원본 인증 요청 보기
+            </Link>
+          </p>
+        ) : null}
+      </div>
+
+      <div className="dash-kpi-grid" style={{ marginBottom: 16 }}>
+        <div className="card dash-kpi-card">
+          <div className="dash-kpi-label">모집 시도</div>
+          <div className="dash-kpi-value">{kpi.attemptCount}</div>
+        </div>
+        <div className="card dash-kpi-card">
+          <div className="dash-kpi-label">모집 성사</div>
+          <div className="dash-kpi-value">{kpi.succeededCount}</div>
+        </div>
+        <div className="card dash-kpi-card">
+          <div className="dash-kpi-label">모집 취소</div>
+          <div className="dash-kpi-value">{kpi.cancelledCount}</div>
+        </div>
+        <div className="card dash-kpi-card">
+          <div className="dash-kpi-label">성사율</div>
+          <div className="dash-kpi-value">{formatKpiRate(kpi.successRatePercent)}</div>
+        </div>
+        <div className="card dash-kpi-card">
+          <div className="dash-kpi-label">누적 참가</div>
+          <div className="dash-kpi-value">{kpi.participantSum}</div>
+        </div>
+        <div className="card dash-kpi-card">
+          <div className="dash-kpi-label">모집 중 / 예정 / 완료</div>
+          <div className="dash-kpi-value">
+            {kpi.recruitingCount} / {kpi.scheduledCount} / {kpi.completedCount}
+          </div>
+        </div>
+      </div>
+
+      <div className="card" style={{ overflowX: 'auto' }}>
+        <h3 style={{ marginTop: 0 }}>최근 모집</h3>
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>시작</th>
+              <th>상태</th>
+              <th>정원</th>
+              <th>확정</th>
+              <th>참석</th>
+              <th>성사</th>
+            </tr>
+          </thead>
+          <tbody>
+            {detail.recentJoins.map((j) => (
+              <tr key={j.joinId}>
+                <td>{formatDate(j.startAt)}</td>
+                <td>{j.status}</td>
+                <td>{j.plannedPlayerCount}</td>
+                <td>{j.confirmedPlayerCount}</td>
+                <td>{j.attendedCount ?? '—'}</td>
+                <td>{j.succeeded ? 'Y' : 'N'}</td>
+              </tr>
+            ))}
+            {detail.recentJoins.length === 0 ? (
+              <tr>
+                <td colSpan={6}>모집 이력이 없습니다.</td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -1319,6 +1584,8 @@ export function AdminApp() {
         <Route path="disputes/:disputeId" element={<DisputeDetailPage />} />
         <Route path="store-verifications" element={<StoreVerificationListPage />} />
         <Route path="store-verifications/:requestId" element={<StoreVerificationDetailPage />} />
+        <Route path="stores" element={<ApprovedStoresPage />} />
+        <Route path="stores/:ownershipId" element={<ApprovedStoreDetailPage />} />
       </Routes>
     </Shell>
   );

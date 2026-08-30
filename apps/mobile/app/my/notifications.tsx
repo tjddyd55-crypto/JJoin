@@ -1,12 +1,12 @@
+import { StyleSheet, View } from 'react-native';
+import { FlatList, Pressable } from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
-  AppText,
-  ScreenContainer,
-  Stack,
-  colors,
-  spacing,
+  ScrollScreenFrame,
+  Spacer,
+  Text,
+  useTheme,
 } from '@jjoin/design-system';
 import type { AppNotificationDto } from '@jjoin/types';
 import { getApiClient } from '../../src/lib/api';
@@ -15,6 +15,7 @@ import { resolvePushRoute } from '../../src/features/notifications/push-routing'
 
 export default function NotificationsScreen() {
   const router = useRouter();
+  const theme = useTheme();
   const api = getApiClient(getSecureSessionStore());
   const [items, setItems] = useState<AppNotificationDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,48 +51,64 @@ export default function NotificationsScreen() {
   };
 
   return (
-    <ScreenContainer>
-      <Stack gap="md">
-        <View style={styles.header}>
-          <AppText variant="title">알림</AppText>
+    <ScrollScreenFrame>
+      <View style={styles.header}>
+        <Text variant="screenTitle" tone="primary">
+          알림
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            void api.markAllNotificationsRead().then(load);
+          }}
+        >
+          <Text variant="caption" tone="primary">
+            모두 읽음
+          </Text>
+        </Pressable>
+      </View>
+      <Spacer size="md" />
+      {loading ? <Text variant="body" tone="secondary">불러오는 중…</Text> : null}
+      {error ? <Text variant="body" tone="error">{error}</Text> : null}
+      <FlatList
+        data={items}
+        keyExtractor={(item) => item.id}
+        scrollEnabled={false}
+        contentContainerStyle={{ gap: 8, paddingBottom: 24 }}
+        ListEmptyComponent={
+          !loading ? (
+            <Text variant="body" tone="secondary">
+              아직 알림이 없습니다.
+            </Text>
+          ) : null
+        }
+        renderItem={({ item }) => (
           <Pressable
             accessibilityRole="button"
-            onPress={() => {
-              void api.markAllNotificationsRead().then(load);
-            }}
+            onPress={() => void onPressItem(item)}
+            style={[
+              styles.row,
+              {
+                borderColor: item.readAt
+                  ? theme.colors.border.subtle
+                  : theme.colors.action.primary,
+                backgroundColor: theme.colors.surface.card,
+              },
+            ]}
           >
-            <AppText variant="caption" color="primary">
-              모두 읽음
-            </AppText>
+            <Text variant="bodyStrong" tone="primary">
+              {item.title}
+            </Text>
+            <Text variant="body" tone="secondary">
+              {item.body}
+            </Text>
+            <Text variant="caption" tone="tertiary">
+              {new Date(item.createdAt).toLocaleString('ko-KR')}
+            </Text>
           </Pressable>
-        </View>
-        {loading ? <AppText>불러오는 중…</AppText> : null}
-        {error ? <AppText color="danger">{error}</AppText> : null}
-        <FlatList
-          data={items}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.xxl }}
-          ListEmptyComponent={
-            !loading ? <AppText color="muted">아직 알림이 없습니다.</AppText> : null
-          }
-          renderItem={({ item }) => (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => void onPressItem(item)}
-              style={[styles.row, !item.readAt && styles.unread]}
-            >
-              <AppText variant="bodyStrong">{item.title}</AppText>
-              <AppText variant="body" color="muted">
-                {item.body}
-              </AppText>
-              <AppText variant="caption" color="muted">
-                {new Date(item.createdAt).toLocaleString('ko-KR')}
-              </AppText>
-            </Pressable>
-          )}
-        />
-      </Stack>
-    </ScreenContainer>
+        )}
+      />
+    </ScrollScreenFrame>
   );
 }
 
@@ -103,13 +120,8 @@ const styles = StyleSheet.create({
   },
   row: {
     borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: 12,
-    padding: spacing.md,
-    gap: spacing.xxs,
-    backgroundColor: colors.surface,
-  },
-  unread: {
-    borderColor: colors.primary,
+    padding: 12,
+    gap: 4,
   },
 });

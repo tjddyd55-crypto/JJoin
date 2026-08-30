@@ -15,9 +15,12 @@ import {
   type CoinIssuanceListItemDto,
   type CoinSupplyDashboardDto,
   type CoinSupplyReconciliationDto,
+  type AdminStoreDetailDto,
+  type AdminStoreKpiPeriod,
+  type AdminStoreListItemDto,
   type StoreOwnershipRequestDto,
 } from '@jjoin/types';
-import { formatNumber } from '@jjoin/domain';
+import { formatKoreanPhoneDisplay, formatNumber } from '@jjoin/domain';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:3000';
 const TOKEN_KEY = 'jjoin_admin_token';
@@ -140,6 +143,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   const coinActive = loc.pathname === '/' || loc.pathname.startsWith('/coin');
   const disputeActive = loc.pathname.startsWith('/disputes');
   const storeVerificationActive = loc.pathname.startsWith('/store-verifications');
+  const approvedStoresActive = loc.pathname.startsWith('/stores');
   if (!token) {
     return (
       <div className="layout layout-wide">
@@ -161,7 +165,10 @@ function Shell({ children }: { children: React.ReactNode }) {
           to="/store-verifications"
           className={storeVerificationActive ? 'nav-active' : undefined}
         >
-          매장 인증
+          인증 대기
+        </Link>
+        <Link to="/stores" className={approvedStoresActive ? 'nav-active' : undefined}>
+          승인 매장
         </Link>
         <button
           onClick={() => {
@@ -987,6 +994,165 @@ function UserCoinPage() {
   );
 }
 
+function formatKpiRate(rate: number | null): string {
+  if (rate == null) return '—';
+  return `${rate}%`;
+}
+
+function ApprovedStoresPage() {
+  const [items, setItems] = useState<AdminStoreListItemDto[]>([]);
+  const [q, setQ] = useState('');
+  const [period, setPeriod] = useState<AdminStoreKpiPeriod>('all');
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (q.trim()) params.set('q', q.trim());
+      params.set('period', period);
+      const res = await api<AdminStoreListItemDto[]>(`/admin/stores?${params}`);
+      setItems(res);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'load_failed');
+    }
+  }, [q, period]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return (
+    <div>
+      <h1>승인 매장</h1>
+      <div className="row" style={{ marginBottom: 12, gap: 8 }}>
+        <input
+          placeholder="매장명 · 점주 · 연락처 · 주소"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+        <select
+          value={period}
+          onChange={(e) => setPeriod(e.target.value as AdminStoreKpiPeriod)}
+        >
+          <option value="all">전체</option>
+          <option value="30d">30일</option>
+          <option value="90d">90일</option>
+        </select>
+        <button type="button" onClick={() => void load()}>
+          검색
+        </button>
+      </div>
+      {error ? <p className="error-text">{error}</p> : null}
+      <table>
+        <thead>
+          <tr>
+            <th>매장</th>
+            <th>점주</th>
+            <th>연락처</th>
+            <th>시도</th>
+            <th>성사</th>
+            <th>성사율</th>
+            <th>상태</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((row) => (
+            <tr key={row.ownershipId}>
+              <td>{row.facilityName}</td>
+              <td>{row.ownerName ?? '—'}</td>
+              <td>{formatKoreanPhoneDisplay(row.ownerPhone) || '—'}</td>
+              <td>{row.kpi.attemptCount}</td>
+              <td>{row.kpi.succeededCount}</td>
+              <td>{formatKpiRate(row.kpi.successRatePercent)}</td>
+              <td>{row.status}</td>
+              <td>
+                <Link to={`/stores/${row.ownershipId}`}>상세</Link>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ApprovedStoreDetailPage() {
+  const { ownershipId } = useParams();
+  const navigate = useNavigate();
+  const [detail, setDetail] = useState<AdminStoreDetailDto | null>(null);
+  const [period, setPeriod] = useState<AdminStoreKpiPeriod>('all');
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!ownershipId) return;
+    try {
+      const res = await api<AdminStoreDetailDto>(
+        `/admin/stores/${ownershipId}?period=${period}`,
+      );
+      setDetail(res);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'load_failed');
+    }
+  }, [ownershipId, period]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (error) {
+    return (
+      <div>
+        <button type="button" onClick={() => navigate('/stores')}>
+          ← 목록
+        </button>
+        <p className="error-text">{error}</p>
+      </div>
+    );
+  }
+  if (!detail) return <div>불러오는 중…</div>;
+  const { ownership: o } = detail;
+  const { kpi } = o;
+
+  return (
+    <div>
+      <button type="button" onClick={() => navigate('/stores')}>
+        ← 목록
+      </button>
+      <h1>{o.facilityName}</h1>
+      <select
+        value={period}
+        onChange={(e) => setPeriod(e.target.value as AdminStoreKpiPeriod)}
+      >
+        <option value="all">전체</option>
+        <option value="30d">30일</option>
+        <option value="90d">90일</option>
+      </select>
+      <p>
+        점주 {detail.applicantName ?? o.ownerName ?? '—'} ·{' '}
+        {formatKoreanPhoneDisplay(detail.applicantPhone ?? o.ownerPhone) || '—'}
+      </p>
+      <p>주소 {o.facilityAddress ?? '—'}</p>
+      <p>
+        KPI 시도 {kpi.attemptCount} / 성사 {kpi.succeededCount} / 취소{' '}
+        {kpi.cancelledCount} / 성사율 {formatKpiRate(kpi.successRatePercent)} / 참가{' '}
+        {kpi.participantSum}
+      </p>
+      <h3>최근 모집</h3>
+      <ul>
+        {detail.recentJoins.map((j) => (
+          <li key={j.joinId}>
+            {formatDate(j.startAt)} · {j.status} · {j.confirmedPlayerCount}/
+            {j.plannedPlayerCount} · {j.succeeded ? '성사' : '-'}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function App() {
   return (
     <Shell>
@@ -999,6 +1165,8 @@ export function App() {
         <Route path="/disputes/:disputeId" element={<DisputeDetailPage />} />
         <Route path="/store-verifications" element={<StoreVerificationListPage />} />
         <Route path="/store-verifications/:requestId" element={<StoreVerificationDetailPage />} />
+        <Route path="/stores" element={<ApprovedStoresPage />} />
+        <Route path="/stores/:ownershipId" element={<ApprovedStoreDetailPage />} />
       </Routes>
     </Shell>
   );

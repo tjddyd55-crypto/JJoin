@@ -353,6 +353,25 @@ export {
 } from './region-explore-catalog';
 
 export {
+  formatKoreanPhoneDisplay,
+  formatKoreanPhoneInput,
+  normalizePhoneDigits,
+} from './phone';
+
+export {
+  STORE_KPI_ATTEMPT_STATUSES,
+  STORE_KPI_SUCCEEDED_STATUSES,
+  computeStoreOwnershipKpi,
+  filterJoinsByKpiPeriod,
+  isStoreKpiAttemptStatus,
+  isStoreKpiSucceededStatus,
+  storeKpiPeriodStart,
+  type StoreKpiJoinLike,
+  type StoreKpiPeriod,
+  type StoreOwnershipKpi,
+} from './store-ownership-kpi';
+
+export {
   classifyCoinSupplyEffect,
   currentSupply,
   isBurnLedgerType,

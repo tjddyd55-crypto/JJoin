@@ -823,6 +823,58 @@ export type RejectStoreVerificationRequest = {
   adminNote?: string;
 };
 
+/** Admin approved-store KPI period filter. */
+export type AdminStoreKpiPeriod = 'all' | '30d' | '90d';
+
+export type StoreOwnershipKpiDto = {
+  attemptCount: number;
+  succeededCount: number;
+  cancelledCount: number;
+  successRatePercent: number | null;
+  participantSum: number;
+  recruitingCount: number;
+  scheduledCount: number;
+  completedCount: number;
+  lastJoinAt: string | null;
+  lastSucceededAt: string | null;
+};
+
+export type AdminStoreListItemDto = {
+  ownershipId: string;
+  golfFacilityId: string;
+  facilityName: string;
+  facilityAddress: string | null;
+  sido: string | null;
+  sigungu: string | null;
+  ownerUserId: string;
+  ownerName: string | null;
+  ownerPhone: string | null;
+  status: StoreOwnershipStatus;
+  approvedAt: string;
+  kpi: StoreOwnershipKpiDto;
+};
+
+export type AdminStoreJoinRowDto = {
+  joinId: string;
+  startAt: string;
+  status: JoinStatus;
+  plannedPlayerCount: number;
+  confirmedPlayerCount: number;
+  attendedCount: number | null;
+  succeeded: boolean;
+};
+
+export type AdminStoreDetailDto = {
+  ownership: AdminStoreListItemDto;
+  applicantName: string | null;
+  applicantPhone: string | null;
+  relation: StoreOwnerRelation | null;
+  requestId: string | null;
+  venueId: string | null;
+  period: AdminStoreKpiPeriod;
+  recentJoins: AdminStoreJoinRowDto[];
+};
+
 
 
 

@@ -1,19 +1,21 @@
 import { StyleSheet, View } from 'react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  AppText,
-  CoinBadge,
-  ScreenContainer,
-  Stack,
-  colors,
-  spacing,
+  Badge,
+  Card,
+  ScrollScreenFrame,
+  Spacer,
+  Text,
+  useTheme,
 } from '@jjoin/design-system';
+import { formatCoinWithLabel } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
 import type { WalletSummaryDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
 
 export function WalletFoundationScreen() {
+  const theme = useTheme();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [wallet, setWallet] = useState<WalletSummaryDto | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -34,38 +36,81 @@ export function WalletFoundationScreen() {
   }, [load]);
 
   return (
-    <ScreenContainer>
-      <Stack gap="md">
-        <AppText variant="title">{t('wallet.title')}</AppText>
-        <AppText variant="caption" color="textSecondary">
-          {t('wallet.foundationNote')}
-        </AppText>
-        {error ? <AppText color="danger">{error}</AppText> : null}
-        <CoinBadge amount={wallet?.totalCoin ?? '—'} label={t('wallet.total')} />
-        <CoinBadge amount={wallet?.availableCoin ?? '—'} label={t('wallet.available')} />
-        <CoinBadge amount={wallet?.heldCoin ?? '—'} label={t('wallet.hold')} />
-        <AppText variant="subtitle">거래내역</AppText>
-        {(wallet?.recentTransactions.length ?? 0) === 0 ? (
-          <AppText color="textSecondary">{t('wallet.emptyTx')}</AppText>
-        ) : (
-          wallet?.recentTransactions.map((tx) => (
-            <View key={tx.id} style={styles.tx}>
-              <AppText variant="body">{tx.label}</AppText>
-              <AppText variant="bodyStrong">{tx.amount}</AppText>
-            </View>
-          ))
-        )}
-      </Stack>
-    </ScreenContainer>
+    <ScrollScreenFrame>
+      <Text variant="screenTitle" tone="primary">
+        {t('wallet.title')}
+      </Text>
+      <Spacer size="sm" />
+      <Text variant="body" tone="secondary">
+        {t('wallet.foundationNote')}
+      </Text>
+      {error ? (
+        <>
+          <Spacer size="sm" />
+          <Text variant="body" tone="error">
+            {error}
+          </Text>
+        </>
+      ) : null}
+
+      <Spacer size="md" />
+      <Card variant="elevated" padding="md">
+        <Text variant="caption" tone="tertiary">
+          {t('wallet.total')}
+        </Text>
+        <Text variant="headline" style={{ color: theme.colors.action.primary }}>
+          {formatCoinWithLabel(wallet?.totalCoin ?? '0')}
+        </Text>
+        <Spacer size="sm" />
+        <View style={styles.row}>
+          <Badge
+            label={`${t('wallet.available')} ${formatCoinWithLabel(wallet?.availableCoin ?? '0')}`}
+            variant="gold"
+          />
+          <Badge
+            label={`${t('wallet.hold')} ${formatCoinWithLabel(wallet?.heldCoin ?? '0')}`}
+            variant="neutral"
+          />
+        </View>
+      </Card>
+
+      <Spacer size="lg" />
+      <Text variant="sectionTitle" tone="primary">
+        거래내역
+      </Text>
+      <Spacer size="sm" />
+      {(wallet?.recentTransactions.length ?? 0) === 0 ? (
+        <Text variant="body" tone="secondary">
+          {t('wallet.emptyTx')}
+        </Text>
+      ) : (
+        wallet?.recentTransactions.map((tx) => (
+          <View
+            key={tx.id}
+            style={[
+              styles.tx,
+              { borderBottomColor: theme.colors.border.subtle },
+            ]}
+          >
+            <Text variant="body" tone="primary">
+              {tx.label}
+            </Text>
+            <Text variant="bodyStrong" tone="primary">
+              {tx.amount}
+            </Text>
+          </View>
+        ))
+      )}
+    </ScrollScreenFrame>
   );
 }
 
 const styles = StyleSheet.create({
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
   tx: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
 });

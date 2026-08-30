@@ -181,6 +181,25 @@ export function canSubmitStoreVerification(status: StoreVerificationStatus | nul
   );
 }
 
+/**
+ * Multi-store: allow another facility even if a previous request is APPROVED.
+ * Block only when the selected facility already has ACTIVE ownership or PENDING request.
+ */
+export function canSubmitStoreVerificationForFacility(input: {
+  golfFacilityId: string | null | undefined;
+  requests: Array<{ golfFacilityId: string; status: StoreVerificationStatus }>;
+  ownershipFacilityIds: string[];
+}): boolean {
+  const facilityId = input.golfFacilityId?.trim();
+  if (!facilityId) return true;
+  if (input.ownershipFacilityIds.includes(facilityId)) return false;
+  return !input.requests.some(
+    (r) =>
+      r.golfFacilityId === facilityId &&
+      r.status === StoreVerificationStatus.PENDING,
+  );
+}
+
 export function defaultStoreJoinStartAtIso(): string {
   const date = new Date(Date.now() + 24 * 60 * 60_000);
   date.setMinutes(0, 0, 0);
