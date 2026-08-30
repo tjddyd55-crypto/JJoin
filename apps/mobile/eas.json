@@ -7,21 +7,29 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "env": {
+        "APP_VARIANT": "development"
+      },
       "android": {
         "buildType": "apk"
       }
     },
     "preview": {
       "distribution": "internal",
-      "android": {
-        "buildType": "apk"
-      },
       "env": {
+        "APP_VARIANT": "production",
         "EXPO_PUBLIC_API_URL": "https://api-production-2d67e.up.railway.app",
         "EXPO_PUBLIC_INTERNAL_TOOLS_ENABLED": "false"
+      },
+      "android": {
+        "buildType": "apk"
       }
     },
     "production": {
+      "env": {
+        "APP_VARIANT": "production",
+        "EXPO_PUBLIC_API_URL": "https://api-production-2d67e.up.railway.app"
+      },
       "android": {
         "buildType": "app-bundle"
       }

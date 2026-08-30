@@ -5,10 +5,16 @@
   "private": true,
   "scripts": {
     "start": "expo start --dev-client --localhost",
+    "start:dev": "cross-env APP_VARIANT=development expo start --dev-client --localhost",
     "start:go": "expo start",
     "android": "expo run:android",
+    "android:dev": "cross-env APP_VARIANT=development expo run:android",
     "ios": "expo run:ios",
     "prebuild": "expo prebuild",
+    "prebuild:dev": "cross-env APP_VARIANT=development expo prebuild -p android",
+    "prebuild:prod": "cross-env APP_VARIANT=production expo prebuild -p android",
+    "config:dev": "cross-env APP_VARIANT=development expo config --type public",
+    "config:prod": "cross-env APP_VARIANT=production expo config --type public",
     "web": "expo start --web",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo \"mobile lint placeholder\"",
@@ -54,6 +60,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "cross-env": "^10.1.0",
     "typescript": "~5.7.3"
   }
 }
