@@ -143,6 +143,12 @@ export class JoinsController {
     });
   }
 
+  @Get(':joinId/prefill')
+  @UseGuards(MockAuthGuard)
+  prefill(@Param('joinId') joinId: string, @CurrentUserId() userId: string) {
+    return this.service.getPrefill(joinId, userId);
+  }
+
   @Get(':joinId')
   @UseGuards(MockAuthGuard)
   detail(@Param('joinId') joinId: string, @CurrentUserId() userId: string) {

@@ -14,6 +14,7 @@ import {
   aggregateFacilityJoinActivity,
   aggregateFacilityJoinActivityForDate,
   compareJoinDiscoveryPriority,
+  isJoinCapacityJoinable,
   localDayKey,
 } from '@jjoin/domain';
 import {
@@ -67,6 +68,7 @@ type FacilityRow = {
 
 type FacilityActivity = {
   todayJoinCount: number;
+  todayJoinableCount: number;
   ongoingJoinCount: number;
   openJoinCount: number;
   hasTodayJoin: boolean;
@@ -408,6 +410,7 @@ export class GolfFacilitiesService {
     const selectable = hasValidCoords;
     const joinActivity = activity ?? {
       ...emptyFacilityJoinActivity(),
+      todayJoinableCount: 0,
       selectedDateJoinCount: 0,
       hasSelectedDateJoin: false,
       previews: [] as ExploreJoinPreviewDto[],
@@ -430,6 +433,7 @@ export class GolfFacilitiesService {
       selectable,
       isScreenJoinEligible: row.isScreenJoinEligible,
       todayJoinCount: joinActivity.todayJoinCount,
+      todayJoinableCount: joinActivity.todayJoinableCount,
       ongoingJoinCount: joinActivity.ongoingJoinCount,
       openJoinCount: joinActivity.openJoinCount,
       hasTodayJoin: joinActivity.hasTodayJoin,
@@ -452,6 +456,7 @@ export class GolfFacilitiesService {
   ): Promise<Map<string, FacilityActivity>> {
     const empty = (): FacilityActivity => ({
       ...emptyFacilityJoinActivity(),
+      todayJoinableCount: 0,
       selectedDateJoinCount: 0,
       hasSelectedDateJoin: false,
       previews: [],
@@ -474,7 +479,8 @@ export class GolfFacilitiesService {
     }
 
     const now = new Date();
-    const resolvedDateKey = dateKey ?? localDayKey(now);
+    const todayKey = localDayKey(now);
+    const resolvedDateKey = dateKey ?? todayKey;
     const joins = await this.prisma.join.findMany({
       where: {
         venueId: { in: [...venueToFacility.keys()] },
@@ -496,9 +502,25 @@ export class GolfFacilitiesService {
     });
 
     const byFacility = new Map<string, ExploreJoinPreviewDto[]>();
+    const todayJoinableByFacility = new Map<string, number>();
     for (const join of joins) {
       const facilityId = venueToFacility.get(join.venueId);
       if (!facilityId) continue;
+
+      const dayKey = localDayKey(join.startAt);
+      if (
+        dayKey === todayKey &&
+        isJoinCapacityJoinable({
+          status: join.status,
+          currentParticipants: join.confirmedPlayerCount,
+          maxParticipants: join.plannedPlayerCount,
+        })
+      ) {
+        todayJoinableByFacility.set(
+          facilityId,
+          (todayJoinableByFacility.get(facilityId) ?? 0) + 1,
+        );
+      }
 
       const onSelectedDate = isValidOnSelectedDate({
         status: join.status,
@@ -508,7 +530,7 @@ export class GolfFacilitiesService {
         dateKey: resolvedDateKey,
       });
       const ongoing =
-        resolvedDateKey === localDayKey(now) &&
+        resolvedDateKey === todayKey &&
         isOngoingJoin({
           status: join.status,
           startAt: join.startAt,
@@ -544,7 +566,16 @@ export class GolfFacilitiesService {
       byFacility.set(facilityId, list);
     }
 
-    for (const [facilityId, previews] of byFacility) {
+    for (const facilityId of golfFacilityIds) {
+      const todayJoinableCount = todayJoinableByFacility.get(facilityId) ?? 0;
+      const previews = byFacility.get(facilityId);
+      if (!previews) {
+        result.set(facilityId, {
+          ...empty(),
+          todayJoinableCount,
+        });
+        continue;
+      }
       previews.sort((a, b) => compareJoinDiscoveryPriority(a, b, now));
       if (dateKey) {
         const agg = aggregateFacilityJoinActivityForDate(
@@ -552,11 +583,12 @@ export class GolfFacilitiesService {
           resolvedDateKey,
           now,
         );
-        result.set(facilityId, { ...agg, previews });
+        result.set(facilityId, { ...agg, todayJoinableCount, previews });
       } else {
         const agg = aggregateFacilityJoinActivity(previews, now);
         result.set(facilityId, {
           ...agg,
+          todayJoinableCount,
           selectedDateJoinCount: agg.todayJoinCount,
           hasSelectedDateJoin: agg.hasTodayJoin,
           previews,

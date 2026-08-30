@@ -23,6 +23,7 @@ import {
   type JoinDetailDto,
   type JoinListItemDto,
   type JoinParticipantDto,
+  type JoinPrefillDto,
   type MatchingJoinExtras,
   type MyJoinsResponse,
   type PublicUserProfileDto,
@@ -36,6 +37,7 @@ import {
   computeConfirmedPlayerCount,
   computeJoinCoinRequirement,
   countMatchingGenderComposition,
+  createJoinShareSlug,
   DISCOVERY_JOIN_STATUSES,
   estimateEndAt,
   formatMatchingRecruitmentLabel,
@@ -75,8 +77,15 @@ import { mockUserStore } from '../../mock/mock-user.store';
 import { NotificationEventService } from '../notifications/notification-event.service';
 import { NotificationType } from '@prisma/client';
 import { MatchingJoinsService } from './matching-joins.service';
+import { JoinEngagementNotifyService } from '../engagement/join-engagement-notify.service';
 
 const ACTIVE_JOIN_STATUSES: JoinStatus[] = [JoinStatus.OPEN, JoinStatus.FULL];
+
+function generateJoinShareSlug(): string {
+  const bytes = new Uint8Array(10);
+  globalThis.crypto.getRandomValues(bytes);
+  return createJoinShareSlug(bytes);
+}
 
 @Injectable()
 export class JoinsService {
@@ -89,6 +98,8 @@ export class JoinsService {
     private readonly meVenues: MeVenuesService,
     @Inject(forwardRef(() => MatchingJoinsService))
     private readonly matchingJoins: MatchingJoinsService,
+    @Inject(forwardRef(() => JoinEngagementNotifyService))
+    private readonly engagementNotify: JoinEngagementNotifyService,
   ) {}
 
   ping() {
@@ -365,7 +376,87 @@ export class JoinsService {
       await this.meVenues.touchRecent(hostUserId, createdVenueId);
     }
 
+    await this.ensureShareSlug(joinId);
+    void this.engagementNotify.notifyNewJoinableJoin(joinId);
+
     return this.getDetail(joinId, hostUserId);
+  }
+
+  async getPrefill(sourceJoinId: string, userId: string): Promise<JoinPrefillDto> {
+    const join = await this.prisma.join.findUnique({
+      where: { id: sourceJoinId },
+      include: { venue: true },
+    });
+    if (!join) throw new NotFoundException('join_not_found');
+
+    const isHost = join.hostUserId === userId;
+    let isStoreOwner = false;
+    if (join.storeOwnershipId) {
+      const ownership = await this.prisma.storeOwnership.findFirst({
+        where: { id: join.storeOwnershipId, userId, status: 'ACTIVE' },
+        select: { id: true },
+      });
+      isStoreOwner = Boolean(ownership);
+    } else if (join.venue.golfFacilityId) {
+      const ownership = await this.prisma.storeOwnership.findFirst({
+        where: {
+          golfFacilityId: join.venue.golfFacilityId,
+          userId,
+          status: 'ACTIVE',
+        },
+        select: { id: true },
+      });
+      isStoreOwner = Boolean(ownership);
+    }
+    if (!isHost && !isStoreOwner) {
+      throw new ForbiddenException({
+        code: 'JOIN_PREFILL_FORBIDDEN',
+        message: '재오픈은 호스트 또는 매장 소유자만 가능합니다.',
+      });
+    }
+
+    return {
+      sourceJoinId: join.id,
+      venueId: join.venueId,
+      golfFacilityId: join.venue.golfFacilityId,
+      title: join.title,
+      description: join.description,
+      plannedPlayerCount: join.plannedPlayerCount,
+      targetMaleCount: join.targetMaleCount,
+      targetFemaleCount: join.targetFemaleCount,
+      rewardPerParticipant: String(join.rewardPerParticipant),
+      joinKind: join.joinKind as JoinKind,
+      matchingRewardTarget: join.matchingRewardTarget as JoinPrefillDto['matchingRewardTarget'],
+      storeOwnershipId: join.storeOwnershipId,
+      minimumPlayers: join.minimumPlayers,
+    };
+  }
+
+  /** Assign opaque share slug after commit when missing. */
+  async ensureShareSlug(joinId: string): Promise<string | null> {
+    const existing = await this.prisma.join.findUnique({
+      where: { id: joinId },
+      select: { shareSlug: true },
+    });
+    if (!existing) return null;
+    if (existing.shareSlug) return existing.shareSlug;
+
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const shareSlug = generateJoinShareSlug();
+      try {
+        await this.prisma.join.update({
+          where: { id: joinId },
+          data: { shareSlug },
+        });
+        return shareSlug;
+      } catch (e) {
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+          continue;
+        }
+        throw e;
+      }
+    }
+    return null;
   }
 
   async getDetail(joinId: string, viewerUserId?: string): Promise<JoinDetailDto> {
@@ -390,7 +481,15 @@ export class JoinsService {
       },
     });
     if (!join) throw new NotFoundException('join_not_found');
-    const detail = this.toDetail(join, viewerUserId);
+    let bookmarked = false;
+    if (viewerUserId) {
+      const bookmark = await this.prisma.joinBookmark.findUnique({
+        where: { userId_joinId: { userId: viewerUserId, joinId } },
+        select: { id: true },
+      });
+      bookmarked = Boolean(bookmark);
+    }
+    const detail = this.toDetail(join, viewerUserId, { bookmarked });
     if (viewerUserId) {
       try {
         detail.settlement = await this.settlement.getJoinSettlements(joinId, viewerUserId);
@@ -949,6 +1048,7 @@ export class JoinsService {
       storeOwnershipId?: string | null;
       confirmedAt?: Date | null;
       cancelledAt?: Date | null;
+      shareSlug?: string | null;
       rewardPerParticipant: Prisma.Decimal;
       roomCreationFeeAmount: Prisma.Decimal;
       rewardHoldTotalAmount: Prisma.Decimal;
@@ -986,6 +1086,7 @@ export class JoinsService {
       }>;
     },
     viewerUserId?: string,
+    extras?: { bookmarked?: boolean },
   ): JoinDetailDto {
     const hostProfile = this.toPublicHost(join.host);
     assertPublicProfileHasNoPrivateFields(hostProfile as unknown as Record<string, unknown>);
@@ -1040,6 +1141,8 @@ export class JoinsService {
       roomCreationFeeAmount: String(join.roomCreationFeeAmount),
       rewardHoldTotalAmount: String(join.rewardHoldTotalAmount),
       coinAccountingPending: false,
+      shareSlug: join.shareSlug ?? null,
+      bookmarked: extras?.bookmarked ?? false,
       venue: {
         venueId: join.venue.id,
         provider: join.venue.provider,

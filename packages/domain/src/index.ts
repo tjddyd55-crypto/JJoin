@@ -323,6 +323,29 @@ export {
 } from './join-discovery';
 
 export {
+  computeAttendanceReliability,
+  formatTodayJoinableBadge,
+  isJoinCapacityJoinable,
+  type AttendanceReliability,
+  type AttendanceReliabilityInput,
+} from './attendance-reliability';
+
+export {
+  JOIN_ALERT_TIME_BANDS,
+  bookmarkNotificationEventKey,
+  createJoinShareSlug,
+  matchesJoinAlertDate,
+  matchesJoinAlertRegion,
+  matchesJoinAlertSubscription,
+  matchesJoinAlertTimeBand,
+  newJoinableNotificationEventKey,
+  type JoinAlertCandidate,
+  type JoinAlertDateMode,
+  type JoinAlertSubscriptionMatchInput,
+  type JoinAlertTimeBand,
+} from './join-engagement';
+
+export {
   ADMIN_SIDO_GROUPS,
   DEFAULT_REGION_QUICK_PICKS,
   districtRegionKey,

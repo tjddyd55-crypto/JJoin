@@ -1,4 +1,4 @@
-﻿import { Module } from '@nestjs/common';
+﻿import { Module, forwardRef } from '@nestjs/common';
 import { JoinsController } from './joins.controller';
 import { StoreJoinsController } from './store-joins.controller';
 import { JoinsService } from './joins.service';
@@ -10,6 +10,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { UsersModule } from '../users/users.module';
 import { VenuesModule } from '../venues/venues.module';
 import { GolfFacilitiesModule } from '../golf-facilities/golf-facilities.module';
+import { EngagementModule } from '../engagement/engagement.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { GolfFacilitiesModule } from '../golf-facilities/golf-facilities.module'
     NotificationsModule,
     VenuesModule,
     GolfFacilitiesModule,
+    forwardRef(() => EngagementModule),
   ],
   controllers: [JoinsController, StoreJoinsController],
   providers: [JoinsService, JoinDiscoveryService, MatchingJoinsService],

@@ -75,6 +75,7 @@ export function golfFacilityToExploreVenue(
     distanceMeters,
     openJoinCount: f.openJoinCount ?? 0,
     todayJoinCount: f.todayJoinCount ?? f.selectedDateJoinCount ?? 0,
+    todayJoinableCount: f.todayJoinableCount ?? 0,
     ongoingJoinCount: f.ongoingJoinCount ?? 0,
     hasTodayJoin: f.hasTodayJoin ?? f.hasSelectedDateJoin ?? false,
     hasOngoingJoin: f.hasOngoingJoin ?? false,
@@ -95,6 +96,7 @@ export function venueHasJoinableJoinToday(
   venue: ExploreVenueDto,
   now = new Date(),
 ): boolean {
+  if ((venue.todayJoinableCount ?? 0) > 0) return true;
   if (venue.hasOngoingJoin) return true;
   const todayKey = localDayKey(now);
   const previews = venue.joinPreviews ?? [];

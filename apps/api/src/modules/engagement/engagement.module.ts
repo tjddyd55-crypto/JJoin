@@ -1,0 +1,35 @@
+import { Module, forwardRef } from '@nestjs/common';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { JoinsModule } from '../joins/joins.module';
+import { JoinAlertsController } from './join-alerts.controller';
+import { JoinAlertsService } from './join-alerts.service';
+import { JoinBookmarksController } from './join-bookmarks.controller';
+import { JoinBookmarksService } from './join-bookmarks.service';
+import { FacilityFollowsController } from './facility-follows.controller';
+import { FacilityFollowsService } from './facility-follows.service';
+import { PublicJoinsController } from './public-joins.controller';
+import { PublicJoinsService } from './public-joins.service';
+import { FacilityWeeklyJoinsController } from './facility-weekly-joins.controller';
+import { FacilityWeeklyJoinsService } from './facility-weekly-joins.service';
+import { JoinEngagementNotifyService } from './join-engagement-notify.service';
+
+@Module({
+  imports: [NotificationsModule, forwardRef(() => JoinsModule)],
+  controllers: [
+    JoinAlertsController,
+    JoinBookmarksController,
+    FacilityFollowsController,
+    PublicJoinsController,
+    FacilityWeeklyJoinsController,
+  ],
+  providers: [
+    JoinAlertsService,
+    JoinBookmarksService,
+    FacilityFollowsService,
+    PublicJoinsService,
+    FacilityWeeklyJoinsService,
+    JoinEngagementNotifyService,
+  ],
+  exports: [JoinEngagementNotifyService],
+})
+export class EngagementModule {}

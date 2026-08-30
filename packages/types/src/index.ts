@@ -187,6 +187,11 @@ export type PublicUserProfileDto = {
   bio: string | null;
   sportProfiles: SportProfileDto[];
   participationCount: number;
+  /** Objective attendance stats (COMPLETED / NO_SHOW). */
+  completedJoinCount?: number;
+  noShowCount?: number;
+  /** 0–100; null when no attendance outcomes yet. */
+  attendanceRatePercent?: number | null;
 };
 
 /** Never include real name, phone, CI/DI, raw birth date here. */
@@ -336,6 +341,8 @@ export type ExploreVenueDto = {
   openJoinCount: number;
   /** Today (local) valid joins still not ended. */
   todayJoinCount?: number;
+  /** Today JOINABLE-only count (excludes FULL / no seats). */
+  todayJoinableCount?: number;
   /** Currently in progress joins. */
   ongoingJoinCount?: number;
   hasTodayJoin?: boolean;
@@ -460,6 +467,11 @@ export type GolfFacilityMapDto = {
   isScreenJoinEligible: boolean;
   /** Aggregated join activity for map (bounds); defaults to 0 when absent. */
   todayJoinCount?: number;
+  /**
+   * Today JOINABLE-only count (excludes FULL / no seats).
+   * Marker badges should prefer this over todayJoinCount.
+   */
+  todayJoinableCount?: number;
   ongoingJoinCount?: number;
   openJoinCount?: number;
   hasTodayJoin?: boolean;
@@ -727,6 +739,10 @@ export type JoinDetailDto = {
   rewardHoldTotalAmount: string;
   /** False once create path writes ledger (Phase J+). */
   coinAccountingPending: boolean;
+  /** Opaque public share slug for Landing `/j/{shareSlug}`. */
+  shareSlug?: string | null;
+  /** True when the authenticated viewer has bookmarked this join. */
+  bookmarked?: boolean;
   venue: {
     venueId: string;
     provider: string;
@@ -1022,6 +1038,25 @@ export enum NotificationType {
   DISPUTE_RESOLVED = 'DISPUTE_RESOLVED',
   JOIN_CANCELLED = 'JOIN_CANCELLED',
   JOIN_UPDATED = 'JOIN_UPDATED',
+  JOIN_ALERT_MATCH = 'JOIN_ALERT_MATCH',
+  FOLLOWED_STORE_NEW_JOIN = 'FOLLOWED_STORE_NEW_JOIN',
+  BOOKMARK_JOIN_CLOSING = 'BOOKMARK_JOIN_CLOSING',
+  BOOKMARK_JOIN_SPOT_LEFT = 'BOOKMARK_JOIN_SPOT_LEFT',
+  BOOKMARK_JOIN_UPDATED = 'BOOKMARK_JOIN_UPDATED',
+  BOOKMARK_JOIN_CANCELLED = 'BOOKMARK_JOIN_CANCELLED',
+}
+
+export enum JoinAlertDateMode {
+  TODAY = 'TODAY',
+  THIS_WEEK = 'THIS_WEEK',
+  SPECIFIC_DATE = 'SPECIFIC_DATE',
+}
+
+export enum JoinAlertTimeBand {
+  ANY = 'ANY',
+  MORNING = 'MORNING',
+  AFTERNOON = 'AFTERNOON',
+  EVENING = 'EVENING',
 }
 
 export enum PushPlatform {
@@ -1177,3 +1212,96 @@ export type AdminUserCoinHistoryDto = {
   recentTransactions: WalletTransactionDto[];
 };
 
+export type AttendanceReliabilityDto = {
+  completedJoinCount: number;
+  noShowCount: number;
+  attendanceRatePercent: number | null;
+};
+
+export type JoinAlertSubscriptionDto = {
+  id: string;
+  label: string | null;
+  sido: string | null;
+  sigungu: string | null;
+  dateMode: JoinAlertDateMode;
+  specificDate: string | null;
+  timeBand: JoinAlertTimeBand;
+  joinableOnly: boolean;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateJoinAlertSubscriptionRequest = {
+  label?: string;
+  sido?: string;
+  sigungu?: string;
+  dateMode: JoinAlertDateMode;
+  specificDate?: string;
+  timeBand?: JoinAlertTimeBand;
+  joinableOnly?: boolean;
+};
+
+export type UpdateJoinAlertSubscriptionRequest = Partial<CreateJoinAlertSubscriptionRequest> & {
+  enabled?: boolean;
+};
+
+export type JoinBookmarkDto = {
+  id: string;
+  joinId: string;
+  createdAt: string;
+  join: JoinListItemDto;
+};
+
+export type GolfFacilityFollowDto = {
+  id: string;
+  golfFacilityId: string;
+  createdAt: string;
+  displayName: string;
+  sido: string | null;
+  sigungu: string | null;
+  todayJoinableCount: number;
+  weekJoinableCount: number;
+};
+
+export type PublicJoinShareDto = {
+  shareSlug: string;
+  joinId: string;
+  status: JoinStatus;
+  statusLabel: string;
+  venueName: string;
+  regionLabel: string | null;
+  startAt: string;
+  scheduledEndAt: string;
+  plannedPlayerCount: number;
+  confirmedPlayerCount: number;
+  availableSlots: number;
+  joinKind: JoinKind;
+  title: string | null;
+  description: string | null;
+  isJoinable: boolean;
+  appDeepLink: string;
+};
+
+export type JoinPrefillDto = {
+  sourceJoinId: string;
+  venueId: string;
+  golfFacilityId: string | null;
+  title: string | null;
+  description: string | null;
+  plannedPlayerCount: number;
+  targetMaleCount: number | null;
+  targetFemaleCount: number | null;
+  rewardPerParticipant: string;
+  joinKind: JoinKind;
+  matchingRewardTarget: string | null;
+  storeOwnershipId: string | null;
+  minimumPlayers: number | null;
+};
+
+export type FacilityWeeklyJoinsResponse = {
+  golfFacilityId: string;
+  weekDays: Array<{ date: string; weekdayLabel: string; count: number; isToday: boolean }>;
+  selectedDate: string;
+  joins: JoinListItemDto[];
+};

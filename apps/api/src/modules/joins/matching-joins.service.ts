@@ -48,6 +48,7 @@ import { UserAccountService } from '../users/user-account.service';
 import { mockUserStore } from '../../mock/mock-user.store';
 import { CoinPolicyDisabledError } from '../../coin/dev-coin-policy';
 import { JoinsService } from './joins.service';
+import { JoinEngagementNotifyService } from '../engagement/join-engagement-notify.service';
 
 const MATCHING_OPEN_STATUSES: JoinStatus[] = [JoinStatus.OPEN, JoinStatus.FULL];
 
@@ -62,6 +63,8 @@ export class MatchingJoinsService {
     private readonly accounts: UserAccountService,
     @Inject(forwardRef(() => JoinsService))
     private readonly joins: JoinsService,
+    @Inject(forwardRef(() => JoinEngagementNotifyService))
+    private readonly engagementNotify: JoinEngagementNotifyService,
   ) {}
 
   async create(hostUserId: string, raw: CreateStoreMatchingJoinRequest): Promise<JoinDetailDto> {
@@ -238,6 +241,9 @@ export class MatchingJoinsService {
       String(updated.heldBalance),
     );
 
+    await this.joins.ensureShareSlug(joinId);
+    void this.engagementNotify.notifyNewJoinableJoin(joinId);
+
     return this.joins.getDetail(joinId, hostUserId);
   }
 
@@ -299,6 +305,8 @@ export class MatchingJoinsService {
       String(wallet.availableBalance),
       String(wallet.heldBalance),
     );
+
+    void this.engagementNotify.notifyBookmarkJoinEvent(joinId, 'cancelled');
 
     return this.joins.getDetail(joinId, hostUserId);
   }
