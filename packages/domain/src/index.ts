@@ -336,9 +336,11 @@ export {
   REGION_EXPLORE_TOP_SIDO,
   buildRegionBreadcrumb,
   buildRegionDateStrip,
+  buildRegionSearchDbHints,
   findSidoGroup,
   listRegionExploreNodes,
   listTopLevelSido,
+  matchesFacilityRegionSearch,
   matchesRegionScope,
   normalizeFacilityDistrict,
   normalizeSido,
@@ -347,6 +349,7 @@ export {
   type RegionExploreBreadcrumb,
   type RegionExploreNode,
   type NormalizedFacilityDistrict,
+  type RegionSearchDbHints,
 } from './region-explore-catalog';
 
 export {

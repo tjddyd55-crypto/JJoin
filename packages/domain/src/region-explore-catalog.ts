@@ -269,6 +269,73 @@ export function matchesRegionScope(
   return false;
 }
 
+/**
+ * DB prefilter hints for GolfFacility search.
+ * Broadens query candidates (parent city / address leaf) without replacing
+ * matchesRegionScope as the precision SSOT.
+ */
+export type RegionSearchDbHints = {
+  /** Sido spellings that may appear in GolfFacility.sido. */
+  sidoVariants: string[];
+  /** Exact sigungu values to OR-match (leaf + tree scope + parent city). */
+  sigunguCandidates: string[];
+  /** Leaf label for roadAddress/lotAddress contains (selected district). */
+  addressContains: string;
+};
+
+export function buildRegionSearchDbHints(
+  targetSido: string,
+  targetSigungu: string,
+): RegionSearchDbHints | null {
+  const wanted = normalizeSido(targetSido);
+  if (!wanted || !targetSigungu.trim()) return null;
+
+  const sidoVariants = new Set<string>([wanted, targetSido.trim()]);
+  for (const [alias, canonical] of Object.entries(SIDO_ALIASES)) {
+    if (canonical === wanted) sidoVariants.add(alias);
+  }
+
+  const sigunguCandidates = new Set<string>(
+    resolveRegionScopeSigungu(targetSido, targetSigungu),
+  );
+  sigunguCandidates.add(targetSigungu.trim());
+  const parentCity = gyeonggiParentCityForGu(targetSigungu.trim());
+  if (parentCity) sigunguCandidates.add(parentCity);
+
+  return {
+    sidoVariants: [...sidoVariants],
+    sigunguCandidates: [...sigunguCandidates],
+    addressContains: targetSigungu.trim(),
+  };
+}
+
+/**
+ * Search precision on top of matchesRegionScope.
+ * Parent-city rows (e.g. sigungu=고양시 for target 일산동구) must also
+ * mention the leaf district in road/lot address.
+ */
+export function matchesFacilityRegionSearch(
+  row: {
+    sido: string | null | undefined;
+    sigungu: string | null | undefined;
+    roadAddress?: string | null;
+    lotAddress?: string | null;
+  },
+  targetSido: string,
+  targetSigungu: string,
+): boolean {
+  if (!matchesRegionScope(row.sido, row.sigungu, targetSido, targetSigungu)) {
+    return false;
+  }
+  const parentCity = gyeonggiParentCityForGu(targetSigungu.trim());
+  if (!parentCity) return true;
+  const normalized = normalizeFacilityDistrict(row.sido, row.sigungu);
+  if (!normalized || normalized.sigungu !== parentCity) return true;
+  const needle = targetSigungu.trim();
+  const haystack = `${row.roadAddress ?? ''} ${row.lotAddress ?? ''}`;
+  return haystack.includes(needle);
+}
+
 export function buildRegionBreadcrumb(
   sido: string,
   sigungu?: string,

@@ -15,7 +15,6 @@ import {
   aggregateFacilityJoinActivityForDate,
   compareJoinDiscoveryPriority,
   localDayKey,
-  matchesRegionScope,
 } from '@jjoin/domain';
 import {
   GOLF_FACILITY_MAP_DEFAULT_LIMIT,
@@ -34,6 +33,11 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ensureFoundation } from '../../foundation/ensure-foundation';
 import { haversineMeters } from '../presence/privacy-location';
+import {
+  buildGolfFacilitySearchWhere,
+  golfFacilitySearchTake,
+  refineGolfFacilitySearchRows,
+} from './golf-facility-search-query';
 
 type VenueMeta = {
   status?: 'ACTIVE' | 'UNAVAILABLE';
@@ -207,8 +211,11 @@ export class GolfFacilitiesService {
   }
 
   /**
-   * Text active facilities by name/address region (all types including UNKNOWN).
+   * Search active facilities by name/address region (all types including UNKNOWN).
    * May include MISSING coords (selectable=false). No Venue side effects.
+   *
+   * Filters (screen/region/text) are applied in the DB where clause first;
+   * never take a nationwide prefix then filter in memory.
    */
   async search(input: {
     q?: string;
@@ -238,43 +245,26 @@ export class GolfFacilitiesService {
 
     const limit = clampLimit(input.limit, GOLF_FACILITY_SEARCH_DEFAULT_LIMIT, 100);
     const cursorId = input.cursor?.trim() || undefined;
+    const where = buildGolfFacilitySearchWhere({
+      q: q || undefined,
+      sido,
+      sigungu,
+      screenOnly: input.screenOnly,
+      cursorId,
+    });
 
     const rows = await this.prisma.golfFacility.findMany({
-      where: {
-        isActive: true,
-        ...(input.screenOnly ? { isScreenJoinEligible: true } : {}),
-        ...(cursorId ? { id: { gt: cursorId } } : {}),
-      },
+      where,
       select: MAP_SELECT,
       orderBy: [{ displayName: 'asc' }, { id: 'asc' }],
-      take: hasDistrict ? 2000 : limit + 1,
+      take: golfFacilitySearchTake(limit, hasDistrict),
     });
 
-    const qLower = q.toLowerCase();
-    const textMatch = (row: (typeof rows)[number]) => {
-      if (!q) return true;
-      const hay = [
-        row.displayName,
-        row.sourceName,
-        row.roadAddress,
-        row.lotAddress,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      return hay.includes(qLower);
-    };
-
-    const filtered = rows.filter((row) => {
-      if (hasDistrict && !matchesRegionScope(row.sido, row.sigungu, sido!, sigungu!)) {
-        return false;
-      }
-      return textMatch(row);
+    const { page, nextCursor } = refineGolfFacilitySearchRows(rows, {
+      sido,
+      sigungu,
+      limit,
     });
-
-    const page = filtered.slice(0, limit);
-    const nextCursor =
-      filtered.length > limit ? page[page.length - 1]?.id ?? null : null;
     const activityByFacility = await this.joinActivityByGolfFacilityIds(
       page.map((r) => r.id),
     );
