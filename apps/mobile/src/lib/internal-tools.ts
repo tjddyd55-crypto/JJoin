@@ -1,9 +1,21 @@
+import * as Application from 'expo-application';
+import { shouldEnableInternalTools } from './internal-tools-policy';
+
 /**
- * Gates mock/QA chrome for public test & production APKs.
- * Dev Client (__DEV__) keeps tools; set EXPO_PUBLIC_INTERNAL_TOOLS_ENABLED=true
- * only for intentional internal builds.
+ * Gates user-visible mock/QA chrome (login DEV USER, mock identity, /dev routes, …).
+ *
+ * Policy:
+ * - Requires APP_VARIANT === 'development' (not __DEV__).
+ * - Production package identity is always denied, even if Metro/.env
+ *   incorrectly sets APP_VARIANT=development while running com.jjoin.app.
+ *
+ * Developer console logging may still use __DEV__; do not reuse this for logs.
  */
 export function isInternalToolsEnabled(): boolean {
-  if (typeof __DEV__ !== 'undefined' && __DEV__) return true;
-  return process.env.EXPO_PUBLIC_INTERNAL_TOOLS_ENABLED === 'true';
+  return shouldEnableInternalTools({
+    appVariant: process.env.APP_VARIANT,
+    applicationId: Application.applicationId ?? null,
+  });
 }
+
+export { shouldEnableInternalTools } from './internal-tools-policy';

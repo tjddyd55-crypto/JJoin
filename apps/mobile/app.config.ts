@@ -21,10 +21,53 @@ const PRODUCTION_API_URL = 'https://api-production-2d67e.up.railway.app';
 /** Development Railway API — SSOT for APP_VARIANT=development builds. */
 const DEVELOPMENT_API_URL = 'https://api-development-e387.up.railway.app';
 
+/** Development keeps legacy Expo default icons (side-by-side distinction). */
+const DEVELOPMENT_APP_ICON = './assets/images/icon.png';
+const DEVELOPMENT_ADAPTIVE_FOREGROUND =
+  './assets/images/android-icon-foreground.png';
+const DEVELOPMENT_ADAPTIVE_BACKGROUND_IMAGE =
+  './assets/images/android-icon-background.png';
+const DEVELOPMENT_ADAPTIVE_MONOCHROME =
+  './assets/images/android-icon-monochrome.png';
+/** Legacy Expo adaptive fill (teal) — DEV only. */
+const DEVELOPMENT_ADAPTIVE_BACKGROUND_COLOR = '#0A6B56';
+
+/**
+ * Production launcher assets (user-supplied under assets/icons/).
+ * - Full icon: opaque finished art for Expo `icon` / iOS.
+ * - Foreground: transparent adaptive layer for Android (safe-padded).
+ * Background fill reuses Club Minimal darkest canvas token (palette.neutral950).
+ */
+const PRODUCTION_APP_ICON = './assets/icons/jjoinzone-prod-icon.png';
+const PRODUCTION_ADAPTIVE_FOREGROUND =
+  './assets/icons/jjoinzone-prod-foreground-safe.png';
+const PRODUCTION_ADAPTIVE_BACKGROUND_COLOR = '#09090A';
+
 export type AppVariant = 'development' | 'production';
 
 function resolveAppVariant(): AppVariant {
   return process.env.APP_VARIANT === 'development' ? 'development' : 'production';
+}
+
+function iconFor(variant: AppVariant): string {
+  return variant === 'development' ? DEVELOPMENT_APP_ICON : PRODUCTION_APP_ICON;
+}
+
+function androidAdaptiveIconFor(
+  variant: AppVariant,
+): NonNullable<ExpoConfig['android']>['adaptiveIcon'] {
+  if (variant === 'development') {
+    return {
+      backgroundColor: DEVELOPMENT_ADAPTIVE_BACKGROUND_COLOR,
+      foregroundImage: DEVELOPMENT_ADAPTIVE_FOREGROUND,
+      backgroundImage: DEVELOPMENT_ADAPTIVE_BACKGROUND_IMAGE,
+      monochromeImage: DEVELOPMENT_ADAPTIVE_MONOCHROME,
+    };
+  }
+  return {
+    backgroundColor: PRODUCTION_ADAPTIVE_BACKGROUND_COLOR,
+    foregroundImage: PRODUCTION_ADAPTIVE_FOREGROUND,
+  };
 }
 
 type VariantIdentity = {
@@ -103,7 +146,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 
   const plugins: ExpoConfig['plugins'] = [
     'expo-router',
-    'expo-dev-client',
     [
       'expo-splash-screen',
       {
@@ -146,6 +188,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ],
   ];
 
+  // Dev Launcher only for Development identity (eas developmentClient).
+  // Production/preview standalone must not register expo-dev-client.
+  if (variant === 'development') {
+    plugins.splice(1, 0, 'expo-dev-client');
+  }
+
   if (kakaoLoginNativeAppKey) {
     plugins.push([
       '@react-native-seoul/kakao-login',
@@ -174,6 +222,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ]);
   }
 
+  const appIcon = iconFor(variant);
+  const adaptiveIcon = androidAdaptiveIconFor(variant);
+
   return {
     ...config,
     name: identity.name,
@@ -181,7 +232,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     owner: 'tjddyd55',
     version: '0.0.2',
     orientation: 'portrait',
-    icon: './assets/images/icon.png',
+    icon: appIcon,
     scheme: identity.scheme,
     userInterfaceStyle: 'light',
     ios: {
@@ -196,12 +247,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       package: identity.androidPackage,
       versionCode: 2,
       ...(hasGoogleServices ? { googleServicesFile: GOOGLE_SERVICES_FILE } : {}),
-      adaptiveIcon: {
-        backgroundColor: '#0A6B56',
-        foregroundImage: './assets/images/android-icon-foreground.png',
-        backgroundImage: './assets/images/android-icon-background.png',
-        monochromeImage: './assets/images/android-icon-monochrome.png',
-      },
+      adaptiveIcon,
       permissions: [
         'ACCESS_COARSE_LOCATION',
         'ACCESS_FINE_LOCATION',
