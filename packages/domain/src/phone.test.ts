@@ -13,8 +13,9 @@ test('normalizePhoneDigits strips non-digits and caps length', () => {
 
 test('formatKoreanPhoneInput mobile 11 digits', () => {
   assert.equal(formatKoreanPhoneInput('01012345678'), '010-1234-5678');
-  assert.equal(formatKoreanPhoneInput('0101234567'), '010-1234-567');
+  assert.equal(formatKoreanPhoneInput('0101234567'), '010-123-4567');
   assert.equal(formatKoreanPhoneInput('010123'), '010-123');
+  assert.equal(formatKoreanPhoneInput('01022221382'), '010-2222-1382');
 });
 
 test('formatKoreanPhoneInput seoul 02', () => {

@@ -32,7 +32,11 @@ export function formatKoreanPhoneInput(input: string): string {
 
   if (digits.startsWith('010') || digits.startsWith('011') || digits.startsWith('016') || digits.startsWith('017') || digits.startsWith('018') || digits.startsWith('019')) {
     if (digits.length <= 3) return digits;
+    // Progressive: 010-xxxx while typing mid-block; complete 10-digit mobiles use 3-3-4.
     if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    if (digits.length === 10) {
+      return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+    }
     return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7, 11)}`;
   }
 

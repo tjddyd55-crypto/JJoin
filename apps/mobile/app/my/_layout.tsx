@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
+import { StatusBar } from 'react-native';
 import { useTheme } from '@jjoin/design-system';
 
 export default function MyLayout() {
@@ -9,7 +9,7 @@ export default function MyLayout() {
 
   return (
     <>
-      <StatusBar style="light" />
+      <StatusBar barStyle="light-content" backgroundColor={background} />
       <Stack
         screenOptions={{
           headerShown: true,
