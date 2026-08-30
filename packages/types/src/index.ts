@@ -577,6 +577,10 @@ export type JoinParticipantDto = {
   approvedAt: string | null;
   /** Present for STORE_MATCHING attendance/settlement preview. */
   gender?: 'MALE' | 'FEMALE' | 'UNSPECIFIED' | 'OTHER' | null;
+  /** Objective attendance stats (COMPLETED / NO_SHOW). */
+  completedJoinCount?: number;
+  noShowCount?: number;
+  attendanceRatePercent?: number | null;
 };
 
 export type SettlementParticipantDto = {

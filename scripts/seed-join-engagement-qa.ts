@@ -139,12 +139,24 @@ async function main() {
   const createdJoinIds: string[] = [];
   let sampleSlug: string | null = null;
 
+  // Keep startAt on *today* (KST) even late at night: start slightly in the past,
+  // end in the future so JOINABLE (end > now) + todayKey still match.
+  const todayKey = localDayKey(new Date());
+  const baseStart = (() => {
+    let candidate = new Date(Date.now() - 30 * 60_000);
+    for (let guard = 0; guard < 12 && localDayKey(candidate) !== todayKey; guard += 1) {
+      candidate = new Date(candidate.getTime() - 60 * 60_000);
+    }
+    return candidate;
+  })();
+
   for (const spec of specs) {
     const venue = await ensureVenue(spec.facility.id, spec.facility.displayName);
     for (let i = 0; i < spec.joinable; i += 1) {
-      const hour = spec.hourOffsets[i] ?? 18;
-      const startAt = new Date(dayStart.getTime() + hour * 3600_000);
-      const endAt = new Date(startAt.getTime() + 2 * 3600_000);
+      const startAt = new Date(
+        baseStart.getTime() + i * 20 * 60_000 + specs.indexOf(spec) * 5 * 60_000,
+      );
+      const endAt = new Date(Date.now() + (3 + i) * 3600_000);
       const slug = createJoinShareSlug(randomBytes(10));
       sampleSlug ??= slug;
       const join = await prisma.join.create({
@@ -174,7 +186,7 @@ async function main() {
         },
       });
       createdJoinIds.push(join.id);
-      console.log(`${TAG} join ${join.id} @ ${spec.facility.displayName} slug=${slug}`);
+      console.log(`${TAG} join ${join.id} @ ${spec.facility.displayName} slug=${slug} start=${startAt.toISOString()}`);
     }
   }
 

@@ -54,6 +54,7 @@ import {
   storeMatchingOwnerListPriority,
   subCoinAmounts,
   computeAutoPayAt,
+  computeAttendanceReliability,
 } from '@jjoin/domain';
 import { createJoinSchema, joinCoinPreviewSchema } from '@jjoin/validation';
 import { Prisma } from '@prisma/client';
@@ -489,7 +490,11 @@ export class JoinsService {
       });
       bookmarked = Boolean(bookmark);
     }
-    const detail = this.toDetail(join, viewerUserId, { bookmarked });
+    const reliabilityByUserId = await this.loadAttendanceReliabilityByUserIds([
+      join.hostUserId,
+      ...join.participants.map((p) => p.userId),
+    ]);
+    const detail = this.toDetail(join, viewerUserId, { bookmarked, reliabilityByUserId });
     if (viewerUserId) {
       try {
         detail.settlement = await this.settlement.getJoinSettlements(joinId, viewerUserId);
@@ -498,6 +503,68 @@ export class JoinsService {
       }
     }
     return detail;
+  }
+
+  private async loadAttendanceReliabilityByUserIds(
+    userIds: string[],
+  ): Promise<
+    Map<
+      string,
+      {
+        completedCount: number;
+        noShowCount: number;
+        attendanceRatePercent: number | null;
+      }
+    >
+  > {
+    const unique = [...new Set(userIds.filter(Boolean))];
+    const result = new Map<
+      string,
+      {
+        completedCount: number;
+        noShowCount: number;
+        attendanceRatePercent: number | null;
+      }
+    >();
+    for (const id of unique) {
+      result.set(id, {
+        completedCount: 0,
+        noShowCount: 0,
+        attendanceRatePercent: null,
+      });
+    }
+    if (unique.length === 0) return result;
+
+    const rows = await this.prisma.joinParticipant.groupBy({
+      by: ['userId', 'participationStatus'],
+      where: {
+        userId: { in: unique },
+        participationStatus: { in: ['COMPLETED', 'NO_SHOW'] },
+      },
+      _count: { _all: true },
+    });
+
+    const completed = new Map<string, number>();
+    const noshow = new Map<string, number>();
+    for (const row of rows) {
+      if (row.participationStatus === 'COMPLETED') {
+        completed.set(row.userId, row._count._all);
+      } else if (row.participationStatus === 'NO_SHOW') {
+        noshow.set(row.userId, row._count._all);
+      }
+    }
+    for (const id of unique) {
+      const reliability = computeAttendanceReliability({
+        completedCount: completed.get(id) ?? 0,
+        noShowCount: noshow.get(id) ?? 0,
+      });
+      result.set(id, {
+        completedCount: reliability.completedCount,
+        noShowCount: reliability.noShowCount,
+        attendanceRatePercent: reliability.attendanceRatePercent,
+      });
+    }
+    return result;
   }
 
   async myJoins(userId: string): Promise<MyJoinsResponse> {
@@ -1086,22 +1153,41 @@ export class JoinsService {
       }>;
     },
     viewerUserId?: string,
-    extras?: { bookmarked?: boolean },
+    extras?: {
+      bookmarked?: boolean;
+      reliabilityByUserId?: Map<
+        string,
+        {
+          completedCount: number;
+          noShowCount: number;
+          attendanceRatePercent: number | null;
+        }
+      >;
+    },
   ): JoinDetailDto {
-    const hostProfile = this.toPublicHost(join.host);
+    const hostProfile = this.toPublicHost(
+      join.host,
+      extras?.reliabilityByUserId?.get(join.host.id),
+    );
     assertPublicProfileHasNoPrivateFields(hostProfile as unknown as Record<string, unknown>);
 
-    const participants: JoinParticipantDto[] = join.participants.map((p) => ({
-      participantId: p.id,
-      userId: p.userId,
-      role: p.role as ParticipantRole,
-      participationStatus: p.participationStatus as ParticipationStatus,
-      nickname: p.user.profile?.nickname ?? '참가자',
-      verifiedBadge: true,
-      appliedAt: p.appliedAt.toISOString(),
-      approvedAt: p.approvedAt?.toISOString() ?? null,
-      gender: (p.user.profile?.gender as JoinParticipantDto['gender']) ?? null,
-    }));
+    const participants: JoinParticipantDto[] = join.participants.map((p) => {
+      const reliability = extras?.reliabilityByUserId?.get(p.userId);
+      return {
+        participantId: p.id,
+        userId: p.userId,
+        role: p.role as ParticipantRole,
+        participationStatus: p.participationStatus as ParticipationStatus,
+        nickname: p.user.profile?.nickname ?? '참가자',
+        verifiedBadge: true,
+        appliedAt: p.appliedAt.toISOString(),
+        approvedAt: p.approvedAt?.toISOString() ?? null,
+        gender: (p.user.profile?.gender as JoinParticipantDto['gender']) ?? null,
+        completedJoinCount: reliability?.completedCount,
+        noShowCount: reliability?.noShowCount,
+        attendanceRatePercent: reliability?.attendanceRatePercent ?? null,
+      };
+    });
 
     const mine = viewerUserId
       ? participants.find((p) => p.userId === viewerUserId) ?? null
@@ -1328,18 +1414,25 @@ export class JoinsService {
     };
   }
 
-  private toPublicHost(host: {
-    id: string;
-    identityStatus: string;
-    profile: {
-      nickname: string;
-      gender: string | null;
-      ageBand: string | null;
-      regionLabel: string | null;
-      bio: string | null;
-    } | null;
-    sportProfiles: Array<{ skillLevel: string; sport: { code: string } }>;
-  }): PublicUserProfileDto {
+  private toPublicHost(
+    host: {
+      id: string;
+      identityStatus: string;
+      profile: {
+        nickname: string;
+        gender: string | null;
+        ageBand: string | null;
+        regionLabel: string | null;
+        bio: string | null;
+      } | null;
+      sportProfiles: Array<{ skillLevel: string; sport: { code: string } }>;
+    },
+    reliability?: {
+      completedCount: number;
+      noShowCount: number;
+      attendanceRatePercent: number | null;
+    },
+  ): PublicUserProfileDto {
     const profile = host.profile;
     return {
       id: host.id,
@@ -1355,6 +1448,9 @@ export class JoinsService {
         skillLevel: sp.skillLevel as never,
       })),
       participationCount: 0,
+      completedJoinCount: reliability?.completedCount,
+      noShowCount: reliability?.noShowCount,
+      attendanceRatePercent: reliability?.attendanceRatePercent ?? null,
     };
   }
 }

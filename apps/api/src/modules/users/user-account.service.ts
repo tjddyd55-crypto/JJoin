@@ -62,9 +62,36 @@ export class UserAccountService {
     const participationCount = await this.prisma.joinParticipant.count({
       where: { userId, participationStatus: { in: ['APPROVED', 'CONFIRMED', 'COMPLETED'] } },
     });
+    const reliability = await this.loadAttendanceReliability(userId);
     const me = buildMeFromUser(user, participationCount);
     const walletSummary = await this.wallet.getSummary(userId);
-    return { ...me, walletSummary };
+    return {
+      ...me,
+      walletSummary,
+      publicProfile: me.publicProfile
+        ? {
+            ...me.publicProfile,
+            completedJoinCount: reliability.completedCount,
+            noShowCount: reliability.noShowCount,
+            attendanceRatePercent: reliability.attendanceRatePercent,
+          }
+        : null,
+    };
+  }
+
+  private async loadAttendanceReliability(userId: string) {
+    const [completedJoinCount, noShowCount] = await Promise.all([
+      this.prisma.joinParticipant.count({
+        where: { userId, participationStatus: 'COMPLETED' },
+      }),
+      this.prisma.joinParticipant.count({
+        where: { userId, participationStatus: 'NO_SHOW' },
+      }),
+    ]);
+    return computeAttendanceReliability({
+      completedCount: completedJoinCount,
+      noShowCount,
+    });
   }
 
   async acceptTerms(userId: string, body: unknown): Promise<MeDto> {
@@ -257,18 +284,7 @@ export class UserAccountService {
     const participationCount = await this.prisma.joinParticipant.count({
       where: { userId, participationStatus: { in: ['APPROVED', 'CONFIRMED', 'COMPLETED'] } },
     });
-    const [completedJoinCount, noShowCount] = await Promise.all([
-      this.prisma.joinParticipant.count({
-        where: { userId, participationStatus: 'COMPLETED' },
-      }),
-      this.prisma.joinParticipant.count({
-        where: { userId, participationStatus: 'NO_SHOW' },
-      }),
-    ]);
-    const reliability = computeAttendanceReliability({
-      completedCount: completedJoinCount,
-      noShowCount,
-    });
+    const reliability = await this.loadAttendanceReliability(userId);
     const profile = buildPublicProfileFromUser(user, participationCount);
     return {
       ...profile,

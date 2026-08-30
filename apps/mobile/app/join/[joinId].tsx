@@ -576,6 +576,14 @@ export default function JoinDetailScreen() {
             {detail.host.nickname}
             {detail.host.verifiedBadge ? ' · 인증' : ''}
           </Text>
+          {detail.host.completedJoinCount != null || detail.host.noShowCount != null ? (
+            <Text variant="meta" tone="secondary">
+              참석 {detail.host.completedJoinCount ?? 0} · 노쇼 {detail.host.noShowCount ?? 0}
+              {detail.host.attendanceRatePercent != null
+                ? ` · 참석률 ${detail.host.attendanceRatePercent}%`
+                : ''}
+            </Text>
+          ) : null}
         </Section>
 
         <Section title="참가자">
@@ -589,6 +597,21 @@ export default function JoinDetailScreen() {
               {detail.myParticipation.role})
             </Text>
           ) : null}
+          {detail.participants.map((p) => (
+            <Card key={p.participantId} variant="base" padding="md" style={styles.attendanceCard}>
+              <Text variant="bodyStrong" tone="primary">
+                {p.nickname}
+                {p.role === 'HOST' ? ' · 호스트' : ''}
+              </Text>
+              <Text variant="meta" tone="secondary">
+                {p.participationStatus}
+                {p.completedJoinCount != null || p.noShowCount != null
+                  ? ` · 참석 ${p.completedJoinCount ?? 0} · 노쇼 ${p.noShowCount ?? 0}`
+                  : ''}
+                {p.attendanceRatePercent != null ? ` · ${p.attendanceRatePercent}%` : ''}
+              </Text>
+            </Card>
+          ))}
         </Section>
 
         <Section title="보상">
