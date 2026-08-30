@@ -103,6 +103,18 @@ test('shouldClearUrgent when full / past start / seats gone', () => {
       isUrgent: true,
       status: 'OPEN',
       planned: 4,
+      confirmed: 4,
+      startAt,
+      now,
+    }),
+    true,
+    'seats filled (confirmed === planned) clears urgent even if status still OPEN',
+  );
+  assert.equal(
+    shouldClearUrgent({
+      isUrgent: true,
+      status: 'OPEN',
+      planned: 4,
       confirmed: 2,
       startAt,
       now,
@@ -177,8 +189,20 @@ test('resolveChatRoomLifecycleStatus', () => {
     'READ_ONLY',
   );
   assert.equal(
+    resolveChatRoomLifecycleStatus('CANCELLED', new Date('2026-08-31T11:00:00.000Z'), end),
+    'READ_ONLY',
+  );
+  assert.equal(
     resolveChatRoomLifecycleStatus(
       'COMPLETED',
+      new Date('2026-09-02T11:00:00.000Z'),
+      end,
+    ),
+    'CLOSED',
+  );
+  assert.equal(
+    resolveChatRoomLifecycleStatus(
+      'CANCELLED',
       new Date('2026-09-02T11:00:00.000Z'),
       end,
     ),
@@ -188,15 +212,32 @@ test('resolveChatRoomLifecycleStatus', () => {
     resolveChatRoomLifecycleStatus('OPEN', new Date('2026-08-31T11:00:00.000Z'), end),
     'READ_ONLY',
   );
+  // Exactly at purge boundary → CLOSED
+  assert.equal(
+    resolveChatRoomLifecycleStatus(
+      'COMPLETED',
+      new Date(end.getTime() + CHAT_PURGE_AFTER_HOURS * 60 * 60_000),
+      end,
+    ),
+    'CLOSED',
+  );
 });
 
 test('normalizeChatMessageBody', () => {
   assert.equal(normalizeChatMessageBody('  hello  '), 'hello');
   assert.throws(() => normalizeChatMessageBody('   '), /chat_message_empty/);
+  assert.throws(() => normalizeChatMessageBody(''), /chat_message_empty/);
   assert.throws(
     () => normalizeChatMessageBody('x'.repeat(CHAT_MESSAGE_MAX_LENGTH + 1)),
     /chat_message_too_long/,
   );
+  assert.equal(
+    normalizeChatMessageBody('x'.repeat(CHAT_MESSAGE_MAX_LENGTH)).length,
+    CHAT_MESSAGE_MAX_LENGTH,
+  );
+  // XSS / HTML is stored as plain text — not stripped, not executed by domain.
+  const html = '<script>alert(1)</script>';
+  assert.equal(normalizeChatMessageBody(html), html);
 });
 
 test('invite / urgent event keys', () => {
