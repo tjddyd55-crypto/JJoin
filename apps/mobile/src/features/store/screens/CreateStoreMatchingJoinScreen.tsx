@@ -50,7 +50,16 @@ function newIdempotencyKey() {
 
 export function CreateStoreMatchingJoinScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ storeOwnershipId?: string }>();
+  const params = useLocalSearchParams<{
+    storeOwnershipId?: string;
+    sourceJoinId?: string;
+    plannedPlayerCount?: string;
+    targetMaleCount?: string;
+    targetFemaleCount?: string;
+    rewardPerParticipant?: string;
+    matchingRewardTarget?: string;
+    minimumPlayers?: string;
+  }>();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
 
   const defaultStart = defaultStoreJoinStartAtIso();
@@ -63,13 +72,29 @@ export function CreateStoreMatchingJoinScreen() {
   const [gameDate, setGameDate] = useState(defaultStartParts.dateYmd);
   const [startTime, setStartTime] = useState(defaultStartParts.timeHm);
   const [closeTime, setCloseTime] = useState(defaultCloseParts.timeHm);
-  const [targetMaleCount, setTargetMaleCount] = useState(2);
-  const [targetFemaleCount, setTargetFemaleCount] = useState(2);
-  const [minimumPlayers, setMinimumPlayers] = useState('3');
-  const [matchingRewardTarget, setMatchingRewardTarget] = useState<MatchingRewardTarget>(
-    MatchingRewardTarget.FEMALE,
+  const [targetMaleCount, setTargetMaleCount] = useState(() => {
+    const n = Number(params.targetMaleCount);
+    return Number.isFinite(n) && n >= 0 ? n : 2;
+  });
+  const [targetFemaleCount, setTargetFemaleCount] = useState(() => {
+    const n = Number(params.targetFemaleCount);
+    return Number.isFinite(n) && n >= 0 ? n : 2;
+  });
+  const [minimumPlayers, setMinimumPlayers] = useState(
+    () => (typeof params.minimumPlayers === 'string' && params.minimumPlayers ? params.minimumPlayers : '3'),
   );
-  const [rewardPerParticipant, setRewardPerParticipant] = useState('5000');
+  const [matchingRewardTarget, setMatchingRewardTarget] = useState<MatchingRewardTarget>(() => {
+    const raw = typeof params.matchingRewardTarget === 'string' ? params.matchingRewardTarget : '';
+    if (raw === MatchingRewardTarget.MALE) return MatchingRewardTarget.MALE;
+    if (raw === MatchingRewardTarget.ALL) return MatchingRewardTarget.ALL;
+    return MatchingRewardTarget.FEMALE;
+  });
+  const [rewardPerParticipant, setRewardPerParticipant] = useState(
+    () =>
+      typeof params.rewardPerParticipant === 'string' && params.rewardPerParticipant
+        ? params.rewardPerParticipant
+        : '5000',
+  );
   const [genderPresetLabel, setGenderPresetLabel] = useState('남2여2');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

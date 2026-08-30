@@ -6,12 +6,19 @@ import {
   type KakaoMapMarkerDto,
 } from 'jjoin-kakao-map';
 import type { ExploreVenueDto, PublicNearbyUserDto } from '@jjoin/types';
-import { resolveMapJoinCaptionForDate, localDayKey } from '@jjoin/domain';
+import {
+  formatTodayJoinableBadge,
+  resolveMapJoinCaptionForDate,
+  localDayKey,
+} from '@jjoin/domain';
 import type { MapBounds, MapCoordinate, MapRegion } from '../model/map-types';
 import { latitudeDeltaToZoomLevel } from './map-geo';
 import type { MapCameraHandle } from './map-handle';
 
 function venueMapCaption(v: ExploreVenueDto): string {
+  const joinableBadge = formatTodayJoinableBadge(v.todayJoinableCount ?? 0);
+  if (joinableBadge) return joinableBadge;
+
   const selectedCount = v.todayJoinCount ?? 0;
   const activity = {
     todayJoinCount: selectedCount,

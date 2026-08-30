@@ -21,6 +21,10 @@ const PRODUCTION_API_URL = 'https://api-production-2d67e.up.railway.app';
 /** Development Railway API — SSOT for APP_VARIANT=development builds. */
 const DEVELOPMENT_API_URL = 'https://api-development-e387.up.railway.app';
 
+/** Landing base URLs for public join share links (`/j/{shareSlug}`). */
+const DEVELOPMENT_LANDING_URL = 'https://landing-development-da68.up.railway.app';
+const PRODUCTION_LANDING_URL = 'https://landing-production-0d39.up.railway.app';
+
 /** Development keeps legacy Expo default icons (side-by-side distinction). */
 const DEVELOPMENT_APP_ICON = './assets/images/icon.png';
 const DEVELOPMENT_ADAPTIVE_FOREGROUND =
@@ -119,10 +123,17 @@ function resolveApiUrl(variant: AppVariant): string {
   return PRODUCTION_API_URL;
 }
 
+function resolveLandingUrl(variant: AppVariant): string {
+  const explicit = process.env.EXPO_PUBLIC_LANDING_URL?.trim();
+  if (explicit) return explicit.replace(/\/$/, '');
+  return variant === 'development' ? DEVELOPMENT_LANDING_URL : PRODUCTION_LANDING_URL;
+}
+
 export default ({ config }: ConfigContext): ExpoConfig => {
   const variant = resolveAppVariant();
   const identity = identityFor(variant);
   const apiUrl = resolveApiUrl(variant);
+  const landingUrl = resolveLandingUrl(variant);
 
   /**
    * Kakao Native App Keys — fully split by APP_VARIANT.
@@ -267,6 +278,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     extra: {
       appVariant: variant,
       apiUrl,
+      landingUrl,
       mapProvider: 'kakao' as const,
       kakaoMapNativeAppKeyConfigured: Boolean(kakaoMapNativeAppKey),
       kakaoLoginNativeAppKeyConfigured: Boolean(kakaoLoginNativeAppKey),

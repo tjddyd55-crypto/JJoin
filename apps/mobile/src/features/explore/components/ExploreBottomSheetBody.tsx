@@ -21,6 +21,7 @@ import { VenuePreviewCard } from '../../../ui/patterns/VenuePreviewCard';
 import { useJoinDiscoveryOptional } from '../discovery/JoinDiscoveryContext';
 import { localDayKey } from '@jjoin/domain';
 import type { ExploreFilterId } from '../model/map-types';
+import { FacilityFollowWeeklySection } from '../../engagement/FacilityFollowWeeklySection';
 
 function PresenceStatusBlock({ presence }: { presence: PresenceVisibility }) {
   const on = presence === PresenceVisibilityEnum.AVAILABLE;
@@ -186,6 +187,13 @@ export function ExploreBottomSheetBody(props: {
             todayJoinCount={today}
             ongoingJoinCount={ongoing}
           />
+          {v.golfFacilityId || v.source === 'GOLF_FACILITY' ? (
+            <FacilityFollowWeeklySection
+              golfFacilityId={v.golfFacilityId ?? v.venueId}
+              venueName={v.name}
+              onJoinPress={props.onJoinPress}
+            />
+          ) : null}
           {v.joinPreviews.length === 0 ? (
             <Text variant="caption" tone="tertiary">
               현재 열린 조인 없음
@@ -340,6 +348,7 @@ export function ExploreBottomSheetBody(props: {
               }
               regionLabel={v.regionLabel}
               openJoinCount={v.openJoinCount}
+              todayJoinableCount={v.todayJoinableCount ?? 0}
               onPress={() => props.onSelectVenue(v.venueId)}
             />
           ))}
