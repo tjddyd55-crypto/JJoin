@@ -98,6 +98,26 @@ export function canAccessJoinChat(input: {
 }
 
 /**
+ * Whether chat entry should appear in product UI.
+ * Hidden after hideAfter (grace) or when room is CLOSED (purged).
+ * Write access is separate (`resolveChatRoomLifecycleStatus` / canPost).
+ */
+export function isJoinChatVisibleInUi(input: {
+  hasRoom: boolean;
+  roomStatus?: string | null;
+  hideAfter?: Date | string | null;
+  now?: Date | string;
+}): boolean {
+  if (!input.hasRoom) return false;
+  if (input.roomStatus === 'CLOSED') return false;
+  if (input.hideAfter) {
+    const now = asDate(input.now ?? new Date());
+    if (asDate(input.hideAfter).getTime() <= now.getTime()) return false;
+  }
+  return true;
+}
+
+/**
  * Desired room lifecycle from join status + schedule.
  * CLOSED once past scheduledEndAt + CHAT_PURGE_AFTER_HOURS.
  * READ_ONLY when terminal join or past scheduledEndAt.

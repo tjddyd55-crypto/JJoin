@@ -48,7 +48,10 @@ Workers must not use `railway.json` healthcheck — they run `start → work →
 |---------|----------------|------|
 | `matching-deadline-cron` | `*/5 * * * *` | Join matching deadline |
 | `settlement-cron` | `*/10 * * * *` | Settlement / autopay batch |
+| `chat-purge-cron` | `0 * * * *` | Ephemeral join-chat purge (messages/members only; Join history kept) |
 | `public-golf-sync` | `0 19 * * *` | LOCALDATA golf facility sync wake @ 04:00 KST; script gate keeps real sync on KST **1·16** only |
+
+`chat-purge-cron` config file: `railway.chat-purge-cron.json` · start: `pnpm chat-purge` · env: `CHAT_PURGE_HTTP_URL` + `SETTLEMENT_CRON_SECRET` (same secret family as other cron workers).
 
 Railway cron is UTC-only. Do **not** use `0 19 1,16 * *` for golf sync — that shifts runs to KST 2·17. See [`docs/PUBLIC_GOLF_FACILITY_SYNC_REPORT.md`](./PUBLIC_GOLF_FACILITY_SYNC_REPORT.md) Schedule section. Manual: `pnpm sync:public-golf-facilities:force`.
 

@@ -551,7 +551,7 @@ export default function JoinDetailScreen() {
 
   return (
     <View style={styles.root}>
-      <ScrollScreenFrame contentPaddingBottom={220}>
+      <ScrollScreenFrame contentPaddingBottom={280}>
         <Section title={detail.venue.name} subtitle={startLabel}>
           <Row justify="space-between" align="center" style={styles.headerActions}>
             <Row gap="sm" align="center" style={styles.badgeRow}>

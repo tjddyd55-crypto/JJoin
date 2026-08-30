@@ -9,12 +9,45 @@ import {
   PLAYED_TOGETHER_ELIGIBLE_STATUS,
   canAccessJoinChat,
   canActivateUrgentVacancy,
+  isJoinChatVisibleInUi,
   joinInvitationNotificationEventKey,
   normalizeChatMessageBody,
   resolveChatRoomLifecycleStatus,
   shouldClearUrgent,
   urgentJoinNotificationEventKey,
 } from './join-chat-loop';
+
+test('isJoinChatVisibleInUi hides after grace / CLOSED', () => {
+  const now = new Date('2026-08-31T12:00:00.000Z');
+  assert.equal(
+    isJoinChatVisibleInUi({
+      hasRoom: true,
+      roomStatus: 'ACTIVE',
+      hideAfter: null,
+      now,
+    }),
+    true,
+  );
+  assert.equal(
+    isJoinChatVisibleInUi({
+      hasRoom: true,
+      roomStatus: 'READ_ONLY',
+      hideAfter: new Date('2026-08-31T11:00:00.000Z'),
+      now,
+    }),
+    false,
+  );
+  assert.equal(
+    isJoinChatVisibleInUi({
+      hasRoom: true,
+      roomStatus: 'CLOSED',
+      hideAfter: new Date('2026-09-01T00:00:00.000Z'),
+      now,
+    }),
+    false,
+  );
+  assert.equal(isJoinChatVisibleInUi({ hasRoom: false }), false);
+});
 
 function kstTodayAtUtcHour(utcHour: number, now = new Date()): Date {
   const key = new Intl.DateTimeFormat('en-CA', {

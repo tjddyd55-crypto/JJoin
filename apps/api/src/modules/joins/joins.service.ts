@@ -56,6 +56,7 @@ import {
   computeAutoPayAt,
   computeAttendanceReliability,
   canAccessJoinChat,
+  isJoinChatVisibleInUi,
   isJoinCapacityJoinable,
   localDayKey,
 } from '@jjoin/domain';
@@ -500,6 +501,7 @@ export class JoinsService {
           include: { user: { include: { profile: true } } },
           orderBy: { appliedAt: 'asc' },
         },
+        chatRoom: true,
       },
     });
     if (!join) throw new NotFoundException('join_not_found');
@@ -596,6 +598,7 @@ export class JoinsService {
           venue: true,
           host: { include: { profile: true } },
           participants: true,
+          chatRoom: true,
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -607,6 +610,7 @@ export class JoinsService {
               venue: true,
               host: { include: { profile: true } },
               participants: true,
+              chatRoom: true,
             },
           },
         },
@@ -1200,6 +1204,10 @@ export class JoinsService {
         approvedAt: Date | null;
         user: { profile: { nickname: string; gender?: string | null } | null; identityStatus?: string };
       }>;
+      chatRoom?: {
+        status: string;
+        hideAfter: Date | null;
+      } | null;
     },
     viewerUserId?: string,
     extras?: {
@@ -1269,6 +1277,11 @@ export class JoinsService {
             mine?.participationStatus ??
             (join.host.id === viewerUserId ? 'APPROVED' : null),
           attendanceIntent: mine?.attendanceIntent,
+        }) &&
+        isJoinChatVisibleInUi({
+          hasRoom: Boolean(join.chatRoom),
+          roomStatus: join.chatRoom?.status,
+          hideAfter: join.chatRoom?.hideAfter,
         })
       : false;
 
@@ -1343,6 +1356,10 @@ export class JoinsService {
         attendanceIntent?: string | null;
         user?: { profile: { gender: string | null } | null };
       }>;
+      chatRoom?: {
+        status: string;
+        hideAfter: Date | null;
+      } | null;
     },
     userId: string,
   ): JoinListItemDto {
@@ -1368,12 +1385,18 @@ export class JoinsService {
       mine?.role === 'HOST' ||
       join.hostUserId === userId ||
       join.host.id === userId;
-    const chatAvailable = canAccessJoinChat({
-      role: mine?.role ?? (isHost ? 'HOST' : null),
-      participationStatus:
-        mine?.participationStatus ?? (isHost ? 'APPROVED' : null),
-      attendanceIntent: mine?.attendanceIntent,
-    });
+    const chatAvailable =
+      canAccessJoinChat({
+        role: mine?.role ?? (isHost ? 'HOST' : null),
+        participationStatus:
+          mine?.participationStatus ?? (isHost ? 'APPROVED' : null),
+        attendanceIntent: mine?.attendanceIntent,
+      }) &&
+      isJoinChatVisibleInUi({
+        hasRoom: Boolean(join.chatRoom),
+        roomStatus: join.chatRoom?.status,
+        hideAfter: join.chatRoom?.hideAfter,
+      });
     return {
       joinId: join.id,
       status: join.status as JoinStatus,

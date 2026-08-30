@@ -356,6 +356,7 @@ export {
   canActivateUrgentVacancy,
   chatHideAfterFrom,
   chatPurgeAfterFrom,
+  isJoinChatVisibleInUi,
   joinAttendanceConfirmEventKey,
   joinChatSystemNotificationEventKey,
   joinInvitationNotificationEventKey,

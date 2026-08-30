@@ -7,6 +7,7 @@ import test from 'node:test';
 import {
   CHAT_MESSAGE_MAX_LENGTH,
   canAccessJoinChat,
+  isJoinChatVisibleInUi,
   normalizeChatMessageBody,
   resolveChatRoomLifecycleStatus,
   shouldClearUrgent,
@@ -77,5 +78,24 @@ test('lifecycle: active → read-only → closed', () => {
   assert.equal(
     resolveChatRoomLifecycleStatus('COMPLETED', new Date('2026-09-03T10:00:00Z'), end),
     'CLOSED',
+  );
+});
+
+test('isJoinChatVisibleInUi grace gate', () => {
+  assert.equal(
+    isJoinChatVisibleInUi({
+      hasRoom: true,
+      roomStatus: 'READ_ONLY',
+      hideAfter: new Date('2020-01-01T00:00:00.000Z'),
+    }),
+    false,
+  );
+  assert.equal(
+    isJoinChatVisibleInUi({
+      hasRoom: true,
+      roomStatus: 'CLOSED',
+      hideAfter: null,
+    }),
+    false,
   );
 });

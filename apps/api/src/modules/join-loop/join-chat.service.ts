@@ -11,6 +11,7 @@ import {
   canAccessJoinChat,
   chatHideAfterFrom,
   chatPurgeAfterFrom,
+  isJoinChatVisibleInUi,
   normalizeChatMessageBody,
   resolveChatRoomLifecycleStatus,
 } from '@jjoin/domain';
@@ -157,6 +158,16 @@ export class JoinChatService {
     });
     if (!allowed) throw new ForbiddenException('chat_access_denied');
 
+    if (
+      !isJoinChatVisibleInUi({
+        hasRoom: true,
+        roomStatus: join.chatRoom.status,
+        hideAfter: join.chatRoom.hideAfter,
+      })
+    ) {
+      throw new ForbiddenException('chat_hidden');
+    }
+
     const member = await this.prisma.joinChatMember.findUnique({
       where: { roomId_userId: { roomId: join.chatRoom.id, userId } },
     });
@@ -262,7 +273,12 @@ export class JoinChatService {
   async purgeRun(secretHeaders: {
     'x-settlement-cron-secret'?: string;
     authorization?: string;
-  }): Promise<{ purgedRooms: number }> {
+  }): Promise<{
+    purgedRooms: number;
+    purgedMessages: number;
+    purgedMembers: number;
+    failedJobs: number;
+  }> {
     const expected = process.env.SETTLEMENT_CRON_SECRET?.trim();
     if (!expected) {
       throw new UnauthorizedException('cron_secret_not_configured');
@@ -278,26 +294,61 @@ export class JoinChatService {
         purgeAfter: { lte: now },
         status: { not: 'CLOSED' },
       },
-      select: { id: true },
+      select: { id: true, joinId: true },
       take: 100,
     });
 
     let purgedRooms = 0;
+    let purgedMessages = 0;
+    let purgedMembers = 0;
+    let failedJobs = 0;
+
     for (const room of rooms) {
-      await this.prisma.$transaction(async (tx) => {
-        await tx.joinChatMessage.deleteMany({ where: { roomId: room.id } });
-        await tx.joinChatMember.deleteMany({ where: { roomId: room.id } });
-        await tx.joinChatRoom.update({
-          where: { id: room.id },
-          data: { status: 'CLOSED', closedAt: now },
+      try {
+        const result = await this.prisma.$transaction(async (tx) => {
+          // Idempotent: skip if another worker closed the room mid-loop.
+          const current = await tx.joinChatRoom.findUnique({
+            where: { id: room.id },
+            select: { status: true },
+          });
+          if (!current || current.status === 'CLOSED') {
+            return { messages: 0, members: 0, closed: false };
+          }
+          const messages = await tx.joinChatMessage.deleteMany({
+            where: { roomId: room.id },
+          });
+          const members = await tx.joinChatMember.deleteMany({
+            where: { roomId: room.id },
+          });
+          await tx.joinChatRoom.update({
+            where: { id: room.id },
+            data: { status: 'CLOSED', closedAt: now },
+          });
+          return {
+            messages: messages.count,
+            members: members.count,
+            closed: true,
+          };
         });
-      });
-      purgedRooms += 1;
+        if (result.closed) {
+          purgedRooms += 1;
+          purgedMessages += result.messages;
+          purgedMembers += result.members;
+        }
+      } catch (e) {
+        failedJobs += 1;
+        const msg = e instanceof Error ? e.message : 'purge_failed';
+        this.logger.error(
+          `chat purge failed roomId=${room.id} joinId=${room.joinId} err=${msg}`,
+        );
+      }
     }
 
-    // NEVER delete Join rows.
-    this.logger.log(`chat purge-run purgedRooms=${purgedRooms}`);
-    return { purgedRooms };
+    // NEVER delete Join / JoinParticipant / attendance / played-together rows.
+    this.logger.log(
+      `chat purge-run purgedRooms=${purgedRooms} purgedMessages=${purgedMessages} purgedMembers=${purgedMembers} failedJobs=${failedJobs}`,
+    );
+    return { purgedRooms, purgedMessages, purgedMembers, failedJobs };
   }
 
   private async syncMembers(
