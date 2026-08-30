@@ -76,8 +76,23 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const identity = identityFor(variant);
   const apiUrl = resolveApiUrl(variant);
 
-  const kakaoMapNativeAppKey = process.env.EXPO_PUBLIC_KAKAO_MAP_NATIVE_APP_KEY ?? '';
-  const kakaoLoginNativeAppKey = process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY ?? '';
+  /**
+   * Kakao keys: shared by default (same Kakao app + package registration).
+   * Optional *_DEV overrides only when Development uses a separate Native App Key.
+   * Production always uses the non-_DEV variables — never overwritten by DEV slots.
+   */
+  const kakaoMapNativeAppKey =
+    (variant === 'development'
+      ? process.env.EXPO_PUBLIC_KAKAO_MAP_NATIVE_APP_KEY_DEV?.trim()
+      : '') ||
+    process.env.EXPO_PUBLIC_KAKAO_MAP_NATIVE_APP_KEY?.trim() ||
+    '';
+  const kakaoLoginNativeAppKey =
+    (variant === 'development'
+      ? process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY_DEV?.trim()
+      : '') ||
+    process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY?.trim() ||
+    '';
   const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '';
   const naverUrlScheme = process.env.EXPO_PUBLIC_NAVER_LOGIN_URL_SCHEME ?? 'jjoinnaverlogin';
   const easProjectId =

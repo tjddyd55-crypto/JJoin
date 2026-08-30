@@ -22,6 +22,23 @@ Do not hand-edit package in a committed android tree.
 - Development: set `EXPO_PUBLIC_API_URL` (or `EXPO_PUBLIC_DEVELOPMENT_API_URL`) to Development API
 - Localhost is explicit override only
 
+## Railway Development backend (required before EAS DEV build)
+
+JJOIN Railway project currently has **production only**.
+
+Safe setup (user action in Railway dashboard):
+
+1. Project **JJOIN** → environment dropdown → **+ New Environment**
+2. Choose **Duplicate Environment** from `production` (creates isolated service copies + new Postgres)
+3. Name: `development`
+4. Review **staged changes** → Deploy (do **not** sync back into production)
+5. On `development` → `api` → generate/public domain → copy HTTPS URL
+6. Confirm `api.DATABASE_URL` references **development** Postgres (`${{Postgres.DATABASE_URL}}` in that env), not production
+7. Prefer new `JWT_SECRET` / admin passwords for development
+8. Give Cursor the Development API HTTPS URL for `eas.json` / EAS env
+
+Never point Development API at production `DATABASE_URL`.
+
 ## Signing (current DEV = Android debug.keystore)
 
 Used for local Dev Client / until EAS development credentials differ:

@@ -9,16 +9,26 @@ function trimEnv(value: string | undefined): string {
   return (value ?? '').trim();
 }
 
-/** Kakao Login Native App Key — NOT Map key, NOT REST key. */
+/**
+ * Kakao Login Native App Key — NOT Map key, NOT REST key.
+ * Optional EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY_DEV overrides for APP_VARIANT=development
+ * when a separate Kakao Native App Key is used; otherwise the shared key is reused.
+ */
 export function kakaoLoginAppKey(): string {
+  const isDev = process.env.APP_VARIANT === 'development';
+  if (isDev) {
+    const devKey = trimEnv(process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY_DEV);
+    if (devKey) return devKey;
+  }
   return trimEnv(process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY);
 }
 
 export function naverLoginConfig() {
+  const isDev = process.env.APP_VARIANT === 'development';
   return {
     consumerKey: trimEnv(process.env.EXPO_PUBLIC_NAVER_LOGIN_CLIENT_ID),
     consumerSecret: trimEnv(process.env.EXPO_PUBLIC_NAVER_LOGIN_CLIENT_SECRET),
-    appName: 'JJOINZONE',
+    appName: isDev ? 'JJOINZONE DEV' : 'JJOINZONE',
     serviceUrlScheme:
       trimEnv(process.env.EXPO_PUBLIC_NAVER_LOGIN_URL_SCHEME) || 'jjoinnaverlogin',
   };
