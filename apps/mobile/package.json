@@ -17,7 +17,7 @@
     "config:prod": "cross-env APP_VARIANT=production expo config --type public",
     "web": "expo start --web",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import tsx --test src/features/join/attendance-intent-ui.test.ts",
+    "test": "node --import tsx --test src/features/join/attendance-intent-ui.test.ts src/config/app-variant-identity.test.ts",
     "lint": "echo \"mobile lint placeholder\"",
     "eas-build-post-install": "pnpm --dir ../.. run build:mobile-deps"
   },

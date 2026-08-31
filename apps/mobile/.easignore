@@ -1,0 +1,9 @@
+# Project-local EAS ignore (eas.json lives here).
+# Prevents contaminated local prebuild icons from shipping in Preview/Production APKs.
+/android
+/ios
+.expo/
+*.apk
+*.aab
+**/__pycache__/
+*.log

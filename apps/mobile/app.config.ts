@@ -1,6 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { ExpoConfig, ConfigContext } from 'expo/config';
+import {
+  androidAdaptiveIconFor,
+  iconFor,
+  identityFor,
+  notificationIconFor,
+  resolveAppVariant,
+} from './app-variant-identity.cjs';
+
+type AppVariant = 'development' | 'production';
 
 /**
  * Expo config — Kakao Map requires Development Build (not Expo Go).
@@ -9,8 +18,14 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
  * Variant SSOT: APP_VARIANT=development | production
  * (set by eas.json profile env, or local shell/.env for Metro/prebuild)
  *
+ * Icon / package identity: `./app-variant-identity.cjs` (do not cross-fallback).
+ *
  * EAS projectId is a public UUID (not a secret). Prefer env override for CI;
  * default matches @tjddyd55/jjoin created via `eas init`.
+ *
+ * Local `android/` / `ios/` are gitignored AND easignored so Preview builds
+ * always regenerate launcher icons from APP_VARIANT (never reuse a polluted
+ * local prebuild from the other variant).
  */
 const DEFAULT_EAS_PROJECT_ID = '7882917d-f3be-4832-bb62-754702a7d205';
 const GOOGLE_SERVICES_FILE = './google-services.json';
@@ -24,85 +39,6 @@ const DEVELOPMENT_API_URL = 'https://api-development-e387.up.railway.app';
 /** Landing base URLs for public join share links (`/j/{shareSlug}`). */
 const DEVELOPMENT_LANDING_URL = 'https://landing-development-da68.up.railway.app';
 const PRODUCTION_LANDING_URL = 'https://landing-production-0d39.up.railway.app';
-
-/** Development keeps legacy Expo default icons (side-by-side distinction). */
-const DEVELOPMENT_APP_ICON = './assets/images/icon.png';
-const DEVELOPMENT_ADAPTIVE_FOREGROUND =
-  './assets/images/android-icon-foreground.png';
-const DEVELOPMENT_ADAPTIVE_BACKGROUND_IMAGE =
-  './assets/images/android-icon-background.png';
-const DEVELOPMENT_ADAPTIVE_MONOCHROME =
-  './assets/images/android-icon-monochrome.png';
-/** Legacy Expo adaptive fill (teal) — DEV only. */
-const DEVELOPMENT_ADAPTIVE_BACKGROUND_COLOR = '#0A6B56';
-
-/**
- * Production launcher assets (user-supplied under assets/icons/).
- * - Full icon: opaque finished art for Expo `icon` / iOS.
- * - Foreground: transparent adaptive layer for Android (safe-padded).
- * Background fill reuses Club Minimal darkest canvas token (palette.neutral950).
- */
-const PRODUCTION_APP_ICON = './assets/icons/jjoinzone-prod-icon.png';
-const PRODUCTION_ADAPTIVE_FOREGROUND =
-  './assets/icons/jjoinzone-prod-foreground-safe.png';
-const PRODUCTION_ADAPTIVE_BACKGROUND_COLOR = '#09090A';
-
-export type AppVariant = 'development' | 'production';
-
-function resolveAppVariant(): AppVariant {
-  return process.env.APP_VARIANT === 'development' ? 'development' : 'production';
-}
-
-function iconFor(variant: AppVariant): string {
-  return variant === 'development' ? DEVELOPMENT_APP_ICON : PRODUCTION_APP_ICON;
-}
-
-function androidAdaptiveIconFor(
-  variant: AppVariant,
-): NonNullable<ExpoConfig['android']>['adaptiveIcon'] {
-  if (variant === 'development') {
-    return {
-      backgroundColor: DEVELOPMENT_ADAPTIVE_BACKGROUND_COLOR,
-      foregroundImage: DEVELOPMENT_ADAPTIVE_FOREGROUND,
-      backgroundImage: DEVELOPMENT_ADAPTIVE_BACKGROUND_IMAGE,
-      monochromeImage: DEVELOPMENT_ADAPTIVE_MONOCHROME,
-    };
-  }
-  return {
-    backgroundColor: PRODUCTION_ADAPTIVE_BACKGROUND_COLOR,
-    foregroundImage: PRODUCTION_ADAPTIVE_FOREGROUND,
-  };
-}
-
-type VariantIdentity = {
-  name: string;
-  /** Expo slug — drives Dev Client `exp+{slug}` scheme; keep distinct per variant. */
-  slug: string;
-  scheme: string;
-  androidPackage: string;
-  iosBundleIdentifier: string;
-};
-
-function identityFor(variant: AppVariant): VariantIdentity {
-  if (variant === 'development') {
-    return {
-      name: 'JJOINZONE DEV',
-      // Same EAS project slug as production (projectId ↔ slug must match).
-      // Side-by-side identity is package + custom scheme, not Expo slug.
-      slug: 'jjoin',
-      scheme: 'jjoindev',
-      androidPackage: 'com.jjoin.app.dev',
-      iosBundleIdentifier: 'com.jjoin.app.dev',
-    };
-  }
-  return {
-    name: 'JJOINZONE',
-    slug: 'jjoin',
-    scheme: 'jjoin',
-    androidPackage: 'com.jjoin.app',
-    iosBundleIdentifier: 'com.jjoin.app',
-  };
-}
 
 /**
  * API URL resolution:
@@ -130,7 +66,7 @@ function resolveLandingUrl(variant: AppVariant): string {
 }
 
 export default ({ config }: ConfigContext): ExpoConfig => {
-  const variant = resolveAppVariant();
+  const variant = resolveAppVariant(process.env.APP_VARIANT);
   const identity = identityFor(variant);
   const apiUrl = resolveApiUrl(variant);
   const landingUrl = resolveLandingUrl(variant);
@@ -155,6 +91,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const googleServicesPath = path.resolve(__dirname, GOOGLE_SERVICES_FILE);
   const hasGoogleServices = fs.existsSync(googleServicesPath);
 
+  const notificationIcon = notificationIconFor(variant);
+
   const plugins: ExpoConfig['plugins'] = [
     'expo-router',
     [
@@ -175,8 +113,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     [
       'expo-notifications',
       {
-        icon: './assets/images/icon.png',
-        color: '#0A6B56',
+        icon: notificationIcon.icon,
+        color: notificationIcon.color,
         defaultChannel: 'jjoin-general',
       },
     ],
@@ -241,7 +179,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     name: identity.name,
     slug: identity.slug,
     owner: 'tjddyd55',
-    version: '0.0.4',
+    version: '0.0.5',
     orientation: 'portrait',
     icon: appIcon,
     scheme: identity.scheme,
@@ -256,7 +194,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     android: {
       package: identity.androidPackage,
-      versionCode: 4,
+      versionCode: 5,
       ...(hasGoogleServices ? { googleServicesFile: GOOGLE_SERVICES_FILE } : {}),
       adaptiveIcon,
       permissions: [
