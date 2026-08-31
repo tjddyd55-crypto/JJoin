@@ -27,6 +27,8 @@ import {
   type CoinIssuanceListItemDto,
   type CoinSupplyDashboardDto,
   type CoinSupplyReconciliationDto,
+  type GrowthAnalyticsDto,
+  type GrowthAnalyticsPeriod,
   type StoreOwnershipRequestDto,
 } from '@jjoin/types';
 import { formatKoreanPhoneDisplay, formatNumber } from '@jjoin/domain';
@@ -203,6 +205,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   const disputeActive = path.startsWith('/admin/disputes');
   const storeVerificationActive = path.startsWith('/admin/store-verifications');
   const approvedStoresActive = path.startsWith('/admin/stores');
+  const analyticsActive = path.startsWith('/admin/analytics');
   if (!token) {
     return <Navigate to="/admin/login" replace />;
   }
@@ -213,6 +216,9 @@ function Shell({ children }: { children: React.ReactNode }) {
           <strong>JJOINZONE HQ</strong>
           <Link to="/admin" className={dashActive ? 'nav-active' : undefined}>
             대시보드
+          </Link>
+          <Link to="/admin/analytics" className={analyticsActive ? 'nav-active' : undefined}>
+            Analytics
           </Link>
           <Link to="/admin/coin" className={coinActive ? 'nav-active' : undefined}>
             코인 관리
@@ -1572,11 +1578,102 @@ function UserCoinPage() {
   );
 }
 
+function GrowthAnalyticsPage() {
+  const [period, setPeriod] = useState<GrowthAnalyticsPeriod>('30d');
+  const [data, setData] = useState<GrowthAnalyticsDto | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void api<GrowthAnalyticsDto>(`/admin/analytics/growth?period=${period}`)
+      .then(setData)
+      .catch((e) => setError(e instanceof Error ? e.message : 'load_failed'));
+  }, [period]);
+
+  if (error) return <p className="admin-error-banner">{error}</p>;
+  if (!data) return <p>불러오는 중…</p>;
+
+  return (
+    <div className="admin-page">
+      <div className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">운영 Analytics</h1>
+          <p className="admin-page-desc">추천·공유·긴급·초대·정기·팔로우 KPI</p>
+        </div>
+      </div>
+      <div className="row" style={{ marginBottom: 16, gap: 8 }}>
+        {(['7d', '30d', 'all'] as GrowthAnalyticsPeriod[]).map((p) => (
+          <button
+            key={p}
+            type="button"
+            className={period === p ? 'nav-active' : undefined}
+            onClick={() => setPeriod(p)}
+          >
+            {p}
+          </button>
+        ))}
+      </div>
+
+      <section className="card admin-section" style={{ marginBottom: 12 }}>
+        <strong className="admin-section-title">추천 조인</strong>
+        <p>
+          노출 {data.recommendation.impressions} · 클릭 {data.recommendation.clicks} · 참가{' '}
+          {data.recommendation.joined}
+        </p>
+        <p>
+          CTR {data.recommendation.ctrPercent ?? '—'}% · 참가 전환{' '}
+          {data.recommendation.joinConversionPercent ?? '—'}%
+        </p>
+      </section>
+
+      <section className="card admin-section" style={{ marginBottom: 12 }}>
+        <strong className="admin-section-title">공유 링크</strong>
+        <p>
+          열람 {data.share.opened} · CTA {data.share.ctaClicked} · CTA율{' '}
+          {data.share.ctaRatePercent ?? '—'}%
+        </p>
+      </section>
+
+      <section className="card admin-section" style={{ marginBottom: 12 }}>
+        <strong className="admin-section-title">긴급 모집</strong>
+        <p>
+          오픈 {data.urgent.opened} · 조회 {data.urgent.viewed} · 참가 {data.urgent.joined} · 성사{' '}
+          {data.urgent.filled} · 성사율 {data.urgent.fillRatePercent ?? '—'}%
+        </p>
+      </section>
+
+      <section className="card admin-section" style={{ marginBottom: 12 }}>
+        <strong className="admin-section-title">재초대</strong>
+        <p>
+          발송 {data.invitation.sent} · 수락 {data.invitation.accepted} · 수락률{' '}
+          {data.invitation.acceptRatePercent ?? '—'}%
+        </p>
+      </section>
+
+      <section className="card admin-section" style={{ marginBottom: 12 }}>
+        <strong className="admin-section-title">정기 조인</strong>
+        <p>
+          생성 {data.recurring.occurrencesCreated} · 성사 {data.recurring.filled} · 성사율{' '}
+          {data.recurring.fillRatePercent ?? '—'}%
+        </p>
+      </section>
+
+      <section className="card admin-section">
+        <strong className="admin-section-title">팔로우</strong>
+        <p>
+          알림 {data.follow.notificationsSent} · 클릭 {data.follow.clicks} · 참가{' '}
+          {data.follow.joined}
+        </p>
+      </section>
+    </div>
+  );
+}
+
 export function AdminApp() {
   return (
     <Shell>
       <Routes>
         <Route index element={<AdminDashboard />} />
+        <Route path="analytics" element={<GrowthAnalyticsPage />} />
         <Route path="coin" element={<CoinSupplyPage />} />
         <Route path="coin/issuances/:issuanceId" element={<IssuanceDetailPage />} />
         <Route path="coin/users/:userId" element={<UserCoinPage />} />
