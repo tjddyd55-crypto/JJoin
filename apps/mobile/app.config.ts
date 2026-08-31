@@ -28,7 +28,15 @@ type AppVariant = 'development' | 'production';
  * local prebuild from the other variant).
  */
 const DEFAULT_EAS_PROJECT_ID = '7882917d-f3be-4832-bb62-754702a7d205';
-const GOOGLE_SERVICES_FILE = './google-services.json';
+
+/**
+ * Variant-isolated Firebase Android clients — never cross-fallback.
+ * Place files locally (gitignored); missing file → push tray may be unavailable.
+ */
+const GOOGLE_SERVICES_BY_VARIANT: Record<AppVariant, string> = {
+  development: './firebase/google-services.development.json',
+  production: './firebase/google-services.production.json',
+};
 
 /** Production Railway API — SSOT for production/preview builds. */
 const PRODUCTION_API_URL = 'https://api-production-2d67e.up.railway.app';
@@ -88,7 +96,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const naverUrlScheme = process.env.EXPO_PUBLIC_NAVER_LOGIN_URL_SCHEME ?? 'jjoinnaverlogin';
   const easProjectId =
     process.env.EXPO_PUBLIC_EAS_PROJECT_ID?.trim() || DEFAULT_EAS_PROJECT_ID;
-  const googleServicesPath = path.resolve(__dirname, GOOGLE_SERVICES_FILE);
+  const googleServicesFile = GOOGLE_SERVICES_BY_VARIANT[variant];
+  const googleServicesPath = path.resolve(__dirname, googleServicesFile);
   const hasGoogleServices = fs.existsSync(googleServicesPath);
 
   const notificationIcon = notificationIconFor(variant);
@@ -195,7 +204,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     android: {
       package: identity.androidPackage,
       versionCode: 5,
-      ...(hasGoogleServices ? { googleServicesFile: GOOGLE_SERVICES_FILE } : {}),
+      ...(hasGoogleServices ? { googleServicesFile } : {}),
       adaptiveIcon,
       permissions: [
         'ACCESS_COARSE_LOCATION',
