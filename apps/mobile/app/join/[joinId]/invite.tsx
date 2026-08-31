@@ -16,6 +16,7 @@ import { JOIN_INVITE_MAX_BATCH } from '@jjoin/domain';
 import type { PlayedTogetherPersonDto } from '@jjoin/types';
 import { getApiClient } from '../../../src/lib/api';
 import { getSecureSessionStore } from '../../../src/session/SessionContext';
+import { NESTED_SCREEN_EDGES } from '../../../src/ui/nested-screen';
 
 export default function JoinInviteScreen() {
   const { joinId } = useLocalSearchParams<{ joinId: string }>();
@@ -82,11 +83,7 @@ export default function JoinInviteScreen() {
 
   return (
     <View style={styles.root}>
-      <ScrollScreenFrame contentPaddingBottom={24}>
-        <Text variant="screenTitle" tone="primary">
-          참가자 초대
-        </Text>
-        <Spacer size="xs" />
+      <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]} contentPaddingBottom={24}>
         <Text variant="caption" tone="secondary">
           함께 친 사람을 선택해 초대합니다. 이미 참가 중인 사람은 자동으로 건너뜁니다.
         </Text>

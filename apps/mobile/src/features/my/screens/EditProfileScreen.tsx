@@ -12,6 +12,7 @@ import { t } from '@jjoin/i18n';
 import { profileEditSchema } from '@jjoin/validation';
 import { SportSkillLevel } from '@jjoin/types';
 import { useSession } from '../../../session/SessionContext';
+import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
 
 export function EditProfileScreen() {
   const { me, editProfile } = useSession();
@@ -50,17 +51,13 @@ export function EditProfileScreen() {
 
   return (
     <FormScreenFrame
+      edges={[...NESTED_SCREEN_EDGES]}
       footer={
         <StickyActionFrame>
           <Button label={t('common.save')} loading={loading} onPress={() => void onSave()} />
         </StickyActionFrame>
       }
     >
-      <Spacer size="md" />
-      <Text variant="title" tone="primary">
-        {t('my.edit')}
-      </Text>
-      <Spacer size="xs" />
       <Text variant="caption" tone="secondary">
         Identity 데이터는 수정할 수 없습니다.
       </Text>

@@ -14,6 +14,7 @@ import {
 import type { PlayedTogetherPersonDto } from '@jjoin/types';
 import { getApiClient } from '../../src/lib/api';
 import { getSecureSessionStore } from '../../src/session/SessionContext';
+import { NESTED_SCREEN_EDGES } from '../../src/ui/nested-screen';
 
 function profileHref(userId: string): Href {
   return { pathname: '/user/[userId]', params: { userId } } as Href;
@@ -43,11 +44,7 @@ export default function PlayedTogetherScreen() {
   }, [load]);
 
   return (
-    <ScrollScreenFrame>
-      <Text variant="screenTitle" tone="primary">
-        함께 친 사람
-      </Text>
-      <Spacer size="xs" />
+    <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       <Text variant="caption" tone="secondary">
         완료된 조인에서 함께한 사람들입니다.
       </Text>

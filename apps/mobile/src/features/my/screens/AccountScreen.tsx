@@ -5,6 +5,7 @@ import {
   Card,
   Row,
   ScreenFrame,
+  Spacer,
   StickyActionFrame,
   Text,
   useTheme,
@@ -13,6 +14,7 @@ import { t } from '@jjoin/i18n';
 import { useRouter } from 'expo-router';
 import { SocialLinkStatus, SocialProvider } from '@jjoin/types';
 import { useSession } from '../../../session/SessionContext';
+import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
 
 const PROVIDER_LABELS: Record<SocialProvider, string> = {
   KAKAO: 'Kakao',
@@ -26,11 +28,8 @@ export function AccountScreen() {
   const theme = useTheme();
 
   return (
-    <ScreenFrame>
+    <ScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       <View style={styles.body}>
-        <Text variant="screenTitle" tone="primary">
-          {t('my.account.title')}
-        </Text>
         <Text variant="body" tone="secondary">
           {t('auth.account.subtitle')}
         </Text>

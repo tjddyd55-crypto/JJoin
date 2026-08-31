@@ -21,6 +21,7 @@ import {
 } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
+import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
 import {
   VERIFICATION_STATUS_LABELS,
   filterStoreJoins,
@@ -149,20 +150,15 @@ export function MyStoresScreen() {
   const primaryStore = activeStores[0];
 
   return (
-    <ScrollScreenFrame>
-      <Text variant="screenTitle" tone="primary">
-        내 매장
-      </Text>
+    <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       {error ? (
         <>
-          <Spacer size="sm" />
           <Text variant="body" tone="error">
             {error}
           </Text>
+          <Spacer size="sm" />
         </>
       ) : null}
-
-      <Spacer size="md" />
 
       {activeStores.length === 0 ? (
         <Card variant="base" padding="md">

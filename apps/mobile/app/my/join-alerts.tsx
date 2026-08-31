@@ -19,6 +19,7 @@ import {
 } from '@jjoin/types';
 import { getApiClient } from '../../src/lib/api';
 import { getSecureSessionStore } from '../../src/session/SessionContext';
+import { NESTED_SCREEN_EDGES } from '../../src/ui/nested-screen';
 
 const DATE_OPTIONS: Array<{ value: JoinAlertDateMode; label: string }> = [
   { value: JoinAlertDateMode.TODAY, label: '오늘' },
@@ -114,10 +115,7 @@ export default function JoinAlertsScreen() {
   }
 
   return (
-    <ScrollScreenFrame>
-      <Text variant="screenTitle" tone="primary">
-        조인 알림
-      </Text>
+    <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       <Text variant="body" tone="secondary">
         조건에 맞는 새 조인이 올라오면 알려드립니다.
       </Text>

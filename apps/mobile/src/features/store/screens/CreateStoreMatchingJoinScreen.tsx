@@ -27,6 +27,7 @@ import {
 import { createStoreMatchingJoinSchema } from '@jjoin/validation';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
+import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
 import {
   composeKstIso,
   formatKstTime,
@@ -206,6 +207,7 @@ export function CreateStoreMatchingJoinScreen() {
 
   return (
     <FormScreenFrame
+      edges={[...NESTED_SCREEN_EDGES]}
       footer={
         <StickyActionFrame>
           <Button
@@ -218,10 +220,6 @@ export function CreateStoreMatchingJoinScreen() {
         </StickyActionFrame>
       }
     >
-      <Text variant="screenTitle" tone="primary">
-        모집 조인 만들기
-      </Text>
-      <Spacer size="sm" />
       <Text variant="body" tone="secondary">
         매장 코인으로 리워드를 홀드한 뒤 참가자를 모집합니다.
       </Text>

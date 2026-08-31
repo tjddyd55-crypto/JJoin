@@ -15,6 +15,7 @@ import {
 import type { OwnerDashboardPeriod, OwnerStoreDashboardDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
+import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
 
 const PERIODS: Array<{ id: OwnerDashboardPeriod; label: string }> = [
   { id: 'month', label: '이번 달' },
@@ -114,17 +115,11 @@ export function StoreDashboardScreen() {
   );
 
   return (
-    <ScrollScreenFrame>
-      <Text variant="screenTitle" tone="primary">
-        운영 대시보드
-      </Text>
+    <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       {dashboard?.facilityName ? (
-        <>
-          <Spacer size="xs" />
-          <Text variant="body" tone="secondary">
-            {dashboard.facilityName}
-          </Text>
-        </>
+        <Text variant="body" tone="secondary">
+          {dashboard.facilityName}
+        </Text>
       ) : null}
 
       <Spacer size="md" />

@@ -20,6 +20,7 @@ import {
 import { createRecurringJoinScheduleSchema } from '@jjoin/validation';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
+import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
 import { GENDER_PRESETS } from '../store-ui';
 import { DAY_OF_WEEK_OPTIONS } from '../recurring-join-ui';
 
@@ -107,6 +108,7 @@ export function CreateRecurringJoinScreen() {
 
   return (
     <FormScreenFrame
+      edges={[...NESTED_SCREEN_EDGES]}
       footer={
         <StickyActionFrame>
           <Button
@@ -119,10 +121,6 @@ export function CreateRecurringJoinScreen() {
         </StickyActionFrame>
       }
     >
-      <Text variant="screenTitle" tone="primary">
-        정기 조인 만들기
-      </Text>
-      <Spacer size="sm" />
       <Text variant="body" tone="secondary">
         매주 지정한 요일·시간에 모집 조인을 자동으로 생성합니다.
       </Text>

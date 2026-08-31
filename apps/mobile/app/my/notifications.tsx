@@ -12,6 +12,7 @@ import type { AppNotificationDto } from '@jjoin/types';
 import { getApiClient } from '../../src/lib/api';
 import { getSecureSessionStore } from '../../src/session/SessionContext';
 import { resolvePushRoute } from '../../src/features/notifications/push-routing';
+import { NESTED_SCREEN_EDGES } from '../../src/ui/nested-screen';
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -51,11 +52,8 @@ export default function NotificationsScreen() {
   };
 
   return (
-    <ScrollScreenFrame>
+    <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       <View style={styles.header}>
-        <Text variant="screenTitle" tone="primary">
-          알림
-        </Text>
         <Pressable
           accessibilityRole="button"
           onPress={() => {
@@ -67,7 +65,7 @@ export default function NotificationsScreen() {
           </Text>
         </Pressable>
       </View>
-      <Spacer size="md" />
+      <Spacer size="sm" />
       {loading ? <Text variant="body" tone="secondary">불러오는 중…</Text> : null}
       {error ? <Text variant="body" tone="error">{error}</Text> : null}
       <FlatList
@@ -115,7 +113,7 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
   },
   row: {

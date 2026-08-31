@@ -13,6 +13,7 @@ import {
 import type { RecurringJoinScheduleDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
+import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
 import {
   dayOfWeekLabel,
   nextOccurrenceDateForSkip,
@@ -134,11 +135,7 @@ export function RecurringJoinsScreen() {
   }
 
   return (
-    <ScrollScreenFrame>
-      <Text variant="screenTitle" tone="primary">
-        정기 조인
-      </Text>
-      <Spacer size="xs" />
+    <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       <Text variant="body" tone="secondary">
         매주 같은 요일·시간에 모집 조인을 자동 생성합니다.
       </Text>
