@@ -68,6 +68,13 @@ import {
   type StoreOwnershipDto,
   type StoreOwnershipRequestDto,
   type StoreVerificationStatus,
+  type OwnerStoreDashboardDto,
+  type OwnerDashboardPeriod,
+  type RecurringJoinScheduleDto,
+  type CreateRecurringJoinScheduleRequest,
+  type UpdateRecurringJoinScheduleRequest,
+  type SkipRecurringJoinOccurrenceRequest,
+  type RecommendedJoinsResponse,
   type JoinAlertSubscriptionDto,
   type CreateJoinAlertSubscriptionRequest,
   type UpdateJoinAlertSubscriptionRequest,
@@ -984,6 +991,110 @@ export class ApiClient {
     const res = await request(`${this.config.baseUrl}/my-stores${qs ? `?${qs}` : ''}`, {
       headers: await this.headers(true),
     });
+    return parseJson(res);
+  }
+
+  async getOwnerStoreDashboard(
+    ownershipId: string,
+    period?: OwnerDashboardPeriod,
+  ): Promise<OwnerStoreDashboardDto> {
+    const params = new URLSearchParams();
+    if (period) params.set('period', period);
+    const qs = params.toString();
+    const res = await request(
+      `${this.config.baseUrl}/my-stores/${ownershipId}/dashboard${qs ? `?${qs}` : ''}`,
+      { headers: await this.headers(true) },
+    );
+    return parseJson(res);
+  }
+
+  async listRecurringJoins(): Promise<RecurringJoinScheduleDto[]> {
+    const res = await request(`${this.config.baseUrl}/my/recurring-joins`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async createRecurringJoin(
+    body: CreateRecurringJoinScheduleRequest,
+  ): Promise<RecurringJoinScheduleDto> {
+    const res = await request(`${this.config.baseUrl}/my/recurring-joins`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async updateRecurringJoin(
+    scheduleId: string,
+    body: UpdateRecurringJoinScheduleRequest,
+  ): Promise<RecurringJoinScheduleDto> {
+    const res = await request(`${this.config.baseUrl}/my/recurring-joins/${scheduleId}`, {
+      method: 'PATCH',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async pauseRecurringJoin(scheduleId: string): Promise<RecurringJoinScheduleDto> {
+    const res = await request(
+      `${this.config.baseUrl}/my/recurring-joins/${scheduleId}/pause`,
+      {
+        method: 'POST',
+        headers: await this.headers(true),
+      },
+    );
+    return parseJson(res);
+  }
+
+  async resumeRecurringJoin(scheduleId: string): Promise<RecurringJoinScheduleDto> {
+    const res = await request(
+      `${this.config.baseUrl}/my/recurring-joins/${scheduleId}/resume`,
+      {
+        method: 'POST',
+        headers: await this.headers(true),
+      },
+    );
+    return parseJson(res);
+  }
+
+  async deleteRecurringJoin(scheduleId: string): Promise<RecurringJoinScheduleDto> {
+    const res = await request(`${this.config.baseUrl}/my/recurring-joins/${scheduleId}`, {
+      method: 'DELETE',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async skipRecurringJoinOccurrence(
+    scheduleId: string,
+    body: SkipRecurringJoinOccurrenceRequest,
+  ): Promise<{ scheduleId: string; occurrenceDate: string }> {
+    const res = await request(
+      `${this.config.baseUrl}/my/recurring-joins/${scheduleId}/skip`,
+      {
+        method: 'POST',
+        headers: await this.headers(true),
+        body: JSON.stringify(body),
+      },
+    );
+    return parseJson(res);
+  }
+
+  async getRecommendedJoins(query?: {
+    limit?: number;
+    debug?: boolean;
+  }): Promise<RecommendedJoinsResponse> {
+    const params = new URLSearchParams();
+    if (query?.limit != null) params.set('limit', String(query.limit));
+    if (query?.debug) params.set('debug', '1');
+    const qs = params.toString();
+    const res = await request(
+      `${this.config.baseUrl}/me/recommended-joins${qs ? `?${qs}` : ''}`,
+      { headers: await this.headers(true) },
+    );
     return parseJson(res);
   }
 

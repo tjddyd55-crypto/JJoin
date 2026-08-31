@@ -12,12 +12,15 @@ import {
   type AdminStoreKpiPeriod,
   type AdminStoreListItemDto,
   type CreateStoreOwnershipRequest,
+  type OwnerDashboardPeriod,
+  type OwnerStoreDashboardDto,
   type RejectStoreVerificationRequest,
   type StoreOwnershipDto,
   type StoreOwnershipKpiDto,
   type StoreOwnershipRequestDto,
 } from '@jjoin/types';
 import {
+  buildOwnerDashboardKpi,
   computeStoreOwnershipKpi,
   filterJoinsByKpiPeriod,
   formatKoreanPhoneDisplay,
@@ -146,6 +149,96 @@ export class StoreOwnershipService {
       result.push(dto);
     }
     return result;
+  }
+
+  /**
+   * Owner mobile dashboard: KPI + recent joins for one owned store.
+   * Loads joins + COMPLETED participants + follower count in batch (no N+1).
+   */
+  async getOwnerDashboard(
+    userId: string,
+    ownershipId: string,
+    period: OwnerDashboardPeriod = 'month',
+  ): Promise<OwnerStoreDashboardDto> {
+    const ownership = await this.prisma.storeOwnership.findFirst({
+      where: { id: ownershipId, userId },
+      include: { golfFacility: { select: { id: true, displayName: true } } },
+    });
+    if (!ownership) {
+      throw new NotFoundException({
+        code: 'STORE_OWNERSHIP_NOT_FOUND',
+        message: '매장 소유권을 찾을 수 없습니다.',
+      });
+    }
+
+    const [joins, followerCount] = await Promise.all([
+      this.prisma.join.findMany({
+        where: {
+          storeOwnershipId: ownership.id,
+          joinKind: 'STORE_MATCHING',
+        },
+        select: {
+          id: true,
+          status: true,
+          startAt: true,
+          plannedPlayerCount: true,
+          confirmedPlayerCount: true,
+          isUrgent: true,
+          participants: {
+            where: { participationStatus: 'COMPLETED' },
+            select: {
+              joinId: true,
+              userId: true,
+              participationStatus: true,
+            },
+          },
+        },
+        orderBy: { startAt: 'desc' },
+      }),
+      this.prisma.golfFacilityFollow.count({
+        where: { golfFacilityId: ownership.golfFacilityId },
+      }),
+    ]);
+
+    const attendedRows = joins.flatMap((j) =>
+      j.participants.map((p) => ({
+        joinId: p.joinId,
+        userId: p.userId,
+        participationStatus: p.participationStatus,
+      })),
+    );
+
+    const kpi = buildOwnerDashboardKpi({
+      joins: joins.map((j) => ({
+        id: j.id,
+        status: j.status,
+        startAt: j.startAt,
+        confirmedPlayerCount: j.confirmedPlayerCount ?? 0,
+        plannedPlayerCount: j.plannedPlayerCount ?? 0,
+        isUrgent: j.isUrgent,
+      })),
+      attendedRows,
+      followerCount,
+      period,
+    });
+
+    const recentJoins = joins.slice(0, 8).map((j) => ({
+      joinId: j.id,
+      startAt: j.startAt.toISOString(),
+      status: j.status as OwnerStoreDashboardDto['recentJoins'][number]['status'],
+      plannedPlayerCount: j.plannedPlayerCount ?? 0,
+      confirmedPlayerCount: j.confirmedPlayerCount ?? 0,
+      isUrgent: j.isUrgent === true,
+      succeeded: isStoreKpiSucceededStatus(j.status),
+    }));
+
+    return {
+      ownershipId: ownership.id,
+      facilityName: ownership.golfFacility.displayName,
+      period,
+      kpi,
+      recentJoins,
+    };
   }
 
   async listAdminRequests(status?: StoreVerificationStatus): Promise<StoreOwnershipRequestDto[]> {

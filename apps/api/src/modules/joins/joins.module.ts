@@ -1,8 +1,10 @@
 ﻿import { Module, forwardRef } from '@nestjs/common';
 import { JoinsController } from './joins.controller';
 import { StoreJoinsController } from './store-joins.controller';
+import { RecurringJoinController } from './recurring-join.controller';
 import { JoinsService } from './joins.service';
 import { MatchingJoinsService } from './matching-joins.service';
+import { RecurringJoinService } from './recurring-join.service';
 import { JoinDiscoveryService } from './join-discovery.service';
 import { WalletModule } from '../wallet/wallet.module';
 import { SettlementModule } from '../settlement/settlement.module';
@@ -24,8 +26,13 @@ import { JoinLoopModule } from '../join-loop/join-loop.module';
     forwardRef(() => EngagementModule),
     forwardRef(() => JoinLoopModule),
   ],
-  controllers: [JoinsController, StoreJoinsController],
-  providers: [JoinsService, JoinDiscoveryService, MatchingJoinsService],
-  exports: [JoinsService, JoinDiscoveryService, MatchingJoinsService],
+  controllers: [JoinsController, StoreJoinsController, RecurringJoinController],
+  providers: [
+    JoinsService,
+    JoinDiscoveryService,
+    MatchingJoinsService,
+    RecurringJoinService,
+  ],
+  exports: [JoinsService, JoinDiscoveryService, MatchingJoinsService, RecurringJoinService],
 })
 export class JoinsModule {}

@@ -161,6 +161,10 @@ export class MatchingJoinsService {
           throw new InsufficientBalanceError();
         }
 
+        const recurringOccurrenceDate = input.recurringOccurrenceDate
+          ? new Date(`${input.recurringOccurrenceDate}T00:00:00.000Z`)
+          : undefined;
+
         await tx.join.create({
           data: {
             id: joinId,
@@ -181,6 +185,12 @@ export class MatchingJoinsService {
             targetFemaleCount: input.targetFemaleCount,
             matchingRewardTarget: input.matchingRewardTarget,
             storeOwnershipId: ownership.id,
+            ...(input.recurringScheduleId
+              ? { recurringScheduleId: input.recurringScheduleId }
+              : {}),
+            ...(recurringOccurrenceDate
+              ? { recurringOccurrenceDate }
+              : {}),
             confirmedPlayerCount: 0,
             rewardPerParticipant: new Prisma.Decimal(requirement.rewardPerParticipant),
             coinAssetId: coinAsset.id,

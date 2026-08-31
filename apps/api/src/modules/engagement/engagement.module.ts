@@ -12,6 +12,8 @@ import { PublicJoinsService } from './public-joins.service';
 import { FacilityWeeklyJoinsController } from './facility-weekly-joins.controller';
 import { FacilityWeeklyJoinsService } from './facility-weekly-joins.service';
 import { JoinEngagementNotifyService } from './join-engagement-notify.service';
+import { JoinRecommendationsController } from './join-recommendations.controller';
+import { JoinRecommendationsService } from './join-recommendations.service';
 
 @Module({
   imports: [NotificationsModule, forwardRef(() => JoinsModule)],
@@ -21,6 +23,7 @@ import { JoinEngagementNotifyService } from './join-engagement-notify.service';
     FacilityFollowsController,
     PublicJoinsController,
     FacilityWeeklyJoinsController,
+    JoinRecommendationsController,
   ],
   providers: [
     JoinAlertsService,
@@ -29,6 +32,7 @@ import { JoinEngagementNotifyService } from './join-engagement-notify.service';
     PublicJoinsService,
     FacilityWeeklyJoinsService,
     JoinEngagementNotifyService,
+    JoinRecommendationsService,
   ],
   exports: [JoinEngagementNotifyService],
 })
