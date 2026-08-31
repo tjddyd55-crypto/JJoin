@@ -119,7 +119,7 @@ export type RegisterPushDeviceInput = z.infer<typeof registerPushDeviceSchema>;
 export const registerPushDeviceSchemaAlias = registerPushDeviceSchema;
 
 export const notificationPreferenceSchema = z.object({
-  pushEnabled: z.boolean(),
+  pushEnabled: z.boolean().optional(),
   joinAlertsEnabled: z.boolean().optional(),
   followedStoreEnabled: z.boolean().optional(),
   urgentJoinEnabled: z.boolean().optional(),

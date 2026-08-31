@@ -97,6 +97,9 @@ export class NotificationsService {
     if (!parsed.success) throw new BadRequestException('invalid_preference');
 
     const { pushEnabled, ...granularPatch } = parsed.data;
+    if (pushEnabled === undefined && Object.keys(granularPatch).length === 0) {
+      throw new BadRequestException('invalid_preference');
+    }
     const granularKeys = [
       'joinAlertsEnabled',
       'followedStoreEnabled',
