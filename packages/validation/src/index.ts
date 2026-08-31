@@ -149,6 +149,11 @@ export const createStoreMatchingJoinSchema = z
     title: z.string().trim().max(80).nullable().optional(),
     description: z.string().trim().max(500).nullable().optional(),
     idempotencyKey: z.string().trim().min(8).max(120).optional(),
+    recurringScheduleId: z.string().uuid().optional(),
+    recurringOccurrenceDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
   })
   .refine((v) => v.targetMaleCount + v.targetFemaleCount >= 1, {
     message: 'matching_roster_required',
@@ -161,6 +166,79 @@ export const createStoreMatchingJoinSchema = z
   });
 
 export type CreateStoreMatchingJoinInput = z.infer<typeof createStoreMatchingJoinSchema>;
+
+const recurringRosterFields = {
+  dayOfWeek: z.number().int().min(1).max(7),
+  startTimeLocal: z
+    .string()
+    .regex(/^([01]?\d|2[0-3]):[0-5]\d$/),
+  targetMaleCount: z.number().int().min(0).max(4),
+  targetFemaleCount: z.number().int().min(0).max(4),
+  minimumPlayers: z.number().int().min(2).max(4),
+  matchingRewardTarget: z.enum(['FEMALE', 'MALE', 'ALL']),
+  rewardPerParticipant: z.string().regex(/^\d+(\.\d{1,4})?$/),
+  title: z.string().trim().max(80).nullable().optional(),
+  description: z.string().trim().max(500).nullable().optional(),
+  recruitClosesHoursBefore: z.number().int().min(1).max(72).optional(),
+};
+
+export const createRecurringJoinScheduleSchema = z
+  .object({
+    storeOwnershipId: z.string().uuid(),
+    ...recurringRosterFields,
+  })
+  .refine((v) => v.targetMaleCount + v.targetFemaleCount >= 1, {
+    message: 'matching_roster_required',
+  })
+  .refine((v) => v.targetMaleCount + v.targetFemaleCount <= 4, {
+    message: 'matching_roster_max_four',
+  })
+  .refine((v) => v.minimumPlayers <= v.targetMaleCount + v.targetFemaleCount, {
+    message: 'minimum_exceeds_planned',
+  });
+
+export type CreateRecurringJoinScheduleInput = z.infer<
+  typeof createRecurringJoinScheduleSchema
+>;
+
+export const updateRecurringJoinScheduleSchema = z
+  .object({
+    dayOfWeek: z.number().int().min(1).max(7).optional(),
+    startTimeLocal: z
+      .string()
+      .regex(/^([01]?\d|2[0-3]):[0-5]\d$/)
+      .optional(),
+    targetMaleCount: z.number().int().min(0).max(4).optional(),
+    targetFemaleCount: z.number().int().min(0).max(4).optional(),
+    minimumPlayers: z.number().int().min(2).max(4).optional(),
+    matchingRewardTarget: z.enum(['FEMALE', 'MALE', 'ALL']).optional(),
+    rewardPerParticipant: z.string().regex(/^\d+(\.\d{1,4})?$/).optional(),
+    title: z.string().trim().max(80).nullable().optional(),
+    description: z.string().trim().max(500).nullable().optional(),
+    recruitClosesHoursBefore: z.number().int().min(1).max(72).optional(),
+  })
+  .refine(
+    (v) => {
+      const male = v.targetMaleCount;
+      const female = v.targetFemaleCount;
+      if (male === undefined && female === undefined) return true;
+      if (male === undefined || female === undefined) return true;
+      return male + female >= 1 && male + female <= 4;
+    },
+    { message: 'matching_roster_invalid' },
+  );
+
+export type UpdateRecurringJoinScheduleInput = z.infer<
+  typeof updateRecurringJoinScheduleSchema
+>;
+
+export const skipRecurringJoinOccurrenceSchema = z.object({
+  occurrenceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+export type SkipRecurringJoinOccurrenceInput = z.infer<
+  typeof skipRecurringJoinOccurrenceSchema
+>;
 
 export const storeMatchingCompleteSchema = z.object({
   attendance: z

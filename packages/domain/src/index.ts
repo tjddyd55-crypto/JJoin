@@ -417,6 +417,46 @@ export {
 } from './store-ownership-kpi';
 
 export {
+  buildOwnerDashboardKpi,
+  computeReParticipantCount,
+  computeUrgentKpi,
+  filterJoinsByOwnerDashboardPeriod,
+  ownerDashboardPeriodStart,
+  type AttendedParticipantLike,
+  type OwnerDashboardJoinLike,
+  type OwnerDashboardKpi,
+  type OwnerDashboardPeriod,
+} from './store-owner-dashboard';
+
+export {
+  RECURRING_AHEAD_WEEKS,
+  RECURRING_CADENCE_WEEKLY,
+  defaultRecruitClosesAt,
+  isoWeekdayKst,
+  kstDateKey,
+  kstLocalDateTime,
+  listUpcomingWeeklyStarts,
+  nextWeeklyOccurrenceStart,
+  occurrenceDateKeyFromStart,
+  parseLocalHm,
+  type IsoWeekday,
+  type RecurringCadence,
+} from './recurring-join-schedule';
+
+export {
+  RECOMMEND_REASON_LABEL_KO,
+  RECOMMEND_SCORE,
+  inferPreferredHours,
+  isRecommendableJoin,
+  rankRecommendations,
+  scoreRecommendation,
+  type RecommendCandidate,
+  type RecommendReasonCode,
+  type RecommendUserContext,
+  type ScoredRecommendation,
+} from './join-recommendations';
+
+export {
   classifyCoinSupplyEffect,
   currentSupply,
   isBurnLedgerType,

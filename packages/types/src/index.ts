@@ -945,6 +945,10 @@ export type CreateStoreMatchingJoinRequest = {
   title?: string | null;
   description?: string | null;
   idempotencyKey?: string;
+  /** Optional: set when created from a recurring schedule runner. */
+  recurringScheduleId?: string;
+  /** Optional: YYYY-MM-DD occurrence date (KST calendar day). */
+  recurringOccurrenceDate?: string;
 };
 
 export type StoreMatchingCompleteRequest = {
@@ -1426,4 +1430,121 @@ export type FacilityWeeklyJoinsResponse = {
   weekDays: Array<{ date: string; weekdayLabel: string; count: number; isToday: boolean }>;
   selectedDate: string;
   joins: JoinListItemDto[];
+};
+
+/** Owner mobile dashboard period filter. */
+export type OwnerDashboardPeriod = 'month' | '30d' | 'all';
+
+export type OwnerStoreDashboardDto = {
+  ownershipId: string;
+  facilityName: string;
+  period: OwnerDashboardPeriod;
+  kpi: StoreOwnershipKpiDto & {
+    reParticipantCount: number;
+    followerCount: number;
+    urgentAttemptCount: number;
+    urgentSucceededCount: number;
+  };
+  recentJoins: Array<{
+    joinId: string;
+    startAt: string;
+    status: JoinStatus;
+    plannedPlayerCount: number;
+    confirmedPlayerCount: number;
+    isUrgent: boolean;
+    succeeded: boolean;
+  }>;
+};
+
+export type RecurringJoinCadence = 'WEEKLY';
+export type RecurringJoinScheduleStatus = 'ACTIVE' | 'PAUSED' | 'DELETED';
+
+export type RecurringJoinScheduleDto = {
+  id: string;
+  storeOwnershipId: string;
+  golfFacilityId: string;
+  facilityName: string;
+  cadence: RecurringJoinCadence;
+  /** ISO weekday 1=Mon … 7=Sun */
+  dayOfWeek: number;
+  startTimeLocal: string;
+  timezone: string;
+  targetMaleCount: number;
+  targetFemaleCount: number;
+  minimumPlayers: number;
+  matchingRewardTarget: MatchingRewardTarget;
+  rewardPerParticipant: string;
+  title: string | null;
+  description: string | null;
+  recruitClosesHoursBefore: number;
+  status: RecurringJoinScheduleStatus;
+  nextRunAt: string | null;
+  lastRunAt: string | null;
+  lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateRecurringJoinScheduleRequest = {
+  storeOwnershipId: string;
+  dayOfWeek: number;
+  startTimeLocal: string;
+  targetMaleCount: number;
+  targetFemaleCount: number;
+  minimumPlayers: number;
+  matchingRewardTarget: MatchingRewardTarget;
+  rewardPerParticipant: string;
+  title?: string | null;
+  description?: string | null;
+  recruitClosesHoursBefore?: number;
+};
+
+export type UpdateRecurringJoinScheduleRequest = {
+  dayOfWeek?: number;
+  startTimeLocal?: string;
+  targetMaleCount?: number;
+  targetFemaleCount?: number;
+  minimumPlayers?: number;
+  matchingRewardTarget?: MatchingRewardTarget;
+  rewardPerParticipant?: string;
+  title?: string | null;
+  description?: string | null;
+  recruitClosesHoursBefore?: number;
+};
+
+export type SkipRecurringJoinOccurrenceRequest = {
+  /** YYYY-MM-DD (KST calendar day) */
+  occurrenceDate: string;
+};
+
+export type RecurringJoinRunSummary = {
+  scanned: number;
+  created: number;
+  skipped: number;
+  failed: number;
+};
+
+export type RecommendReasonCode =
+  | 'FOLLOWED_STORE'
+  | 'PAST_VENUE'
+  | 'SAME_REGION'
+  | 'PLAYED_TOGETHER'
+  | 'PREFERRED_TIME'
+  | 'URGENT'
+  | 'TODAY_NEARBY'
+  | 'JOINABLE_FALLBACK';
+
+export type RecommendedJoinDto = {
+  joinId: string;
+  venueName: string;
+  startAt: string;
+  seatsLeft: number;
+  isUrgent: boolean;
+  reasonCode: RecommendReasonCode;
+  reasonLabel: string;
+  debug?: { score: number; signals: RecommendReasonCode[] };
+};
+
+export type RecommendedJoinsResponse = {
+  items: RecommendedJoinDto[];
 };

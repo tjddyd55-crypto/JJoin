@@ -214,6 +214,22 @@ enum JoinChatRoomStatus {
   CLOSED
 }
 
+enum RecurringJoinCadence {
+  WEEKLY
+}
+
+enum RecurringJoinScheduleStatus {
+  ACTIVE
+  PAUSED
+  DELETED
+}
+
+enum RecurringJoinOccurrenceStatus {
+  CREATED
+  SKIPPED
+  FAILED
+}
+
 enum JoinChatMessageKind {
   TEXT
   SYSTEM
@@ -304,6 +320,7 @@ model User {
   joinChatMessages         JoinChatMessage[]
   joinInvitationsSent      JoinInvitation[]           @relation("JoinInvitationInviter")
   joinInvitationsReceived  JoinInvitation[]           @relation("JoinInvitationInvitee")
+  recurringJoinSchedules   RecurringJoinSchedule[]
 
   @@map("users")
 }
@@ -632,6 +649,8 @@ model Join {
   targetFemaleCount     Int?                  @map("target_female_count")
   matchingRewardTarget  MatchingRewardTarget? @map("matching_reward_target")
   storeOwnershipId      String?               @map("store_ownership_id") @db.Uuid
+  recurringScheduleId   String?               @map("recurring_schedule_id") @db.Uuid
+  recurringOccurrenceDate DateTime?           @map("recurring_occurrence_date") @db.Date
   confirmedPlayerCount  Int                   @default(1) @map("confirmed_player_count")
   rewardPerParticipant  Decimal               @map("reward_per_participant") @db.Decimal(18, 4)
   coinAssetId           String                @map("coin_asset_id") @db.Uuid
@@ -656,6 +675,7 @@ model Join {
   host           User              @relation("JoinHost", fields: [hostUserId], references: [id])
   coinAsset      CoinAsset         @relation(fields: [coinAssetId], references: [id])
   storeOwnership StoreOwnership?   @relation(fields: [storeOwnershipId], references: [id], onDelete: SetNull)
+  recurringSchedule RecurringJoinSchedule? @relation(fields: [recurringScheduleId], references: [id], onDelete: SetNull)
   requirements   JoinRequirement[]
   options        JoinOption[]
   participants   JoinParticipant[]
@@ -673,6 +693,7 @@ model Join {
   @@index([joinKind, status, startAt])
   @@index([recruitClosesAt])
   @@index([isUrgent, startAt])
+  @@unique([recurringScheduleId, recurringOccurrenceDate])
   @@map("joins")
 }
 
@@ -777,11 +798,79 @@ model StoreOwnership {
   venue        Venue?                 @relation(fields: [venueId], references: [id], onDelete: SetNull)
   request      StoreOwnershipRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
   joins        Join[]
+  recurringSchedules RecurringJoinSchedule[]
 
   @@unique([userId, golfFacilityId])
   @@index([userId, status])
   @@index([golfFacilityId, status])
   @@map("store_ownerships")
+}
+
+/// Weekly store-matching join template for owners.
+model RecurringJoinSchedule {
+  id                       String                      @id @default(uuid()) @db.Uuid
+  ownerUserId              String                      @map("owner_user_id") @db.Uuid
+  storeOwnershipId         String                      @map("store_ownership_id") @db.Uuid
+  golfFacilityId           String                      @map("golf_facility_id") @db.Uuid
+  cadence                  RecurringJoinCadence        @default(WEEKLY)
+  /// ISO weekday 1=Mon … 7=Sun
+  dayOfWeek                Int                         @map("day_of_week")
+  startTimeLocal           String                      @map("start_time_local") @db.VarChar(5)
+  timezone                 String                      @default("Asia/Seoul")
+  targetMaleCount          Int                         @map("target_male_count")
+  targetFemaleCount        Int                         @map("target_female_count")
+  minimumPlayers           Int                         @map("minimum_players")
+  matchingRewardTarget     MatchingRewardTarget        @map("matching_reward_target")
+  rewardPerParticipant     Decimal                     @map("reward_per_participant") @db.Decimal(18, 4)
+  title                    String?
+  description              String?
+  recruitClosesHoursBefore Int                         @default(3) @map("recruit_closes_hours_before")
+  status                   RecurringJoinScheduleStatus @default(ACTIVE)
+  nextRunAt                DateTime?                   @map("next_run_at") @db.Timestamptz(6)
+  lastRunAt                DateTime?                   @map("last_run_at") @db.Timestamptz(6)
+  lastError                String?                     @map("last_error")
+  createdAt                DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  owner          User                       @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  storeOwnership StoreOwnership             @relation(fields: [storeOwnershipId], references: [id], onDelete: Cascade)
+  golfFacility   GolfFacility               @relation(fields: [golfFacilityId], references: [id], onDelete: Cascade)
+  joins          Join[]
+  skips          RecurringJoinSkip[]
+  occurrences    RecurringJoinOccurrence[]
+
+  @@index([status, nextRunAt])
+  @@index([ownerUserId, status])
+  @@index([storeOwnershipId, status])
+  @@map("recurring_join_schedules")
+}
+
+model RecurringJoinSkip {
+  id              String   @id @default(uuid()) @db.Uuid
+  scheduleId      String   @map("schedule_id") @db.Uuid
+  occurrenceDate  DateTime @map("occurrence_date") @db.Date
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  schedule RecurringJoinSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleId, occurrenceDate])
+  @@map("recurring_join_skips")
+}
+
+model RecurringJoinOccurrence {
+  id             String                        @id @default(uuid()) @db.Uuid
+  scheduleId     String                        @map("schedule_id") @db.Uuid
+  occurrenceDate DateTime                      @map("occurrence_date") @db.Date
+  joinId         String?                       @unique @map("join_id") @db.Uuid
+  status         RecurringJoinOccurrenceStatus
+  errorMessage   String?                       @map("error_message")
+  createdAt      DateTime                      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  schedule RecurringJoinSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleId, occurrenceDate])
+  @@index([status, createdAt])
+  @@map("recurring_join_occurrences")
 }
 
 model JoinRequirement {
@@ -1268,6 +1357,7 @@ model GolfFacility {
   storeOwnershipRequests StoreOwnershipRequest[]
   storeOwnerships        StoreOwnership[]
   follows                GolfFacilityFollow[]
+  recurringJoinSchedules RecurringJoinSchedule[]
 
   @@unique([source, governmentSourceKey])
   @@index([isActive, isScreenJoinEligible])
