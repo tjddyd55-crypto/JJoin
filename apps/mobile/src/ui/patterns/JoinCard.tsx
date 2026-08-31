@@ -13,6 +13,8 @@ export type JoinCardProps = {
   hostVerified?: boolean;
   rewardPerParticipant: string | number;
   status?: string | null;
+  /** Urgent vacancy flag — compact gold badge, not alarm red. */
+  isUrgent?: boolean;
   onPress?: () => void;
 };
 
@@ -27,6 +29,7 @@ export function JoinCard({
   hostVerified,
   rewardPerParticipant,
   status,
+  isUrgent,
   onPress,
 }: JoinCardProps) {
   const theme = useTheme();
@@ -36,6 +39,7 @@ export function JoinCard({
       <View style={styles.top}>
         <Row gap="xs" align="center" style={styles.meta}>
           {sport ? <Badge label={sport} variant="gold" /> : null}
+          {isUrgent ? <Badge label="긴급" variant="warning" /> : null}
           {distance ? (
             <Text variant="caption" tone="tertiary">
               {distance}

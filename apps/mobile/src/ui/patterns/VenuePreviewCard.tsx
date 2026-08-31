@@ -9,6 +9,7 @@ export type VenuePreviewCardProps = {
   openJoinCount?: number;
   todayJoinCount?: number;
   ongoingJoinCount?: number;
+  urgentJoinCount?: number;
   onPress?: () => void;
 };
 
@@ -21,12 +22,14 @@ export function VenuePreviewCard({
   openJoinCount = 0,
   todayJoinCount = 0,
   ongoingJoinCount = 0,
+  urgentJoinCount = 0,
   onPress,
 }: VenuePreviewCardProps) {
   const theme = useTheme();
   const activityLine = [
     ongoingJoinCount > 0 ? `진행 중 ${ongoingJoinCount}` : null,
     todayJoinCount > 0 ? `오늘 ${todayJoinCount}` : null,
+    urgentJoinCount > 0 ? `긴급 ${urgentJoinCount}` : null,
     openJoinCount > 0 && todayJoinCount === 0 && ongoingJoinCount === 0
       ? `열린 조인 ${openJoinCount}`
       : null,
@@ -53,6 +56,7 @@ export function VenuePreviewCard({
           {activityLine ? (
             <Row gap="xs" align="center" style={styles.activityRow}>
               {ongoingJoinCount > 0 ? <Badge label="진행중" variant="gold" /> : null}
+              {urgentJoinCount > 0 ? <Badge label="긴급" variant="warning" /> : null}
               {todayJoinCount > 0 && ongoingJoinCount === 0 ? (
                 <Badge label="오늘" variant="neutral" />
               ) : null}

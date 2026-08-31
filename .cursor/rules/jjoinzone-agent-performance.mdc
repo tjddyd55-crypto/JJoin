@@ -1,0 +1,67 @@
+---
+description: JJOINZONE Agent 성능 — 불필요 대기·중복 shell·과도한 full build/test 금지
+alwaysApply: true
+---
+
+# JJOINZONE Agent 성능 최적화
+
+역할 분리: **본 규칙 = 속도/대기/범위**. 재빌드 유형·Metro 호스트·USB ADB·버전 정책은 `jjoinzone-mobile-dev-flow.mdc`를 SSOT로 따른다. 여기 중복 서술 금지.
+
+## 기본 루프
+
+빠른 상태 확인 → 최소 수정 → **관련 범위** 테스트 → 실기기 → 실패 시 원인 분석.  
+단순 확인에 **1분 이상 대기 금지**. `Waited 3m` / 무한 polling / `tail -f` / watch / foreground server 점유 / 매 수정 monorepo full build 금지.
+
+## Timeout (대략)
+
+| 작업 | 상한 |
+|------|------|
+| status / Metro `/status` / local HTTP | 5–10s |
+| git / adb | 10s |
+| UI 진입 확인 | 10–15s |
+| unit test | 30–60s |
+| typecheck / build / Railway / EAS / migration | 정상 소요만 허용 |
+
+오래 걸릴 이유가 없는데 **30초 무응답**이면 대기 중단 → 원인 확인.
+
+## Retry
+
+1차 실패 → 에러/상태 확인 → **필요 시 1회만** 재시도.  
+2차 실패 → 동일 명령 반복 금지 → 원인 분석 (port / process / reverse / URL / log).
+
+## Git / 검색
+
+- 기본: `git status --short`, `branch --show-current`, `rev-parse HEAD`
+- diff는 `--stat` / `--name-only` 우선, 필요 파일만 `-- path`
+- log: `git log --oneline -10` · 매 단계 `fetch` 금지
+- 검색: 알고 있는 파일 → module → `rg` scoped. 제외: `node_modules/ dist/ build/ coverage/ artifacts/ .expo/ .next/ android/app/build/ ios/Pods/ *.apk *.aab _tmp*/`
+
+## pnpm / 테스트 / TS
+
+- `pnpm --filter <pkg> typecheck|test|build` 우선. 전체 workspace는 기능 완료·main merge 전·Production 전에만
+- UI만 → mobile typecheck. API만 → api. domain만 → domain. 공통 패키지 변경 시에만 연쇄 확장
+- 개발 중: 변경 unit → package → 관련 integration → 실기기. Gate에서만 relevant suite 전체
+
+## Metro / ADB / 실기기 (속도만)
+
+- Metro `/status` 5s. 실패 시 즉시: port 8082 → process → `adb reverse` → bundle URL. 정상 Metro **재시작·`-c` cache clear 금지** (증거 있을 때만)
+- ADB: reverse 이미 있으면 재설정 금지. 무한 `logcat` 금지 → package/tag + 5–10s bounded. Back 연타 복구 금지. 10–15s 내 목표 화면 없으면 Activity/dump/state로 전환
+- sticky/scroll: viewport · ScrollView flex · bottomInset · sticky height 실측. padding만 계속 키우기 금지
+- QA fixture tag 재사용 (`[QA-…]`). 중간 cleanup 금지. Production write 금지
+
+## Deploy / DB
+
+- 수정마다 Railway/EAS 금지 → 묶음 후 1회. health + 필수 endpoint 1–3개만 먼저
+- deploy polling: 10–15s 간격 bounded. schema 변경 없을 때 prisma generate/migrate 반복 금지. DB는 id/`LIMIT`만
+
+## Agent 운영
+
+- 서버는 background, 확인은 short command. temp proxy/logcat은 종료 후 정리. 정상 Metro는 QA마다 끄지 않음
+- 실패 시 restart/재설치/`pm clear`/cache clear 먼저 하지 않음 → error/log/status 먼저
+- 사용자 중간 “화면 확인해 주세요” 남발 금지 (USB면 Agent 직접 검증). OAuth/콘솔/결제/CAPTCHA만 사용자
+- 긴 작업 중 진행 멘트만 보내고 멈추지 않음. 결과 요청이면 **완료 후 1회 보고**
+- 30s+ 불필요 대기가 있으면 최종 보고에 command / wait / reason / next optimization 한 줄
+
+## 빠른 QA 시작 순서
+
+`git status --short` → `adb get-state` → Metro `/status` → API `/health` → DEV session → **최단 route**로 대상 화면. 정상인데 환경 재구축 금지.

@@ -13,7 +13,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import tsx --test src/duration.test.ts src/coin-amount.test.ts src/display-number.test.ts src/reward-input.test.ts src/settlement.test.ts src/coin-supply.test.ts src/join-discovery.test.ts src/store-matching.test.ts src/region-search-hints.test.ts src/phone.test.ts src/store-ownership-kpi.test.ts"
+    "test": "node --import tsx --test src/duration.test.ts src/coin-amount.test.ts src/display-number.test.ts src/reward-input.test.ts src/settlement.test.ts src/coin-supply.test.ts src/join-discovery.test.ts src/store-matching.test.ts src/region-search-hints.test.ts src/phone.test.ts src/store-ownership-kpi.test.ts src/join-chat-loop.test.ts"
   },
   "dependencies": {
     "@jjoin/types": "workspace:*"

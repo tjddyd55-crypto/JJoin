@@ -76,6 +76,15 @@ import {
   type PublicJoinShareDto,
   type JoinPrefillDto,
   type FacilityWeeklyJoinsResponse,
+  type ActivateUrgentVacancyRequest,
+  type SetAttendanceIntentRequest,
+  type JoinChatRoomDto,
+  type JoinChatMessagesResponse,
+  type PostJoinChatMessageRequest,
+  type JoinChatMessageDto,
+  type CreateJoinInvitationsRequest,
+  type JoinInvitationDto,
+  type PlayedTogetherPersonDto,
 } from '@jjoin/types';
 
 export type ApiClientConfig = {
@@ -1175,6 +1184,126 @@ export class ApiClient {
       `${this.config.baseUrl}/joins/by-share/${encodeURIComponent(shareSlug)}`,
       { headers: await this.headers(true) },
     );
+    return parseJson(res);
+  }
+
+  async activateUrgentVacancy(
+    joinId: string,
+    body?: ActivateUrgentVacancyRequest,
+  ): Promise<JoinDetailDto> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/urgent`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body ?? {}),
+    });
+    return parseJson(res);
+  }
+
+  async clearUrgentVacancy(joinId: string): Promise<JoinDetailDto> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/urgent`, {
+      method: 'DELETE',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async setAttendanceIntent(
+    joinId: string,
+    body: SetAttendanceIntentRequest,
+  ): Promise<JoinDetailDto> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/attendance-intent`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async getJoinChat(joinId: string): Promise<JoinChatRoomDto> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/chat`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  /**
+   * Chat messages newest-first. Pass `before` = oldest `createdAt` from prior page.
+   */
+  async getJoinChatMessages(
+    joinId: string,
+    opts?: { before?: string; limit?: number },
+  ): Promise<JoinChatMessagesResponse> {
+    const params = new URLSearchParams();
+    if (opts?.before) params.set('before', opts.before);
+    if (opts?.limit != null) params.set('limit', String(opts.limit));
+    const qs = params.toString();
+    const res = await request(
+      `${this.config.baseUrl}/joins/${joinId}/chat/messages${qs ? `?${qs}` : ''}`,
+      { headers: await this.headers(true) },
+    );
+    return parseJson(res);
+  }
+
+  async postJoinChatMessage(
+    joinId: string,
+    body: PostJoinChatMessageRequest,
+  ): Promise<JoinChatMessageDto> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/chat/messages`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async createJoinInvitations(
+    joinId: string,
+    body: CreateJoinInvitationsRequest,
+  ): Promise<JoinInvitationDto[]> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/invitations`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async acceptJoinInvitation(joinId: string, invitationId: string): Promise<JoinDetailDto> {
+    const res = await request(
+      `${this.config.baseUrl}/joins/${joinId}/invitations/${invitationId}/accept`,
+      {
+        method: 'POST',
+        headers: await this.headers(true),
+      },
+    );
+    return parseJson(res);
+  }
+
+  async declineJoinInvitation(
+    joinId: string,
+    invitationId: string,
+  ): Promise<JoinInvitationDto> {
+    const res = await request(
+      `${this.config.baseUrl}/joins/${joinId}/invitations/${invitationId}/decline`,
+      {
+        method: 'POST',
+        headers: await this.headers(true),
+      },
+    );
+    return parseJson(res);
+  }
+
+  async listMyInvitations(): Promise<JoinInvitationDto[]> {
+    const res = await request(`${this.config.baseUrl}/me/invitations`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async listPlayedTogether(): Promise<PlayedTogetherPersonDto[]> {
+    const res = await request(`${this.config.baseUrl}/me/played-together`, {
+      headers: await this.headers(true),
+    });
     return parseJson(res);
   }
 

@@ -55,6 +55,10 @@ import {
   subCoinAmounts,
   computeAutoPayAt,
   computeAttendanceReliability,
+  canAccessJoinChat,
+  isJoinChatVisibleInUi,
+  isJoinCapacityJoinable,
+  localDayKey,
 } from '@jjoin/domain';
 import { createJoinSchema, joinCoinPreviewSchema } from '@jjoin/validation';
 import { Prisma } from '@prisma/client';
@@ -79,6 +83,9 @@ import { NotificationEventService } from '../notifications/notification-event.se
 import { NotificationType } from '@prisma/client';
 import { MatchingJoinsService } from './matching-joins.service';
 import { JoinEngagementNotifyService } from '../engagement/join-engagement-notify.service';
+import { UrgentVacancyService } from '../join-loop/urgent-vacancy.service';
+import { JoinChatService } from '../join-loop/join-chat.service';
+import type { AttendanceIntent } from '@jjoin/types';
 
 const ACTIVE_JOIN_STATUSES: JoinStatus[] = [JoinStatus.OPEN, JoinStatus.FULL];
 
@@ -101,6 +108,10 @@ export class JoinsService {
     private readonly matchingJoins: MatchingJoinsService,
     @Inject(forwardRef(() => JoinEngagementNotifyService))
     private readonly engagementNotify: JoinEngagementNotifyService,
+    @Inject(forwardRef(() => UrgentVacancyService))
+    private readonly urgentVacancy: UrgentVacancyService,
+    @Inject(forwardRef(() => JoinChatService))
+    private readonly joinChat: JoinChatService,
   ) {}
 
   ping() {
@@ -490,6 +501,7 @@ export class JoinsService {
           include: { user: { include: { profile: true } } },
           orderBy: { appliedAt: 'asc' },
         },
+        chatRoom: true,
       },
     });
     if (!join) throw new NotFoundException('join_not_found');
@@ -586,6 +598,7 @@ export class JoinsService {
           venue: true,
           host: { include: { profile: true } },
           participants: true,
+          chatRoom: true,
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -597,6 +610,7 @@ export class JoinsService {
               venue: true,
               host: { include: { profile: true } },
               participants: true,
+              chatRoom: true,
             },
           },
         },
@@ -830,6 +844,11 @@ export class JoinsService {
       }
     });
 
+    void this.joinChat.ensureRoomForJoin(joinId).then(() =>
+      this.joinChat.onMemberJoined(joinId, userId),
+    );
+    void this.urgentVacancy.clearIfNeeded(joinId);
+
     return this.getDetail(joinId, userId);
   }
 
@@ -925,7 +944,12 @@ export class JoinsService {
         },
         eventKey: `join:${joinId}:application:${newlyApprovedUserId}:approved`,
       });
+      void this.joinChat.ensureRoomForJoin(joinId).then(() =>
+        this.joinChat.onMemberJoined(joinId, newlyApprovedUserId!),
+      );
     }
+
+    void this.urgentVacancy.clearIfNeeded(joinId);
 
     return this.getDetail(joinId, hostUserId);
   }
@@ -989,6 +1013,18 @@ export class JoinsService {
       const lat = Number(venue.latitude);
       const lng = Number(venue.longitude);
       const activity = aggregateFacilityJoinActivity(previews, now);
+      const todayKey = localDayKey(now);
+      const urgentJoinCount = discoveryJoins.filter(
+        (j) =>
+          j.venueId === venue.id &&
+          j.isUrgent &&
+          localDayKey(j.startAt) === todayKey &&
+          isJoinCapacityJoinable({
+            status: j.status,
+            currentParticipants: j.confirmedPlayerCount,
+            maxParticipants: j.plannedPlayerCount,
+          }),
+      ).length;
       return {
         venueId: venue.id,
         name: venue.name,
@@ -1005,6 +1041,7 @@ export class JoinsService {
         ),
         openJoinCount: activity.openJoinCount,
         todayJoinCount: activity.todayJoinCount,
+        urgentJoinCount,
         ongoingJoinCount: activity.ongoingJoinCount,
         hasTodayJoin: activity.hasTodayJoin,
         hasOngoingJoin: activity.hasOngoingJoin,
@@ -1127,6 +1164,9 @@ export class JoinsService {
       confirmedAt?: Date | null;
       cancelledAt?: Date | null;
       shareSlug?: string | null;
+      isUrgent?: boolean;
+      urgentUntil?: Date | null;
+      urgentSeats?: number | null;
       rewardPerParticipant: Prisma.Decimal;
       roomCreationFeeAmount: Prisma.Decimal;
       rewardHoldTotalAmount: Prisma.Decimal;
@@ -1158,10 +1198,16 @@ export class JoinsService {
         userId: string;
         role: string;
         participationStatus: string;
+        attendanceIntent?: string;
+        attendanceIntentAt?: Date | null;
         appliedAt: Date;
         approvedAt: Date | null;
         user: { profile: { nickname: string; gender?: string | null } | null; identityStatus?: string };
       }>;
+      chatRoom?: {
+        status: string;
+        hideAfter: Date | null;
+      } | null;
     },
     viewerUserId?: string,
     extras?: {
@@ -1189,6 +1235,8 @@ export class JoinsService {
         userId: p.userId,
         role: p.role as ParticipantRole,
         participationStatus: p.participationStatus as ParticipationStatus,
+        attendanceIntent: (p.attendanceIntent as AttendanceIntent | undefined) ?? undefined,
+        attendanceIntentAt: p.attendanceIntentAt?.toISOString() ?? null,
         nickname: p.user.profile?.nickname ?? '참가자',
         verifiedBadge: true,
         appliedAt: p.appliedAt.toISOString(),
@@ -1222,6 +1270,21 @@ export class JoinsService {
       participants: join.participants,
     });
 
+    const chatAvailable = viewerUserId
+      ? canAccessJoinChat({
+          role: mine?.role ?? (join.host.id === viewerUserId ? 'HOST' : null),
+          participationStatus:
+            mine?.participationStatus ??
+            (join.host.id === viewerUserId ? 'APPROVED' : null),
+          attendanceIntent: mine?.attendanceIntent,
+        }) &&
+        isJoinChatVisibleInUi({
+          hasRoom: Boolean(join.chatRoom),
+          roomStatus: join.chatRoom?.status,
+          hideAfter: join.chatRoom?.hideAfter,
+        })
+      : false;
+
     return {
       joinId: join.id,
       status: join.status as JoinStatus,
@@ -1240,6 +1303,10 @@ export class JoinsService {
       coinAccountingPending: false,
       shareSlug: join.shareSlug ?? null,
       bookmarked: extras?.bookmarked ?? false,
+      isUrgent: join.isUrgent ?? false,
+      urgentUntil: join.urgentUntil?.toISOString() ?? null,
+      urgentSeats: join.urgentSeats ?? null,
+      chatAvailable,
       venue: {
         venueId: join.venue.id,
         provider: join.venue.provider,
@@ -1275,17 +1342,24 @@ export class JoinsService {
       storeOwnershipId?: string | null;
       confirmedAt?: Date | null;
       cancelledAt?: Date | null;
+      isUrgent?: boolean;
+      hostUserId?: string;
       rewardPerParticipant: Prisma.Decimal;
       roomCreationFeeAmount: Prisma.Decimal;
       rewardHoldTotalAmount: Prisma.Decimal;
       venue: { name: string };
-      host: { profile: { nickname: string } | null };
+      host: { id?: string; profile: { nickname: string } | null };
       participants: Array<{
         userId: string;
         role: string;
         participationStatus: string;
+        attendanceIntent?: string | null;
         user?: { profile: { gender: string | null } | null };
       }>;
+      chatRoom?: {
+        status: string;
+        hideAfter: Date | null;
+      } | null;
     },
     userId: string,
   ): JoinListItemDto {
@@ -1307,6 +1381,22 @@ export class JoinsService {
       cancelledAt: join.cancelledAt,
       participants: join.participants,
     });
+    const isHost =
+      mine?.role === 'HOST' ||
+      join.hostUserId === userId ||
+      join.host.id === userId;
+    const chatAvailable =
+      canAccessJoinChat({
+        role: mine?.role ?? (isHost ? 'HOST' : null),
+        participationStatus:
+          mine?.participationStatus ?? (isHost ? 'APPROVED' : null),
+        attendanceIntent: mine?.attendanceIntent,
+      }) &&
+      isJoinChatVisibleInUi({
+        hasRoom: Boolean(join.chatRoom),
+        roomStatus: join.chatRoom?.status,
+        hideAfter: join.chatRoom?.hideAfter,
+      });
     return {
       joinId: join.id,
       status: join.status as JoinStatus,
@@ -1323,6 +1413,8 @@ export class JoinsService {
       myParticipationStatus: (mine?.participationStatus as ParticipationStatus) ?? null,
       pendingApplicantCount: join.participants.filter((p) => p.participationStatus === 'APPLIED')
         .length,
+      isUrgent: join.isUrgent ?? false,
+      chatAvailable,
       ...matchingExtras,
     };
   }

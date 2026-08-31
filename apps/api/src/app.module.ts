@@ -20,6 +20,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { RegionsModule } from './modules/regions/regions.module';
 import { StoreOwnershipModule } from './modules/store-ownership/store-ownership.module';
 import { EngagementModule } from './modules/engagement/engagement.module';
+import { JoinLoopModule } from './modules/join-loop/join-loop.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -46,6 +47,7 @@ import { PrismaModule } from './prisma/prisma.module';
     NotificationsModule,
     StoreOwnershipModule,
     EngagementModule,
+    JoinLoopModule,
   ],
 })
 export class AppModule {}

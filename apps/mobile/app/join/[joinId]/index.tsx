@@ -24,8 +24,8 @@ import {
   type SettlementParticipantDto,
   type SettlementIssueType,
 } from '@jjoin/types';
-import { getApiClient } from '../../src/lib/api';
-import { getSecureSessionStore, useSession } from '../../src/session/SessionContext';
+import { getApiClient } from '../../../src/lib/api';
+import { getSecureSessionStore, useSession } from '../../../src/session/SessionContext';
 import {
   isStoreMatchingJoin,
   matchingCanConfirmAttendance,
@@ -36,11 +36,20 @@ import {
   matchingRewardResultLabel,
   matchingSlotProgressLabel,
   formatKstTime,
-} from '../../src/features/store/matching-join-ui';
-import { summarizeMatchingSettlement, formatCoinWithLabel } from '@jjoin/domain';
-import { isInternalToolsEnabled } from '../../src/lib/internal-tools';
-import { publicJoinShareUrl } from '../../src/lib/landing-url';
-import { reopenJoinHref } from '../../src/features/engagement/reopen-join';
+} from '../../../src/features/store/matching-join-ui';
+import {
+  canActivateUrgentVacancy,
+  summarizeMatchingSettlement,
+  formatCoinWithLabel,
+} from '@jjoin/domain';
+import { isInternalToolsEnabled } from '../../../src/lib/internal-tools';
+import { publicJoinShareUrl } from '../../../src/lib/landing-url';
+import { reopenJoinHref } from '../../../src/features/engagement/reopen-join';
+import {
+  attendanceIntentBadgeVariant,
+  attendanceIntentLabel,
+  canSetAttendanceIntent,
+} from '../../../src/features/join/attendance-intent-ui';
 
 function rewardStatusLabel(status: RewardStatus): string {
   switch (status) {
@@ -419,6 +428,38 @@ export default function JoinDetailScreen() {
     }
   }
 
+  async function onActivateUrgent() {
+    if (!joinId || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await api.activateUrgentVacancy(joinId);
+      setDetail(next);
+    } catch {
+      setError('긴급 모집을 시작할 수 없습니다.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onSetAttendanceIntent(intent: 'CONFIRMED' | 'DECLINED') {
+    if (!joinId || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await api.setAttendanceIntent(joinId, { intent });
+      setDetail(next);
+    } catch {
+      setError(
+        intent === 'CONFIRMED'
+          ? '참석 확정에 실패했습니다.'
+          : '참석 의사 변경에 실패했습니다.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!detail) {
     return (
       <ScrollScreenFrame>
@@ -494,14 +535,28 @@ export default function JoinDetailScreen() {
     (detail.status === JoinStatus.COMPLETED ||
       detail.status === JoinStatus.CANCELLED ||
       new Date(detail.startAt).getTime() < Date.now());
+  const showUrgentActivate =
+    isHost &&
+    !detail.isUrgent &&
+    canActivateUrgentVacancy({
+      status: detail.status,
+      startAt: detail.startAt,
+      plannedPlayerCount: detail.plannedPlayerCount,
+      confirmedPlayerCount: detail.confirmedPlayerCount,
+    });
+  const showAttendanceIntentActions = canSetAttendanceIntent({
+    isHost,
+    participationStatus: detail.myParticipation?.participationStatus,
+  });
 
   return (
     <View style={styles.root}>
-      <ScrollScreenFrame contentPaddingBottom={24}>
+      <ScrollScreenFrame style={styles.scroll} contentPaddingBottom={24}>
         <Section title={detail.venue.name} subtitle={startLabel}>
           <Row justify="space-between" align="center" style={styles.headerActions}>
             <Row gap="sm" align="center" style={styles.badgeRow}>
               {matching ? <Badge label="매장 인증" variant="gold" /> : null}
+              {detail.isUrgent ? <Badge label="긴급 모집" variant="warning" /> : null}
               <Badge label={matchingStatusLabel ?? detail.status} variant="gold" />
             </Row>
             <Row gap="sm" align="center">
@@ -610,10 +665,20 @@ export default function JoinDetailScreen() {
           ) : null}
           {detail.participants.map((p) => (
             <Card key={p.participantId} variant="base" padding="md" style={styles.attendanceCard}>
-              <Text variant="bodyStrong" tone="primary">
-                {p.nickname}
-                {p.role === 'HOST' ? ' · 호스트' : ''}
-              </Text>
+              <Row justify="space-between" align="center" gap="sm">
+                <Text variant="bodyStrong" tone="primary" style={styles.participantName}>
+                  {p.nickname}
+                  {p.role === 'HOST' ? ' · 호스트' : ''}
+                </Text>
+                {p.role !== 'HOST' &&
+                (p.participationStatus === ParticipationStatus.APPROVED ||
+                  p.participationStatus === ParticipationStatus.CONFIRMED) ? (
+                  <Badge
+                    label={attendanceIntentLabel(p.attendanceIntent)}
+                    variant={attendanceIntentBadgeVariant(p.attendanceIntent)}
+                  />
+                ) : null}
+              </Row>
               <Text variant="meta" tone="secondary">
                 {p.participationStatus}
                 {p.completedJoinCount != null || p.noShowCount != null
@@ -811,9 +876,86 @@ export default function JoinDetailScreen() {
             {error}
           </Text>
         ) : null}
+
+        {canReopen ? (
+          <Section title="모집">
+            <Button
+              label="다시 모집"
+              loading={busy}
+              onPress={() => void onReopenJoin()}
+            />
+          </Section>
+        ) : null}
+
+        <View style={styles.secondaryActions}>
+          <Button
+            label="내 조인"
+            variant="secondary"
+            onPress={() => router.push('/(tabs)/my-joins')}
+          />
+          <Button label="닫기" variant="ghost" onPress={() => router.back()} />
+        </View>
       </ScrollScreenFrame>
 
       <StickyActionFrame>
+        {showUrgentActivate ? (
+          <Button
+            label="긴급 모집"
+            loading={busy}
+            onPress={() => void onActivateUrgent()}
+          />
+        ) : null}
+        {detail.chatAvailable ? (
+          <Button
+            label="조인 채팅"
+            loading={busy}
+            onPress={() =>
+              router.push({
+                pathname: '/join/[joinId]/chat',
+                params: { joinId },
+              })
+            }
+          />
+        ) : null}
+        {isHost ? (
+          <Button
+            label="참가자 초대"
+            variant="secondary"
+            loading={busy}
+            onPress={() =>
+              router.push({
+                pathname: '/join/[joinId]/invite',
+                params: { joinId },
+              })
+            }
+          />
+        ) : null}
+        {showAttendanceIntentActions ? (
+          <View style={styles.issueRow}>
+            <Button
+              label="참석합니다"
+              variant={
+                detail.myParticipation?.attendanceIntent === 'CONFIRMED'
+                  ? 'primary'
+                  : 'secondary'
+              }
+              loading={busy}
+              fullWidth={false}
+              onPress={() => void onSetAttendanceIntent('CONFIRMED')}
+            />
+            <Button
+              label="참석이 어려워요"
+              variant={
+                detail.myParticipation?.attendanceIntent === 'DECLINED'
+                  ? 'primary'
+                  : 'secondary'
+              }
+              loading={busy}
+              fullWidth={false}
+              onPress={() => void onSetAttendanceIntent('DECLINED')}
+            />
+          </View>
+        ) : null}
         {!isHost && !detail.myParticipation ? (
           <Button label="참가 신청" loading={busy} onPress={() => void onApply()} />
         ) : null}
@@ -833,19 +975,6 @@ export default function JoinDetailScreen() {
             onPress={() => void onLeaveStoreJoin()}
           />
         ) : null}
-        {canReopen ? (
-          <Button
-            label="다시 모집"
-            loading={busy}
-            onPress={() => void onReopenJoin()}
-          />
-        ) : null}
-        <Button
-          label="내 조인"
-          variant="secondary"
-          onPress={() => router.push('/(tabs)/my-joins')}
-        />
-        <Button label="닫기" variant="ghost" onPress={() => router.back()} />
       </StickyActionFrame>
     </View>
   );
@@ -853,6 +982,12 @@ export default function JoinDetailScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  scroll: { flex: 1 },
+  secondaryActions: {
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 8,
+  },
   headerActions: {
     width: '100%',
   },
@@ -877,5 +1012,8 @@ const styles = StyleSheet.create({
   attendanceCard: {
     marginTop: 8,
     gap: 8,
+  },
+  participantName: {
+    flex: 1,
   },
 });

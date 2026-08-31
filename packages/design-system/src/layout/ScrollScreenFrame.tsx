@@ -56,6 +56,8 @@ export const ScrollScreenFrame = forwardRef<ScrollView, ScrollScreenFrameProps>(
 
         ref={ref}
 
+        style={{ flex: 1 }}
+
         keyboardShouldPersistTaps="handled"
 
         contentContainerStyle={[

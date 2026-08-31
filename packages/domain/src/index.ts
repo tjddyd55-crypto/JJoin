@@ -346,6 +346,28 @@ export {
 } from './join-engagement';
 
 export {
+  CHAT_MESSAGE_MAX_LENGTH,
+  CHAT_POLL_INTERVAL_MS,
+  CHAT_PURGE_AFTER_HOURS,
+  CHAT_VISIBLE_GRACE_HOURS,
+  JOIN_INVITE_MAX_BATCH,
+  PLAYED_TOGETHER_ELIGIBLE_STATUS,
+  canAccessJoinChat,
+  canActivateUrgentVacancy,
+  chatHideAfterFrom,
+  chatPurgeAfterFrom,
+  isJoinChatVisibleInUi,
+  joinAttendanceConfirmEventKey,
+  joinChatSystemNotificationEventKey,
+  joinInvitationNotificationEventKey,
+  normalizeChatMessageBody,
+  resolveChatRoomLifecycleStatus,
+  shouldClearUrgent,
+  urgentJoinNotificationEventKey,
+  type ChatRoomLifecycleStatus,
+} from './join-chat-loop';
+
+export {
   ADMIN_SIDO_GROUPS,
   DEFAULT_REGION_QUICK_PICKS,
   districtRegionKey,

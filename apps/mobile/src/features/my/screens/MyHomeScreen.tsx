@@ -3,6 +3,7 @@ import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
   Badge,
+  Button,
   Card,
   Icon,
   ListRow,
@@ -18,6 +19,7 @@ import { t } from '@jjoin/i18n';
 import { formatNumber } from '@jjoin/domain';
 import { StoreOwnershipStatus } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
+import { isInternalToolsEnabled } from '../../../lib/internal-tools';
 import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
 import { legalDocumentRoute } from '../../auth/legal';
 
@@ -187,6 +189,11 @@ export function MyHomeScreen() {
               label="팔로우한 매장"
               icon="location"
               onPress={() => router.push('/my/followed-stores' as Href)}
+            />
+            <ListRow
+              label="함께 친 사람"
+              icon="people"
+              onPress={() => router.push('/my/played-together' as Href)}
               showSeparator={false}
             />
           </View>
@@ -240,6 +247,16 @@ export function MyHomeScreen() {
           </View>
         </Card>
       </Section>
+
+      {isInternalToolsEnabled() ? (
+        <Section title="Internal tools" subtitle="APP_VARIANT=development only">
+          <Button
+            label="QA: 4인 Join 상세"
+            variant="secondary"
+            onPress={() => router.push('/dev/qa-four-join' as Href)}
+          />
+        </Section>
+      ) : null}
     </ScrollScreenFrame>
   );
 }

@@ -76,6 +76,7 @@ export function golfFacilityToExploreVenue(
     openJoinCount: f.openJoinCount ?? 0,
     todayJoinCount: f.todayJoinCount ?? f.selectedDateJoinCount ?? 0,
     todayJoinableCount: f.todayJoinableCount ?? 0,
+    urgentJoinCount: f.urgentJoinCount ?? 0,
     ongoingJoinCount: f.ongoingJoinCount ?? 0,
     hasTodayJoin: f.hasTodayJoin ?? f.hasSelectedDateJoin ?? false,
     hasOngoingJoin: f.hasOngoingJoin ?? false,

@@ -49,6 +49,8 @@ import { mockUserStore } from '../../mock/mock-user.store';
 import { CoinPolicyDisabledError } from '../../coin/dev-coin-policy';
 import { JoinsService } from './joins.service';
 import { JoinEngagementNotifyService } from '../engagement/join-engagement-notify.service';
+import { JoinChatService } from '../join-loop/join-chat.service';
+import { UrgentVacancyService } from '../join-loop/urgent-vacancy.service';
 
 const MATCHING_OPEN_STATUSES: JoinStatus[] = [JoinStatus.OPEN, JoinStatus.FULL];
 
@@ -65,6 +67,10 @@ export class MatchingJoinsService {
     private readonly joins: JoinsService,
     @Inject(forwardRef(() => JoinEngagementNotifyService))
     private readonly engagementNotify: JoinEngagementNotifyService,
+    @Inject(forwardRef(() => JoinChatService))
+    private readonly joinChat: JoinChatService,
+    @Inject(forwardRef(() => UrgentVacancyService))
+    private readonly urgentVacancy: UrgentVacancyService,
   ) {}
 
   async create(hostUserId: string, raw: CreateStoreMatchingJoinRequest): Promise<JoinDetailDto> {
@@ -307,6 +313,7 @@ export class MatchingJoinsService {
     );
 
     void this.engagementNotify.notifyBookmarkJoinEvent(joinId, 'cancelled');
+    void this.joinChat.onJoinTerminal(joinId, 'CANCELLED');
 
     return this.joins.getDetail(joinId, hostUserId);
   }
@@ -523,6 +530,8 @@ export class MatchingJoinsService {
       String(wallet.heldBalance),
     );
 
+    void this.joinChat.onJoinTerminal(joinId, 'COMPLETED');
+
     return this.joins.getDetail(joinId, hostUserId);
   }
 
@@ -550,9 +559,15 @@ export class MatchingJoinsService {
       try {
         const outcome = await this.ensureMatchingDeadline(row.id);
         joinIds.push(row.id);
-        if (outcome === 'confirmed') summary.confirmedCount += 1;
-        else if (outcome === 'cancelled') summary.cancelledCount += 1;
-        else summary.skippedCount += 1;
+        if (outcome === 'confirmed') {
+          summary.confirmedCount += 1;
+          void this.joinChat.ensureRoomForJoin(row.id);
+        } else if (outcome === 'cancelled') {
+          summary.cancelledCount += 1;
+          void this.joinChat.onJoinTerminal(row.id, 'CANCELLED');
+        } else {
+          summary.skippedCount += 1;
+        }
       } catch (err) {
         summary.errorCount += 1;
         this.logger.warn(
@@ -643,6 +658,9 @@ export class MatchingJoinsService {
         },
       });
     });
+
+    void this.joinChat.removeMember(joinId, userId);
+    void this.urgentVacancy.clearIfNeeded(joinId);
 
     return this.joins.getDetail(joinId, userId);
   }
