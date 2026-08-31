@@ -7,3 +7,5 @@
 *.aab
 **/__pycache__/
 *.log
+artifacts/
+**/artifacts/
