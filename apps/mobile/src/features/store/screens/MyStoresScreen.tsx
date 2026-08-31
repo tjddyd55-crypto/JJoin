@@ -196,6 +196,19 @@ export function MyStoresScreen() {
               <Badge label={`사용 가능 ${formatCoinWithLabel(store.walletAvailable ?? '0')}`} variant="success" />
               <Badge label={`홀드 ${formatCoinWithLabel(store.walletHeld ?? '0')}`} variant="neutral" />
             </Row>
+            <Spacer size="sm" />
+            <Button
+              label="운영 대시보드"
+              variant="secondary"
+              size="sm"
+              onPress={() =>
+                router.push({
+                  pathname: '/my/store-dashboard',
+                  params: { ownershipId: store.id },
+                })
+              }
+              fullWidth
+            />
           </Card>
         ))
       )}
@@ -242,16 +255,25 @@ export function MyStoresScreen() {
       <Spacer size="lg" />
 
       {activeStores.length > 0 ? (
-        <Button
-          label="모집 조인 만들기"
-          onPress={() =>
-            router.push({
-              pathname: '/my/create-store-join',
-              params: primaryStore ? { storeOwnershipId: primaryStore.id } : undefined,
-            })
-          }
-          fullWidth
-        />
+        <>
+          <Button
+            label="모집 조인 만들기"
+            onPress={() =>
+              router.push({
+                pathname: '/my/create-store-join',
+                params: primaryStore ? { storeOwnershipId: primaryStore.id } : undefined,
+              })
+            }
+            fullWidth
+          />
+          <Spacer size="sm" />
+          <Button
+            label="정기 조인"
+            variant="secondary"
+            onPress={() => router.push('/my/recurring-joins')}
+            fullWidth
+          />
+        </>
       ) : null}
 
       <Spacer size="lg" />

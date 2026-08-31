@@ -16,7 +16,7 @@ import {
 } from '@jjoin/design-system';
 import { pickHomeHostedJoins, resolveJoinDiscoveryBadge, formatNumber } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
-import type { JoinListItemDto, MyJoinsResponse } from '@jjoin/types';
+import type { JoinListItemDto, MyJoinsResponse, RecommendedJoinDto } from '@jjoin/types';
 import { useSession, getSecureSessionStore } from '../../src/session/SessionContext';
 import { getApiClient } from '../../src/lib/api';
 
@@ -32,16 +32,26 @@ export default function HomeScreen() {
   const available = me?.walletSummary.availableCoin ?? '—';
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [myJoins, setMyJoins] = useState<MyJoinsResponse | null>(null);
+  const [recommended, setRecommended] = useState<RecommendedJoinDto[]>([]);
 
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
       void (async () => {
-        try {
-          const next = await api.getMyJoins();
-          if (!cancelled) setMyJoins(next);
-        } catch {
-          if (!cancelled) setMyJoins(null);
+        const [joinsResult, recResult] = await Promise.allSettled([
+          api.getMyJoins(),
+          api.getRecommendedJoins({ limit: 5 }),
+        ]);
+        if (cancelled) return;
+        if (joinsResult.status === 'fulfilled') {
+          setMyJoins(joinsResult.value);
+        } else {
+          setMyJoins(null);
+        }
+        if (recResult.status === 'fulfilled') {
+          setRecommended(recResult.value.items.slice(0, 5));
+        } else {
+          setRecommended([]);
         }
       })();
       return () => {
@@ -132,13 +142,31 @@ export default function HomeScreen() {
         )}
       </Section>
 
-      <Section title="오늘 참여할 조인" subtitle="날짜·지역으로 주변 조인 찾기">
-        <EmptyJoinHint message="오늘 어디서 조인할지 조인 메뉴에서 바로 확인해 보세요." />
-        <Spacer size="sm" />
-        <Button
-          label="오늘 조인 전체보기"
-          onPress={() => router.push('/(tabs)/joins')}
-        />
+      <Section title="추천 조인" subtitle="관심·지역·시간대 기반">
+        {recommended.length === 0 ? (
+          <Stack gap="sm">
+            <EmptyJoinHint message="오늘 어디서 조인할지 조인 메뉴에서 바로 확인해 보세요." />
+            <Button
+              label="오늘 조인 전체보기"
+              onPress={() => router.push('/(tabs)/joins')}
+            />
+          </Stack>
+        ) : (
+          <Stack gap="sm">
+            {recommended.map((item) => (
+              <HomeRecommendedJoinCard
+                key={item.joinId}
+                item={item}
+                onPress={() => router.push(joinDetailHref(item.joinId))}
+              />
+            ))}
+            <Button
+              label="조인 더 보기"
+              variant="secondary"
+              onPress={() => router.push('/(tabs)/joins')}
+            />
+          </Stack>
+        )}
       </Section>
     </ScrollScreenFrame>
   );
@@ -186,6 +214,50 @@ function HomeHostedJoinCard({
           <Text variant="caption" tone="tertiary">
             {item.confirmedPlayerCount}/{item.plannedPlayerCount}명
           </Text>
+        </Stack>
+      </Card>
+    </Pressable>
+  );
+}
+
+function HomeRecommendedJoinCard({
+  item,
+  onPress,
+}: {
+  item: RecommendedJoinDto;
+  onPress: () => void;
+}) {
+  const start = new Date(item.startAt).toLocaleString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    month: 'numeric',
+    day: 'numeric',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [{ opacity: pressed ? 0.92 : 1 }]}
+    >
+      <Card variant="interactive" padding="md">
+        <Stack gap="xs">
+          <Row justify="space-between" align="center">
+            <Text variant="body" tone="primary" style={styles.cardTitle}>
+              {item.venueName}
+            </Text>
+            {item.isUrgent ? <Badge label="긴급" variant="warning" /> : null}
+          </Row>
+          <Text variant="caption" tone="secondary">
+            {start}
+          </Text>
+          <Row justify="space-between" align="center">
+            <Text variant="caption" tone="tertiary">
+              남은 자리 {item.seatsLeft}
+            </Text>
+            <Badge label={item.reasonLabel} variant="gold" />
+          </Row>
         </Stack>
       </Card>
     </Pressable>
