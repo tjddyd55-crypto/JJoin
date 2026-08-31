@@ -1,0 +1,18 @@
+# Keep EAS archive lean — local QA artifacts must never upload
+artifacts/
+**/artifacts/
+*.apk
+*.aab
+**/*.apk
+**/*.aab
+**/__pycache__/
+*.pyc
+.expo/
+apps/mobile/.expo/
+**/android/app/build/
+**/ios/Pods/
+_tmp*/
+**/_tmp*/
+agent-transcripts/
+*.log
+**/*.log
