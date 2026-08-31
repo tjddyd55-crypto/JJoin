@@ -111,6 +111,7 @@ export const registerPushDeviceSchema = z.object({
     .regex(/^(ExponentPushToken\[.+\]|ExpoPushToken\[.+\]|[A-Za-z0-9_.:-]{16,})$/),
   platform: z.enum(['ANDROID', 'IOS', 'WEB']),
   deviceId: z.string().trim().min(1).max(128).nullable().optional(),
+  appVariant: z.enum(['development', 'production']).optional(),
 });
 
 export type RegisterPushDeviceInput = z.infer<typeof registerPushDeviceSchema>;
@@ -119,11 +120,53 @@ export const registerPushDeviceSchemaAlias = registerPushDeviceSchema;
 
 export const notificationPreferenceSchema = z.object({
   pushEnabled: z.boolean(),
+  joinAlertsEnabled: z.boolean().optional(),
+  followedStoreEnabled: z.boolean().optional(),
+  urgentJoinEnabled: z.boolean().optional(),
+  invitationEnabled: z.boolean().optional(),
+  attendanceReminderEnabled: z.boolean().optional(),
+  bookmarkUpdatesEnabled: z.boolean().optional(),
 });
 
 export type NotificationPreferenceInput = z.infer<typeof notificationPreferenceSchema>;
 /** @deprecated alias */
 export const notificationPreferenceSchemaAlias = notificationPreferenceSchema;
+
+export const productEventBatchSchema = z.object({
+  events: z
+    .array(
+      z.object({
+        eventType: z.enum([
+          'SHARE_LINK_CREATED',
+          'SHARE_LINK_OPENED',
+          'SHARE_JOIN_CTA_CLICKED',
+          'RECOMMENDATION_IMPRESSION',
+          'RECOMMENDATION_CLICK',
+          'RECOMMENDATION_JOINED',
+          'FOLLOWED_STORE_NEW_JOIN_SENT',
+          'FOLLOWED_STORE_JOIN_CLICK',
+          'FOLLOWED_STORE_JOINED',
+          'URGENT_JOIN_OPENED',
+          'URGENT_JOIN_VIEWED',
+          'URGENT_JOIN_JOINED',
+          'URGENT_JOIN_FILLED',
+          'RECURRING_OCCURRENCE_CREATED',
+          'RECURRING_JOIN_FILLED',
+          'JOIN_INVITATION_SENT',
+          'JOIN_INVITATION_ACCEPTED',
+        ]),
+        joinId: z.string().uuid().optional(),
+        golfFacilityId: z.string().uuid().optional(),
+        source: z.string().trim().min(1).max(32).optional(),
+        metadata: z.record(z.string(), z.unknown()).optional(),
+        dedupeKey: z.string().trim().min(1).max(200).optional(),
+      }),
+    )
+    .min(1)
+    .max(50),
+});
+
+export type ProductEventBatchInput = z.infer<typeof productEventBatchSchema>;
 
 export const createStoreOwnershipRequestSchema = z.object({
   golfFacilityId: z.string().uuid(),

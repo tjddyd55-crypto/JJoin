@@ -1195,6 +1195,7 @@ export type RegisterPushDeviceRequest = {
   pushToken: string;
   platform: PushPlatform;
   deviceId?: string | null;
+  appVariant?: 'development' | 'production';
 };
 
 export type PushDeviceDto = {
@@ -1232,6 +1233,87 @@ export type NotificationListResponse = {
 
 export type NotificationPreferenceDto = {
   pushEnabled: boolean;
+  joinAlertsEnabled: boolean;
+  followedStoreEnabled: boolean;
+  urgentJoinEnabled: boolean;
+  invitationEnabled: boolean;
+  attendanceReminderEnabled: boolean;
+  bookmarkUpdatesEnabled: boolean;
+};
+
+export type ProductEventType =
+  | 'SHARE_LINK_CREATED'
+  | 'SHARE_LINK_OPENED'
+  | 'SHARE_JOIN_CTA_CLICKED'
+  | 'RECOMMENDATION_IMPRESSION'
+  | 'RECOMMENDATION_CLICK'
+  | 'RECOMMENDATION_JOINED'
+  | 'FOLLOWED_STORE_NEW_JOIN_SENT'
+  | 'FOLLOWED_STORE_JOIN_CLICK'
+  | 'FOLLOWED_STORE_JOINED'
+  | 'URGENT_JOIN_OPENED'
+  | 'URGENT_JOIN_VIEWED'
+  | 'URGENT_JOIN_JOINED'
+  | 'URGENT_JOIN_FILLED'
+  | 'RECURRING_OCCURRENCE_CREATED'
+  | 'RECURRING_JOIN_FILLED'
+  | 'JOIN_INVITATION_SENT'
+  | 'JOIN_INVITATION_ACCEPTED';
+
+export type TrackProductEventRequest = {
+  eventType: ProductEventType;
+  joinId?: string;
+  golfFacilityId?: string;
+  source?: string;
+  metadata?: Record<string, unknown>;
+  dedupeKey?: string;
+};
+
+export type TrackProductEventsRequest = {
+  events: TrackProductEventRequest[];
+};
+
+export type GrowthAnalyticsPeriod = '7d' | '30d' | 'all';
+
+export type GrowthAnalyticsMetricDto = {
+  impressions: number;
+  clicks: number;
+  joined: number;
+  ctrPercent: number | null;
+  joinConversionPercent: number | null;
+};
+
+export type GrowthAnalyticsDto = {
+  period: GrowthAnalyticsPeriod;
+  recommendation: GrowthAnalyticsMetricDto;
+  share: {
+    opened: number;
+    ctaClicked: number;
+    joined: number;
+    ctaRatePercent: number | null;
+  };
+  urgent: {
+    opened: number;
+    viewed: number;
+    joined: number;
+    filled: number;
+    fillRatePercent: number | null;
+  };
+  recurring: {
+    occurrencesCreated: number;
+    filled: number;
+    fillRatePercent: number | null;
+  };
+  invitation: {
+    sent: number;
+    accepted: number;
+    acceptRatePercent: number | null;
+  };
+  follow: {
+    notificationsSent: number;
+    clicks: number;
+    joined: number;
+  };
 };
 
 /** Aliases used by API services */

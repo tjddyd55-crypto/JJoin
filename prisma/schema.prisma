@@ -265,6 +265,32 @@ enum PushProviderKind {
   EXPO
 }
 
+/// Development vs Production app build — push tokens must not cross environments.
+enum AppVariant {
+  DEVELOPMENT
+  PRODUCTION
+}
+
+enum ProductEventType {
+  SHARE_LINK_CREATED
+  SHARE_LINK_OPENED
+  SHARE_JOIN_CTA_CLICKED
+  RECOMMENDATION_IMPRESSION
+  RECOMMENDATION_CLICK
+  RECOMMENDATION_JOINED
+  FOLLOWED_STORE_NEW_JOIN_SENT
+  FOLLOWED_STORE_JOIN_CLICK
+  FOLLOWED_STORE_JOINED
+  URGENT_JOIN_OPENED
+  URGENT_JOIN_VIEWED
+  URGENT_JOIN_JOINED
+  URGENT_JOIN_FILLED
+  RECURRING_OCCURRENCE_CREATED
+  RECURRING_JOIN_FILLED
+  JOIN_INVITATION_SENT
+  JOIN_INVITATION_ACCEPTED
+}
+
 enum NotificationOutboxStatus {
   PENDING
   SENT
@@ -307,6 +333,8 @@ model User {
   coinIssuancesReceived    CoinIssuance[]             @relation("IssuanceRecipient")
   coinIssuancesCreated     CoinIssuance[]             @relation("IssuanceCreatedBy")
   pushNotificationsEnabled Boolean                    @default(true) @map("push_notifications_enabled")
+  notificationPreference   NotificationPreference?
+  productEvents            ProductEvent[]
   venueRecents             UserVenueRecent[]
   venueFavorites           UserVenueFavorite[]
   joinRegionPreferences    UserJoinRegionPreference[]
@@ -331,6 +359,7 @@ model PushDevice {
   provider   PushProviderKind @default(EXPO)
   pushToken  String           @map("push_token")
   platform   PushPlatform
+  appVariant AppVariant       @default(PRODUCTION) @map("app_variant")
   deviceId   String?          @map("device_id")
   active     Boolean          @default(true)
   lastSeenAt DateTime         @default(now()) @map("last_seen_at") @db.Timestamptz(6)
@@ -340,8 +369,45 @@ model PushDevice {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([pushToken])
-  @@index([userId, active])
+  @@index([userId, active, appVariant])
   @@map("push_devices")
+}
+
+/// Per-user granular push preferences. In-app notifications may still be created when push is off.
+model NotificationPreference {
+  userId                    String   @id @map("user_id") @db.Uuid
+  joinAlertsEnabled         Boolean  @default(true) @map("join_alerts_enabled")
+  followedStoreEnabled      Boolean  @default(true) @map("followed_store_enabled")
+  urgentJoinEnabled         Boolean  @default(true) @map("urgent_join_enabled")
+  invitationEnabled         Boolean  @default(true) @map("invitation_enabled")
+  attendanceReminderEnabled Boolean  @default(true) @map("attendance_reminder_enabled")
+  bookmarkUpdatesEnabled    Boolean  @default(true) @map("bookmark_updates_enabled")
+  createdAt                 DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+/// Lightweight product analytics — no PII in metadata.
+model ProductEvent {
+  id               String           @id @default(uuid()) @db.Uuid
+  eventType        ProductEventType @map("event_type")
+  userId           String?          @map("user_id") @db.Uuid
+  joinId           String?          @map("join_id") @db.Uuid
+  golfFacilityId   String?          @map("golf_facility_id") @db.Uuid
+  source           String           @default("mobile")
+  metadata         Json             @default("{}")
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([eventType, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([joinId, createdAt(sort: Desc)])
+  @@index([golfFacilityId, createdAt(sort: Desc)])
+  @@map("product_events")
 }
 
 /// In-app + push notification record. Retention: POLICY_TBD (no delete cron in MVP).
