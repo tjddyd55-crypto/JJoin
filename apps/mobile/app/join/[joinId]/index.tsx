@@ -551,7 +551,7 @@ export default function JoinDetailScreen() {
 
   return (
     <View style={styles.root}>
-      <ScrollScreenFrame contentPaddingBottom={280}>
+      <ScrollScreenFrame style={styles.scroll} contentPaddingBottom={24}>
         <Section title={detail.venue.name} subtitle={startLabel}>
           <Row justify="space-between" align="center" style={styles.headerActions}>
             <Row gap="sm" align="center" style={styles.badgeRow}>
@@ -876,6 +876,25 @@ export default function JoinDetailScreen() {
             {error}
           </Text>
         ) : null}
+
+        {canReopen ? (
+          <Section title="모집">
+            <Button
+              label="다시 모집"
+              loading={busy}
+              onPress={() => void onReopenJoin()}
+            />
+          </Section>
+        ) : null}
+
+        <View style={styles.secondaryActions}>
+          <Button
+            label="내 조인"
+            variant="secondary"
+            onPress={() => router.push('/(tabs)/my-joins')}
+          />
+          <Button label="닫기" variant="ghost" onPress={() => router.back()} />
+        </View>
       </ScrollScreenFrame>
 
       <StickyActionFrame>
@@ -956,19 +975,6 @@ export default function JoinDetailScreen() {
             onPress={() => void onLeaveStoreJoin()}
           />
         ) : null}
-        {canReopen ? (
-          <Button
-            label="다시 모집"
-            loading={busy}
-            onPress={() => void onReopenJoin()}
-          />
-        ) : null}
-        <Button
-          label="내 조인"
-          variant="secondary"
-          onPress={() => router.push('/(tabs)/my-joins')}
-        />
-        <Button label="닫기" variant="ghost" onPress={() => router.back()} />
       </StickyActionFrame>
     </View>
   );
@@ -976,6 +982,12 @@ export default function JoinDetailScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  scroll: { flex: 1 },
+  secondaryActions: {
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 8,
+  },
   headerActions: {
     width: '100%',
   },

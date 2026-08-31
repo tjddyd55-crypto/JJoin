@@ -1,4 +1,5 @@
 import * as Application from 'expo-application';
+import { resolveAppVariant } from './app-variant';
 import { shouldEnableInternalTools } from './internal-tools-policy';
 
 /**
@@ -13,7 +14,7 @@ import { shouldEnableInternalTools } from './internal-tools-policy';
  */
 export function isInternalToolsEnabled(): boolean {
   return shouldEnableInternalTools({
-    appVariant: process.env.APP_VARIANT,
+    appVariant: resolveAppVariant(),
     applicationId: Application.applicationId ?? null,
   });
 }
