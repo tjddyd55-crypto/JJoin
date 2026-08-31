@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { isJoinCapacityJoinable } from '@jjoin/domain';
 import type { JoinKind, JoinStatus, PublicJoinShareDto } from '@jjoin/types';
 import { PrismaService } from '../../prisma/prisma.service';
-
+import { ProductEventsService } from '../analytics/product-events.service';
 const STATUS_LABEL: Record<string, string> = {
   OPEN: '모집 중',
   FULL: '모집 완료',
@@ -14,7 +14,10 @@ const STATUS_LABEL: Record<string, string> = {
 
 @Injectable()
 export class PublicJoinsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly analytics: ProductEventsService,
+  ) {}
 
   async getByShareSlug(shareSlug: string): Promise<PublicJoinShareDto> {
     const slug = shareSlug?.trim();
@@ -61,6 +64,17 @@ export class PublicJoinsService {
       process.env.APP_VARIANT === 'production'
         ? 'jjoin'
         : 'jjoindev';
+
+    this.analytics.trackSafe(null, {
+      events: [
+        {
+          eventType: 'SHARE_LINK_OPENED',
+          joinId: join.id,
+          source: 'landing',
+          metadata: { shareSlug: slug },
+        },
+      ],
+    });
 
     return {
       shareSlug: join.shareSlug!,

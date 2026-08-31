@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { AnalyticsModule } from '../analytics/analytics.module';
 import { JoinsModule } from '../joins/joins.module';
 import { SettlementModule } from '../settlement/settlement.module';
 import { JoinLoopController } from './join-loop.controller';
@@ -13,6 +14,7 @@ import { JoinInvitationService } from './join-invitation.service';
 @Module({
   imports: [
     NotificationsModule,
+    AnalyticsModule,
     SettlementModule,
     forwardRef(() => JoinsModule),
   ],

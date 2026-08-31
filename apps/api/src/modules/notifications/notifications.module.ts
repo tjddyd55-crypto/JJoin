@@ -5,6 +5,7 @@ import { NotificationsService } from './notifications.service';
 import { PushDevicesService } from './push-devices.service';
 import { NotificationEventService } from './notification-event.service';
 import { NotificationDeliveryService } from './notification-delivery.service';
+import { NotificationPreferenceStore } from './notification-preference.store';
 import { NOTIFICATION_DELIVERY_PROVIDER } from './providers/notification-delivery.provider';
 import { ExpoPushNotificationProvider } from './providers/expo-push.provider';
 import { NullPushNotificationProvider } from './providers/null-push.provider';
@@ -16,6 +17,7 @@ import { NullPushNotificationProvider } from './providers/null-push.provider';
     PushDevicesService,
     NotificationEventService,
     NotificationDeliveryService,
+    NotificationPreferenceStore,
     ExpoPushNotificationProvider,
     NullPushNotificationProvider,
     {
@@ -33,6 +35,11 @@ import { NullPushNotificationProvider } from './providers/null-push.provider';
       },
     },
   ],
-  exports: [NotificationEventService, NotificationDeliveryService, PushDevicesService],
+  exports: [
+    NotificationEventService,
+    NotificationDeliveryService,
+    PushDevicesService,
+    NotificationPreferenceStore,
+  ],
 })
 export class NotificationsModule {}

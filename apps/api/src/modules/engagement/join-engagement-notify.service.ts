@@ -1,13 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { NotificationType, ProductEventType } from '@prisma/client';
 import {
   bookmarkNotificationEventKey,
   isJoinCapacityJoinable,
   matchesJoinAlertSubscription,
   newJoinableNotificationEventKey,
 } from '@jjoin/domain';
-import { NotificationType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationEventService } from '../notifications/notification-event.service';
+import { ProductEventsService } from '../analytics/product-events.service';
 
 export type BookmarkJoinNotifyKind = 'closing' | 'spot_left' | 'updated' | 'cancelled';
 
@@ -48,6 +49,7 @@ export class JoinEngagementNotifyService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationEventService,
+    private readonly analytics: ProductEventsService,
   ) {}
 
   async notifyNewJoinableJoin(joinId: string): Promise<void> {
@@ -162,6 +164,15 @@ export class JoinEngagementNotifyService {
         },
         eventKey: newJoinableNotificationEventKey(userId, join.id),
       });
+      if (type === NotificationType.FOLLOWED_STORE_NEW_JOIN && facilityId) {
+        void this.analytics.trackOne({
+          eventType: ProductEventType.FOLLOWED_STORE_NEW_JOIN_SENT,
+          userId,
+          joinId: join.id,
+          golfFacilityId: facilityId,
+          source: 'api',
+        });
+      }
     }
   }
 

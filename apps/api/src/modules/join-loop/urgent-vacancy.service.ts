@@ -13,9 +13,10 @@ import {
   urgentJoinNotificationEventKey,
 } from '@jjoin/domain';
 import type { ActivateUrgentVacancyRequest, JoinDetailDto } from '@jjoin/types';
-import { NotificationType } from '@prisma/client';
+import { NotificationType, ProductEventType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationEventService } from '../notifications/notification-event.service';
+import { ProductEventsService } from '../analytics/product-events.service';
 import { JoinsService } from '../joins/joins.service';
 import { forwardRef, Inject } from '@nestjs/common';
 
@@ -26,6 +27,7 @@ export class UrgentVacancyService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationEventService,
+    private readonly analytics: ProductEventsService,
     @Inject(forwardRef(() => JoinsService))
     private readonly joins: JoinsService,
   ) {}
@@ -224,6 +226,16 @@ export class UrgentVacancyService {
           golfFacilityId: facilityId,
         },
         eventKey: urgentJoinNotificationEventKey(userId, join.id),
+      });
+    }
+
+    if (recipients.size > 0) {
+      void this.analytics.trackOne({
+        eventType: ProductEventType.URGENT_JOIN_OPENED,
+        joinId: join.id,
+        golfFacilityId: facilityId ?? undefined,
+        source: 'api',
+        metadata: { recipientCount: recipients.size },
       });
     }
   }

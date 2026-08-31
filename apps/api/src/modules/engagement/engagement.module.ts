@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { AnalyticsModule } from '../analytics/analytics.module';
 import { JoinsModule } from '../joins/joins.module';
 import { JoinAlertsController } from './join-alerts.controller';
 import { JoinAlertsService } from './join-alerts.service';
@@ -16,7 +17,7 @@ import { JoinRecommendationsController } from './join-recommendations.controller
 import { JoinRecommendationsService } from './join-recommendations.service';
 
 @Module({
-  imports: [NotificationsModule, forwardRef(() => JoinsModule)],
+  imports: [NotificationsModule, AnalyticsModule, forwardRef(() => JoinsModule)],
   controllers: [
     JoinAlertsController,
     JoinBookmarksController,
