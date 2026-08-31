@@ -43,13 +43,63 @@ async function main() {
     take: 12,
   });
   const byNick = new Map(profiles.map((p) => [p.nickname, p]));
+
+  // Prefer 김진우_DEV_A as store owner when they already have ACTIVE ownership
+  // (matches USB DEV app mock login).
+  const ownershipCandidates = await prisma.storeOwnership.findMany({
+    where: {
+      status: StoreOwnershipStatus.ACTIVE,
+      user: {
+        profile: {
+          nickname: { in: nicknames },
+        },
+      },
+    },
+    include: { user: { include: { profile: true } } },
+    take: 20,
+  });
+  const preferredOwnerIds = [
+    byNick.get('DevE2EUserㄴSeoul')?.userId,
+    byNick.get('김진우_DEV_A')?.userId,
+    byNick.get('금치')?.userId,
+  ].filter(Boolean) as string[];
+  const ownerFromStores =
+    ownershipCandidates.find((o) => preferredOwnerIds.includes(o.userId))?.user
+      .profile ??
+    ownershipCandidates[0]?.user.profile ??
+    null;
+
   const owner =
-    byNick.get('금치') ??
+    ownerFromStores ??
     byNick.get('김진우_DEV_A') ??
+    byNick.get('금치') ??
     profiles[0];
-  const userA = byNick.get('김진우_DEV_A') ?? profiles[1] ?? owner;
-  const userB = byNick.get('박민수_DEV_B') ?? profiles[2] ?? userA;
-  if (!owner || !userA) throw new Error('need DEV users');
+  if (!owner) throw new Error('need DEV owner user');
+
+  await prisma.user.update({
+    where: { id: owner.userId },
+    data: { identityStatus: 'VERIFIED' },
+  });
+
+  const pickDistinct = (...preferred: Array<typeof owner | undefined>) => {
+    const used = new Set<string>([owner.userId]);
+    for (const p of preferred) {
+      if (p && !used.has(p.userId)) return p;
+    }
+    const fallback = profiles.find((p) => !used.has(p.userId));
+    if (!fallback) throw new Error('need distinct DEV participant users');
+    return fallback;
+  };
+
+  const userA = pickDistinct(
+    byNick.get('김진우_DEV_A'),
+    byNick.get('QAUser'),
+    profiles.find((p) => p.userId !== owner.userId),
+  );
+  const userB = pickDistinct(
+    byNick.get('박민수_DEV_B'),
+    byNick.get('DevE2EUserㄴSeoul'),
+  );
 
   const sport = await prisma.sport.findFirst();
   const coin = await prisma.coinAsset.findFirst();
@@ -59,7 +109,13 @@ async function main() {
   let ownerships = await prisma.storeOwnership.findMany({
     where: { userId: owner.userId, status: StoreOwnershipStatus.ACTIVE },
     include: { golfFacility: true, venue: true },
-    take: 3,
+    take: 5,
+  });
+  ownerships = ownerships.sort((a, b) => {
+    const pref = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+    if (a.golfFacilityId === pref) return -1;
+    if (b.golfFacilityId === pref) return 1;
+    return a.createdAt.getTime() - b.createdAt.getTime();
   });
 
   if (ownerships.length < 1) {
@@ -95,7 +151,44 @@ async function main() {
   }
 
   const storeA = ownerships[0]!;
-  const storeB = ownerships[1] ?? null;
+  let storeB = ownerships[1] ?? null;
+  if (!storeB) {
+    const otherFacility = await prisma.golfFacility.findFirst({
+      where: {
+        isActive: true,
+        isScreenJoinEligible: true,
+        id: { not: storeA.golfFacilityId },
+      },
+    });
+    if (otherFacility) {
+      let venueB = await prisma.venue.findFirst({
+        where: { golfFacilityId: otherFacility.id },
+      });
+      if (!venueB) {
+        venueB = await prisma.venue.create({
+          data: {
+            id: randomUUID(),
+            name: `${TAG} Store B ${otherFacility.displayName}`.slice(0, 80),
+            golfFacilityId: otherFacility.id,
+            sportId: sport.id,
+            address: otherFacility.roadAddress ?? otherFacility.lotAddress ?? '서울',
+            latitude: otherFacility.latitude ?? new Prisma.Decimal('37.51'),
+            longitude: otherFacility.longitude ?? new Prisma.Decimal('127.01'),
+          },
+        });
+      }
+      storeB = await prisma.storeOwnership.create({
+        data: {
+          id: randomUUID(),
+          userId: owner.userId,
+          golfFacilityId: otherFacility.id,
+          venueId: venueB.id,
+          status: StoreOwnershipStatus.ACTIVE,
+        },
+        include: { golfFacility: true, venue: true },
+      });
+    }
+  }
 
   // Cleanup prior tagged joins/schedules
   await prisma.recurringJoinSchedule.updateMany({
@@ -127,15 +220,17 @@ async function main() {
     confirmed: number;
     planned?: number;
     suffix: string;
+    hostUserId?: string;
   }) {
     const id = randomUUID();
     const planned = input.planned ?? 4;
+    const hostId = input.hostUserId ?? owner!.userId;
     await prisma.join.create({
       data: {
         id,
         sportId: sport!.id,
         venueId: input.venueId,
-        hostUserId: owner!.userId,
+        hostUserId: hostId,
         title: `${TAG} ${input.suffix}`,
         status: input.status,
         joinKind: JoinKind.STORE_MATCHING,
@@ -155,40 +250,36 @@ async function main() {
         roomCreationFeeAmount: new Prisma.Decimal('0'),
         rewardHoldTotalAmount: new Prisma.Decimal('0'),
         participants: {
-          create: [
-            {
-              userId: owner!.userId,
-              role: ParticipantRole.HOST,
-              participationStatus:
-                input.status === JoinStatus.COMPLETED
-                  ? ParticipationStatus.COMPLETED
-                  : ParticipationStatus.APPROVED,
-            },
-            ...(input.confirmed > 1
-              ? [
-                  {
-                    userId: userA!.userId,
-                    role: ParticipantRole.PARTICIPANT,
-                    participationStatus:
-                      input.status === JoinStatus.COMPLETED
-                        ? ParticipationStatus.COMPLETED
-                        : ParticipationStatus.APPROVED,
-                  },
-                ]
-              : []),
-            ...(input.confirmed > 2
-              ? [
-                  {
-                    userId: userB!.userId,
-                    role: ParticipantRole.PARTICIPANT,
-                    participationStatus:
-                      input.status === JoinStatus.COMPLETED
-                        ? ParticipationStatus.COMPLETED
-                        : ParticipationStatus.APPROVED,
-                  },
-                ]
-              : []),
-          ],
+          create: (() => {
+            const status =
+              input.status === JoinStatus.COMPLETED
+                ? ParticipationStatus.COMPLETED
+                : ParticipationStatus.APPROVED;
+            const rows: Array<{
+              userId: string;
+              role: ParticipantRole;
+              participationStatus: ParticipationStatus;
+            }> = [
+              {
+                userId: hostId,
+                role: ParticipantRole.HOST,
+                participationStatus: status,
+              },
+            ];
+            const seen = new Set([hostId]);
+            const extras = [owner!.userId, userA!.userId, userB!.userId];
+            for (const uid of extras) {
+              if (rows.length >= Math.max(1, input.confirmed)) break;
+              if (seen.has(uid)) continue;
+              seen.add(uid);
+              rows.push({
+                userId: uid,
+                role: ParticipantRole.PARTICIPANT,
+                participationStatus: status,
+              });
+            }
+            return rows;
+          })(),
         },
       },
     });
@@ -238,9 +329,25 @@ async function main() {
     isUrgent: true,
     confirmed: 1,
     suffix: 'A-open-urgent',
+    // Host must not be the recommend viewer (owner / DEV_A).
+    hostUserId: userB.userId,
   });
 
-  // Follow + region for recommendations
+  // Follow + region for recommendations (viewer = owner DEV_A)
+  await prisma.golfFacilityFollow.upsert({
+    where: {
+      userId_golfFacilityId: {
+        userId: owner.userId,
+        golfFacilityId: storeA.golfFacilityId,
+      },
+    },
+    create: {
+      id: randomUUID(),
+      userId: owner.userId,
+      golfFacilityId: storeA.golfFacilityId,
+    },
+    update: {},
+  });
   await prisma.golfFacilityFollow.upsert({
     where: {
       userId_golfFacilityId: {
@@ -275,7 +382,8 @@ async function main() {
       targetFemaleCount: 2,
       minimumPlayers: 2,
       matchingRewardTarget: MatchingRewardTarget.ALL,
-      rewardPerParticipant: new Prisma.Decimal('100'),
+      // DEV wallets are often at funding floor (~200); keep HOLD at 0 for scheduler E2E.
+      rewardPerParticipant: new Prisma.Decimal('0'),
       title: `${TAG} weekly wed 19`,
       recruitClosesHoursBefore: 3,
       status: RecurringJoinScheduleStatus.ACTIVE,

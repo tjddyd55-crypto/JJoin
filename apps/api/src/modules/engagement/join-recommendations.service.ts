@@ -31,8 +31,13 @@ export class JoinRecommendationsService {
   ): Promise<RecommendedJoinsResponse> {
     const limit = Math.min(20, Math.max(1, opts?.limit ?? 5));
     const now = new Date();
-    const includeDebug =
-      opts?.includeDebug === true && process.env.NODE_ENV !== 'production';
+    // Railway Development often sets NODE_ENV=production; allow debug when mock/hybrid auth.
+    const socialMode = (process.env.SOCIAL_AUTH_MODE ?? 'mock').trim().toLowerCase();
+    const allowDebug =
+      process.env.NODE_ENV !== 'production' ||
+      socialMode === 'mock' ||
+      socialMode === 'hybrid';
+    const includeDebug = opts?.includeDebug === true && allowDebug;
 
     const [
       candidateJoins,
