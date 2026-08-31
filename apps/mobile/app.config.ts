@@ -96,8 +96,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const naverUrlScheme = process.env.EXPO_PUBLIC_NAVER_LOGIN_URL_SCHEME ?? 'jjoinnaverlogin';
   const easProjectId =
     process.env.EXPO_PUBLIC_EAS_PROJECT_ID?.trim() || DEFAULT_EAS_PROJECT_ID;
-  const googleServicesFile = GOOGLE_SERVICES_BY_VARIANT[variant];
-  const googleServicesPath = path.resolve(__dirname, googleServicesFile);
+  const googleServicesFromEnv = process.env.GOOGLE_SERVICES_JSON?.trim();
+  const googleServicesFile =
+    googleServicesFromEnv || GOOGLE_SERVICES_BY_VARIANT[variant];
+  const googleServicesPath = path.isAbsolute(googleServicesFile)
+    ? googleServicesFile
+    : path.resolve(__dirname, googleServicesFile);
   const hasGoogleServices = fs.existsSync(googleServicesPath);
 
   const notificationIcon = notificationIconFor(variant);
