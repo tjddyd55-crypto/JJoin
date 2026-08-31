@@ -12,6 +12,7 @@ import {
 import type { JoinBookmarkDto } from '@jjoin/types';
 import { getApiClient } from '../../src/lib/api';
 import { getSecureSessionStore } from '../../src/session/SessionContext';
+import { NESTED_SCREEN_EDGES } from '../../src/ui/nested-screen';
 
 function joinDetailHref(joinId: string): Href {
   return { pathname: '/join/[joinId]', params: { joinId } } as Href;
@@ -41,11 +42,7 @@ export default function BookmarksScreen() {
   }, [load]);
 
   return (
-    <ScrollScreenFrame>
-      <Text variant="screenTitle" tone="primary">
-        찜한 조인
-      </Text>
-      <Spacer size="md" />
+    <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       {loading ? (
         <Text variant="body" tone="secondary">
           불러오는 중…

@@ -241,7 +241,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     name: identity.name,
     slug: identity.slug,
     owner: 'tjddyd55',
-    version: '0.0.3',
+    version: '0.0.4',
     orientation: 'portrait',
     icon: appIcon,
     scheme: identity.scheme,
@@ -256,7 +256,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     android: {
       package: identity.androidPackage,
-      versionCode: 3,
+      versionCode: 4,
       ...(hasGoogleServices ? { googleServicesFile: GOOGLE_SERVICES_FILE } : {}),
       adaptiveIcon,
       permissions: [

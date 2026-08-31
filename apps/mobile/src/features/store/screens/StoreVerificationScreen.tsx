@@ -33,6 +33,7 @@ import {
   facilityTypeLabel,
 } from '../../explore/api/golf-facility-explore';
 import { getApiClient } from '../../../lib/api';
+import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
 import { getSecureSessionStore } from '../../../session/SessionContext';
 import { formatFacilityRegion } from '../api/store-facility-search';
 import { StoreFacilityFinderModal } from '../components/StoreFacilityFinderModal';
@@ -176,7 +177,7 @@ export function StoreVerificationScreen() {
 
   if (loading) {
     return (
-      <FormScreenFrame>
+      <FormScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
         <ActivityIndicator color={gold} />
       </FormScreenFrame>
     );
@@ -184,6 +185,7 @@ export function StoreVerificationScreen() {
 
   return (
     <FormScreenFrame
+      edges={[...NESTED_SCREEN_EDGES]}
       footer={
         <StickyActionFrame>
           <Button
@@ -196,10 +198,6 @@ export function StoreVerificationScreen() {
         </StickyActionFrame>
       }
     >
-      <Text variant="screenTitle" tone="primary">
-        스크린골프 매장 인증
-      </Text>
-      <Spacer size="sm" />
       <Text variant="body" tone="secondary">
         여러 매장을 운영 중이라면 매장마다 인증을 추가할 수 있습니다.
       </Text>

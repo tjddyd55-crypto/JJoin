@@ -12,6 +12,7 @@ import {
 import type { GolfFacilityFollowDto } from '@jjoin/types';
 import { getApiClient } from '../../src/lib/api';
 import { getSecureSessionStore } from '../../src/session/SessionContext';
+import { NESTED_SCREEN_EDGES } from '../../src/ui/nested-screen';
 
 export default function FollowedStoresScreen() {
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
@@ -50,11 +51,7 @@ export default function FollowedStoresScreen() {
   }
 
   return (
-    <ScrollScreenFrame>
-      <Text variant="screenTitle" tone="primary">
-        팔로우한 매장
-      </Text>
-      <Spacer size="md" />
+    <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       {loading ? (
         <Text variant="body" tone="secondary">
           불러오는 중…

@@ -13,6 +13,7 @@ import { t } from '@jjoin/i18n';
 import type { WalletSummaryDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
+import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
 
 export function WalletFoundationScreen() {
   const theme = useTheme();
@@ -36,11 +37,7 @@ export function WalletFoundationScreen() {
   }, [load]);
 
   return (
-    <ScrollScreenFrame>
-      <Text variant="screenTitle" tone="primary">
-        {t('wallet.title')}
-      </Text>
-      <Spacer size="sm" />
+    <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       <Text variant="body" tone="secondary">
         {t('wallet.foundationNote')}
       </Text>

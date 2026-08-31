@@ -21,6 +21,7 @@ import {
 } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
+import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
 import {
   VERIFICATION_STATUS_LABELS,
   filterStoreJoins,
@@ -149,20 +150,15 @@ export function MyStoresScreen() {
   const primaryStore = activeStores[0];
 
   return (
-    <ScrollScreenFrame>
-      <Text variant="screenTitle" tone="primary">
-        내 매장
-      </Text>
+    <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       {error ? (
         <>
-          <Spacer size="sm" />
           <Text variant="body" tone="error">
             {error}
           </Text>
+          <Spacer size="sm" />
         </>
       ) : null}
-
-      <Spacer size="md" />
 
       {activeStores.length === 0 ? (
         <Card variant="base" padding="md">
@@ -196,6 +192,19 @@ export function MyStoresScreen() {
               <Badge label={`사용 가능 ${formatCoinWithLabel(store.walletAvailable ?? '0')}`} variant="success" />
               <Badge label={`홀드 ${formatCoinWithLabel(store.walletHeld ?? '0')}`} variant="neutral" />
             </Row>
+            <Spacer size="sm" />
+            <Button
+              label="운영 대시보드"
+              variant="secondary"
+              size="sm"
+              onPress={() =>
+                router.push({
+                  pathname: '/my/store-dashboard',
+                  params: { ownershipId: store.id },
+                })
+              }
+              fullWidth
+            />
           </Card>
         ))
       )}
@@ -242,16 +251,25 @@ export function MyStoresScreen() {
       <Spacer size="lg" />
 
       {activeStores.length > 0 ? (
-        <Button
-          label="모집 조인 만들기"
-          onPress={() =>
-            router.push({
-              pathname: '/my/create-store-join',
-              params: primaryStore ? { storeOwnershipId: primaryStore.id } : undefined,
-            })
-          }
-          fullWidth
-        />
+        <>
+          <Button
+            label="모집 조인 만들기"
+            onPress={() =>
+              router.push({
+                pathname: '/my/create-store-join',
+                params: primaryStore ? { storeOwnershipId: primaryStore.id } : undefined,
+              })
+            }
+            fullWidth
+          />
+          <Spacer size="sm" />
+          <Button
+            label="정기 조인"
+            variant="secondary"
+            onPress={() => router.push('/my/recurring-joins')}
+            fullWidth
+          />
+        </>
       ) : null}
 
       <Spacer size="lg" />
