@@ -19,6 +19,10 @@ import { t } from '@jjoin/i18n';
 import type { JoinListItemDto, MyJoinsResponse, RecommendedJoinDto } from '@jjoin/types';
 import { useSession, getSecureSessionStore } from '../../src/session/SessionContext';
 import { getApiClient } from '../../src/lib/api';
+import {
+  trackRecommendationClick,
+  trackRecommendationImpression,
+} from '../../src/lib/product-analytics';
 
 function joinDetailHref(joinId: string): Href {
   return { pathname: '/join/[joinId]', params: { joinId } } as Href;
@@ -29,10 +33,12 @@ export default function HomeScreen() {
   const router = useRouter();
   const theme = useTheme();
   const nickname = me?.publicProfile?.nickname;
+  const userId = me?.userId;
   const available = me?.walletSummary.availableCoin ?? '—';
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [myJoins, setMyJoins] = useState<MyJoinsResponse | null>(null);
   const [recommended, setRecommended] = useState<RecommendedJoinDto[]>([]);
+  const impressedRef = useMemo(() => new Set<string>(), []);
 
   useFocusEffect(
     useCallback(() => {
@@ -49,7 +55,15 @@ export default function HomeScreen() {
           setMyJoins(null);
         }
         if (recResult.status === 'fulfilled') {
-          setRecommended(recResult.value.items.slice(0, 5));
+          const items = recResult.value.items.slice(0, 5);
+          setRecommended(items);
+          if (userId) {
+            for (const item of items) {
+              if (impressedRef.has(item.joinId)) continue;
+              impressedRef.add(item.joinId);
+              trackRecommendationImpression(api, userId, item.joinId, 'home');
+            }
+          }
         } else {
           setRecommended([]);
         }
@@ -57,7 +71,7 @@ export default function HomeScreen() {
       return () => {
         cancelled = true;
       };
-    }, [api]),
+    }, [api, impressedRef, userId]),
   );
 
   const hostedActive = useMemo(
@@ -157,7 +171,10 @@ export default function HomeScreen() {
               <HomeRecommendedJoinCard
                 key={item.joinId}
                 item={item}
-                onPress={() => router.push(joinDetailHref(item.joinId))}
+                onPress={() => {
+                  trackRecommendationClick(api, item.joinId, item.joinId);
+                  router.push(joinDetailHref(item.joinId));
+                }}
               />
             ))}
             <Button
