@@ -26,7 +26,9 @@ apps/mobile/ios/
 
 # Firebase / FCM (local native config + secrets — do not commit)
 apps/mobile/google-services.json
+apps/mobile/firebase/google-services.*.json
 **/google-services.json
+**/google-services.*.json
 *firebase-adminsdk*.json
 *-firebase-adminsdk-*.json
 **/fcm-service-account*.json

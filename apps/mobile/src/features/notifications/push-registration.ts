@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { PushPlatform } from '@jjoin/types';
 import type { ApiClient } from '@jjoin/api-client';
+import { resolveAppVariant } from '../../lib/product-analytics';
 
 type NotificationsModule = typeof import('expo-notifications');
 type DeviceModule = typeof import('expo-device');
@@ -125,6 +126,7 @@ export async function registerPushDeviceWithServer(api: ApiClient): Promise<bool
       pushToken,
       platform: Platform.OS === 'ios' ? PushPlatform.IOS : PushPlatform.ANDROID,
       deviceId: null,
+      appVariant: resolveAppVariant(),
     });
     lastRegisteredToken = pushToken;
     return true;

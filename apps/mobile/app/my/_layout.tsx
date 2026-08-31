@@ -34,6 +34,7 @@ export default function MyLayout() {
         <Stack.Screen name="edit-profile" options={{ title: '프로필 수정' }} />
         <Stack.Screen name="account" options={{ title: '계정' }} />
         <Stack.Screen name="notifications" options={{ title: '알림' }} />
+        <Stack.Screen name="notification-settings" options={{ title: '알림 설정' }} />
       </Stack>
     </>
   );

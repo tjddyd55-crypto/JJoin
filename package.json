@@ -23,7 +23,9 @@
     "sync:public-golf-facilities:force": "pnpm exec tsx scripts/run-public-golf-facility-sync.ts --force",
     "matching-deadline": "pnpm exec tsx scripts/run-matching-deadline.ts",
     "chat-purge": "pnpm exec tsx scripts/run-chat-purge.ts",
-    "recurring-joins": "pnpm exec tsx scripts/run-recurring-joins.ts"
+    "recurring-joins": "pnpm exec tsx scripts/run-recurring-joins.ts",
+    "notification-delivery": "pnpm exec tsx scripts/run-notification-delivery.ts",
+    "attendance-reminders": "pnpm exec tsx scripts/run-attendance-reminders.ts"
   },
   "devDependencies": {
     "prettier": "^3.4.2",

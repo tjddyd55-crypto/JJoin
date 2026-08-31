@@ -1,6 +1,9 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { NotificationOutboxStatus } from '@prisma/client';
+import { shouldDeliverPushForType } from '@jjoin/domain';
+import { resolveApiAppVariantDb } from '../../config/app-variant';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationPreferenceStore } from './notification-preference.store';
 import {
   NOTIFICATION_DELIVERY_PROVIDER,
   type NotificationDeliveryProvider,
@@ -17,6 +20,7 @@ export class NotificationDeliveryService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly preferences: NotificationPreferenceStore,
     @Inject(NOTIFICATION_DELIVERY_PROVIDER)
     private readonly provider: NotificationDeliveryProvider,
   ) {}
@@ -34,6 +38,7 @@ export class NotificationDeliveryService {
     let processed = 0;
     let sent = 0;
     let failed = 0;
+    const apiVariant = resolveApiAppVariantDb();
     try {
       const now = new Date();
       const rows = await this.prisma.notificationOutbox.findMany({
@@ -51,7 +56,7 @@ export class NotificationDeliveryService {
                   id: true,
                   pushNotificationsEnabled: true,
                   pushDevices: {
-                    where: { active: true },
+                    where: { active: true, appVariant: apiVariant },
                     select: { id: true, pushToken: true },
                   },
                 },
@@ -90,9 +95,14 @@ export class NotificationDeliveryService {
     };
   }): Promise<'sent' | 'failed' | 'deferred'> {
     const { notification } = row;
-    const devices = notification.user.pushNotificationsEnabled
-      ? notification.user.pushDevices
-      : [];
+    const prefs = await this.preferences.getOrCreate(notification.userId);
+    const pushAllowed = shouldDeliverPushForType(
+      notification.type,
+      prefs,
+      notification.user.pushNotificationsEnabled,
+    );
+
+    const devices = pushAllowed ? notification.user.pushDevices : [];
 
     if (devices.length === 0) {
       await this.prisma.notificationOutbox.update({
@@ -100,7 +110,7 @@ export class NotificationDeliveryService {
         data: {
           status: NotificationOutboxStatus.SENT,
           sentAt: new Date(),
-          lastError: 'no_active_devices_or_push_disabled',
+          lastError: pushAllowed ? 'no_active_devices' : 'push_skipped_by_preference',
           attemptCount: { increment: 1 },
         },
       });

@@ -21,9 +21,10 @@ import type {
   JoinDetailDto,
   JoinInvitationDto,
 } from '@jjoin/types';
-import { NotificationType, Prisma } from '@prisma/client';
+import { NotificationType, Prisma, ProductEventType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationEventService } from '../notifications/notification-event.service';
+import { ProductEventsService } from '../analytics/product-events.service';
 import { JoinsService } from '../joins/joins.service';
 import { SettlementService } from '../settlement/settlement.service';
 import { JoinChatService } from './join-chat.service';
@@ -34,6 +35,7 @@ export class JoinInvitationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationEventService,
+    private readonly analytics: ProductEventsService,
     private readonly settlement: SettlementService,
     @Inject(forwardRef(() => JoinsService))
     private readonly joins: JoinsService,
@@ -119,6 +121,13 @@ export class JoinInvitationService {
             invitationId: row.id,
           },
           eventKey: joinInvitationNotificationEventKey(inviteeUserId, row.id),
+        });
+        void this.analytics.trackOne({
+          eventType: ProductEventType.JOIN_INVITATION_SENT,
+          userId: hostUserId,
+          joinId,
+          source: 'api',
+          metadata: { invitationId: row.id, inviteeUserId },
         });
 
         created.push(this.toDto(row, join.venue.name, join.startAt));
@@ -242,6 +251,14 @@ export class JoinInvitationService {
     await this.chat.ensureRoomForJoin(joinId);
     await this.chat.onMemberJoined(joinId, userId);
     await this.urgent.clearIfNeeded(joinId);
+
+    void this.analytics.trackOne({
+      eventType: ProductEventType.JOIN_INVITATION_ACCEPTED,
+      userId,
+      joinId,
+      source: 'api',
+      metadata: { invitationId },
+    });
 
     return this.joins.getDetail(joinId, userId);
   }

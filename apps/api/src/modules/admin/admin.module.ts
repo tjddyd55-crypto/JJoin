@@ -21,6 +21,6 @@ import { AdminGuard } from '../../common/admin.guard';
     AdminAuthService,
     AdminGuard,
   ],
-  exports: [AdminBootstrapService],
+  exports: [AdminBootstrapService, AdminGuard],
 })
 export class AdminModule {}

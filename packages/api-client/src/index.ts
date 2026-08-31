@@ -45,6 +45,9 @@ import {
   type NotificationListResponse,
   type AppNotificationDto,
   type NotificationPreferenceDto,
+  type TrackProductEventsRequest,
+  type GrowthAnalyticsDto,
+  type GrowthAnalyticsPeriod,
   type CoinSupplyDashboardDto,
   type CoinSupplyReconciliationDto,
   type CoinIssuanceListResponse,
@@ -956,12 +959,29 @@ export class ApiClient {
   }
 
   async setNotificationPreference(
-    body: NotificationPreferenceDto,
+    body: Partial<NotificationPreferenceDto>,
   ): Promise<NotificationPreferenceDto> {
     const res = await request(`${this.config.baseUrl}/me/notification-preference`, {
       method: 'PATCH',
       headers: await this.headers(true),
       body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async trackProductEvents(body: TrackProductEventsRequest): Promise<{ accepted: number }> {
+    const res = await request(`${this.config.baseUrl}/me/product-events`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async getAdminGrowthAnalytics(period?: GrowthAnalyticsPeriod): Promise<GrowthAnalyticsDto> {
+    const params = period ? `?period=${encodeURIComponent(period)}` : '';
+    const res = await request(`${this.config.baseUrl}/admin/analytics/growth${params}`, {
+      headers: await this.headers(true),
     });
     return parseJson(res);
   }

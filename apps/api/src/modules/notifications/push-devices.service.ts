@@ -4,8 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PushPlatform, PushProviderKind } from '@prisma/client';
+import { appVariantToDb, normalizeAppVariant } from '@jjoin/domain';
 import { registerPushDeviceSchema } from '@jjoin/validation';
 import type { PushDeviceDto, RegisterPushDeviceRequest } from '@jjoin/types';
+import { resolveApiAppVariant } from '../../config/app-variant';
 import { PrismaService } from '../../prisma/prisma.service';
 
 const REGISTER_RATE_WINDOW_MS = 60 * 60 * 1000;
@@ -20,7 +22,10 @@ export class PushDevicesService {
     if (!parsed.success) {
       throw new BadRequestException('invalid_push_device');
     }
-    const { pushToken, platform, deviceId } = parsed.data;
+    const { pushToken, platform, deviceId, appVariant: clientVariant } = parsed.data;
+    const appVariant = appVariantToDb(
+      clientVariant ? normalizeAppVariant(clientVariant) : resolveApiAppVariant(),
+    );
     const since = new Date(Date.now() - REGISTER_RATE_WINDOW_MS);
     const recent = await this.prisma.pushDevice.count({
       where: { userId, updatedAt: { gte: since } },
@@ -38,6 +43,7 @@ export class PushDevicesService {
         platform: platform as PushPlatform,
         provider: PushProviderKind.EXPO,
         deviceId: deviceId ?? null,
+        appVariant,
         active: true,
         lastSeenAt: now,
       },
@@ -45,6 +51,7 @@ export class PushDevicesService {
         userId,
         platform: platform as PushPlatform,
         deviceId: deviceId ?? null,
+        appVariant,
         active: true,
         lastSeenAt: now,
       },

@@ -13,10 +13,14 @@ import type {
   NotificationType,
 } from '@jjoin/types';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationPreferenceStore } from './notification-preference.store';
 
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly preferences: NotificationPreferenceStore,
+  ) {}
 
   async list(
     userId: string,
@@ -81,18 +85,45 @@ export class NotificationsService {
       select: { pushNotificationsEnabled: true },
     });
     if (!user) throw new NotFoundException('user_not_found');
-    return { pushEnabled: user.pushNotificationsEnabled };
+    const granular = await this.preferences.getOrCreate(userId);
+    return {
+      pushEnabled: user.pushNotificationsEnabled,
+      ...granular,
+    };
   }
 
   async setPreference(userId: string, raw: unknown): Promise<NotificationPreferenceDto> {
     const parsed = notificationPreferenceSchema.safeParse(raw);
     if (!parsed.success) throw new BadRequestException('invalid_preference');
-    const user = await this.prisma.user.update({
-      where: { id: userId },
-      data: { pushNotificationsEnabled: parsed.data.pushEnabled },
-      select: { pushNotificationsEnabled: true },
-    });
-    return { pushEnabled: user.pushNotificationsEnabled };
+
+    const { pushEnabled, ...granularPatch } = parsed.data;
+    if (pushEnabled === undefined && Object.keys(granularPatch).length === 0) {
+      throw new BadRequestException('invalid_preference');
+    }
+    const granularKeys = [
+      'joinAlertsEnabled',
+      'followedStoreEnabled',
+      'urgentJoinEnabled',
+      'invitationEnabled',
+      'attendanceReminderEnabled',
+      'bookmarkUpdatesEnabled',
+    ] as const;
+    const patch: Partial<Record<(typeof granularKeys)[number], boolean>> = {};
+    for (const key of granularKeys) {
+      if (granularPatch[key] !== undefined) patch[key] = granularPatch[key];
+    }
+
+    if (pushEnabled !== undefined) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { pushNotificationsEnabled: pushEnabled },
+      });
+    }
+    if (Object.keys(patch).length > 0) {
+      await this.preferences.update(userId, patch);
+    }
+
+    return this.getPreference(userId);
   }
 
   private toDto(row: {
