@@ -19,6 +19,8 @@ import {
   type AdminStoreKpiPeriod,
   type AdminStoreListItemDto,
   type StoreOwnershipRequestDto,
+  type GrowthAnalyticsDto,
+  type GrowthAnalyticsPeriod,
 } from '@jjoin/types';
 import { formatKoreanPhoneDisplay, formatNumber } from '@jjoin/domain';
 
@@ -144,6 +146,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   const disputeActive = loc.pathname.startsWith('/disputes');
   const storeVerificationActive = loc.pathname.startsWith('/store-verifications');
   const approvedStoresActive = loc.pathname.startsWith('/stores');
+  const analyticsActive = loc.pathname.startsWith('/analytics');
   if (!token) {
     return (
       <div className="layout layout-wide">
@@ -169,6 +172,9 @@ function Shell({ children }: { children: React.ReactNode }) {
         </Link>
         <Link to="/stores" className={approvedStoresActive ? 'nav-active' : undefined}>
           승인 매장
+        </Link>
+        <Link to="/analytics" className={analyticsActive ? 'nav-active' : undefined}>
+          운영 Analytics
         </Link>
         <button
           onClick={() => {
@@ -1153,6 +1159,90 @@ function ApprovedStoreDetailPage() {
   );
 }
 
+function GrowthAnalyticsPage() {
+  const [period, setPeriod] = useState<GrowthAnalyticsPeriod>('30d');
+  const [data, setData] = useState<GrowthAnalyticsDto | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void api<GrowthAnalyticsDto>(`/admin/analytics/growth?period=${period}`)
+      .then(setData)
+      .catch((e) => setError(e instanceof Error ? e.message : 'load_failed'));
+  }, [period]);
+
+  if (error) return <p style={{ color: '#b00020' }}>{error}</p>;
+  if (!data) return <p>불러오는 중…</p>;
+
+  return (
+    <div>
+      <h1>운영 Analytics</h1>
+      <div className="row" style={{ marginBottom: 16 }}>
+        {(['7d', '30d', 'all'] as GrowthAnalyticsPeriod[]).map((p) => (
+          <button
+            key={p}
+            className={period === p ? 'nav-active' : undefined}
+            onClick={() => setPeriod(p)}
+          >
+            {p}
+          </button>
+        ))}
+      </div>
+
+      <section className="card" style={{ padding: 16, marginBottom: 12 }}>
+        <h2>추천 조인</h2>
+        <p>
+          노출 {data.recommendation.impressions} · 클릭 {data.recommendation.clicks} · 참가{' '}
+          {data.recommendation.joined}
+        </p>
+        <p>
+          CTR {data.recommendation.ctrPercent ?? '—'}% · 참가 전환{' '}
+          {data.recommendation.joinConversionPercent ?? '—'}%
+        </p>
+      </section>
+
+      <section className="card" style={{ padding: 16, marginBottom: 12 }}>
+        <h2>공유 링크</h2>
+        <p>
+          열람 {data.share.opened} · CTA {data.share.ctaClicked} · CTA율{' '}
+          {data.share.ctaRatePercent ?? '—'}%
+        </p>
+      </section>
+
+      <section className="card" style={{ padding: 16, marginBottom: 12 }}>
+        <h2>긴급 모집</h2>
+        <p>
+          오픈 {data.urgent.opened} · 조회 {data.urgent.viewed} · 참가 {data.urgent.joined} ·
+          성사 {data.urgent.filled} · 성사율 {data.urgent.fillRatePercent ?? '—'}%
+        </p>
+      </section>
+
+      <section className="card" style={{ padding: 16, marginBottom: 12 }}>
+        <h2>재초대</h2>
+        <p>
+          발송 {data.invitation.sent} · 수락 {data.invitation.accepted} · 수락률{' '}
+          {data.invitation.acceptRatePercent ?? '—'}%
+        </p>
+      </section>
+
+      <section className="card" style={{ padding: 16, marginBottom: 12 }}>
+        <h2>정기 조인</h2>
+        <p>
+          생성 {data.recurring.occurrencesCreated} · 성사 {data.recurring.filled} · 성사율{' '}
+          {data.recurring.fillRatePercent ?? '—'}%
+        </p>
+      </section>
+
+      <section className="card" style={{ padding: 16 }}>
+        <h2>팔로우</h2>
+        <p>
+          알림 {data.follow.notificationsSent} · 클릭 {data.follow.clicks} · 참가{' '}
+          {data.follow.joined}
+        </p>
+      </section>
+    </div>
+  );
+}
+
 export function App() {
   return (
     <Shell>
@@ -1167,6 +1257,7 @@ export function App() {
         <Route path="/store-verifications/:requestId" element={<StoreVerificationDetailPage />} />
         <Route path="/stores" element={<ApprovedStoresPage />} />
         <Route path="/stores/:ownershipId" element={<ApprovedStoreDetailPage />} />
+        <Route path="/analytics" element={<GrowthAnalyticsPage />} />
       </Routes>
     </Shell>
   );
