@@ -331,6 +331,7 @@ export const createClubEventSchema = z.object({
   venueName: z.string().trim().min(1).max(120),
   venueAddress: z.string().trim().max(200).nullable().optional(),
   venueId: z.string().uuid().nullable().optional(),
+  golfFacilityId: z.string().uuid().nullable().optional(),
   capacity: z.number().int().min(1).max(200).nullable().optional(),
   responseDeadline: z.string().datetime(),
   memo: z.string().trim().max(500).nullable().optional(),

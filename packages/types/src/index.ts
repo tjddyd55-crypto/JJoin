@@ -1793,6 +1793,7 @@ export type CreateClubEventRequest = {
   venueName: string;
   venueAddress?: string | null;
   venueId?: string | null;
+  golfFacilityId?: string | null;
   capacity?: number | null;
   responseDeadline: string;
   memo?: string | null;
@@ -1816,12 +1817,17 @@ export type ClubEventListItemDto = {
 
 export type ClubEventDetailDto = ClubEventListItemDto & {
   venueAddress: string | null;
+  venueId: string | null;
+  golfFacilityId: string | null;
   responseDeadline: string;
   memo: string | null;
   attendanceFinalized: boolean;
+  finalizedAttendedCount: number;
+  finalizedNoShowCount: number;
   maybeCount: number;
   memberAttendingCount: number;
   externalParticipantCount: number;
+  totalOccupiedCount: number;
   eventAccounting: { income: string; expense: string; balance: string } | null;
   attendances: ClubEventAttendanceDto[];
 };
@@ -1938,6 +1944,7 @@ export type ClubUrgentRecruitPrefillDto = {
   venueName: string;
   venueAddress: string | null;
   venueId: string | null;
+  golfFacilityId: string | null;
   startsAt: string;
   remainingSeats: number;
 };

@@ -138,6 +138,25 @@ export function computeRemainingEventCapacity(capacity: number | null | undefine
   return Math.max(capacity - attendingCount, 0);
 }
 
+/** Occupied seats = internal ATTENDING responses + external approved join participants. */
+export function computeEventOccupiedSeats(input: {
+  memberAttendingCount: number;
+  externalParticipantCount: number;
+}): number {
+  return Math.max(0, input.memberAttendingCount) + Math.max(0, input.externalParticipantCount);
+}
+
+/** SSOT remaining capacity for club events (home, detail, urgent CTA, join link). */
+export function computeClubEventRemainingCapacity(
+  capacity: number | null | undefined,
+  memberAttendingCount: number,
+  externalParticipantCount = 0,
+): number | null {
+  if (capacity == null || capacity <= 0) return null;
+  const occupied = computeEventOccupiedSeats({ memberAttendingCount, externalParticipantCount });
+  return Math.max(capacity - occupied, 0);
+}
+
 export const ACTIVE_CLUB_EVENT_STATUSES = new Set(['OPEN', 'SCHEDULED', 'IN_PROGRESS']);
 
 export function isActiveClubEventStatus(status: string): boolean {

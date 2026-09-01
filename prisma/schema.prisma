@@ -1436,6 +1436,7 @@ model GolfFacility {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   venue                  Venue?
+  clubEvents             ClubEvent[]
   storeOwnershipRequests StoreOwnershipRequest[]
   storeOwnerships        StoreOwnership[]
   follows                GolfFacilityFollow[]
@@ -1630,6 +1631,7 @@ model ClubEvent {
   venueName          String          @map("venue_name")
   venueAddress       String?         @map("venue_address")
   venueId            String?         @map("venue_id") @db.Uuid
+  golfFacilityId     String?         @map("golf_facility_id") @db.Uuid
   capacity           Int?
   responseDeadline   DateTime        @map("response_deadline") @db.Timestamptz(6)
   memo               String?
@@ -1641,6 +1643,7 @@ model ClubEvent {
 
   club              Club                  @relation(fields: [clubId], references: [id], onDelete: Cascade)
   venue             Venue?                @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  golfFacility      GolfFacility?         @relation(fields: [golfFacilityId], references: [id], onDelete: SetNull)
   createdBy         User                  @relation("ClubEventCreator", fields: [createdByUserId], references: [id])
   attendances       ClubEventAttendance[]
   accountingEntries ClubAccountingEntry[]
