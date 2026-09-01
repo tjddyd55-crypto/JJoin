@@ -85,6 +85,7 @@ import { MatchingJoinsService } from './matching-joins.service';
 import { JoinEngagementNotifyService } from '../engagement/join-engagement-notify.service';
 import { UrgentVacancyService } from '../join-loop/urgent-vacancy.service';
 import { JoinChatService } from '../join-loop/join-chat.service';
+import { ClubJoinLinkService } from '../clubs/club-join-link.service';
 import type { AttendanceIntent } from '@jjoin/types';
 
 const ACTIVE_JOIN_STATUSES: JoinStatus[] = [JoinStatus.OPEN, JoinStatus.FULL];
@@ -112,6 +113,7 @@ export class JoinsService {
     private readonly urgentVacancy: UrgentVacancyService,
     @Inject(forwardRef(() => JoinChatService))
     private readonly joinChat: JoinChatService,
+    private readonly clubJoinLink: ClubJoinLinkService,
   ) {}
 
   ping() {
@@ -176,6 +178,12 @@ export class JoinsService {
     if (Number.isNaN(startAt.getTime()) || startAt.getTime() <= Date.now()) {
       throw new BadRequestException('start_at_must_be_future');
     }
+
+    const clubLink = await this.clubJoinLink.assertCanLinkJoin(hostUserId, {
+      clubId: input.clubId,
+      clubEventId: input.clubEventId,
+      plannedPlayerCount: input.plannedPlayerCount,
+    });
 
     const clientIdempotencyKey = input.idempotencyKey?.trim();
     if (clientIdempotencyKey) {
@@ -351,6 +359,16 @@ export class JoinsService {
           joinId,
           idempotencyKey: `join:${idemBase}:reward-hold`,
         });
+
+        if (clubLink) {
+          await this.clubJoinLink.attachJoinToClubEvent(
+            tx,
+            joinId,
+            clubLink.clubId,
+            clubLink.clubEventId,
+            clubLink.urgentSeats,
+          );
+        }
       });
     } catch (e) {
       if (e instanceof CoinPolicyDisabledError) {
