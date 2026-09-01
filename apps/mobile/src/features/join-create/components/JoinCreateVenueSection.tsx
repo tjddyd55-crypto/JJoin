@@ -14,6 +14,7 @@ import {
   spacing,
   useTheme,
 } from '@jjoin/design-system';
+import type { IconName } from '@jjoin/design-system';
 import type { ApiClient } from '@jjoin/api-client';
 import type { GolfFacilityMapDto, UserVenuePickerItemDto } from '@jjoin/types';
 import { facilityTypeLabel } from '../../explore/api/golf-facility-explore';
@@ -31,6 +32,12 @@ type Props = {
 };
 
 type PickerAction = 'map' | 'search' | 'custom' | null;
+
+const PLACE_ACTIONS: Array<{ action: PickerAction; label: string; icon: IconName }> = [
+  { action: 'map', label: '지도에서 찾기', icon: 'location' },
+  { action: 'search', label: '주소로 검색', icon: 'search' },
+  { action: 'custom', label: '직접 입력', icon: 'edit' },
+];
 
 export function JoinCreateVenueSection({ api, selected, onChange, onPickFromMap }: Props) {
   const theme = useTheme();
@@ -53,6 +60,7 @@ export function JoinCreateVenueSection({ api, selected, onChange, onPickFromMap 
   const themed = useMemo(
     () => ({
       listRowBorder: { borderBottomColor: theme.colors.border.subtle },
+      emptyState: { backgroundColor: theme.colors.surface.card },
       sheet: {
         backgroundColor: theme.colors.surface.elevated,
         borderTopLeftRadius: theme.radius.lg,
@@ -216,6 +224,23 @@ export function JoinCreateVenueSection({ api, selected, onChange, onPickFromMap 
     return facilityTypeLabel(selected.facilityType);
   }, [selected?.facilityType]);
 
+  const bothListsEmpty = !loadingLists && recent.length === 0 && favorites.length === 0;
+
+  const renderPlaceActions = (size: 'sm' | 'md' = 'sm') => (
+    <View style={styles.actionCol}>
+      {PLACE_ACTIONS.map(({ action, label, icon }) => (
+        <Button
+          key={action ?? 'none'}
+          label={label}
+          variant="secondary"
+          size={size}
+          leftIcon={icon}
+          onPress={() => openAction(action)}
+        />
+      ))}
+    </View>
+  );
+
   if (venueSelectionHasPlace(selected)) {
     return (
       <View style={styles.block}>
@@ -266,14 +291,24 @@ export function JoinCreateVenueSection({ api, selected, onChange, onPickFromMap 
   return (
     <View style={styles.block}>
       <Text variant="bodyStrong">장소</Text>
-      <Card padding="sm">
+
+      <View style={[styles.emptyState, themed.emptyState]}>
         <Text variant="body" tone="secondary">
-          장소를 선택해주세요
+          선택된 장소가 없습니다
         </Text>
-      </Card>
+        <Text variant="caption" tone="tertiary">
+          아래 방법 중 하나로 장소를 선택해주세요.
+        </Text>
+      </View>
+
+      {renderPlaceActions()}
 
       {loadingLists ? (
         <ActivityIndicator color={theme.colors.action.primary} style={styles.loader} />
+      ) : bothListsEmpty ? (
+        <Text variant="caption" tone="tertiary" style={styles.compactEmpty}>
+          최근 또는 즐겨찾기한 장소가 아직 없습니다.
+        </Text>
       ) : (
         <>
           <VenueListSection
@@ -282,6 +317,7 @@ export function JoinCreateVenueSection({ api, selected, onChange, onPickFromMap 
             items={recent}
             onSelect={selectPickerItem}
             listRowBorder={themed.listRowBorder}
+            compactEmpty
           />
           <VenueListSection
             title="즐겨찾기"
@@ -290,18 +326,10 @@ export function JoinCreateVenueSection({ api, selected, onChange, onPickFromMap 
             onSelect={selectPickerItem}
             showStar
             listRowBorder={themed.listRowBorder}
+            compactEmpty
           />
         </>
       )}
-
-      <Text variant="caption" tone="secondary" style={styles.otherLabel}>
-        다른 장소 찾기
-      </Text>
-      <View style={styles.actionCol}>
-        <Button label="지도에서 지정" variant="secondary" onPress={() => openAction('map')} />
-        <Button label="주소 검색" variant="secondary" onPress={() => openAction('search')} />
-        <Button label="직접 입력" variant="secondary" onPress={() => openAction('custom')} />
-      </View>
 
       {actionError ? (
         <Text variant="caption" tone="error">
@@ -322,9 +350,7 @@ export function JoinCreateVenueSection({ api, selected, onChange, onPickFromMap 
             <Text variant="sectionTitle" style={styles.sheetTitle}>
               장소 변경
             </Text>
-            <Button label="지도에서 지정" variant="secondary" onPress={() => openAction('map')} />
-            <Button label="주소 검색" variant="secondary" onPress={() => openAction('search')} />
-            <Button label="직접 입력" variant="secondary" onPress={() => openAction('custom')} />
+            {renderPlaceActions('md')}
             <Button label="취소" variant="secondary" onPress={() => setChangeOpen(false)} />
           </View>
         </Pressable>
@@ -416,6 +442,7 @@ function VenueListSection({
   onSelect,
   showStar = false,
   listRowBorder,
+  compactEmpty = false,
 }: {
   title: string;
   empty: string;
@@ -423,8 +450,10 @@ function VenueListSection({
   onSelect: (item: UserVenuePickerItemDto) => void;
   showStar?: boolean;
   listRowBorder: { borderBottomColor: string };
+  compactEmpty?: boolean;
 }) {
   if (!items.length) {
+    if (compactEmpty) return null;
     return (
       <View style={styles.listSection}>
         <Text variant="caption" tone="secondary">
@@ -467,9 +496,17 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   venueName: { flex: 1 },
-  loader: { marginVertical: spacing.sm },
-  otherLabel: { marginTop: spacing.xs },
-  actionCol: { gap: spacing.md },
+  emptyState: {
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.xxs,
+  },
+  compactEmpty: {
+    marginTop: spacing.xxs,
+  },
+  loader: { marginVertical: spacing.xs },
+  actionCol: { gap: spacing.sm },
   listSection: { gap: spacing.xxs },
   listRow: {
     paddingVertical: spacing.xs,
@@ -485,7 +522,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.md,
   },
-  sheetTitle: { marginBottom: spacing.xs },
+  sheetTitle: { marginBottom: spacing.xxs },
   modal: {
     flex: 1,
     padding: spacing.lg,
@@ -497,7 +534,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
-  hitList: { flex: 1, gap: spacing.xs },
+  hitList: { flex: 1, gap: spacing.xxs },
   hitRow: {
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
