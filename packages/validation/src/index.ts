@@ -309,7 +309,20 @@ export const createClubSchema = z.object({
   name: z.string().trim().min(2).max(40),
   coverImageUrl: z.string().trim().url().max(500).nullable().optional(),
   intro: z.string().trim().max(120).nullable().optional(),
-  region: z.string().trim().min(1).max(80),
+  /** Legacy single region — optional when activityRegions provided. */
+  region: z.string().trim().min(1).max(80).optional(),
+  activityRegions: z
+    .array(
+      z.object({
+        sido: z.string().trim().min(1).max(40),
+        sigungu: z.string().trim().min(1).max(40),
+        parentSigungu: z.string().trim().max(40).nullable().optional(),
+        displayName: z.string().trim().max(80).nullable().optional(),
+      }),
+    )
+    .min(1)
+    .max(20)
+    .optional(),
   activityType: z.enum(['SCREEN', 'FIELD', 'SCREEN_AND_FIELD']),
   primaryVenueId: z.string().uuid().nullable().optional(),
   primaryVenueName: z.string().trim().max(120).nullable().optional(),
@@ -319,9 +332,42 @@ export const createClubSchema = z.object({
     .enum(['TWENTIES', 'THIRTIES', 'FORTIES', 'FIFTIES', 'SIXTIES_PLUS'])
     .nullable()
     .optional(),
+}).superRefine((data, ctx) => {
+  if (!data.region?.trim() && !data.activityRegions?.length) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'region_or_activity_regions_required',
+      path: ['region'],
+    });
+  }
 });
 
 export type CreateClubInput = z.infer<typeof createClubSchema>;
+
+export const clubActivityRegionSchema = z.object({
+  sido: z.string().trim().min(1).max(40),
+  sigungu: z.string().trim().min(1).max(40),
+  parentSigungu: z.string().trim().max(40).nullable().optional(),
+  displayName: z.string().trim().max(80).nullable().optional(),
+});
+
+export const updateClubSchema = z.object({
+  name: z.string().trim().min(2).max(40).optional(),
+  coverImageUrl: z.string().trim().url().max(500).nullable().optional(),
+  intro: z.string().trim().max(120).nullable().optional(),
+  activityRegions: z.array(clubActivityRegionSchema).min(1).max(20).optional(),
+  activityType: z.enum(['SCREEN', 'FIELD', 'SCREEN_AND_FIELD']).optional(),
+  primaryVenueId: z.string().uuid().nullable().optional(),
+  primaryVenueName: z.string().trim().max(120).nullable().optional(),
+  joinMode: z.enum(['APPROVAL', 'INSTANT']).optional(),
+  visibility: z.enum(['PUBLIC', 'PRIVATE']).optional(),
+  primaryAgeGroup: z
+    .enum(['TWENTIES', 'THIRTIES', 'FORTIES', 'FIFTIES', 'SIXTIES_PLUS'])
+    .nullable()
+    .optional(),
+});
+
+export type UpdateClubInput = z.infer<typeof updateClubSchema>;
 
 export const createClubEventSchema = z.object({
   title: z.string().trim().min(1).max(80),

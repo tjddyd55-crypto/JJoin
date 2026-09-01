@@ -35,6 +35,10 @@ export function canManageClubNotices(membership: ClubMembershipContext | null | 
   return isClubStaff(membership);
 }
 
+export function canManageClubProfile(membership: ClubMembershipContext | null | undefined): boolean {
+  return isClubStaff(membership);
+}
+
 export function canApproveClubMembership(
   membership: ClubMembershipContext | null | undefined,
 ): boolean {

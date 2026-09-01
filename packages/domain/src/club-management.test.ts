@@ -8,6 +8,7 @@ import {
   countAttendanceResponses,
   formatAttendanceRateDisplay,
   canLeaveClub,
+  canManageClubProfile,
   isClubStaff,
 } from './club-management';
 import { ClubMembershipRole, ClubMembershipStatus } from '@jjoin/types';
@@ -59,6 +60,14 @@ test('club role permissions', () => {
   assert.equal(
     isClubStaff({ role: ClubMembershipRole.MANAGER, status: ClubMembershipStatus.ACTIVE }),
     true,
+  );
+  assert.equal(
+    canManageClubProfile({ role: ClubMembershipRole.MANAGER, status: ClubMembershipStatus.ACTIVE }),
+    true,
+  );
+  assert.equal(
+    canManageClubProfile({ role: ClubMembershipRole.MEMBER, status: ClubMembershipStatus.ACTIVE }),
+    false,
   );
   assert.equal(
     canLeaveClub({ role: ClubMembershipRole.OWNER, status: ClubMembershipStatus.ACTIVE }),

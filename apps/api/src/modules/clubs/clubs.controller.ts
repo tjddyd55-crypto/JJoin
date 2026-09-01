@@ -20,6 +20,7 @@ import type {
   UpdateClubAccountingEntryRequest,
   UpdateClubNoticeRequest,
   UpdateClubEventAttendanceRequest,
+  UpdateClubRequest,
 } from '@jjoin/types';
 import { CurrentUserId, MockAuthGuard } from '../../common/mock-auth.guard';
 import { ClubsService } from './clubs.service';
@@ -56,6 +57,16 @@ export class ClubsController {
   @UseGuards(MockAuthGuard)
   detail(@CurrentUserId() userId: string, @Param('clubId') clubId: string) {
     return this.service.getClubDetail(userId, clubId);
+  }
+
+  @Patch(':clubId')
+  @UseGuards(MockAuthGuard)
+  update(
+    @CurrentUserId() userId: string,
+    @Param('clubId') clubId: string,
+    @Body() body: UpdateClubRequest,
+  ) {
+    return this.service.updateClub(userId, clubId, body);
   }
 
   @Post(':clubId/join')

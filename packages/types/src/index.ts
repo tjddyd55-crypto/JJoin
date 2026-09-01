@@ -1726,7 +1726,9 @@ export type CreateClubRequest = {
   name: string;
   coverImageUrl?: string | null;
   intro?: string | null;
-  region: string;
+  /** Legacy single region string — optional when activityRegions is set. */
+  region?: string;
+  activityRegions?: ClubActivityRegionInput[];
   activityType: ClubActivityType;
   primaryVenueId?: string | null;
   primaryVenueName?: string | null;
@@ -1735,12 +1737,41 @@ export type CreateClubRequest = {
   primaryAgeGroup?: ClubAgeGroup | null;
 };
 
+export type ClubActivityRegionInput = {
+  sido: string;
+  sigungu: string;
+  parentSigungu?: string | null;
+  displayName?: string | null;
+};
+
+export type ClubActivityRegionDto = {
+  sido: string;
+  sigungu: string;
+  parentSigungu: string | null;
+  displayName: string;
+};
+
+export type UpdateClubRequest = {
+  name?: string;
+  coverImageUrl?: string | null;
+  intro?: string | null;
+  activityRegions?: ClubActivityRegionInput[];
+  activityType?: ClubActivityType;
+  primaryVenueId?: string | null;
+  primaryVenueName?: string | null;
+  joinMode?: ClubJoinMode;
+  visibility?: ClubVisibility;
+  primaryAgeGroup?: ClubAgeGroup | null;
+};
+
 export type ClubSummaryDto = {
   id: string;
   name: string;
   coverImageUrl: string | null;
   intro: string | null;
+  /** Legacy primary display region (first activity region compact). */
   region: string;
+  activityRegions: ClubActivityRegionDto[];
   activityType: ClubActivityType;
   primaryVenueName: string | null;
   joinMode: ClubJoinMode;

@@ -510,6 +510,7 @@ export {
   canManageClubAccounting,
   canManageClubEvents,
   canManageClubNotices,
+  canManageClubProfile,
   canRespondToClubEventAttendance,
   clubActivityTypeLabel,
   clubAgeGroupLabel,
@@ -534,6 +535,20 @@ export {
   canMemberUpdateAttendanceResponse,
   type MemberAttendanceSummary,
 } from './club-management';
+
+export {
+  buildClubActivityRegionDisplay,
+  clubActivityRegionChipLabel,
+  clubActivityRegionKey,
+  dedupeClubActivityRegions,
+  formatClubActivityRegionsCompact,
+  normalizeClubActivityRegionInput,
+  primaryClubRegionString,
+  type ClubActivityRegionDtoShape,
+  type ClubActivityRegionInput,
+} from './club-activity-regions';
+
+export { isRawVenueIdLabel, resolveVenueDisplayName } from './venue-display';
 
 export {
   isWithinKstYear,
