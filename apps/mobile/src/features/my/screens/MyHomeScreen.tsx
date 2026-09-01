@@ -229,11 +229,13 @@ export function MyHomeScreen() {
             />
             <ListRow
               label={t('my.notifications')}
+              subtitle={t('my.notifications.subtitle')}
               icon="notification"
               onPress={() => router.push('/my/notifications')}
             />
             <ListRow
-              label="알림 설정"
+              label={t('my.notificationSettings')}
+              subtitle={t('my.notificationSettings.subtitle')}
               icon="notification"
               onPress={() => router.push('/my/notification-settings' as Href)}
             />
