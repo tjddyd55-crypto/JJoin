@@ -79,7 +79,7 @@ async function main() {
       data: {
         clubId: club.id,
         userId: m.userId,
-        role: ClubMembershipRole.MEMBER,
+        role: m.userId === members[1]?.userId ? ClubMembershipRole.MANAGER : ClubMembershipRole.MEMBER,
         status: ClubMembershipStatus.ACTIVE,
         joinedAt: new Date(Date.now() - Math.random() * 180 * 24 * 60 * 60_000),
       },
@@ -211,7 +211,45 @@ async function main() {
     },
   });
 
-  console.log(`${TAG} clubId=${club.id} owner=${owner.nickname} members=${members.length + 1}`);
+  const shortageEvent = await prisma.clubEvent.create({
+    data: {
+      clubId: club.id,
+      title: `${TAG} 정원 부족 모임`,
+      eventType: ClubEventType.SCREEN,
+      startsAt: new Date(now + 5 * 24 * 60 * 60_000),
+      venueName: '긴급 모집 QA 장소',
+      capacity: 20,
+      responseDeadline: new Date(now + 4 * 24 * 60 * 60_000),
+      status: ClubEventStatus.OPEN,
+      createdByUserId: owner.userId,
+    },
+  });
+
+  for (const m of members.slice(0, 16)) {
+    await prisma.clubEventAttendance.create({
+      data: {
+        clubEventId: shortageEvent.id,
+        userId: m.userId,
+        response: ClubEventAttendanceResponse.ATTENDING,
+        respondedAt: new Date(),
+      },
+    });
+  }
+
+  await prisma.clubAccountingEntry.create({
+    data: {
+      clubId: club.id,
+      clubEventId: completedEvents[0]?.id,
+      entryType: 'EXPENSE',
+      category: 'GAME_FEE',
+      amount: '80000',
+      entryDate: completedEvents[0]?.startsAt ?? new Date(),
+      memo: '모임 연계 지출',
+      createdByUserId: owner.userId,
+    },
+  });
+
+  console.log(`${TAG} clubId=${club.id} owner=${owner.nickname} members=${members.length + 1} shortageEvent=${shortageEvent.id}`);
 }
 
 main()
