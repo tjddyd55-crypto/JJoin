@@ -10,7 +10,7 @@ import {
   spacing,
   useTheme,
 } from '@jjoin/design-system';
-import { clubActivityTypeLabel, isClubStaff } from '@jjoin/domain';
+import { clubActivityTypeLabel, formatClubActivityRegionsCompact, isClubStaff } from '@jjoin/domain';
 import {
   ClubMembershipStatus,
   ClubEventAttendanceResponse,
@@ -78,7 +78,8 @@ export function ClubHomeScreen() {
         <Stack gap="xs">
           <Text variant="screenTitle">{detail.name}</Text>
           <Text variant="caption" tone="secondary">
-            {detail.region} · {clubActivityTypeLabel(detail.activityType)}
+            {formatClubActivityRegionsCompact(detail.activityRegions ?? [], { maxParts: 3 })} ·{' '}
+            {clubActivityTypeLabel(detail.activityType)}
           </Text>
           {detail.intro ? (
             <Text variant="body" tone="secondary">
@@ -100,11 +101,19 @@ export function ClubHomeScreen() {
         </View>
 
         {isStaff ? (
-          <Button
-            label="모임 만들기"
-            size="sm"
-            onPress={() => router.push(`/my/clubs/${clubId}/events/create` as Href)}
-          />
+          <View style={styles.staffActions}>
+            <Button
+              label="모임 만들기"
+              size="sm"
+              onPress={() => router.push(`/my/clubs/${clubId}/events/create` as Href)}
+            />
+            <Button
+              label="동호회 정보 수정"
+              size="sm"
+              variant="secondary"
+              onPress={() => router.push(`/my/clubs/${clubId}/edit` as Href)}
+            />
+          </View>
         ) : null}
 
         <Text variant="sectionTitle">진행 중인 모임</Text>
@@ -195,6 +204,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1c',
   },
   navRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  staffActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,

@@ -1,6 +1,6 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
-import { useRouter, type Href } from 'expo-router';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import {
   Button,
   Chip,
@@ -16,8 +16,8 @@ import {
   ClubAgeGroup,
   ClubJoinMode,
   ClubVisibility,
-  type CreateClubRequest,
   type ClubActivityRegionDto,
+  type UpdateClubRequest,
 } from '@jjoin/types';
 import { ClubCoverPicker } from '../components/ClubCoverPicker';
 import { ClubActivityRegionPicker } from '../components/ClubActivityRegionPicker';
@@ -39,10 +39,12 @@ const AGE_OPTIONS = [
   { value: ClubAgeGroup.SIXTIES_PLUS, label: '60대+' },
 ] as const;
 
-export function ClubCreateScreen() {
+export function ClubEditScreen() {
+  const { clubId } = useLocalSearchParams<{ clubId: string }>();
   const router = useRouter();
   const theme = useTheme();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
+  const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
@@ -55,6 +57,29 @@ export function ClubCreateScreen() {
   const [visibility, setVisibility] = useState<ClubVisibility>(ClubVisibility.PUBLIC);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!clubId) return;
+    void (async () => {
+      setLoading(true);
+      try {
+        const detail = await api.getClubDetail(clubId);
+        setName(detail.name);
+        setCoverImageUrl(detail.coverImageUrl);
+        setIntro(detail.intro ?? '');
+        setActivityRegions(detail.activityRegions ?? []);
+        setPrimaryVenueName(detail.primaryVenueName ?? '');
+        setActivityType(detail.activityType);
+        setPrimaryAgeGroup(detail.primaryAgeGroup);
+        setJoinMode(detail.joinMode);
+        setVisibility(detail.visibility);
+      } catch {
+        setError('동호회 정보를 불러올 수 없습니다.');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [api, clubId]);
 
   const inputStyle = useMemo(
     () => [
@@ -82,16 +107,20 @@ export function ClubCreateScreen() {
   };
 
   const onSubmit = async () => {
-    if (!name.trim() || activityRegions.length < 1) {
-      setError('동호회명과 활동 지역은 필수입니다.');
+    if (!clubId || !name.trim()) {
+      setError('동호회명은 필수입니다.');
+      return;
+    }
+    if (activityRegions.length < 1) {
+      setError('활동 지역을 1개 이상 선택해 주세요.');
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
-      const body: CreateClubRequest = {
+      const body: UpdateClubRequest = {
         name: name.trim(),
-        coverImageUrl: coverImageUrl ?? undefined,
+        coverImageUrl: coverImageUrl ?? null,
         intro: intro.trim() || null,
         activityRegions,
         activityType,
@@ -100,27 +129,35 @@ export function ClubCreateScreen() {
         visibility,
         primaryAgeGroup,
       };
-      const created = await api.createClub(body);
-      router.replace(`/my/clubs/${created.id}` as Href);
+      await api.updateClub(clubId, body);
+      router.replace(`/my/clubs/${clubId}` as Href);
     } catch {
-      setError('동호회 생성에 실패했습니다.');
+      setError('동호회 정보 저장에 실패했습니다.');
     } finally {
       setSubmitting(false);
     }
   };
+
+  if (loading) {
+    return (
+      <FormScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
+        <Text tone="secondary">불러오는 중…</Text>
+      </FormScreenFrame>
+    );
+  }
 
   return (
     <FormScreenFrame
       edges={[...NESTED_SCREEN_EDGES]}
       footer={
         <StickyActionFrame>
-          <Button label="동호회 만들기" loading={submitting} onPress={() => void onSubmit()} />
+          <Button label="저장" loading={submitting} onPress={() => void onSubmit()} />
         </StickyActionFrame>
       }
     >
       <Stack gap="md">
         <Text variant="caption" tone="secondary">
-          대표사진과 기본 정보만 입력하면 바로 생성됩니다.
+          동호회 기본 정보를 수정합니다. 회원·회계·통계는 변경되지 않습니다.
         </Text>
         <Field label="대표사진 (선택)">
           <ClubCoverPicker
