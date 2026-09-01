@@ -41,7 +41,6 @@ export function ClubNoticesScreen() {
   return (
     <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       <Stack gap="md">
-        <Text variant="screenTitle">공지</Text>
         {items.map((notice) => (
           <Card key={notice.id} padding="md">
             <Stack gap="xs">

@@ -46,7 +46,6 @@ export function ClubRootScreen() {
   return (
     <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       <Stack gap="md">
-        <Text variant="screenTitle">동호회</Text>
         <View style={styles.actions}>
           <Button
             label="동호회 찾기"

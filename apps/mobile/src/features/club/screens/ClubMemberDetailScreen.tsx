@@ -34,7 +34,7 @@ export function ClubMemberDetailScreen() {
   return (
     <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       <Stack gap="md">
-        <Text variant="screenTitle">{detail?.nickname ?? '회원 통계'}</Text>
+        <Text variant="bodyStrong">{detail?.nickname ?? '회원 통계'}</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
           {PERIODS.map((p) => (
             <Chip key={p.value} label={p.label} selected={period === p.value} onPress={() => setPeriod(p.value)} />
