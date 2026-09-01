@@ -57,7 +57,6 @@ export function ClubMembersScreen() {
   return (
     <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       <Stack gap="md">
-        <Text variant="screenTitle">회원</Text>
         {staff && pending.length ? (
           <Card padding="md">
             <Text variant="bodyStrong">가입 대기 {pending.length}명</Text>

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
-import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect, type Href } from 'expo-router';
 import {
   Button,
   Chip,
@@ -11,6 +11,7 @@ import {
   spacing,
   useTheme,
 } from '@jjoin/design-system';
+import { resolveVenueDisplayName } from '@jjoin/domain';
 import { ClubEventType, type CreateClubEventRequest } from '@jjoin/types';
 import { JoinCreateVenueSection } from '../../join-create/components/JoinCreateVenueSection';
 import {
@@ -18,6 +19,11 @@ import {
   venueSelectionHasPlace,
 } from '../../join-create/model/join-create-venue';
 import { composeKstIso, splitKstDateTime } from '../../store/matching-join-ui';
+import { KstDatePickerField } from '../../../shared/date/KstDatePickerField';
+import {
+  clearClubEventVenueDraft,
+  peekClubEventVenueDraft,
+} from '../model/club-event-venue-draft';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
 import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
@@ -26,6 +32,16 @@ function defaultEventDateTime() {
   const startsAt = new Date(Date.now() + 7 * 24 * 60 * 60_000);
   startsAt.setMinutes(0, 0, 0);
   return splitKstDateTime(startsAt.toISOString());
+}
+
+const TIME_PATTERN = /^(\d{1,2}):(\d{2})$/;
+
+function isValidTimeHm(value: string): boolean {
+  const match = TIME_PATTERN.exec(value.trim());
+  if (!match) return false;
+  const h = Number(match[1]);
+  const m = Number(match[2]);
+  return h >= 0 && h <= 23 && m >= 0 && m <= 59;
 }
 
 export function ClubCreateEventScreen() {
@@ -48,6 +64,17 @@ export function ClubCreateEventScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useFocusEffect(
+    useCallback(() => {
+      if (!clubId) return;
+      const picked = peekClubEventVenueDraft(clubId);
+      if (picked) {
+        setSelectedVenue(picked);
+        clearClubEventVenueDraft();
+      }
+    }, [clubId]),
+  );
+
   const inputStyle = useMemo(
     () => ({
       borderWidth: 1,
@@ -62,6 +89,12 @@ export function ClubCreateEventScreen() {
   );
 
   const isScreen = eventType === ClubEventType.SCREEN;
+  const venueDisplayName = selectedVenue
+    ? resolveVenueDisplayName({
+        golfFacilityDisplayName: selectedVenue.name,
+        activatedVenueName: selectedVenue.name,
+      })
+    : '';
 
   const onPickFromMap = useCallback(() => {
     router.push({
@@ -73,6 +106,10 @@ export function ClubCreateEventScreen() {
   const onSubmit = async () => {
     if (!clubId || !title.trim()) {
       setError('모임명은 필수입니다.');
+      return;
+    }
+    if (!isValidTimeHm(startTime) || !isValidTimeHm(deadlineTime)) {
+      setError('시간은 HH:mm 형식으로 입력해 주세요.');
       return;
     }
     if (isScreen) {
@@ -90,11 +127,17 @@ export function ClubCreateEventScreen() {
     try {
       const startsAt = composeKstIso(dateYmd, startTime);
       const responseDeadline = composeKstIso(deadlineDateYmd, deadlineTime);
+      const resolvedName = isScreen
+        ? resolveVenueDisplayName({
+            golfFacilityDisplayName: selectedVenue!.name,
+            activatedVenueName: selectedVenue!.name,
+          })
+        : venueName.trim();
       const body: CreateClubEventRequest = {
         title: title.trim(),
         eventType,
         startsAt,
-        venueName: isScreen ? selectedVenue!.name : venueName.trim(),
+        venueName: resolvedName,
         venueAddress: isScreen
           ? selectedVenue!.address || null
           : venueAddress.trim() || null,
@@ -123,7 +166,6 @@ export function ClubCreateEventScreen() {
       }
     >
       <Stack gap="md">
-        <Text variant="screenTitle">모임 만들기</Text>
         <TextInput value={title} onChangeText={setTitle} placeholder="모임명" style={inputStyle} />
         <View style={styles.chips}>
           {[ClubEventType.SCREEN, ClubEventType.FIELD, ClubEventType.OTHER].map((type) => (
@@ -138,11 +180,15 @@ export function ClubCreateEventScreen() {
             />
           ))}
         </View>
-        <Field label="날짜 (YYYY-MM-DD)">
-          <TextInput value={dateYmd} onChangeText={setDateYmd} placeholder="2026-09-10" style={inputStyle} />
-        </Field>
+        <KstDatePickerField label="날짜" dateYmd={dateYmd} onChange={setDateYmd} disallowPast />
         <Field label="시작 시간 (HH:mm)">
-          <TextInput value={startTime} onChangeText={setStartTime} placeholder="19:00" style={inputStyle} />
+          <TextInput
+            value={startTime}
+            onChangeText={setStartTime}
+            placeholder="19:00"
+            keyboardType="numbers-and-punctuation"
+            style={inputStyle}
+          />
         </Field>
 
         {isScreen ? (
@@ -155,10 +201,12 @@ export function ClubCreateEventScreen() {
               restrictToFacilityPick
             />
             {selectedVenue && venueSelectionHasPlace(selectedVenue) ? (
-              <Text variant="caption" tone="secondary">
-                {selectedVenue.name}
-                {selectedVenue.address ? ` · ${selectedVenue.address}` : ''}
-              </Text>
+              <Stack gap="xs">
+                <Text variant="bodyStrong">{venueDisplayName}</Text>
+                {selectedVenue.address ? (
+                  <Text variant="caption" tone="secondary">{selectedVenue.address}</Text>
+                ) : null}
+              </Stack>
             ) : null}
           </Field>
         ) : (
@@ -181,8 +229,14 @@ export function ClubCreateEventScreen() {
           style={inputStyle}
         />
         <Field label="참석 응답 마감">
-          <TextInput value={deadlineDateYmd} onChangeText={setDeadlineDateYmd} placeholder="YYYY-MM-DD" style={inputStyle} />
-          <TextInput value={deadlineTime} onChangeText={setDeadlineTime} placeholder="HH:mm" style={inputStyle} />
+          <KstDatePickerField dateYmd={deadlineDateYmd} onChange={setDeadlineDateYmd} disallowPast />
+          <TextInput
+            value={deadlineTime}
+            onChangeText={setDeadlineTime}
+            placeholder="HH:mm"
+            keyboardType="numbers-and-punctuation"
+            style={inputStyle}
+          />
         </Field>
         <TextInput value={memo} onChangeText={setMemo} placeholder="간단 메모" style={inputStyle} />
         {error ? <Text tone="error">{error}</Text> : null}

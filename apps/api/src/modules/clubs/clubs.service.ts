@@ -39,6 +39,7 @@ import {
   type UpdateClubAccountingEntryRequest,
   type UpdateClubNoticeRequest,
   type UpdateClubEventAttendanceRequest,
+  type UpdateClubRequest,
   type UploadClubCoverResponse,
   type ClubMemberAttendanceDetailDto,
 } from '@jjoin/types';
@@ -59,7 +60,10 @@ import {
   canChangeMemberRole,
   canMemberUpdateAttendanceResponse,
   clubAgeGroupLabel,
+  dedupeClubActivityRegions,
   isClubStaff,
+  normalizeClubActivityRegionInput,
+  primaryClubRegionString,
   kstYearStartUtc,
   rolling30DayStartUtc,
   summarizeMemberAttendanceRows,
@@ -72,6 +76,7 @@ import {
   updateClubEventAttendanceSchema,
   updateClubAccountingEntrySchema,
   updateClubNoticeSchema,
+  updateClubSchema,
 } from '@jjoin/validation';
 import { MockMediaAdapter } from '../../providers/mock.adapters';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -124,6 +129,9 @@ export class ClubsService {
     const parsed = createClubSchema.safeParse(raw);
     if (!parsed.success) throw new BadRequestException('invalid_club_request');
 
+    const activityRegions = this.resolveActivityRegionsInput(parsed.data);
+    const regionLabel = primaryClubRegionString(activityRegions);
+
     const inviteCode =
       parsed.data.visibility === ClubVisibility.PRIVATE ? this.generateInviteCode() : null;
 
@@ -133,7 +141,7 @@ export class ClubsService {
           name: parsed.data.name,
           coverImageUrl: parsed.data.coverImageUrl ?? null,
           intro: parsed.data.intro ?? null,
-          region: parsed.data.region,
+          region: regionLabel,
           activityType: parsed.data.activityType,
           primaryVenueId: parsed.data.primaryVenueId ?? null,
           primaryVenueName: parsed.data.primaryVenueName ?? null,
@@ -143,6 +151,15 @@ export class ClubsService {
           inviteCode,
           ownerUserId: userId,
         },
+      });
+      await tx.clubActivityRegion.createMany({
+        data: activityRegions.map((r) => ({
+          clubId: created.id,
+          sido: r.sido,
+          sigungu: r.sigungu,
+          parentSigungu: r.parentSigungu,
+          displayName: r.displayName,
+        })),
       });
       await tx.clubMembership.create({
         data: {
@@ -160,6 +177,65 @@ export class ClubsService {
       memberCount: 1,
       myRole: ClubMembershipRole.OWNER,
       myStatus: ClubMembershipStatus.ACTIVE,
+      activityRegions,
+    });
+  }
+
+  async updateClub(userId: string, clubId: string, raw: UpdateClubRequest): Promise<ClubSummaryDto> {
+    const parsed = updateClubSchema.safeParse(raw);
+    if (!parsed.success) throw new BadRequestException('invalid_club_request');
+
+    const membership = await this.requireActiveMembership(clubId, userId);
+    if (!isClubStaff(membership)) {
+      throw new ForbiddenException('club_staff_required');
+    }
+
+    const activityRegions = parsed.data.activityRegions
+      ? dedupeClubActivityRegions(parsed.data.activityRegions)
+      : null;
+    if (activityRegions && activityRegions.length === 0) {
+      throw new BadRequestException('activity_regions_required');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const data: Record<string, unknown> = {};
+      if (parsed.data.name !== undefined) data.name = parsed.data.name;
+      if (parsed.data.coverImageUrl !== undefined) data.coverImageUrl = parsed.data.coverImageUrl;
+      if (parsed.data.intro !== undefined) data.intro = parsed.data.intro;
+      if (parsed.data.activityType !== undefined) data.activityType = parsed.data.activityType;
+      if (parsed.data.primaryVenueId !== undefined) data.primaryVenueId = parsed.data.primaryVenueId;
+      if (parsed.data.primaryVenueName !== undefined) data.primaryVenueName = parsed.data.primaryVenueName;
+      if (parsed.data.joinMode !== undefined) data.joinMode = parsed.data.joinMode;
+      if (parsed.data.visibility !== undefined) data.visibility = parsed.data.visibility;
+      if (parsed.data.primaryAgeGroup !== undefined) data.primaryAgeGroup = parsed.data.primaryAgeGroup;
+      if (activityRegions) {
+        data.region = primaryClubRegionString(activityRegions);
+        await tx.clubActivityRegion.deleteMany({ where: { clubId } });
+        await tx.clubActivityRegion.createMany({
+          data: activityRegions.map((r) => ({
+            clubId,
+            sido: r.sido,
+            sigungu: r.sigungu,
+            parentSigungu: r.parentSigungu,
+            displayName: r.displayName,
+          })),
+        });
+      }
+      if (Object.keys(data).length > 0) {
+        await tx.club.update({ where: { id: clubId }, data });
+      }
+    });
+
+    const club = await this.requireClub(clubId);
+    const memberCount = await this.countMembers(clubId);
+    const regions = activityRegions ?? (await this.loadActivityRegionsForClub(clubId));
+    const membershipRow = await this.getMembership(clubId, userId);
+
+    return this.toSummaryDto(club, {
+      memberCount,
+      myRole: (membershipRow?.role as ClubMembershipRole) ?? null,
+      myStatus: (membershipRow?.status as ClubMembershipStatus) ?? null,
+      activityRegions: regions,
     });
   }
 
@@ -171,12 +247,14 @@ export class ClubsService {
     });
     const clubIds = memberships.map((m) => m.clubId);
     const memberCounts = await this.countMembersByClub(clubIds);
+    const regionsByClub = await this.loadActivityRegionsByClub(clubIds);
     return {
       items: memberships.map((m) =>
         this.toSummaryDto(m.club, {
           memberCount: memberCounts.get(m.clubId) ?? 0,
           myRole: m.role as ClubMembershipRole,
           myStatus: m.status as ClubMembershipStatus,
+          activityRegions: regionsByClub.get(m.clubId) ?? [],
         }),
       ),
     };
@@ -191,12 +269,13 @@ export class ClubsService {
     if (!clubs.length) return { items: [] };
 
     const clubIds = clubs.map((c) => c.id);
-    const [memberCounts, dashboards, myMemberships] = await Promise.all([
+    const [memberCounts, dashboards, myMemberships, regionsByClub] = await Promise.all([
       this.countMembersByClub(clubIds),
       this.buildDashboardBatch(clubIds),
       this.prisma.clubMembership.findMany({
         where: { userId, clubId: { in: clubIds } },
       }),
+      this.loadActivityRegionsByClub(clubIds),
     ]);
     const myByClub = new Map(myMemberships.map((m) => [m.clubId, m]));
 
@@ -210,6 +289,7 @@ export class ClubsService {
               memberCount: memberCounts.get(club.id) ?? 0,
               myRole: (mine?.role as ClubMembershipRole) ?? null,
               myStatus: (mine?.status as ClubMembershipStatus) ?? null,
+              activityRegions: regionsByClub.get(club.id) ?? [],
             }),
             eventsThisYear: dash.eventsThisYear,
             totalAttended: dash.totalAttended,
@@ -234,10 +314,11 @@ export class ClubsService {
       throw new ForbiddenException('club_private');
     }
 
-    const [memberCount, dashboard, activeEvents] = await Promise.all([
+    const [memberCount, dashboard, activeEvents, activityRegions] = await Promise.all([
       this.countMembers(clubId),
       this.buildDashboard(clubId),
       this.listActiveEvents(clubId, userId),
+      this.loadActivityRegionsForClub(clubId),
     ]);
 
     return {
@@ -245,6 +326,7 @@ export class ClubsService {
         memberCount,
         myRole: (membership?.role as ClubMembershipRole) ?? null,
         myStatus: (membership?.status as ClubMembershipStatus) ?? null,
+        activityRegions,
       }),
       dashboard,
       activeEvents,
@@ -1264,14 +1346,24 @@ export class ClubsService {
       memberCount: number;
       myRole: ClubMembershipRole | null;
       myStatus: ClubMembershipStatus | null;
+      activityRegions: Array<{
+        sido: string;
+        sigungu: string;
+        parentSigungu: string | null;
+        displayName: string;
+      }>;
     },
   ): ClubSummaryDto {
+    const activityRegions = extra.activityRegions;
+    const region =
+      activityRegions.length > 0 ? primaryClubRegionString(activityRegions) : club.region;
     return {
       id: club.id,
       name: club.name,
       coverImageUrl: club.coverImageUrl,
       intro: club.intro,
-      region: club.region,
+      region,
+      activityRegions,
       activityType: club.activityType as ClubSummaryDto['activityType'],
       primaryVenueName: club.primaryVenueName,
       joinMode: club.joinMode as ClubSummaryDto['joinMode'],
@@ -1281,6 +1373,64 @@ export class ClubsService {
       myRole: extra.myRole,
       myStatus: extra.myStatus,
     };
+  }
+
+  private resolveActivityRegionsInput(
+    data: {
+      region?: string;
+      activityRegions?: Array<{
+        sido: string;
+        sigungu: string;
+        parentSigungu?: string | null;
+        displayName?: string | null;
+      }>;
+    },
+  ) {
+    if (data.activityRegions?.length) {
+      return dedupeClubActivityRegions(data.activityRegions);
+    }
+    const legacy = data.region?.trim();
+    if (!legacy) return [];
+    return [
+      normalizeClubActivityRegionInput({
+        sido: '미지정',
+        sigungu: legacy,
+        displayName: legacy,
+      }),
+    ];
+  }
+
+  private async loadActivityRegionsForClub(clubId: string) {
+    const rows = await this.prisma.clubActivityRegion.findMany({
+      where: { clubId },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map((row) => ({
+      sido: row.sido,
+      sigungu: row.sigungu,
+      parentSigungu: row.parentSigungu,
+      displayName: row.displayName,
+    }));
+  }
+
+  private async loadActivityRegionsByClub(clubIds: string[]) {
+    if (!clubIds.length) return new Map<string, ClubSummaryDto['activityRegions']>();
+    const rows = await this.prisma.clubActivityRegion.findMany({
+      where: { clubId: { in: clubIds } },
+      orderBy: { createdAt: 'asc' },
+    });
+    const map = new Map<string, ClubSummaryDto['activityRegions']>();
+    for (const row of rows) {
+      const list = map.get(row.clubId) ?? [];
+      list.push({
+        sido: row.sido,
+        sigungu: row.sigungu,
+        parentSigungu: row.parentSigungu,
+        displayName: row.displayName,
+      });
+      map.set(row.clubId, list);
+    }
+    return map;
   }
 
   private toMembershipDto(

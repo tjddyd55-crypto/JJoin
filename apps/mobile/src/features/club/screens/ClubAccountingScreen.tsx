@@ -86,7 +86,6 @@ export function ClubAccountingScreen() {
   return (
     <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       <Stack gap="md">
-        <Text variant="screenTitle">회계</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
           {(
             [

@@ -56,6 +56,9 @@ import {
 } from '../../join-create/model/join-create-draft';
 import { venueSelectionFromVenueDto } from '../../join-create/model/join-create-venue';
 import {
+  saveClubEventVenueDraft,
+} from '../../club/model/club-event-venue-draft';
+import {
   GEOJE_DEMO_REGION,
   SEOUL_FALLBACK_REGION,
   type ExploreFilterId,
@@ -94,8 +97,9 @@ export function ExploreMapScreen({
   externalLocationDenied = false,
 }: ExploreMapScreenProps = {}) {
   const router = useRouter();
-  const params = useLocalSearchParams<{ venuePick?: string }>();
+  const params = useLocalSearchParams<{ venuePick?: string; clubEventPick?: string }>();
   const venuePickMode = params.venuePick === '1' || params.venuePick === 'true';
+  const clubEventPickClubId = params.clubEventPick?.trim() || null;
   const { requestGatedAction } = useSession();
   const theme = useTheme();
   const store = getSecureSessionStore();
@@ -1048,20 +1052,29 @@ export function ExploreMapScreen({
                 try {
                   const api = getApiClient(getSecureSessionStore());
                   const resolved = await resolveVenueForJoin(api, selectedVenue);
+                  const venueSelection = venueSelectionFromVenueDto({
+                    venueId: resolved.venueId,
+                    name: resolved.name,
+                    address: resolved.address,
+                    roadAddress: resolved.address,
+                    phone: resolved.phone,
+                    latitude: resolved.latitude,
+                    longitude: resolved.longitude,
+                    golfFacilityId: selectedVenue.golfFacilityId,
+                  });
+                  if (clubEventPickClubId) {
+                    saveClubEventVenueDraft({
+                      clubId: clubEventPickClubId,
+                      selectedVenue: venueSelection,
+                    });
+                    router.back();
+                    return;
+                  }
                   if (venuePickMode) {
                     const draft = peekJoinCreateDraft();
                     saveJoinCreateDraft({
                       players: draft?.players ?? 4,
-                      selectedVenue: venueSelectionFromVenueDto({
-                        venueId: resolved.venueId,
-                        name: resolved.name,
-                        address: resolved.address,
-                        roadAddress: resolved.address,
-                        phone: resolved.phone,
-                        latitude: resolved.latitude,
-                        longitude: resolved.longitude,
-                        golfFacilityId: selectedVenue.golfFacilityId,
-                      }),
+                      selectedVenue: venueSelection,
                     });
                   }
 

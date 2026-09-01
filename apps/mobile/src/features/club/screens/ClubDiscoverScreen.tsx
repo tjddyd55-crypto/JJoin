@@ -15,6 +15,7 @@ import {
   clubActivityTypeLabel,
   clubAgeGroupLabel,
   formatAttendanceRateDisplay,
+  formatClubActivityRegionsCompact,
 } from '@jjoin/domain';
 import type { ClubDiscoverCardDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
@@ -62,7 +63,6 @@ export function ClubDiscoverScreen() {
   return (
     <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       <Stack gap="md">
-        <Text variant="screenTitle">동호회 찾기</Text>
         {loading ? <Text tone="secondary">불러오는 중…</Text> : null}
         {!loading && !items.length ? (
           <Text tone="secondary">공개 동호회가 아직 없습니다.</Text>
@@ -73,7 +73,8 @@ export function ClubDiscoverScreen() {
               <ClubPlaceholderImage uri={club.coverImageUrl} height={120} label={club.name.slice(0, 1)} />
               <Text variant="bodyStrong">{club.name}</Text>
               <Text variant="caption" tone="secondary">
-                {club.region} · {clubActivityTypeLabel(club.activityType)}
+                {formatClubActivityRegionsCompact(club.activityRegions ?? [], { maxParts: 3 })} ·{' '}
+                {clubActivityTypeLabel(club.activityType)}
               </Text>
               {club.primaryAgeGroup ? (
                 <Text variant="caption" tone="tertiary">

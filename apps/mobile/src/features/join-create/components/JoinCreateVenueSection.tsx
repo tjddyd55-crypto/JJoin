@@ -127,7 +127,7 @@ export function JoinCreateVenueSection({
         onChange(
           venueSelectionFromVenueDto({
             venueId: activated.venueId,
-            name: activated.name,
+            name: facility.displayName || activated.name,
             address: facility.roadAddress,
             roadAddress: facility.roadAddress,
             phone: facility.phone,

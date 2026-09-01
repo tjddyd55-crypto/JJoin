@@ -1,5 +1,6 @@
 import type { ExploreVenueDto } from '@jjoin/types';
 import type { ApiClient } from '@jjoin/api-client';
+import { isRawVenueIdLabel, resolveVenueDisplayName } from '@jjoin/domain';
 
 export type ResolvedJoinVenue = {
   venueId: string;
@@ -18,9 +19,13 @@ export async function resolveVenueForJoin(
   if (selectedVenue.source === 'GOLF_FACILITY' || selectedVenue.golfFacilityId) {
     const facilityId = selectedVenue.golfFacilityId ?? selectedVenue.venueId;
     const activated = await api.activateGolfFacilityVenue(facilityId);
+    const name = resolveVenueDisplayName({
+      golfFacilityDisplayName: selectedVenue.name,
+      activatedVenueName: activated.name,
+    });
     return {
       venueId: activated.venueId,
-      name: activated.name,
+      name: isRawVenueIdLabel(name) ? selectedVenue.name : name,
       address: selectedVenue.roadAddress ?? selectedVenue.address ?? '',
       phone: selectedVenue.phone,
       latitude: selectedVenue.latitude,

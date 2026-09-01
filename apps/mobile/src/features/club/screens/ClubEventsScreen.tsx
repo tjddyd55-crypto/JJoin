@@ -23,7 +23,6 @@ export function ClubEventsScreen() {
   return (
     <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       <Stack gap="md">
-        <Text variant="screenTitle">모임</Text>
         {items.map((event) => (
           <Pressable
             key={event.id}

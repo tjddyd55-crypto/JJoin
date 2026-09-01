@@ -100,6 +100,7 @@ import {
   type ClubDetailDto,
   type ClubSummaryDto,
   type CreateClubRequest,
+  type UpdateClubRequest,
   type ClubJoinRequest,
   type ClubMembershipDto,
   type ClubMembershipListResponse,
@@ -1488,6 +1489,15 @@ export class ApiClient {
   async createClub(body: CreateClubRequest): Promise<ClubSummaryDto> {
     const res = await request(`${this.config.baseUrl}/clubs`, {
       method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async updateClub(clubId: string, body: UpdateClubRequest): Promise<ClubSummaryDto> {
+    const res = await request(`${this.config.baseUrl}/clubs/${clubId}`, {
+      method: 'PATCH',
       headers: await this.headers(true),
       body: JSON.stringify(body),
     });
