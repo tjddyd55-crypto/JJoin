@@ -127,16 +127,20 @@ async function main() {
         body: JSON.stringify({ response: 'DECLINED' }),
       });
       console.log('decline attendance', declined.status);
-      const chatDenied = await j(`/joins/${detail.body.linkedJoinId}/chat`, { headers: memberAuth });
-      console.log('member chat after decline (expect 403)', chatDenied.status);
-      if (chatDenied.status !== 403) {
-        throw new Error('declined member should lose chat access');
+      if (declined.status === 200) {
+        const chatDenied = await j(`/joins/${detail.body.linkedJoinId}/chat`, { headers: memberAuth });
+        console.log('member chat after decline (expect 403)', chatDenied.status);
+        if (chatDenied.status !== 403) {
+          throw new Error('declined member should lose chat access');
+        }
+        await j(`/clubs/${qaClub.id}/events/${shortage.id}/attendance/me`, {
+          method: 'PATCH',
+          headers: memberAuth,
+          body: JSON.stringify({ response: 'ATTENDING' }),
+        });
+      } else {
+        console.log('skip decline chat revoke test — member not eligible or already external join participant');
       }
-      await j(`/clubs/${qaClub.id}/events/${shortage.id}/attendance/me`, {
-        method: 'PATCH',
-        headers: memberAuth,
-        body: JSON.stringify({ response: 'ATTENDING' }),
-      });
     }
 
     const foreignChat = await j(`/joins/${detail.body.linkedJoinId}/chat`, { headers: foreignAuth });

@@ -28,11 +28,24 @@ async function main() {
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL required');
   console.log(`${TAG} seeding…`);
 
-  const profiles = await prisma.userProfile.findMany({
-    where: { nickname: { contains: 'DEV' } },
+  const preferredNicknames = [
+    '김진우_DEV_A',
+    '박민수_DEV_B',
+    'QAUser',
+    'DevE2EUserㄴSeoul',
+    '운영관리자_DEV_ADMIN',
+    '금치',
+  ];
+  let profiles = await prisma.userProfile.findMany({
+    where: {
+      OR: [{ nickname: { in: preferredNicknames } }, { nickname: { contains: 'DEV' } }],
+    },
     take: 30,
   });
-  if (profiles.length < 5) throw new Error('need >=5 DEV users');
+  if (profiles.length < 5) {
+    profiles = await prisma.userProfile.findMany({ take: 30 });
+  }
+  if (profiles.length < 5) throw new Error('need >=5 user profiles in development DB');
 
   const oldClubs = await prisma.club.findMany({
     where: { name: { startsWith: TAG } },
@@ -67,8 +80,13 @@ async function main() {
     console.log(`${TAG} cleaned ${ids.length} old clubs`);
   }
 
-  const owner = profiles[0]!;
-  const members = profiles.slice(1, 26);
+  const owner =
+    profiles.find((p) => p.nickname === '김진우_DEV_A') ??
+    profiles.find((p) => p.nickname.includes('DEV_A') && !p.nickname.includes('DEV_ADMIN')) ??
+    profiles[0]!;
+  const members = profiles.filter(
+    (p) => p.userId !== owner.userId && !p.nickname.includes('DEV_ADMIN'),
+  );
 
   const club = await prisma.club.create({
     data: {
@@ -95,26 +113,21 @@ async function main() {
     },
   });
 
-  for (const m of members) {
+  for (let i = 0; i < members.length; i++) {
+    const m = members[i]!;
+    const isPending = i === members.length - 1;
     await prisma.clubMembership.create({
       data: {
         clubId: club.id,
         userId: m.userId,
-        role: m.userId === members[1]?.userId ? ClubMembershipRole.MANAGER : ClubMembershipRole.MEMBER,
-        status: ClubMembershipStatus.ACTIVE,
-        joinedAt: new Date(Date.now() - Math.random() * 180 * 24 * 60 * 60_000),
+        role: i === 1 ? ClubMembershipRole.MANAGER : ClubMembershipRole.MEMBER,
+        status: isPending ? ClubMembershipStatus.PENDING : ClubMembershipStatus.ACTIVE,
+        joinedAt: isPending ? undefined : new Date(Date.now() - Math.random() * 180 * 24 * 60 * 60_000),
       },
     });
   }
 
-  await prisma.clubMembership.create({
-    data: {
-      clubId: club.id,
-      userId: profiles[26]?.userId ?? members[0]!.userId,
-      role: ClubMembershipRole.MEMBER,
-      status: ClubMembershipStatus.PENDING,
-    },
-  });
+  const activeMembers = members.slice(0, Math.max(members.length - 1, 1));
 
   const now = Date.now();
   const completedEvents = [];
@@ -139,7 +152,7 @@ async function main() {
   }
 
   for (const event of completedEvents) {
-    for (const m of members) {
+    for (const m of activeMembers) {
       const roll = Math.random();
       const response =
         roll < 0.55
@@ -182,7 +195,7 @@ async function main() {
         createdByUserId: owner.userId,
       },
     });
-    for (const m of members.slice(0, 12)) {
+    for (const m of activeMembers.slice(0, Math.min(12, activeMembers.length))) {
       await prisma.clubEventAttendance.create({
         data: {
           clubEventId: event.id,
@@ -276,7 +289,8 @@ async function main() {
     },
   });
 
-  for (const m of members.slice(0, 16)) {
+  const attendingCount = Math.min(16, activeMembers.length);
+  for (const m of activeMembers.slice(0, attendingCount)) {
     await prisma.clubEventAttendance.create({
       data: {
         clubEventId: shortageEvent.id,
@@ -287,13 +301,9 @@ async function main() {
     });
   }
 
-  const externalUser =
-    profiles.find(
-      (p) => p.userId !== owner.userId && !members.some((m) => m.userId === p.userId),
-    ) ?? null;
-  if (!externalUser) {
-    throw new Error('need external non-member user for urgent join fixture');
-  }
+  const pendingMember = members[members.length - 1];
+  if (!pendingMember) throw new Error('need pending member for external urgent join fixture');
+  const externalUser = pendingMember;
 
   const urgentStart = shortageEvent.startsAt;
   const urgentEnd = new Date(urgentStart.getTime() + 3 * 60 * 60_000);
