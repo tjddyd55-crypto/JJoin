@@ -85,6 +85,8 @@ export const createJoinSchema = z
       .regex(/^\d+(\.\d{1,4})?$/)
       .optional(),
     idempotencyKey: z.string().trim().min(8).max(120).optional(),
+    clubId: z.string().uuid().optional(),
+    clubEventId: z.string().uuid().optional(),
   })
   .refine((v) => Boolean(v.venueId || v.venue), {
     message: 'venue_or_venueId_required',
@@ -305,7 +307,7 @@ export type RejectStoreVerificationInput = z.infer<typeof rejectStoreVerificatio
 
 export const createClubSchema = z.object({
   name: z.string().trim().min(2).max(40),
-  coverImageUrl: z.string().trim().url().max(500),
+  coverImageUrl: z.string().trim().url().max(500).nullable().optional(),
   intro: z.string().trim().max(120).nullable().optional(),
   region: z.string().trim().min(1).max(80),
   activityType: z.enum(['SCREEN', 'FIELD', 'SCREEN_AND_FIELD']),
@@ -366,4 +368,39 @@ export const createClubNoticeSchema = z.object({
   body: z.string().trim().min(1).max(2000),
   pinned: z.boolean().optional(),
   sendPush: z.boolean().optional(),
+});
+
+export const updateClubAccountingEntrySchema = z.object({
+  entryType: z.enum(['INCOME', 'EXPENSE']).optional(),
+  category: z
+    .enum([
+      'MEMBERSHIP_FEE',
+      'JOIN_FEE',
+      'PARTICIPATION_FEE',
+      'DONATION',
+      'OTHER_INCOME',
+      'GAME_FEE',
+      'MEAL',
+      'PRIZE',
+      'RENTAL',
+      'OTHER_EXPENSE',
+    ])
+    .optional(),
+  amount: z
+    .string()
+    .trim()
+    .regex(/^\d+(\.\d{1,4})?$/)
+    .optional(),
+  entryDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  memo: z.string().trim().max(200).nullable().optional(),
+  clubEventId: z.string().uuid().nullable().optional(),
+});
+
+export const updateClubNoticeSchema = z.object({
+  title: z.string().trim().min(1).max(80).optional(),
+  body: z.string().trim().min(1).max(2000).optional(),
+  pinned: z.boolean().optional(),
 });

@@ -590,6 +590,9 @@ export type CreateJoinRequest = {
   rewardPerParticipant?: string;
   /** Client request idempotency — same key must not double-create join/fee/hold. */
   idempotencyKey?: string;
+  /** Club urgent recruitment link (staff only, validated server-side). */
+  clubId?: string;
+  clubEventId?: string;
 };
 
 export type JoinCoinPreviewRequest = {
@@ -1721,7 +1724,7 @@ export enum ClubAccountingCategory {
 
 export type CreateClubRequest = {
   name: string;
-  coverImageUrl: string;
+  coverImageUrl?: string | null;
   intro?: string | null;
   region: string;
   activityType: ClubActivityType;
@@ -1777,7 +1780,9 @@ export type ClubMembershipDto = {
   role: ClubMembershipRole;
   status: ClubMembershipStatus;
   joinedAt: string | null;
+  requestedAt: string;
   attendanceRateThisYear: number | null;
+  ageGroupLabel: string | null;
 };
 
 export type CreateClubEventRequest = {
@@ -1814,7 +1819,27 @@ export type ClubEventDetailDto = ClubEventListItemDto & {
   responseDeadline: string;
   memo: string | null;
   attendanceFinalized: boolean;
+  maybeCount: number;
+  memberAttendingCount: number;
+  externalParticipantCount: number;
+  eventAccounting: { income: string; expense: string; balance: string } | null;
   attendances: ClubEventAttendanceDto[];
+};
+
+export type ClubMemberAttendanceHistoryItem = {
+  eventId: string;
+  title: string;
+  startsAt: string;
+  response: ClubEventAttendanceResponse;
+  finalStatus: ClubEventAttendanceFinal | null;
+};
+
+export type ClubMemberAttendanceDetailDto = ClubMemberAttendanceStatsDto & {
+  history: ClubMemberAttendanceHistoryItem[];
+};
+
+export type UploadClubCoverResponse = {
+  coverImageUrl: string;
 };
 
 export type ClubEventAttendanceDto = {
@@ -1879,6 +1904,21 @@ export type CreateClubNoticeRequest = {
   sendPush?: boolean;
 };
 
+export type UpdateClubAccountingEntryRequest = {
+  entryType?: ClubAccountingEntryType;
+  category?: ClubAccountingCategory;
+  amount?: string;
+  entryDate?: string;
+  memo?: string | null;
+  clubEventId?: string | null;
+};
+
+export type UpdateClubNoticeRequest = {
+  title?: string;
+  body?: string;
+  pinned?: boolean;
+};
+
 export type ClubNoticeDto = {
   id: string;
   title: string;
@@ -1897,6 +1937,7 @@ export type ClubUrgentRecruitPrefillDto = {
   title: string;
   venueName: string;
   venueAddress: string | null;
+  venueId: string | null;
   startsAt: string;
   remainingSeats: number;
 };

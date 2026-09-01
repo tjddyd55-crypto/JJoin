@@ -173,3 +173,84 @@ export function clubActivityTypeLabel(type: string | null | undefined): string |
       return null;
   }
 }
+
+export function canPromoteClubManager(actor: ClubMembershipContext | null | undefined): boolean {
+  return isActiveClubMember(actor) && actor!.role === ClubMembershipRole.OWNER;
+}
+
+export function canChangeMemberRole(
+  actor: ClubMembershipContext | null | undefined,
+  target: ClubMembershipContext | null | undefined,
+): boolean {
+  if (!canPromoteClubManager(actor) || !target || !isActiveClubMember(target)) return false;
+  if (target.role === ClubMembershipRole.OWNER) return false;
+  return true;
+}
+
+export function attendanceResponseDeadlinePassed(deadline: Date, now = new Date()): boolean {
+  return now.getTime() > deadline.getTime();
+}
+
+export function canMemberUpdateAttendanceResponse(
+  membership: ClubMembershipContext | null | undefined,
+  responseDeadline: Date,
+  now = new Date(),
+  staffOverride = false,
+): boolean {
+  if (!canRespondToClubEventAttendance(membership)) return false;
+  if (staffOverride && isClubStaff(membership)) return true;
+  return !attendanceResponseDeadlinePassed(responseDeadline, now);
+}
+
+export type MemberAttendanceSummary = {
+  targetEvents: number;
+  attended: number;
+  declined: number;
+  noResponse: number;
+  noShow: number;
+  averageAttendanceRate: number | null;
+};
+
+export function summarizeMemberAttendanceRows(
+  rows: Array<{
+    response: string;
+    finalStatus?: string | null;
+  }>,
+): MemberAttendanceSummary {
+  let attended = 0;
+  let declined = 0;
+  let noResponse = 0;
+  let noShow = 0;
+  let denom = 0;
+
+  for (const row of rows) {
+    if (row.finalStatus === 'ATTENDED') {
+      attended += 1;
+      denom += 1;
+      continue;
+    }
+    if (row.finalStatus === 'NO_SHOW') {
+      noShow += 1;
+      denom += 1;
+      continue;
+    }
+    if (row.response === 'DECLINED') {
+      declined += 1;
+      continue;
+    }
+    if (row.response === 'ATTENDING' || row.response === 'MAYBE') {
+      denom += 1;
+      continue;
+    }
+    noResponse += 1;
+  }
+
+  return {
+    targetEvents: rows.length,
+    attended,
+    declined,
+    noResponse,
+    noShow,
+    averageAttendanceRate: computeClubAttendanceRate({ attendedCount: attended, denominatorCount: denom }),
+  };
+}

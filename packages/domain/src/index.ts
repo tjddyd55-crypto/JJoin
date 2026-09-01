@@ -522,5 +522,19 @@ export {
   type AttendanceRateInput,
   type AttendanceResponseCounts,
   type ClubMembershipContext,
-  type EventAttendanceRow,
+  summarizeMemberAttendanceRows,
+  canPromoteClubManager,
+  canChangeMemberRole,
+  attendanceResponseDeadlinePassed,
+  canMemberUpdateAttendanceResponse,
+  type MemberAttendanceSummary,
 } from './club-management';
+
+export {
+  isWithinKstYear,
+  isWithinRolling30Days,
+  kstDayStartUtc,
+  kstYearStartUtc,
+  rolling30DayStartUtc,
+  kstDateParts,
+} from './club-stats-period';
