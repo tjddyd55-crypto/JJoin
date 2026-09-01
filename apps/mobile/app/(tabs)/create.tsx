@@ -49,8 +49,19 @@ export default function CreateScreen() {
     venueAddress?: string;
     players?: string;
     rewardPerParticipant?: string;
+    clubId?: string;
+    clubEventId?: string;
+    startsAt?: string;
+    title?: string;
   }>();
-  const routeVenueId = typeof params.venueId === 'string' ? params.venueId : undefined;
+  const routeVenueId =
+    typeof params.venueId === 'string' && params.venueId.trim()
+      ? params.venueId.trim()
+      : undefined;
+  const routeClubId = typeof params.clubId === 'string' ? params.clubId : undefined;
+  const routeClubEventId = typeof params.clubEventId === 'string' ? params.clubEventId : undefined;
+  const routeStartsAt = typeof params.startsAt === 'string' ? params.startsAt : undefined;
+  const routeTitle = typeof params.title === 'string' ? params.title : undefined;
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
 
   const [selectedVenue, setSelectedVenue] = useState<JoinCreateVenueSelection | null>(null);
@@ -81,6 +92,17 @@ export default function CreateScreen() {
       }
     }, [routeVenueId]),
   );
+
+  useEffect(() => {
+    if (routeVenueId) return;
+    const venueName = typeof params.venueName === 'string' ? params.venueName : '';
+    if (!venueName.trim()) return;
+    setSelectedVenue({
+      name: venueName,
+      address: typeof params.venueAddress === 'string' ? params.venueAddress : '',
+      source: 'CUSTOM',
+    });
+  }, [params.venueAddress, params.venueName, routeVenueId]);
 
   useEffect(() => {
     if (!routeVenueId) return;
@@ -192,12 +214,14 @@ export default function CreateScreen() {
       const detail = await api.createJoin({
         sportCode: SCREEN_GOLF_CODE,
         venueId: selectedVenue.venueId,
-        startAt: defaultStartAtIso(),
+        startAt: routeStartsAt ?? defaultStartAtIso(),
         plannedPlayerCount: players,
         joinMethod: JoinMethod.APPROVAL,
-        title: `${selectedVenue.name} 스크린골프`,
+        title: routeTitle ?? `${selectedVenue.name} 스크린골프`,
         rewardPerParticipant,
         idempotencyKey: newIdempotencyKey(),
+        clubId: routeClubId,
+        clubEventId: routeClubEventId,
       });
       setDoneJoinId(detail.joinId);
       clearJoinCreateDraft();
@@ -217,6 +241,10 @@ export default function CreateScreen() {
     requestGatedAction,
     rewardPerParticipant,
     router,
+    routeClubEventId,
+    routeClubId,
+    routeStartsAt,
+    routeTitle,
     selectedVenue,
     shortfall,
     submitting,

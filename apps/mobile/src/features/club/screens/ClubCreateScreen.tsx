@@ -5,7 +5,6 @@ import {
   Button,
   Chip,
   FormScreenFrame,
-  ScrollScreenFrame,
   Stack,
   StickyActionFrame,
   Text,
@@ -19,6 +18,7 @@ import {
   ClubVisibility,
   type CreateClubRequest,
 } from '@jjoin/types';
+import { ClubCoverPicker } from '../components/ClubCoverPicker';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
 import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
@@ -42,7 +42,8 @@ export function ClubCreateScreen() {
   const theme = useTheme();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [name, setName] = useState('');
-  const [coverImageUrl, setCoverImageUrl] = useState('');
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
   const [intro, setIntro] = useState('');
   const [region, setRegion] = useState('');
   const [primaryVenueName, setPrimaryVenueName] = useState('');
@@ -65,9 +66,22 @@ export function ClubCreateScreen() {
     [theme],
   );
 
+  const onPickCover = async (localUri: string) => {
+    setUploadingCover(true);
+    setError(null);
+    try {
+      const uploaded = await api.uploadClubCover({ localUri });
+      setCoverImageUrl(uploaded.coverImageUrl);
+    } catch {
+      setError('대표사진 업로드에 실패했습니다.');
+    } finally {
+      setUploadingCover(false);
+    }
+  };
+
   const onSubmit = async () => {
-    if (!name.trim() || !coverImageUrl.trim() || !region.trim()) {
-      setError('동호회명, 대표사진 URL, 지역은 필수입니다.');
+    if (!name.trim() || !region.trim()) {
+      setError('동호회명과 활동 지역은 필수입니다.');
       return;
     }
     setSubmitting(true);
@@ -75,7 +89,7 @@ export function ClubCreateScreen() {
     try {
       const body: CreateClubRequest = {
         name: name.trim(),
-        coverImageUrl: coverImageUrl.trim(),
+        coverImageUrl: coverImageUrl ?? undefined,
         intro: intro.trim() || null,
         region: region.trim(),
         activityType,
@@ -107,25 +121,24 @@ export function ClubCreateScreen() {
         <Text variant="caption" tone="secondary">
           대표사진과 기본 정보만 입력하면 바로 생성됩니다.
         </Text>
+        <Field label="대표사진 (선택)">
+          <ClubCoverPicker
+            coverImageUrl={coverImageUrl}
+            uploading={uploadingCover}
+            onPick={(uri) => void onPickCover(uri)}
+            onClear={() => setCoverImageUrl(null)}
+          />
+        </Field>
         <Field label="동호회명">
           <TextInput value={name} onChangeText={setName} placeholder="예: 일산 골프 모임" style={inputStyle} />
         </Field>
-        <Field label="대표사진 URL">
-          <TextInput
-            value={coverImageUrl}
-            onChangeText={setCoverImageUrl}
-            placeholder="https://..."
-            autoCapitalize="none"
-            style={inputStyle}
-          />
-        </Field>
-        <Field label="한 줄 소개">
+        <Field label="짧은 소개">
           <TextInput value={intro} onChangeText={setIntro} placeholder="짧은 소개" style={inputStyle} />
         </Field>
-        <Field label="주 활동 지역">
+        <Field label="활동 지역">
           <TextInput value={region} onChangeText={setRegion} placeholder="예: 경기 고양" style={inputStyle} />
         </Field>
-        <Field label="주 활동 유형">
+        <Field label="활동 유형">
           <View style={styles.chips}>
             {ACTIVITY_OPTIONS.map((opt) => (
               <Chip

@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { ClubPlaceholderImage } from '../components/ClubPlaceholderImage';
 import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import {
   Button,
@@ -69,9 +70,7 @@ export function ClubDiscoverScreen() {
         {items.map((club) => (
           <Card key={club.id} padding="md">
             <Stack gap="sm">
-              {club.coverImageUrl ? (
-                <Image source={{ uri: club.coverImageUrl }} style={styles.cover} />
-              ) : null}
+              <ClubPlaceholderImage uri={club.coverImageUrl} height={120} label={club.name.slice(0, 1)} />
               <Text variant="bodyStrong">{club.name}</Text>
               <Text variant="caption" tone="secondary">
                 {club.region} · {clubActivityTypeLabel(club.activityType)}

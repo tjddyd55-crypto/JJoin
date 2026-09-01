@@ -46,5 +46,9 @@ export function venueSelectionLabel(v: JoinCreateVenueSelection): string {
 }
 
 export function venueSelectionHasPlace(v: JoinCreateVenueSelection | null): v is JoinCreateVenueSelection {
-  return v != null && v.name.trim().length > 0 && Boolean(v.venueId);
+  return (
+    v != null &&
+    v.name.trim().length > 0 &&
+    (Boolean(v.venueId) || v.source === 'CUSTOM')
+  );
 }

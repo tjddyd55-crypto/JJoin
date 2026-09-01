@@ -18,6 +18,7 @@ import {
   type ClubEventListItemDto,
 } from '@jjoin/types';
 import { ClubKpiGrid, ClubRecent30Row } from '../components/ClubKpiGrid';
+import { ClubPlaceholderImage } from '../components/ClubPlaceholderImage';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
 import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
@@ -73,9 +74,7 @@ export function ClubHomeScreen() {
   return (
     <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       <Stack gap="md">
-        {detail.coverImageUrl ? (
-          <Image source={{ uri: detail.coverImageUrl }} style={styles.cover} />
-        ) : null}
+        <ClubPlaceholderImage uri={detail.coverImageUrl} height={180} label={detail.name.slice(0, 1)} />
         <Stack gap="xs">
           <Text variant="screenTitle">{detail.name}</Text>
           <Text variant="caption" tone="secondary">

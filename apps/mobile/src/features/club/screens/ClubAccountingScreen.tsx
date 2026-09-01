@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, TextInput } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
   Button,
   Card,
+  Chip,
   ScrollScreenFrame,
   Stack,
   Text,
@@ -19,18 +20,21 @@ import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
 import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
 
+type AccountingPeriod = 'THIS_MONTH' | 'THIS_YEAR' | 'ALL';
+
 export function ClubAccountingScreen() {
   const { clubId } = useLocalSearchParams<{ clubId: string }>();
   const theme = useTheme();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
+  const [period, setPeriod] = useState<AccountingPeriod>('THIS_YEAR');
   const [data, setData] = useState<ClubAccountingListResponse | null>(null);
   const [amount, setAmount] = useState('');
   const [memo, setMemo] = useState('');
 
   const load = useCallback(async () => {
     if (!clubId) return;
-    setData(await api.listClubAccounting(clubId, 'THIS_YEAR'));
-  }, [api, clubId]);
+    setData(await api.listClubAccounting(clubId, period));
+  }, [api, clubId, period]);
 
   useFocusEffect(
     useCallback(() => {
@@ -52,6 +56,17 @@ export function ClubAccountingScreen() {
     <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       <Stack gap="md">
         <Text variant="screenTitle">회계</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+          {(
+            [
+              ['THIS_MONTH', '이번 달'],
+              ['THIS_YEAR', '올해'],
+              ['ALL', '전체'],
+            ] as const
+          ).map(([value, label]) => (
+            <Chip key={value} label={label} selected={period === value} onPress={() => setPeriod(value)} />
+          ))}
+        </View>
         {data ? (
           <Card padding="md">
             <Stack gap="xs">
@@ -66,14 +81,22 @@ export function ClubAccountingScreen() {
         <Text variant="sectionTitle">장부</Text>
         {data?.items.map((entry) => (
           <Card key={entry.id} padding="sm">
-            <Text variant="body">
-              {entry.entryDate} · {entry.entryType === 'INCOME' ? '수입' : '지출'} · {entry.amount}
-            </Text>
-            {entry.memo ? (
-              <Text variant="caption" tone="secondary">
-                {entry.memo}
+            <Stack gap="xs">
+              <Text variant="body">
+                {entry.entryDate} · {entry.entryType === 'INCOME' ? '수입' : '지출'} · {entry.amount}
               </Text>
-            ) : null}
+              {entry.memo ? (
+                <Text variant="caption" tone="secondary">
+                  {entry.memo}
+                </Text>
+              ) : null}
+              <Button
+                label="삭제"
+                size="sm"
+                variant="secondary"
+                onPress={() => void api.deleteClubAccountingEntry(clubId!, entry.id).then(load)}
+              />
+            </Stack>
           </Card>
         ))}
 
@@ -81,13 +104,33 @@ export function ClubAccountingScreen() {
         <TextInput value={amount} onChangeText={setAmount} placeholder="금액" keyboardType="number-pad" style={inputStyle} />
         <TextInput value={memo} onChangeText={setMemo} placeholder="메모" style={inputStyle} />
         <Button
-          label="회비 수입 추가"
+          label="수입 추가"
           size="sm"
           onPress={() =>
             void api
               .createClubAccountingEntry(clubId!, {
                 entryType: ClubAccountingEntryType.INCOME,
                 category: ClubAccountingCategory.MEMBERSHIP_FEE,
+                amount,
+                entryDate: new Date().toISOString().slice(0, 10),
+                memo: memo || null,
+              })
+              .then(() => {
+                setAmount('');
+                setMemo('');
+                return load();
+              })
+          }
+        />
+        <Button
+          label="지출 추가"
+          size="sm"
+          variant="secondary"
+          onPress={() =>
+            void api
+              .createClubAccountingEntry(clubId!, {
+                entryType: ClubAccountingEntryType.EXPENSE,
+                category: ClubAccountingCategory.GAME_FEE,
                 amount,
                 entryDate: new Date().toISOString().slice(0, 10),
                 memo: memo || null,
