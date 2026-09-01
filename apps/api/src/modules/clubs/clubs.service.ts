@@ -33,7 +33,11 @@ import {
   type CreateClubEventRequest,
   type CreateClubNoticeRequest,
   type CreateClubRequest,
+  type UpdateClubAccountingEntryRequest,
+  type UpdateClubNoticeRequest,
   type UpdateClubEventAttendanceRequest,
+  type UploadClubCoverResponse,
+  type ClubMemberAttendanceDetailDto,
 } from '@jjoin/types';
 import {
   computeClubAttendanceRate,
@@ -48,6 +52,13 @@ import {
   canManageClubEvents,
   canManageClubNotices,
   canRespondToClubEventAttendance,
+  canChangeMemberRole,
+  canMemberUpdateAttendanceResponse,
+  clubAgeGroupLabel,
+  isClubStaff,
+  kstYearStartUtc,
+  rolling30DayStartUtc,
+  summarizeMemberAttendanceRows,
 } from '@jjoin/domain';
 import {
   createClubAccountingEntrySchema,
@@ -55,9 +66,13 @@ import {
   createClubNoticeSchema,
   createClubSchema,
   updateClubEventAttendanceSchema,
+  updateClubAccountingEntrySchema,
+  updateClubNoticeSchema,
 } from '@jjoin/validation';
+import { MockMediaAdapter } from '../../providers/mock.adapters';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationEventService } from '../notifications/notification-event.service';
+import { ClubJoinLinkService } from './club-join-link.service';
 
 type MembershipRow = {
   id: string;
@@ -73,7 +88,30 @@ export class ClubsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationEventService,
+    private readonly media: MockMediaAdapter,
+    private readonly clubJoinLink: ClubJoinLinkService,
   ) {}
+
+  async uploadCoverImage(userId: string, body: { localUri: string }): Promise<UploadClubCoverResponse> {
+    const localUri = body.localUri?.trim();
+    if (!localUri) throw new BadRequestException('invalid_cover_image');
+
+    await this.media.createUploadUrl({ userId, contentType: 'image/jpeg' });
+    const coverImageUrl = localUri.startsWith('http')
+      ? localUri
+      : `https://picsum.photos/seed/${encodeURIComponent(localUri.slice(-24))}/800/400`;
+
+    await this.prisma.mediaAsset.create({
+      data: {
+        ownerUserId: userId,
+        kind: 'OTHER',
+        storageKey: localUri,
+        mimeType: 'image/jpeg',
+      },
+    });
+
+    return { coverImageUrl };
+  }
 
   async createClub(userId: string, raw: CreateClubRequest): Promise<ClubSummaryDto> {
     const parsed = createClubSchema.safeParse(raw);
@@ -86,7 +124,7 @@ export class ClubsService {
       const created = await tx.club.create({
         data: {
           name: parsed.data.name,
-          coverImageUrl: parsed.data.coverImageUrl,
+          coverImageUrl: parsed.data.coverImageUrl ?? null,
           intro: parsed.data.intro ?? null,
           region: parsed.data.region,
           activityType: parsed.data.activityType,
@@ -156,22 +194,29 @@ export class ClubsService {
     const myByClub = new Map(myMemberships.map((m) => [m.clubId, m]));
 
     return {
-      items: clubs.map((club) => {
-        const dash = dashboards.get(club.id)!;
-        const mine = myByClub.get(club.id);
-        return {
-          ...this.toSummaryDto(club, {
-            memberCount: memberCounts.get(club.id) ?? 0,
-            myRole: (mine?.role as ClubMembershipRole) ?? null,
-            myStatus: (mine?.status as ClubMembershipStatus) ?? null,
-          }),
-          eventsThisYear: dash.eventsThisYear,
-          totalAttended: dash.totalAttended,
-          averageAttendanceRate: dash.averageAttendanceRate,
-          recent30DayEvents: dash.recent30DayEvents,
-          recent30DayAttendanceRate: dash.recent30DayAttendanceRate,
-        };
-      }),
+      items: clubs
+        .map((club) => {
+          const dash = dashboards.get(club.id)!;
+          const mine = myByClub.get(club.id);
+          return {
+            ...this.toSummaryDto(club, {
+              memberCount: memberCounts.get(club.id) ?? 0,
+              myRole: (mine?.role as ClubMembershipRole) ?? null,
+              myStatus: (mine?.status as ClubMembershipStatus) ?? null,
+            }),
+            eventsThisYear: dash.eventsThisYear,
+            totalAttended: dash.totalAttended,
+            averageAttendanceRate: dash.averageAttendanceRate,
+            recent30DayEvents: dash.recent30DayEvents,
+            recent30DayAttendanceRate: dash.recent30DayAttendanceRate,
+          };
+        })
+        .sort((a, b) => {
+          if (b.recent30DayEvents !== a.recent30DayEvents) {
+            return b.recent30DayEvents - a.recent30DayEvents;
+          }
+          return b.memberCount - a.memberCount;
+        }),
     };
   }
 
@@ -268,6 +313,49 @@ export class ClubsService {
     });
 
     return this.toMembershipDto(updated, null);
+  }
+
+  async rejectMembership(
+    actorUserId: string,
+    clubId: string,
+    membershipId: string,
+  ): Promise<{ ok: true }> {
+    const actor = await this.requireActiveMembership(clubId, actorUserId);
+    if (!canApproveClubMembership(actor)) throw new ForbiddenException('club_forbidden');
+
+    const row = await this.prisma.clubMembership.findFirst({
+      where: { id: membershipId, clubId, status: ClubMembershipStatus.PENDING },
+    });
+    if (!row) throw new NotFoundException('membership_not_found');
+
+    await this.prisma.clubMembership.update({
+      where: { id: row.id },
+      data: { status: ClubMembershipStatus.REJECTED },
+    });
+    return { ok: true };
+  }
+
+  async updateMemberRole(
+    actorUserId: string,
+    clubId: string,
+    membershipId: string,
+    role: ClubMembershipRole.MANAGER | ClubMembershipRole.MEMBER,
+  ): Promise<ClubMembershipDto> {
+    const actor = await this.requireActiveMembership(clubId, actorUserId);
+    const row = await this.prisma.clubMembership.findFirst({
+      where: { id: membershipId, clubId, status: ClubMembershipStatus.ACTIVE },
+      include: { user: { include: { profile: true } } },
+    });
+    if (!row) throw new NotFoundException('membership_not_found');
+    if (!canChangeMemberRole(actor, row)) throw new ForbiddenException('club_forbidden');
+
+    const updated = await this.prisma.clubMembership.update({
+      where: { id: row.id },
+      data: { role },
+      include: { user: { include: { profile: true } } },
+    });
+    const stats = await this.buildMemberYearStats(clubId, [updated.userId]);
+    return this.toMembershipDto(updated, stats.get(updated.userId) ?? null);
   }
 
   async listMembers(actorUserId: string, clubId: string): Promise<ClubMembershipListResponse> {
@@ -367,7 +455,7 @@ export class ClubsService {
     clubId: string,
     eventId: string,
   ): Promise<ClubEventDetailDto> {
-    await this.requireActiveMembership(clubId, actorUserId);
+    const actor = await this.requireActiveMembership(clubId, actorUserId);
     const event = await this.prisma.clubEvent.findFirst({
       where: { id: eventId, clubId },
       include: {
@@ -380,13 +468,40 @@ export class ClubsService {
     });
     if (!event) throw new NotFoundException('event_not_found');
 
+    const counts = countAttendanceResponses(event.attendances);
+    const externalParticipantCount = await this.clubJoinLink.countExternalParticipants(eventId);
     const base = this.toEventListItem(event, actorUserId);
+
+    let eventAccounting: ClubEventDetailDto['eventAccounting'] = null;
+    if (canManageClubAccounting(actor)) {
+      const entries = await this.prisma.clubAccountingEntry.findMany({
+        where: { clubId, clubEventId: eventId },
+        select: { entryType: true, amount: true },
+      });
+      let income = 0;
+      let expense = 0;
+      for (const row of entries) {
+        const amt = Number(row.amount);
+        if (row.entryType === 'INCOME') income += amt;
+        else expense += amt;
+      }
+      eventAccounting = {
+        income: income.toFixed(0),
+        expense: expense.toFixed(0),
+        balance: (income - expense).toFixed(0),
+      };
+    }
+
     return {
       ...base,
       venueAddress: event.venueAddress,
       responseDeadline: event.responseDeadline.toISOString(),
       memo: event.memo,
       attendanceFinalized: Boolean(event.attendanceFinalizedAt),
+      maybeCount: counts.maybe,
+      memberAttendingCount: counts.attending,
+      externalParticipantCount,
+      eventAccounting,
       attendances: event.attendances.map((a) => ({
         userId: a.userId,
         nickname: a.user.profile?.nickname ?? '회원',
@@ -417,6 +532,12 @@ export class ClubsService {
     if (!event || event.status === ClubEventStatus.CANCELLED) {
       throw new NotFoundException('event_not_found');
     }
+    if (event.attendanceFinalizedAt) {
+      throw new BadRequestException('attendance_finalized');
+    }
+    if (!canMemberUpdateAttendanceResponse(membership, event.responseDeadline)) {
+      throw new ForbiddenException('attendance_deadline_passed');
+    }
 
     await this.prisma.clubEventAttendance.upsert({
       where: { clubEventId_userId: { clubEventId: eventId, userId } },
@@ -446,6 +567,9 @@ export class ClubsService {
 
     const event = await this.prisma.clubEvent.findFirst({ where: { id: eventId, clubId } });
     if (!event) throw new NotFoundException('event_not_found');
+    if (event.attendanceFinalizedAt) {
+      return this.getEventDetail(actorUserId, clubId, eventId);
+    }
 
     await this.prisma.$transaction(async (tx) => {
       for (const item of raw.items) {
@@ -458,10 +582,7 @@ export class ClubsService {
         where: { id: eventId },
         data: {
           attendanceFinalizedAt: new Date(),
-          status:
-            event.startsAt.getTime() <= Date.now()
-              ? ClubEventStatus.COMPLETED
-              : ClubEventStatus.SCHEDULED,
+          status: ClubEventStatus.COMPLETED,
         },
       });
     });
@@ -475,7 +596,10 @@ export class ClubsService {
     targetUserId: string,
     period: 'RECENT_30D' | 'THIS_YEAR' | 'ALL',
   ): Promise<ClubMemberAttendanceStatsDto> {
-    await this.requireActiveMembership(clubId, actorUserId);
+    const actor = await this.requireActiveMembership(clubId, actorUserId);
+    if (actorUserId !== targetUserId && !isClubStaff(actor)) {
+      throw new ForbiddenException('club_forbidden');
+    }
     const profile = await this.prisma.userProfile.findUnique({ where: { userId: targetUserId } });
     const since = this.periodSince(period);
 
@@ -490,38 +614,56 @@ export class ClubsService {
       },
     });
 
-    let attended = 0;
-    let declined = 0;
-    let noResponse = 0;
-    let noShow = 0;
-    let targetEvents = 0;
+    const rows = events.flatMap((event) => event.attendances);
+    const summary = summarizeMemberAttendanceRows(rows);
 
-    for (const event of events) {
-      const row = event.attendances[0];
-      if (!row) continue;
-      targetEvents += 1;
-      if (row.finalStatus === 'ATTENDED') attended += 1;
-      else if (row.finalStatus === 'NO_SHOW') noShow += 1;
-      else if (row.response === 'DECLINED') declined += 1;
-      else if (row.response === 'NO_RESPONSE') noResponse += 1;
-      else if (row.response === 'ATTENDING' || row.response === 'MAYBE') {
-        if (!row.finalStatus) noResponse += 1;
-      }
-    }
-
-    const denominator = attended + noShow + Math.max(targetEvents - declined - noResponse, 0);
     return {
       userId: targetUserId,
       nickname: profile?.nickname ?? '회원',
       period,
-      targetEvents,
-      attended,
-      declined,
-      noResponse,
-      noShow,
-      averageAttendanceRate: computeClubAttendanceRate({
-        attendedCount: attended,
-        denominatorCount: denominator,
+      targetEvents: summary.targetEvents,
+      attended: summary.attended,
+      declined: summary.declined,
+      noResponse: summary.noResponse,
+      noShow: summary.noShow,
+      averageAttendanceRate: summary.averageAttendanceRate,
+    };
+  }
+
+  async getMemberAttendanceDetail(
+    actorUserId: string,
+    clubId: string,
+    targetUserId: string,
+    period: 'RECENT_30D' | 'THIS_YEAR' | 'ALL',
+  ): Promise<ClubMemberAttendanceDetailDto> {
+    const stats = await this.getMemberAttendanceStats(actorUserId, clubId, targetUserId, period);
+    const since = this.periodSince(period);
+
+    const events = await this.prisma.clubEvent.findMany({
+      where: {
+        clubId,
+        ...(since ? { startsAt: { gte: since } } : {}),
+        status: { in: ['COMPLETED', 'SCHEDULED', 'IN_PROGRESS', 'OPEN', 'CANCELLED'] },
+        attendances: { some: { userId: targetUserId } },
+      },
+      include: {
+        attendances: { where: { userId: targetUserId } },
+      },
+      orderBy: { startsAt: 'desc' },
+      take: 50,
+    });
+
+    return {
+      ...stats,
+      history: events.map((event) => {
+        const row = event.attendances[0]!;
+        return {
+          eventId: event.id,
+          title: event.title,
+          startsAt: event.startsAt.toISOString(),
+          response: row.response as ClubEventAttendanceResponse,
+          finalStatus: (row.finalStatus as ClubEventAttendanceFinal) ?? null,
+        };
       }),
     };
   }
@@ -532,9 +674,7 @@ export class ClubsService {
     period: 'THIS_MONTH' | 'THIS_YEAR' | 'ALL' = 'THIS_YEAR',
   ): Promise<ClubAccountingListResponse> {
     const actor = await this.requireActiveMembership(clubId, actorUserId);
-    if (!canManageClubAccounting(actor) && actor.role !== ClubMembershipRole.MEMBER) {
-      throw new ForbiddenException('club_forbidden');
-    }
+    if (!canManageClubAccounting(actor)) throw new ForbiddenException('club_forbidden');
 
     const since = this.accountingPeriodSince(period);
     const entries = await this.prisma.clubAccountingEntry.findMany({
@@ -619,6 +759,64 @@ export class ClubsService {
     };
   }
 
+  async updateAccountingEntry(
+    actorUserId: string,
+    clubId: string,
+    entryId: string,
+    raw: UpdateClubAccountingEntryRequest,
+  ) {
+    const actor = await this.requireActiveMembership(clubId, actorUserId);
+    if (!canManageClubAccounting(actor)) throw new ForbiddenException('club_forbidden');
+
+    const parsed = updateClubAccountingEntrySchema.safeParse(raw);
+    if (!parsed.success) throw new BadRequestException('invalid_accounting_entry');
+
+    const existing = await this.prisma.clubAccountingEntry.findFirst({
+      where: { id: entryId, clubId },
+    });
+    if (!existing) throw new NotFoundException('accounting_entry_not_found');
+
+    const row = await this.prisma.clubAccountingEntry.update({
+      where: { id: entryId },
+      data: {
+        ...(parsed.data.entryType != null ? { entryType: parsed.data.entryType } : {}),
+        ...(parsed.data.category != null ? { category: parsed.data.category } : {}),
+        ...(parsed.data.amount != null ? { amount: parsed.data.amount } : {}),
+        ...(parsed.data.entryDate != null
+          ? { entryDate: new Date(`${parsed.data.entryDate}T00:00:00.000Z`) }
+          : {}),
+        ...(parsed.data.memo !== undefined ? { memo: parsed.data.memo ?? null } : {}),
+        ...(parsed.data.clubEventId !== undefined
+          ? { clubEventId: parsed.data.clubEventId ?? null }
+          : {}),
+      },
+    });
+
+    return {
+      id: row.id,
+      entryType: row.entryType,
+      category: row.category,
+      amount: String(row.amount),
+      entryDate: row.entryDate.toISOString().slice(0, 10),
+      memo: row.memo,
+      clubEventId: row.clubEventId,
+      createdAt: row.createdAt.toISOString(),
+    };
+  }
+
+  async deleteAccountingEntry(actorUserId: string, clubId: string, entryId: string) {
+    const actor = await this.requireActiveMembership(clubId, actorUserId);
+    if (!canManageClubAccounting(actor)) throw new ForbiddenException('club_forbidden');
+
+    const existing = await this.prisma.clubAccountingEntry.findFirst({
+      where: { id: entryId, clubId },
+    });
+    if (!existing) throw new NotFoundException('accounting_entry_not_found');
+
+    await this.prisma.clubAccountingEntry.delete({ where: { id: entryId } });
+    return { ok: true as const };
+  }
+
   async listNotices(actorUserId: string, clubId: string): Promise<ClubNoticeListResponse> {
     await this.requireActiveMembership(clubId, actorUserId);
     const rows = await this.prisma.clubNotice.findMany({
@@ -677,6 +875,50 @@ export class ClubsService {
     };
   }
 
+  async updateNotice(
+    actorUserId: string,
+    clubId: string,
+    noticeId: string,
+    raw: UpdateClubNoticeRequest,
+  ): Promise<ClubNoticeDto> {
+    const actor = await this.requireActiveMembership(clubId, actorUserId);
+    if (!canManageClubNotices(actor)) throw new ForbiddenException('club_forbidden');
+
+    const parsed = updateClubNoticeSchema.safeParse(raw);
+    if (!parsed.success) throw new BadRequestException('invalid_notice');
+
+    const existing = await this.prisma.clubNotice.findFirst({ where: { id: noticeId, clubId } });
+    if (!existing) throw new NotFoundException('notice_not_found');
+
+    const row = await this.prisma.clubNotice.update({
+      where: { id: noticeId },
+      data: {
+        ...(parsed.data.title != null ? { title: parsed.data.title } : {}),
+        ...(parsed.data.body != null ? { body: parsed.data.body } : {}),
+        ...(parsed.data.pinned != null ? { pinned: parsed.data.pinned } : {}),
+      },
+    });
+
+    return {
+      id: row.id,
+      title: row.title,
+      body: row.body,
+      pinned: row.pinned,
+      createdAt: row.createdAt.toISOString(),
+    };
+  }
+
+  async deleteNotice(actorUserId: string, clubId: string, noticeId: string) {
+    const actor = await this.requireActiveMembership(clubId, actorUserId);
+    if (!canManageClubNotices(actor)) throw new ForbiddenException('club_forbidden');
+
+    const existing = await this.prisma.clubNotice.findFirst({ where: { id: noticeId, clubId } });
+    if (!existing) throw new NotFoundException('notice_not_found');
+
+    await this.prisma.clubNotice.delete({ where: { id: noticeId } });
+    return { ok: true as const };
+  }
+
   async urgentRecruitPrefill(
     actorUserId: string,
     clubId: string,
@@ -701,6 +943,7 @@ export class ClubsService {
       title: event.title,
       venueName: event.venueName,
       venueAddress: event.venueAddress,
+      venueId: event.venueId,
       startsAt: event.startsAt.toISOString(),
       remainingSeats,
     };
@@ -765,8 +1008,8 @@ export class ClubsService {
   private async buildDashboardBatch(clubIds: string[]) {
     if (!clubIds.length) return new Map();
 
-    const yearStart = this.yearStart();
-    const recentSince = new Date(Date.now() - 30 * 24 * 60 * 60_000);
+    const yearStart = kstYearStartUtc();
+    const recentSince = rolling30DayStartUtc();
 
     const completedEvents = await this.prisma.clubEvent.findMany({
       where: {
@@ -954,7 +1197,8 @@ export class ClubsService {
       role: string;
       status: string;
       joinedAt: Date | null;
-      user: { profile: { nickname: string } | null };
+      createdAt: Date;
+      user: { profile: { nickname: string; ageBand: string | null } | null };
     },
     attendanceRateThisYear: number | null,
   ): ClubMembershipDto {
@@ -965,7 +1209,9 @@ export class ClubsService {
       role: row.role as ClubMembershipDto['role'],
       status: row.status as ClubMembershipDto['status'],
       joinedAt: row.joinedAt?.toISOString() ?? null,
+      requestedAt: row.createdAt.toISOString(),
       attendanceRateThisYear,
+      ageGroupLabel: clubAgeGroupLabel(row.user.profile?.ageBand ?? null),
     };
   }
 
@@ -974,14 +1220,13 @@ export class ClubsService {
   }
 
   private yearStart() {
-    const year = new Date().getFullYear();
-    return new Date(Date.UTC(year, 0, 1));
+    return kstYearStartUtc();
   }
 
   private periodSince(period: 'RECENT_30D' | 'THIS_YEAR' | 'ALL') {
     if (period === 'ALL') return null;
-    if (period === 'THIS_YEAR') return this.yearStart();
-    return new Date(Date.now() - 30 * 24 * 60 * 60_000);
+    if (period === 'THIS_YEAR') return kstYearStartUtc();
+    return rolling30DayStartUtc();
   }
 
   private accountingPeriodSince(period: 'THIS_MONTH' | 'THIS_YEAR' | 'ALL') {
