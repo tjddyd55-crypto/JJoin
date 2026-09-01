@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { Alert, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import {
   Button,
@@ -19,7 +19,7 @@ import {
   type ClubEventAttendanceDto,
 } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
-import { getSecureSessionStore } from '../../../session/SessionContext';
+import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
 import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
 
 type AttendanceFilter = 'ALL' | 'ATTENDING' | 'DECLINED' | 'MAYBE' | 'NO_RESPONSE' | 'NO_SHOW';
@@ -31,13 +31,23 @@ function matchesFilter(row: ClubEventAttendanceDto, filter: AttendanceFilter) {
   return row.response === filter;
 }
 
+function defaultFinalStatus(row: ClubEventAttendanceDto): ClubEventAttendanceFinal {
+  if (row.response === ClubEventAttendanceResponse.ATTENDING) {
+    return ClubEventAttendanceFinal.ATTENDED;
+  }
+  return ClubEventAttendanceFinal.NO_SHOW;
+}
+
 export function ClubEventDetailScreen() {
   const { clubId, eventId } = useLocalSearchParams<{ clubId: string; eventId: string }>();
   const router = useRouter();
+  const { me } = useSession();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [event, setEvent] = useState<ClubEventDetailDto | null>(null);
   const [myRole, setMyRole] = useState<string | null>(null);
   const [filter, setFilter] = useState<AttendanceFilter>('ALL');
+  const [finalizeOpen, setFinalizeOpen] = useState(false);
+  const [finalizeDraft, setFinalizeDraft] = useState<Record<string, ClubEventAttendanceFinal>>({});
 
   const load = useCallback(async () => {
     if (!clubId || !eventId) return;
@@ -58,6 +68,55 @@ export function ClubEventDetailScreen() {
   const staff = myRole
     ? isClubStaff({ role: myRole, status: ClubMembershipStatus.ACTIVE })
     : false;
+
+  const myAttendance = useMemo(
+    () => event?.attendances.find((a) => a.userId === me?.userId) ?? null,
+    [event?.attendances, me?.userId],
+  );
+
+  const canOpenEventChat = Boolean(
+    event?.linkedJoinId &&
+      (myAttendance?.response === ClubEventAttendanceResponse.ATTENDING ||
+        myAttendance?.finalStatus === ClubEventAttendanceFinal.ATTENDED),
+  );
+
+  const openFinalizePanel = () => {
+    if (!event) return;
+    const draft: Record<string, ClubEventAttendanceFinal> = {};
+    for (const row of event.attendances) {
+      draft[row.userId] = defaultFinalStatus(row);
+    }
+    setFinalizeDraft(draft);
+    setFinalizeOpen(true);
+  };
+
+  const confirmFinalize = () => {
+    if (!event || !clubId || !eventId) return;
+    Alert.alert(
+      '참석 확정 및 모임 종료',
+      '참석 기록을 확정하면 회원 참석 통계에 반영됩니다.',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '확정',
+          style: 'destructive',
+          onPress: () => {
+            void api
+              .finalizeClubEventAttendance(clubId, eventId, {
+                items: Object.entries(finalizeDraft).map(([userId, finalStatus]) => ({
+                  userId,
+                  finalStatus,
+                })),
+              })
+              .then(() => {
+                setFinalizeOpen(false);
+                return load();
+              });
+          },
+        },
+      ],
+    );
+  };
 
   if (!event) {
     return (
@@ -88,13 +147,30 @@ export function ClubEventDetailScreen() {
             동호회 회원 {event.memberAttendingCount ?? event.attendingCount} · 외부 참가{' '}
             {event.externalParticipantCount ?? 0}
             {event.capacity != null
-              ? ` · 총 ${(event.memberAttendingCount ?? event.attendingCount) + (event.externalParticipantCount ?? 0)} / ${event.capacity}`
+              ? ` · 총 ${event.totalOccupiedCount ?? 0} / ${event.capacity}`
               : ''}
           </Text>
           {event.remainingCapacity != null ? (
             <Text variant="bodyStrong">남은 자리 {event.remainingCapacity}</Text>
           ) : null}
+          {event.attendanceFinalized ? (
+            <Text variant="bodyStrong">
+              확정 — 참석 {event.finalizedAttendedCount ?? 0} · 노쇼 {event.finalizedNoShowCount ?? 0}
+              {event.externalParticipantCount
+                ? ` · 외부 ${event.externalParticipantCount}`
+                : ''}
+            </Text>
+          ) : null}
         </Card>
+
+        {canOpenEventChat ? (
+          <Button
+            label="모임 채팅"
+            variant="secondary"
+            size="sm"
+            onPress={() => router.push(`/join/${event.linkedJoinId}/chat` as Href)}
+          />
+        ) : null}
 
         {!event.attendanceFinalized && !deadlinePassed ? (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
@@ -120,7 +196,7 @@ export function ClubEventDetailScreen() {
           </Text>
         ) : null}
 
-        {staff && event.remainingCapacity != null && event.remainingCapacity > 0 ? (
+        {staff && event.remainingCapacity != null && event.remainingCapacity > 0 && !event.attendanceFinalized ? (
           <Button
             label={`JJOINZONE에서 긴급 모집 (${event.remainingCapacity}자리 부족)`}
             variant="secondary"
@@ -147,6 +223,55 @@ export function ClubEventDetailScreen() {
 
         {staff ? (
           <>
+            {!event.attendanceFinalized && !finalizeOpen ? (
+              <Button label="실제 참석 확인" size="sm" onPress={openFinalizePanel} />
+            ) : null}
+
+            {finalizeOpen ? (
+              <Card padding="md">
+                <Stack gap="sm">
+                  <Text variant="sectionTitle">실제 참석 확인</Text>
+                  {event.attendances.map((row) => (
+                    <View key={row.userId} style={{ gap: spacing.xs }}>
+                      <Text variant="body">{row.nickname}</Text>
+                      <Text variant="caption" tone="secondary">
+                        응답 {row.response}
+                      </Text>
+                      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                        <Chip
+                          label="참석"
+                          selected={finalizeDraft[row.userId] === ClubEventAttendanceFinal.ATTENDED}
+                          onPress={() =>
+                            setFinalizeDraft((prev) => ({
+                              ...prev,
+                              [row.userId]: ClubEventAttendanceFinal.ATTENDED,
+                            }))
+                          }
+                        />
+                        <Chip
+                          label="노쇼"
+                          selected={finalizeDraft[row.userId] === ClubEventAttendanceFinal.NO_SHOW}
+                          onPress={() =>
+                            setFinalizeDraft((prev) => ({
+                              ...prev,
+                              [row.userId]: ClubEventAttendanceFinal.NO_SHOW,
+                            }))
+                          }
+                        />
+                      </View>
+                    </View>
+                  ))}
+                  <Button label="참석 확정 및 모임 종료" size="sm" onPress={confirmFinalize} />
+                  <Button
+                    label="취소"
+                    size="sm"
+                    variant="secondary"
+                    onPress={() => setFinalizeOpen(false)}
+                  />
+                </Stack>
+              </Card>
+            ) : null}
+
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
               {(
                 [
@@ -178,26 +303,6 @@ export function ClubEventDetailScreen() {
                 </Stack>
               </Card>
             ))}
-
-            {!event.attendanceFinalized ? (
-              <Button
-                label="모임 종료 · 참석 확정"
-                size="sm"
-                onPress={() =>
-                  void api
-                    .finalizeClubEventAttendance(clubId!, eventId!, {
-                      items: event.attendances.map((a) => ({
-                        userId: a.userId,
-                        finalStatus:
-                          a.response === ClubEventAttendanceResponse.ATTENDING
-                            ? ClubEventAttendanceFinal.ATTENDED
-                            : ClubEventAttendanceFinal.NO_SHOW,
-                      })),
-                    })
-                    .then(load)
-                }
-              />
-            ) : null}
           </>
         ) : null}
 

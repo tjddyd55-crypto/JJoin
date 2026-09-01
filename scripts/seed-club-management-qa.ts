@@ -4,6 +4,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import {
+  AttendanceIntent,
   ClubActivityType,
   ClubAgeGroup,
   ClubEventAttendanceResponse,
@@ -13,6 +14,10 @@ import {
   ClubMembershipRole,
   ClubMembershipStatus,
   ClubVisibility,
+  JoinKind,
+  JoinStatus,
+  ParticipantRole,
+  ParticipationStatus,
   PrismaClient,
 } from '@prisma/client';
 
@@ -35,6 +40,22 @@ async function main() {
   });
   if (oldClubs.length) {
     const ids = oldClubs.map((c) => c.id);
+    const oldEvents = await prisma.clubEvent.findMany({
+      where: { clubId: { in: ids } },
+      select: { id: true },
+    });
+    const eventIds = oldEvents.map((e) => e.id);
+    if (eventIds.length) {
+      await prisma.joinChatMessage.deleteMany({
+        where: { room: { join: { clubEventId: { in: eventIds } } } },
+      });
+      await prisma.joinChatMember.deleteMany({
+        where: { room: { join: { clubEventId: { in: eventIds } } } },
+      });
+      await prisma.joinChatRoom.deleteMany({ where: { join: { clubEventId: { in: eventIds } } } });
+      await prisma.joinParticipant.deleteMany({ where: { join: { clubEventId: { in: eventIds } } } });
+      await prisma.join.deleteMany({ where: { clubEventId: { in: eventIds } } });
+    }
     await prisma.clubAccountingEntry.deleteMany({ where: { clubId: { in: ids } } });
     await prisma.clubNotice.deleteMany({ where: { clubId: { in: ids } } });
     await prisma.clubEventAttendance.deleteMany({
@@ -211,13 +232,43 @@ async function main() {
     },
   });
 
+  const sport = await prisma.sport.findFirst();
+  const coin = await prisma.coinAsset.findFirst();
+  if (!sport || !coin) throw new Error('sport/coin missing');
+
+  const facility = await prisma.golfFacility.findFirst({
+    where: { isActive: true, latitude: { not: null } },
+  });
+  if (!facility?.latitude || !facility.longitude) throw new Error('no golf facility');
+
+  let venue = await prisma.venue.findFirst({ where: { golfFacilityId: facility.id } });
+  if (!venue) {
+    venue = await prisma.venue.create({
+      data: {
+        id: randomUUID(),
+        sportId: sport.id,
+        provider: 'LOCALDATA',
+        providerPlaceId: `qa-club-${facility.id}`,
+        name: facility.displayName,
+        region: [facility.sido, facility.sigungu].filter(Boolean).join(' ') || '경기',
+        address: facility.roadAddress ?? 'QA 주소',
+        latitude: facility.latitude,
+        longitude: facility.longitude,
+        golfFacilityId: facility.id,
+      },
+    });
+  }
+
   const shortageEvent = await prisma.clubEvent.create({
     data: {
       clubId: club.id,
       title: `${TAG} 정원 부족 모임`,
       eventType: ClubEventType.SCREEN,
       startsAt: new Date(now + 5 * 24 * 60 * 60_000),
-      venueName: '긴급 모집 QA 장소',
+      venueName: venue.name,
+      venueAddress: venue.address,
+      venueId: venue.id,
+      golfFacilityId: facility.id,
       capacity: 20,
       responseDeadline: new Date(now + 4 * 24 * 60 * 60_000),
       status: ClubEventStatus.OPEN,
@@ -236,6 +287,61 @@ async function main() {
     });
   }
 
+  const externalUser =
+    profiles.find(
+      (p) => p.userId !== owner.userId && !members.some((m) => m.userId === p.userId),
+    ) ?? null;
+  if (!externalUser) {
+    throw new Error('need external non-member user for urgent join fixture');
+  }
+
+  const urgentStart = shortageEvent.startsAt;
+  const urgentEnd = new Date(urgentStart.getTime() + 3 * 60 * 60_000);
+  const urgentJoinId = randomUUID();
+  await prisma.join.create({
+    data: {
+      id: urgentJoinId,
+      sportId: sport.id,
+      venueId: venue.id,
+      hostUserId: owner.userId,
+      title: `${TAG} 긴급 모집`,
+      status: JoinStatus.OPEN,
+      joinKind: JoinKind.STANDARD,
+      startAt: urgentStart,
+      scheduledEndAt: urgentEnd,
+      plannedPlayerCount: 5,
+      confirmedPlayerCount: 2,
+      rewardPerParticipant: 0,
+      coinAssetId: coin.id,
+      roomCreationFeeAmount: 0,
+      rewardHoldTotalAmount: 0,
+      clubId: club.id,
+      clubEventId: shortageEvent.id,
+      isUrgent: true,
+      urgentSeats: 4,
+      participants: {
+        create: [
+          {
+            id: randomUUID(),
+            userId: owner.userId,
+            role: ParticipantRole.HOST,
+            participationStatus: ParticipationStatus.APPROVED,
+            attendanceIntent: AttendanceIntent.CONFIRMED,
+            approvedAt: new Date(),
+          },
+          {
+            id: randomUUID(),
+            userId: externalUser.userId,
+            role: ParticipantRole.PARTICIPANT,
+            participationStatus: ParticipationStatus.APPROVED,
+            attendanceIntent: AttendanceIntent.CONFIRMED,
+            approvedAt: new Date(),
+          },
+        ],
+      },
+    },
+  });
+
   await prisma.clubAccountingEntry.create({
     data: {
       clubId: club.id,
@@ -249,7 +355,9 @@ async function main() {
     },
   });
 
-  console.log(`${TAG} clubId=${club.id} owner=${owner.nickname} members=${members.length + 1} shortageEvent=${shortageEvent.id}`);
+  console.log(
+    `${TAG} clubId=${club.id} owner=${owner.nickname} members=${members.length + 1} shortageEvent=${shortageEvent.id} urgentJoin=${urgentJoinId} venue=${venue.id} facility=${facility.id} external=${externalUser.nickname}`,
+  );
 }
 
 main()

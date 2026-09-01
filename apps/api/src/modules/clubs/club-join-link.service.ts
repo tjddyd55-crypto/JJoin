@@ -9,7 +9,7 @@ import {
   ClubEventStatus,
   ClubMembershipStatus,
 } from '@jjoin/types';
-import { computeRemainingEventCapacity, countAttendanceResponses, isClubStaff } from '@jjoin/domain';
+import { computeClubEventRemainingCapacity, countAttendanceResponses, isClubStaff } from '@jjoin/domain';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -57,7 +57,8 @@ export class ClubJoinLinkService {
     }
 
     const counts = countAttendanceResponses(event.attendances);
-    const remaining = computeRemainingEventCapacity(event.capacity, counts.attending) ?? 0;
+    const external = await this.countExternalParticipants(input.clubEventId);
+    const remaining = computeClubEventRemainingCapacity(event.capacity, counts.attending, external) ?? 0;
     if (remaining <= 0) throw new BadRequestException('no_remaining_seats');
 
     const urgentSeats = Math.min(remaining, Math.max(input.plannedPlayerCount - 1, 1));

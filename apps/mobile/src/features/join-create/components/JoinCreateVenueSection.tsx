@@ -29,6 +29,8 @@ type Props = {
   selected: JoinCreateVenueSelection | null;
   onChange: (next: JoinCreateVenueSelection | null) => void;
   onPickFromMap: () => void;
+  /** SCREEN club events: GolfFacility pick only (no free-text custom). */
+  restrictToFacilityPick?: boolean;
 };
 
 type PickerAction = 'map' | 'search' | 'custom' | null;
@@ -39,7 +41,13 @@ const PLACE_ACTIONS: Array<{ action: PickerAction; label: string; icon: IconName
   { action: 'custom', label: '직접 입력', icon: 'edit' },
 ];
 
-export function JoinCreateVenueSection({ api, selected, onChange, onPickFromMap }: Props) {
+export function JoinCreateVenueSection({
+  api,
+  selected,
+  onChange,
+  onPickFromMap,
+  restrictToFacilityPick = false,
+}: Props) {
   const theme = useTheme();
   const [recent, setRecent] = useState<UserVenuePickerItemDto[]>([]);
   const [favorites, setFavorites] = useState<UserVenuePickerItemDto[]>([]);
@@ -226,9 +234,17 @@ export function JoinCreateVenueSection({ api, selected, onChange, onPickFromMap 
 
   const bothListsEmpty = !loadingLists && recent.length === 0 && favorites.length === 0;
 
+  const placeActions = useMemo(
+    () =>
+      restrictToFacilityPick
+        ? PLACE_ACTIONS.filter((a) => a.action === 'map' || a.action === 'search')
+        : PLACE_ACTIONS,
+    [restrictToFacilityPick],
+  );
+
   const renderPlaceActions = (size: 'sm' | 'md' = 'sm') => (
     <View style={styles.actionCol}>
-      {PLACE_ACTIONS.map(({ action, label, icon }) => (
+      {placeActions.map(({ action, label, icon }) => (
         <Button
           key={action ?? 'none'}
           label={label}

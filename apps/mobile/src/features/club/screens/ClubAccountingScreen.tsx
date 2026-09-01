@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Alert, StyleSheet, TextInput, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
   Button,
@@ -14,6 +14,7 @@ import {
 import {
   ClubAccountingCategory,
   ClubAccountingEntryType,
+  type ClubAccountingEntryDto,
   type ClubAccountingListResponse,
 } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
@@ -30,6 +31,9 @@ export function ClubAccountingScreen() {
   const [data, setData] = useState<ClubAccountingListResponse | null>(null);
   const [amount, setAmount] = useState('');
   const [memo, setMemo] = useState('');
+  const [editing, setEditing] = useState<ClubAccountingEntryDto | null>(null);
+  const [editAmount, setEditAmount] = useState('');
+  const [editMemo, setEditMemo] = useState('');
 
   const load = useCallback(async () => {
     if (!clubId) return;
@@ -50,6 +54,33 @@ export function ClubAccountingScreen() {
     borderColor: theme.colors.border.subtle,
     color: theme.colors.text.primary,
     backgroundColor: theme.colors.surface.card,
+  };
+
+  const startEdit = (entry: ClubAccountingEntryDto) => {
+    setEditing(entry);
+    setEditAmount(entry.amount);
+    setEditMemo(entry.memo ?? '');
+  };
+
+  const saveEdit = async () => {
+    if (!clubId || !editing) return;
+    await api.updateClubAccountingEntry(clubId, editing.id, {
+      amount: editAmount,
+      memo: editMemo || null,
+    });
+    setEditing(null);
+    await load();
+  };
+
+  const confirmDelete = (entryId: string) => {
+    Alert.alert('장부 삭제', '이 항목을 삭제할까요?', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '삭제',
+        style: 'destructive',
+        onPress: () => void api.deleteClubAccountingEntry(clubId!, entryId).then(load),
+      },
+    ]);
   };
 
   return (
@@ -90,15 +121,25 @@ export function ClubAccountingScreen() {
                   {entry.memo}
                 </Text>
               ) : null}
-              <Button
-                label="삭제"
-                size="sm"
-                variant="secondary"
-                onPress={() => void api.deleteClubAccountingEntry(clubId!, entry.id).then(load)}
-              />
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                <Button label="수정" size="sm" variant="secondary" onPress={() => startEdit(entry)} />
+                <Button label="삭제" size="sm" variant="secondary" onPress={() => confirmDelete(entry.id)} />
+              </View>
             </Stack>
           </Card>
         ))}
+
+        {editing ? (
+          <Card padding="md">
+            <Stack gap="sm">
+              <Text variant="sectionTitle">장부 수정</Text>
+              <TextInput value={editAmount} onChangeText={setEditAmount} keyboardType="number-pad" style={inputStyle} />
+              <TextInput value={editMemo} onChangeText={setEditMemo} placeholder="메모" style={inputStyle} />
+              <Button label="저장" size="sm" onPress={() => void saveEdit()} />
+              <Button label="취소" size="sm" variant="secondary" onPress={() => setEditing(null)} />
+            </Stack>
+          </Card>
+        ) : null}
 
         <Text variant="sectionTitle">수입 등록</Text>
         <TextInput value={amount} onChangeText={setAmount} placeholder="금액" keyboardType="number-pad" style={inputStyle} />
@@ -146,3 +187,5 @@ export function ClubAccountingScreen() {
     </ScrollScreenFrame>
   );
 }
+
+const styles = StyleSheet.create({});

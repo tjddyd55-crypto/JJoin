@@ -3,13 +3,16 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import {
   ClubEventAttendanceFinal,
   ClubEventAttendanceResponse,
   ClubEventStatus,
+  ClubEventType,
   ClubMembershipRole,
   ClubMembershipStatus,
   ClubVisibility,
@@ -43,7 +46,8 @@ import {
   computeClubAttendanceRate,
   computeEventAttendedCount,
   computeEventAttendanceDenominator,
-  computeRemainingEventCapacity,
+  computeClubEventRemainingCapacity,
+  computeEventOccupiedSeats,
   countAttendanceResponses,
   canApproveClubMembership,
   canFinalizeClubEventAttendance,
@@ -73,6 +77,7 @@ import { MockMediaAdapter } from '../../providers/mock.adapters';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationEventService } from '../notifications/notification-event.service';
 import { ClubJoinLinkService } from './club-join-link.service';
+import { JoinChatService } from '../join-loop/join-chat.service';
 
 type MembershipRow = {
   id: string;
@@ -90,6 +95,8 @@ export class ClubsService {
     private readonly notifications: NotificationEventService,
     private readonly media: MockMediaAdapter,
     private readonly clubJoinLink: ClubJoinLinkService,
+    @Inject(forwardRef(() => JoinChatService))
+    private readonly joinChat: JoinChatService,
   ) {}
 
   async uploadCoverImage(userId: string, body: { localUri: string }): Promise<UploadClubCoverResponse> {
@@ -392,6 +399,26 @@ export class ClubsService {
     const parsed = createClubEventSchema.safeParse(raw);
     if (!parsed.success) throw new BadRequestException('invalid_event_request');
 
+    if (parsed.data.eventType === ClubEventType.SCREEN && !parsed.data.venueId) {
+      throw new BadRequestException('screen_event_requires_facility');
+    }
+
+    let venueName = parsed.data.venueName;
+    let venueAddress = parsed.data.venueAddress ?? null;
+    let venueId = parsed.data.venueId ?? null;
+    let golfFacilityId = parsed.data.golfFacilityId ?? null;
+
+    if (venueId) {
+      const venue = await this.prisma.venue.findUnique({
+        where: { id: venueId },
+        select: { name: true, address: true, golfFacilityId: true },
+      });
+      if (!venue) throw new BadRequestException('venue_not_found');
+      venueName = venue.name;
+      venueAddress = venue.address ?? venueAddress;
+      golfFacilityId = venue.golfFacilityId ?? golfFacilityId;
+    }
+
     const activeMemberIds = await this.activeMemberUserIds(clubId);
     const event = await this.prisma.$transaction(async (tx) => {
       const created = await tx.clubEvent.create({
@@ -401,9 +428,10 @@ export class ClubsService {
           eventType: parsed.data.eventType,
           startsAt: new Date(parsed.data.startsAt),
           endsAt: parsed.data.endsAt ? new Date(parsed.data.endsAt) : null,
-          venueName: parsed.data.venueName,
-          venueAddress: parsed.data.venueAddress ?? null,
-          venueId: parsed.data.venueId ?? null,
+          venueName,
+          venueAddress,
+          venueId,
+          golfFacilityId,
           capacity: parsed.data.capacity ?? null,
           responseDeadline: new Date(parsed.data.responseDeadline),
           memo: parsed.data.memo ?? null,
@@ -446,7 +474,7 @@ export class ClubsService {
       },
     });
     return {
-      items: events.map((e) => this.toEventListItem(e, actorUserId)),
+      items: await Promise.all(events.map((e) => this.toEventListItem(e, actorUserId))),
     };
   }
 
@@ -469,8 +497,14 @@ export class ClubsService {
     if (!event) throw new NotFoundException('event_not_found');
 
     const counts = countAttendanceResponses(event.attendances);
-    const externalParticipantCount = await this.clubJoinLink.countExternalParticipants(eventId);
-    const base = this.toEventListItem(event, actorUserId);
+    const capacityFields = await this.resolveEventCapacityFields(
+      eventId,
+      event.capacity,
+      event.attendances,
+    );
+    const finalizedAttendedCount = event.attendances.filter((a) => a.finalStatus === 'ATTENDED').length;
+    const finalizedNoShowCount = event.attendances.filter((a) => a.finalStatus === 'NO_SHOW').length;
+    const base = await this.toEventListItem(event, actorUserId);
 
     let eventAccounting: ClubEventDetailDto['eventAccounting'] = null;
     if (canManageClubAccounting(actor)) {
@@ -495,12 +529,18 @@ export class ClubsService {
     return {
       ...base,
       venueAddress: event.venueAddress,
+      venueId: event.venueId,
+      golfFacilityId: event.golfFacilityId,
       responseDeadline: event.responseDeadline.toISOString(),
       memo: event.memo,
       attendanceFinalized: Boolean(event.attendanceFinalizedAt),
+      finalizedAttendedCount,
+      finalizedNoShowCount,
       maybeCount: counts.maybe,
-      memberAttendingCount: counts.attending,
-      externalParticipantCount,
+      memberAttendingCount: capacityFields.memberAttendingCount,
+      externalParticipantCount: capacityFields.externalParticipantCount,
+      totalOccupiedCount: capacityFields.totalOccupiedCount,
+      remainingCapacity: capacityFields.remainingCapacity,
       eventAccounting,
       attendances: event.attendances.map((a) => ({
         userId: a.userId,
@@ -539,6 +579,22 @@ export class ClubsService {
       throw new ForbiddenException('attendance_deadline_passed');
     }
 
+    if (parsed.data.response === ClubEventAttendanceResponse.ATTENDING && event.capacity) {
+      const rows = await this.prisma.clubEventAttendance.findMany({
+        where: { clubEventId: eventId },
+        select: { userId: true, response: true, finalStatus: true },
+      });
+      const projected = rows.map((row) =>
+        row.userId === userId ? { ...row, response: ClubEventAttendanceResponse.ATTENDING } : row,
+      );
+      const { remainingCapacity } = await this.resolveEventCapacityFields(
+        eventId,
+        event.capacity,
+        projected,
+      );
+      if ((remainingCapacity ?? 0) <= 0) throw new BadRequestException('event_full');
+    }
+
     await this.prisma.clubEventAttendance.upsert({
       where: { clubEventId_userId: { clubEventId: eventId, userId } },
       create: {
@@ -552,6 +608,8 @@ export class ClubsService {
         respondedAt: new Date(),
       },
     });
+
+    void this.joinChat.syncClubLinkedJoinChat(eventId);
 
     return this.getEventDetail(userId, clubId, eventId);
   }
@@ -586,6 +644,8 @@ export class ClubsService {
         },
       });
     });
+
+    void this.joinChat.syncClubLinkedJoinChat(eventId);
 
     return this.getEventDetail(actorUserId, clubId, eventId);
   }
@@ -934,7 +994,9 @@ export class ClubsService {
     if (!event) throw new NotFoundException('event_not_found');
 
     const counts = countAttendanceResponses(event.attendances);
-    const remainingSeats = computeRemainingEventCapacity(event.capacity, counts.attending) ?? 0;
+    const external = await this.clubJoinLink.countExternalParticipants(eventId);
+    const remainingSeats =
+      computeClubEventRemainingCapacity(event.capacity, counts.attending, external) ?? 0;
     if (remainingSeats <= 0) throw new BadRequestException('no_remaining_seats');
 
     return {
@@ -944,6 +1006,7 @@ export class ClubsService {
       venueName: event.venueName,
       venueAddress: event.venueAddress,
       venueId: event.venueId,
+      golfFacilityId: event.golfFacilityId,
       startsAt: event.startsAt.toISOString(),
       remainingSeats,
     };
@@ -962,10 +1025,35 @@ export class ClubsService {
         linkedJoin: { select: { id: true } },
       },
     });
-    return events.map((e) => this.toEventListItem(e, userId));
+    return Promise.all(events.map((e) => this.toEventListItem(e, userId)));
   }
 
-  private toEventListItem(
+  private async resolveEventCapacityFields(
+    eventId: string,
+    capacity: number | null,
+    attendances: Array<{ response: string; finalStatus?: string | null }>,
+  ) {
+    const counts = countAttendanceResponses(attendances);
+    const externalParticipantCount = await this.clubJoinLink.countExternalParticipants(eventId);
+    const memberAttendingCount = counts.attending;
+    const totalOccupiedCount = computeEventOccupiedSeats({
+      memberAttendingCount,
+      externalParticipantCount,
+    });
+    const remainingCapacity = computeClubEventRemainingCapacity(
+      capacity,
+      memberAttendingCount,
+      externalParticipantCount,
+    );
+    return {
+      memberAttendingCount,
+      externalParticipantCount,
+      totalOccupiedCount,
+      remainingCapacity,
+    };
+  }
+
+  private async toEventListItem(
     event: {
       id: string;
       title: string;
@@ -978,8 +1066,13 @@ export class ClubsService {
       linkedJoin?: { id: string } | null;
     },
     userId: string,
-  ): ClubEventListItemDto {
+  ): Promise<ClubEventListItemDto> {
     const counts = countAttendanceResponses(event.attendances);
+    const capacityFields = await this.resolveEventCapacityFields(
+      event.id,
+      event.capacity,
+      event.attendances,
+    );
     const mine = event.attendances.find((a) => a.userId === userId);
     return {
       id: event.id,
@@ -992,7 +1085,7 @@ export class ClubsService {
       attendingCount: counts.attending,
       declinedCount: counts.declined,
       noResponseCount: counts.noResponse,
-      remainingCapacity: computeRemainingEventCapacity(event.capacity, counts.attending),
+      remainingCapacity: capacityFields.remainingCapacity,
       myResponse: (mine?.response as ClubEventAttendanceResponse) ?? null,
       linkedJoinId: event.linkedJoin?.id ?? null,
     };

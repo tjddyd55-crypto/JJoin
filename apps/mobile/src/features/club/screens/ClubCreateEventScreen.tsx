@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import {
@@ -12,6 +12,11 @@ import {
   useTheme,
 } from '@jjoin/design-system';
 import { ClubEventType, type CreateClubEventRequest } from '@jjoin/types';
+import { JoinCreateVenueSection } from '../../join-create/components/JoinCreateVenueSection';
+import {
+  type JoinCreateVenueSelection,
+  venueSelectionHasPlace,
+} from '../../join-create/model/join-create-venue';
 import { composeKstIso, splitKstDateTime } from '../../store/matching-join-ui';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
@@ -31,6 +36,7 @@ export function ClubCreateEventScreen() {
   const defaults = useMemo(() => defaultEventDateTime(), []);
   const [title, setTitle] = useState('');
   const [eventType, setEventType] = useState<ClubEventType>(ClubEventType.SCREEN);
+  const [selectedVenue, setSelectedVenue] = useState<JoinCreateVenueSelection | null>(null);
   const [dateYmd, setDateYmd] = useState(defaults.dateYmd);
   const [startTime, setStartTime] = useState('19:00');
   const [deadlineDateYmd, setDeadlineDateYmd] = useState(defaults.dateYmd);
@@ -55,11 +61,30 @@ export function ClubCreateEventScreen() {
     [theme],
   );
 
+  const isScreen = eventType === ClubEventType.SCREEN;
+
+  const onPickFromMap = useCallback(() => {
+    router.push({
+      pathname: '/(tabs)/screen',
+      params: { venuePick: '1', clubEventPick: clubId ?? '' },
+    } as Href);
+  }, [clubId, router]);
+
   const onSubmit = async () => {
-    if (!clubId || !title.trim() || !venueName.trim()) {
-      setError('모임명과 장소는 필수입니다.');
+    if (!clubId || !title.trim()) {
+      setError('모임명은 필수입니다.');
       return;
     }
+    if (isScreen) {
+      if (!selectedVenue?.venueId) {
+        setError('스크린 모임은 GolfFacility(스크린장)를 선택해 주세요.');
+        return;
+      }
+    } else if (!venueName.trim()) {
+      setError('장소를 입력해 주세요.');
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
     try {
@@ -69,8 +94,12 @@ export function ClubCreateEventScreen() {
         title: title.trim(),
         eventType,
         startsAt,
-        venueName: venueName.trim(),
-        venueAddress: venueAddress.trim() || null,
+        venueName: isScreen ? selectedVenue!.name : venueName.trim(),
+        venueAddress: isScreen
+          ? selectedVenue!.address || null
+          : venueAddress.trim() || null,
+        venueId: isScreen ? selectedVenue!.venueId : null,
+        golfFacilityId: isScreen ? selectedVenue!.golfFacilityId ?? null : null,
         capacity: capacity ? Number(capacity) : null,
         responseDeadline,
         memo: memo.trim() || null,
@@ -78,7 +107,7 @@ export function ClubCreateEventScreen() {
       const created = await api.createClubEvent(clubId, body);
       router.replace(`/my/clubs/${clubId}/events/${created.id}` as Href);
     } catch {
-      setError('모임 생성에 실패했습니다. 날짜·시간 형식을 확인하세요.');
+      setError('모임 생성에 실패했습니다. 날짜·시간·장소를 확인하세요.');
     } finally {
       setSubmitting(false);
     }
@@ -102,7 +131,10 @@ export function ClubCreateEventScreen() {
               key={type}
               label={type === 'SCREEN' ? '스크린' : type === 'FIELD' ? '필드' : '기타'}
               selected={eventType === type}
-              onPress={() => setEventType(type)}
+              onPress={() => {
+                setEventType(type);
+                if (type !== ClubEventType.SCREEN) setSelectedVenue(null);
+              }}
             />
           ))}
         </View>
@@ -112,13 +144,35 @@ export function ClubCreateEventScreen() {
         <Field label="시작 시간 (HH:mm)">
           <TextInput value={startTime} onChangeText={setStartTime} placeholder="19:00" style={inputStyle} />
         </Field>
-        <TextInput value={venueName} onChangeText={setVenueName} placeholder="장소" style={inputStyle} />
-        <TextInput
-          value={venueAddress}
-          onChangeText={setVenueAddress}
-          placeholder="주소 (선택)"
-          style={inputStyle}
-        />
+
+        {isScreen ? (
+          <Field label="스크린장 (GolfFacility)">
+            <JoinCreateVenueSection
+              api={api}
+              selected={selectedVenue}
+              onChange={setSelectedVenue}
+              onPickFromMap={onPickFromMap}
+              restrictToFacilityPick
+            />
+            {selectedVenue && venueSelectionHasPlace(selectedVenue) ? (
+              <Text variant="caption" tone="secondary">
+                {selectedVenue.name}
+                {selectedVenue.address ? ` · ${selectedVenue.address}` : ''}
+              </Text>
+            ) : null}
+          </Field>
+        ) : (
+          <>
+            <TextInput value={venueName} onChangeText={setVenueName} placeholder="장소" style={inputStyle} />
+            <TextInput
+              value={venueAddress}
+              onChangeText={setVenueAddress}
+              placeholder="주소 (선택)"
+              style={inputStyle}
+            />
+          </>
+        )}
+
         <TextInput
           value={capacity}
           onChangeText={setCapacity}
