@@ -12,6 +12,7 @@ import {
 import type { NotificationPreferenceDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
+import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
 import {
   getCachedExpoPushToken,
   requestNotificationPermission,
@@ -24,7 +25,11 @@ const TOGGLES: Array<{ key: ToggleKey; label: string; description: string }> = [
   { key: 'followedStoreEnabled', label: '팔로우 매장 알림', description: '관심 매장 새 조인' },
   { key: 'urgentJoinEnabled', label: '긴급 모집', description: '긴급 자리 알림' },
   { key: 'invitationEnabled', label: '참가자 초대', description: '조인 초대' },
-  { key: 'attendanceReminderEnabled', label: '참석 리마인더', description: '조인 시작 전 안내' },
+  {
+    key: 'attendanceReminderEnabled',
+    label: '참석 리마인더',
+    description: '조인 시작 전 참석 확인',
+  },
   { key: 'bookmarkUpdatesEnabled', label: '찜한 조인', description: '상태 변경 알림' },
 ];
 
@@ -70,7 +75,7 @@ export function NotificationSettingsScreen() {
 
   if (!prefs) {
     return (
-      <ScrollScreenFrame>
+      <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
         <Text variant="body" tone="secondary">
           불러오는 중…
         </Text>
@@ -79,21 +84,15 @@ export function NotificationSettingsScreen() {
   }
 
   return (
-    <ScrollScreenFrame contentPaddingBottom={theme.layoutSpacing.sectionGap * 2}>
-      <Section title="푸시 알림" subtitle="앱 설정과 휴대폰 권한을 구분합니다">
+    <ScrollScreenFrame
+      edges={[...NESTED_SCREEN_EDGES]}
+      contentPaddingBottom={theme.layoutSpacing.sectionGap * 2}
+    >
+      <Section title="푸시 알림">
         <Card variant="base" padding="md">
           <View style={styles.statusRow}>
             <Text variant="body" tone="primary">
-              앱 설정
-            </Text>
-            <Text variant="meta" tone="secondary">
-              {prefs.pushEnabled ? 'ON' : 'OFF'}
-            </Text>
-          </View>
-          <Spacer size="sm" />
-          <View style={styles.statusRow}>
-            <Text variant="body" tone="primary">
-              휴대폰 권한
+              휴대폰 알림 권한
             </Text>
             <Text variant="meta" tone={osGranted ? 'secondary' : 'warning'}>
               {osGranted ? '허용됨' : '차단됨'}
@@ -113,10 +112,10 @@ export function NotificationSettingsScreen() {
           <View style={styles.toggleRow}>
             <View style={styles.toggleMeta}>
               <Text variant="body" tone="primary">
-                푸시 알림 전체
+                전체 푸시 알림
               </Text>
               <Text variant="meta" tone="tertiary">
-                OFF 시 tray push 없음 · in-app 알림은 유지
+                끄면 휴대폰 푸시 알림을 받지 않습니다. 앱 안의 알림은 계속 확인할 수 있어요.
               </Text>
             </View>
             <Switch
@@ -128,7 +127,7 @@ export function NotificationSettingsScreen() {
         </Card>
       </Section>
 
-      <Section title="알림 종류" subtitle="종류별 tray push ON/OFF">
+      <Section title="알림 종류" subtitle="푸시로 받을 알림 종류를 선택합니다">
         <Card variant="base" padding="none" style={styles.settingsCard}>
           <View style={styles.settingsInner}>
             {TOGGLES.map((item, index) => (

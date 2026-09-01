@@ -15,6 +15,7 @@ import { JoinMethod, SCREEN_GOLF_CODE, IdentityStatus } from '@jjoin/types';
 import { RewardCoinInput } from '../../src/ui/patterns/RewardCoinInput';
 import { CoinSummaryCard } from '../../src/ui/patterns/CoinSummaryCard';
 import { useJoinCoinPreview } from '../../src/features/create/useJoinCoinPreview';
+import { resolveJoinCreateFooterState } from '../../src/features/join-create/model/join-create-footer-state';
 import { getSecureSessionStore, useSession } from '../../src/session/SessionContext';
 import { getApiClient } from '../../src/lib/api';
 import { JoinCreateVenueSection } from '../../src/features/join-create/components/JoinCreateVenueSection';
@@ -131,13 +132,32 @@ export default function CreateScreen() {
   const walletAfterDisplay = preview?.walletAfterCreation ?? preview?.walletAvailable ?? '—';
   const identityVerified = me?.identity.verificationStatus === IdentityStatus.VERIFIED;
   const venueReady = venueSelectionHasPlace(selectedVenue) && !resolvingRouteVenue;
-  const createDisabled =
-    !venueReady || submitting || (identityVerified && (!canCreate || previewLoading));
-  const createLabel = identityVerified
-    ? canCreate
-      ? '조인 생성'
-      : t('create.coin.insufficientCta')
-    : '조인 생성';
+
+  const footerState = useMemo(
+    () =>
+      resolveJoinCreateFooterState({
+        venueReady,
+        resolvingRouteVenue,
+        submitting,
+        identityVerified,
+        previewLoading,
+        canCreate,
+        preview,
+        shortfall,
+        insufficientCtaLabel: t('create.coin.insufficientCta'),
+        insufficientLabel: t('create.coin.insufficientAmount'),
+      }),
+    [
+      canCreate,
+      identityVerified,
+      preview,
+      previewLoading,
+      resolvingRouteVenue,
+      shortfall,
+      submitting,
+      venueReady,
+    ],
+  );
 
   const onPickFromMap = useCallback(() => {
     saveJoinCreateDraft({ players, selectedVenue });
@@ -233,9 +253,22 @@ export default function CreateScreen() {
     <FormScreenFrame
       footer={
         <StickyActionFrame>
+          {footerState.helperText ? (
+            <Text variant="caption" tone="secondary" style={styles.footerHelper}>
+              {footerState.helperText}
+            </Text>
+          ) : null}
+          {footerState.showWalletCta ? (
+            <Button
+              label="코인 충전하기"
+              variant="secondary"
+              size="sm"
+              onPress={() => router.push('/my/wallet')}
+            />
+          ) : null}
           <Button
-            disabled={createDisabled}
-            label={createLabel}
+            disabled={footerState.createDisabled}
+            label={footerState.createLabel}
             loading={submitting}
             onPress={() => void onCreate()}
           />
@@ -295,12 +328,6 @@ export default function CreateScreen() {
           shortfall={shortfall}
         />
 
-        {!venueSelectionHasPlace(selectedVenue) ? (
-          <Text variant="caption" tone="tertiary">
-            장소를 먼저 선택해주세요.
-          </Text>
-        ) : null}
-
         {error ? (
           <Text variant="body" tone="error">
             {error}
@@ -313,4 +340,5 @@ export default function CreateScreen() {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  footerHelper: { textAlign: 'center' },
 });
