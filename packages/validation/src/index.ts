@@ -302,3 +302,68 @@ export const rejectStoreVerificationSchema = z.object({
 });
 
 export type RejectStoreVerificationInput = z.infer<typeof rejectStoreVerificationSchema>;
+
+export const createClubSchema = z.object({
+  name: z.string().trim().min(2).max(40),
+  coverImageUrl: z.string().trim().url().max(500),
+  intro: z.string().trim().max(120).nullable().optional(),
+  region: z.string().trim().min(1).max(80),
+  activityType: z.enum(['SCREEN', 'FIELD', 'SCREEN_AND_FIELD']),
+  primaryVenueId: z.string().uuid().nullable().optional(),
+  primaryVenueName: z.string().trim().max(120).nullable().optional(),
+  joinMode: z.enum(['APPROVAL', 'INSTANT']),
+  visibility: z.enum(['PUBLIC', 'PRIVATE']),
+  primaryAgeGroup: z
+    .enum(['TWENTIES', 'THIRTIES', 'FORTIES', 'FIFTIES', 'SIXTIES_PLUS'])
+    .nullable()
+    .optional(),
+});
+
+export type CreateClubInput = z.infer<typeof createClubSchema>;
+
+export const createClubEventSchema = z.object({
+  title: z.string().trim().min(1).max(80),
+  eventType: z.enum(['SCREEN', 'FIELD', 'OTHER']),
+  startsAt: z.string().datetime(),
+  endsAt: z.string().datetime().nullable().optional(),
+  venueName: z.string().trim().min(1).max(120),
+  venueAddress: z.string().trim().max(200).nullable().optional(),
+  venueId: z.string().uuid().nullable().optional(),
+  capacity: z.number().int().min(1).max(200).nullable().optional(),
+  responseDeadline: z.string().datetime(),
+  memo: z.string().trim().max(500).nullable().optional(),
+});
+
+export type CreateClubEventInput = z.infer<typeof createClubEventSchema>;
+
+export const updateClubEventAttendanceSchema = z.object({
+  response: z.enum(['ATTENDING', 'DECLINED', 'MAYBE', 'NO_RESPONSE']).optional(),
+  finalStatus: z.enum(['ATTENDED', 'NO_SHOW']).nullable().optional(),
+});
+
+export const createClubAccountingEntrySchema = z.object({
+  entryType: z.enum(['INCOME', 'EXPENSE']),
+  category: z.enum([
+    'MEMBERSHIP_FEE',
+    'JOIN_FEE',
+    'PARTICIPATION_FEE',
+    'DONATION',
+    'OTHER_INCOME',
+    'GAME_FEE',
+    'MEAL',
+    'PRIZE',
+    'RENTAL',
+    'OTHER_EXPENSE',
+  ]),
+  amount: z.string().trim().regex(/^\d+(\.\d{1,4})?$/),
+  entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  memo: z.string().trim().max(200).nullable().optional(),
+  clubEventId: z.string().uuid().nullable().optional(),
+});
+
+export const createClubNoticeSchema = z.object({
+  title: z.string().trim().min(1).max(80),
+  body: z.string().trim().min(1).max(2000),
+  pinned: z.boolean().optional(),
+  sendPush: z.boolean().optional(),
+});
