@@ -199,6 +199,9 @@ enum NotificationType {
   JOIN_INVITATION
   JOIN_CHAT_SYSTEM
   JOIN_STARTING_SOON
+  CLUB_JOIN_APPROVED
+  CLUB_EVENT_CREATED
+  CLUB_NOTICE
 }
 
 /// Pre-game attendance intent — distinct from ParticipationStatus COMPLETED/NO_SHOW.
@@ -349,6 +352,12 @@ model User {
   joinInvitationsSent      JoinInvitation[]           @relation("JoinInvitationInviter")
   joinInvitationsReceived  JoinInvitation[]           @relation("JoinInvitationInvitee")
   recurringJoinSchedules   RecurringJoinSchedule[]
+  ownedClubs               Club[]                     @relation("ClubOwner")
+  clubMemberships          ClubMembership[]
+  clubEventsCreated        ClubEvent[]                @relation("ClubEventCreator")
+  clubAccountingEntries    ClubAccountingEntry[]      @relation("ClubAccountingCreator")
+  clubNoticesCreated       ClubNotice[]               @relation("ClubNoticeCreator")
+  clubEventAttendances     ClubEventAttendance[]
 
   @@map("users")
 }
@@ -641,6 +650,8 @@ model Venue {
   userRecents     UserVenueRecent[]
   userFavorites   UserVenueFavorite[]
   storeOwnerships StoreOwnership[]
+  clubsPrimaryFor Club[]
+  clubEvents      ClubEvent[]
 
   @@unique([provider, providerPlaceId])
   @@index([sportId, latitude, longitude])
@@ -716,6 +727,8 @@ model Join {
   matchingRewardTarget  MatchingRewardTarget? @map("matching_reward_target")
   storeOwnershipId      String?               @map("store_ownership_id") @db.Uuid
   recurringScheduleId   String?               @map("recurring_schedule_id") @db.Uuid
+  clubId                String?               @map("club_id") @db.Uuid
+  clubEventId           String?               @unique @map("club_event_id") @db.Uuid
   recurringOccurrenceDate DateTime?           @map("recurring_occurrence_date") @db.Date
   confirmedPlayerCount  Int                   @default(1) @map("confirmed_player_count")
   rewardPerParticipant  Decimal               @map("reward_per_participant") @db.Decimal(18, 4)
@@ -742,6 +755,8 @@ model Join {
   coinAsset      CoinAsset         @relation(fields: [coinAssetId], references: [id])
   storeOwnership StoreOwnership?   @relation(fields: [storeOwnershipId], references: [id], onDelete: SetNull)
   recurringSchedule RecurringJoinSchedule? @relation(fields: [recurringScheduleId], references: [id], onDelete: SetNull)
+  club           Club?             @relation(fields: [clubId], references: [id], onDelete: SetNull)
+  clubEvent      ClubEvent?        @relation(fields: [clubEventId], references: [id], onDelete: SetNull)
   requirements   JoinRequirement[]
   options        JoinOption[]
   participants   JoinParticipant[]
@@ -759,6 +774,7 @@ model Join {
   @@index([joinKind, status, startAt])
   @@index([recruitClosesAt])
   @@index([isUrgent, startAt])
+  @@index([clubId])
   @@unique([recurringScheduleId, recurringOccurrenceDate])
   @@map("joins")
 }
@@ -1420,6 +1436,7 @@ model GolfFacility {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   venue                  Venue?
+  clubEvents             ClubEvent[]
   storeOwnershipRequests StoreOwnershipRequest[]
   storeOwnerships        StoreOwnership[]
   follows                GolfFacilityFollow[]
@@ -1470,4 +1487,229 @@ model PublicGolfFacilitySyncRun {
   @@index([startedAt])
   @@index([status, startedAt])
   @@map("public_golf_facility_sync_runs")
+}
+
+enum ClubVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum ClubJoinMode {
+  APPROVAL
+  INSTANT
+}
+
+enum ClubMembershipRole {
+  OWNER
+  MANAGER
+  MEMBER
+}
+
+enum ClubMembershipStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  LEFT
+}
+
+enum ClubActivityType {
+  SCREEN
+  FIELD
+  SCREEN_AND_FIELD
+}
+
+enum ClubAgeGroup {
+  TWENTIES
+  THIRTIES
+  FORTIES
+  FIFTIES
+  SIXTIES_PLUS
+}
+
+enum ClubEventType {
+  SCREEN
+  FIELD
+  OTHER
+}
+
+enum ClubEventStatus {
+  DRAFT
+  OPEN
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ClubEventAttendanceResponse {
+  ATTENDING
+  DECLINED
+  MAYBE
+  NO_RESPONSE
+}
+
+enum ClubEventAttendanceFinal {
+  ATTENDED
+  NO_SHOW
+}
+
+enum ClubAccountingEntryType {
+  INCOME
+  EXPENSE
+}
+
+enum ClubAccountingCategory {
+  MEMBERSHIP_FEE
+  JOIN_FEE
+  PARTICIPATION_FEE
+  DONATION
+  OTHER_INCOME
+  GAME_FEE
+  MEAL
+  PRIZE
+  RENTAL
+  OTHER_EXPENSE
+}
+
+/// Golf club (동호회) — operations management, not SNS.
+model Club {
+  id               String           @id @default(uuid()) @db.Uuid
+  name             String
+  coverImageUrl    String?          @map("cover_image_url")
+  intro            String?
+  region           String
+  activityType     ClubActivityType @map("activity_type")
+  primaryVenueId   String?          @map("primary_venue_id") @db.Uuid
+  primaryVenueName String?          @map("primary_venue_name")
+  joinMode         ClubJoinMode     @default(APPROVAL) @map("join_mode")
+  visibility       ClubVisibility   @default(PUBLIC)
+  primaryAgeGroup  ClubAgeGroup?    @map("primary_age_group")
+  inviteCode       String?          @unique @map("invite_code")
+  ownerUserId      String           @map("owner_user_id") @db.Uuid
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  owner              User                  @relation("ClubOwner", fields: [ownerUserId], references: [id])
+  primaryVenue       Venue?                @relation(fields: [primaryVenueId], references: [id], onDelete: SetNull)
+  memberships        ClubMembership[]
+  events             ClubEvent[]
+  accountingEntries  ClubAccountingEntry[]
+  notices            ClubNotice[]
+  linkedJoins        Join[]
+
+  @@index([visibility, region])
+  @@index([ownerUserId])
+  @@map("clubs")
+}
+
+model ClubMembership {
+  id        String               @id @default(uuid()) @db.Uuid
+  clubId    String               @map("club_id") @db.Uuid
+  userId    String               @map("user_id") @db.Uuid
+  role      ClubMembershipRole   @default(MEMBER)
+  status    ClubMembershipStatus @default(PENDING)
+  joinedAt  DateTime?            @map("joined_at") @db.Timestamptz(6)
+  createdAt DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  club Club @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([clubId, userId])
+  @@index([userId, status])
+  @@index([clubId, status, role])
+  @@map("club_memberships")
+}
+
+model ClubEvent {
+  id                 String          @id @default(uuid()) @db.Uuid
+  clubId             String          @map("club_id") @db.Uuid
+  title              String
+  eventType          ClubEventType   @map("event_type")
+  startsAt           DateTime        @map("starts_at") @db.Timestamptz(6)
+  endsAt             DateTime?       @map("ends_at") @db.Timestamptz(6)
+  venueName          String          @map("venue_name")
+  venueAddress       String?         @map("venue_address")
+  venueId            String?         @map("venue_id") @db.Uuid
+  golfFacilityId     String?         @map("golf_facility_id") @db.Uuid
+  capacity           Int?
+  responseDeadline   DateTime        @map("response_deadline") @db.Timestamptz(6)
+  memo               String?
+  status             ClubEventStatus @default(OPEN)
+  createdByUserId    String          @map("created_by_user_id") @db.Uuid
+  attendanceFinalizedAt DateTime?    @map("attendance_finalized_at") @db.Timestamptz(6)
+  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  club              Club                  @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  venue             Venue?                @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  golfFacility      GolfFacility?         @relation(fields: [golfFacilityId], references: [id], onDelete: SetNull)
+  createdBy         User                  @relation("ClubEventCreator", fields: [createdByUserId], references: [id])
+  attendances       ClubEventAttendance[]
+  accountingEntries ClubAccountingEntry[]
+  linkedJoin        Join?
+
+  @@index([clubId, status, startsAt])
+  @@index([clubId, startsAt])
+  @@map("club_events")
+}
+
+model ClubEventAttendance {
+  id           String                       @id @default(uuid()) @db.Uuid
+  clubEventId  String                       @map("club_event_id") @db.Uuid
+  userId       String                       @map("user_id") @db.Uuid
+  response     ClubEventAttendanceResponse  @default(NO_RESPONSE)
+  finalStatus  ClubEventAttendanceFinal?    @map("final_status")
+  respondedAt  DateTime?                    @map("responded_at") @db.Timestamptz(6)
+  createdAt    DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  clubEvent ClubEvent @relation(fields: [clubEventId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([clubEventId, userId])
+  @@index([clubEventId, response])
+  @@index([userId])
+  @@map("club_event_attendances")
+}
+
+model ClubAccountingEntry {
+  id              String                  @id @default(uuid()) @db.Uuid
+  clubId          String                  @map("club_id") @db.Uuid
+  entryType       ClubAccountingEntryType @map("entry_type")
+  category        ClubAccountingCategory
+  amount          Decimal                 @db.Decimal(18, 4)
+  entryDate       DateTime                @map("entry_date") @db.Date
+  memo            String?
+  clubEventId     String?                 @map("club_event_id") @db.Uuid
+  createdByUserId String                  @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  club      Club       @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  clubEvent ClubEvent? @relation(fields: [clubEventId], references: [id], onDelete: SetNull)
+  createdBy User       @relation("ClubAccountingCreator", fields: [createdByUserId], references: [id])
+
+  @@index([clubId, entryDate])
+  @@index([clubId, entryType])
+  @@index([clubEventId])
+  @@map("club_accounting_entries")
+}
+
+model ClubNotice {
+  id              String   @id @default(uuid()) @db.Uuid
+  clubId          String   @map("club_id") @db.Uuid
+  title           String
+  body            String
+  pinned          Boolean  @default(false)
+  sendPush        Boolean  @default(false) @map("send_push")
+  createdByUserId String   @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  club      Club @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  createdBy User @relation("ClubNoticeCreator", fields: [createdByUserId], references: [id])
+
+  @@index([clubId, pinned, createdAt])
+  @@map("club_notices")
 }

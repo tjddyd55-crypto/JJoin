@@ -22,6 +22,7 @@ import { StoreOwnershipModule } from './modules/store-ownership/store-ownership.
 import { EngagementModule } from './modules/engagement/engagement.module';
 import { JoinLoopModule } from './modules/join-loop/join-loop.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { ClubsModule } from './modules/clubs/clubs.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -50,6 +51,7 @@ import { PrismaModule } from './prisma/prisma.module';
     EngagementModule,
     JoinLoopModule,
     AnalyticsModule,
+    ClubsModule,
   ],
 })
 export class AppModule {}

@@ -56,6 +56,7 @@ import {
   computeAutoPayAt,
   computeAttendanceReliability,
   canAccessJoinChat,
+  canAccessJoinChatWithClubBridge,
   isJoinChatVisibleInUi,
   isJoinCapacityJoinable,
   localDayKey,
@@ -85,6 +86,7 @@ import { MatchingJoinsService } from './matching-joins.service';
 import { JoinEngagementNotifyService } from '../engagement/join-engagement-notify.service';
 import { UrgentVacancyService } from '../join-loop/urgent-vacancy.service';
 import { JoinChatService } from '../join-loop/join-chat.service';
+import { ClubJoinLinkService } from '../clubs/club-join-link.service';
 import type { AttendanceIntent } from '@jjoin/types';
 
 const ACTIVE_JOIN_STATUSES: JoinStatus[] = [JoinStatus.OPEN, JoinStatus.FULL];
@@ -112,6 +114,7 @@ export class JoinsService {
     private readonly urgentVacancy: UrgentVacancyService,
     @Inject(forwardRef(() => JoinChatService))
     private readonly joinChat: JoinChatService,
+    private readonly clubJoinLink: ClubJoinLinkService,
   ) {}
 
   ping() {
@@ -176,6 +179,12 @@ export class JoinsService {
     if (Number.isNaN(startAt.getTime()) || startAt.getTime() <= Date.now()) {
       throw new BadRequestException('start_at_must_be_future');
     }
+
+    const clubLink = await this.clubJoinLink.assertCanLinkJoin(hostUserId, {
+      clubId: input.clubId,
+      clubEventId: input.clubEventId,
+      plannedPlayerCount: input.plannedPlayerCount,
+    });
 
     const clientIdempotencyKey = input.idempotencyKey?.trim();
     if (clientIdempotencyKey) {
@@ -351,6 +360,16 @@ export class JoinsService {
           joinId,
           idempotencyKey: `join:${idemBase}:reward-hold`,
         });
+
+        if (clubLink) {
+          await this.clubJoinLink.attachJoinToClubEvent(
+            tx,
+            joinId,
+            clubLink.clubId,
+            clubLink.clubEventId,
+            clubLink.urgentSeats,
+          );
+        }
       });
     } catch (e) {
       if (e instanceof CoinPolicyDisabledError) {
@@ -390,6 +409,10 @@ export class JoinsService {
 
     await this.ensureShareSlug(joinId);
     void this.engagementNotify.notifyNewJoinableJoin(joinId);
+
+    if (clubLink) {
+      void this.joinChat.syncClubLinkedJoinChat(clubLink.clubEventId);
+    }
 
     return this.getDetail(joinId, hostUserId);
   }
@@ -517,7 +540,32 @@ export class JoinsService {
       join.hostUserId,
       ...join.participants.map((p) => p.userId),
     ]);
-    const detail = this.toDetail(join, viewerUserId, { bookmarked, reliabilityByUserId });
+
+    let clubBridge: { response: string; finalStatus?: string | null; eventFinalized?: boolean } | null =
+      null;
+    if (viewerUserId && join.clubEventId && join.clubId) {
+      const [attendance, clubEvent] = await Promise.all([
+        this.prisma.clubEventAttendance.findUnique({
+          where: {
+            clubEventId_userId: { clubEventId: join.clubEventId, userId: viewerUserId },
+          },
+          select: { response: true, finalStatus: true },
+        }),
+        this.prisma.clubEvent.findUnique({
+          where: { id: join.clubEventId },
+          select: { attendanceFinalizedAt: true },
+        }),
+      ]);
+      if (attendance) {
+        clubBridge = {
+          response: attendance.response,
+          finalStatus: attendance.finalStatus,
+          eventFinalized: Boolean(clubEvent?.attendanceFinalizedAt),
+        };
+      }
+    }
+
+    const detail = this.toDetail(join, viewerUserId, { bookmarked, reliabilityByUserId, clubBridge });
     if (viewerUserId) {
       try {
         detail.settlement = await this.settlement.getJoinSettlements(joinId, viewerUserId);
@@ -1220,6 +1268,7 @@ export class JoinsService {
           attendanceRatePercent: number | null;
         }
       >;
+      clubBridge?: { response: string; finalStatus?: string | null; eventFinalized?: boolean } | null;
     },
   ): JoinDetailDto {
     const hostProfile = this.toPublicHost(
@@ -1271,12 +1320,13 @@ export class JoinsService {
     });
 
     const chatAvailable = viewerUserId
-      ? canAccessJoinChat({
+      ? canAccessJoinChatWithClubBridge({
           role: mine?.role ?? (join.host.id === viewerUserId ? 'HOST' : null),
           participationStatus:
             mine?.participationStatus ??
             (join.host.id === viewerUserId ? 'APPROVED' : null),
           attendanceIntent: mine?.attendanceIntent,
+          clubBridge: extras?.clubBridge ?? null,
         }) &&
         isJoinChatVisibleInUi({
           hasRoom: Boolean(join.chatRoom),

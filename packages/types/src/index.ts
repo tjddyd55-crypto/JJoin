@@ -590,6 +590,9 @@ export type CreateJoinRequest = {
   rewardPerParticipant?: string;
   /** Client request idempotency — same key must not double-create join/fee/hold. */
   idempotencyKey?: string;
+  /** Club urgent recruitment link (staff only, validated server-side). */
+  clubId?: string;
+  clubEventId?: string;
 };
 
 export type JoinCoinPreviewRequest = {
@@ -1170,6 +1173,9 @@ export enum NotificationType {
   JOIN_INVITATION = 'JOIN_INVITATION',
   JOIN_CHAT_SYSTEM = 'JOIN_CHAT_SYSTEM',
   JOIN_STARTING_SOON = 'JOIN_STARTING_SOON',
+  CLUB_JOIN_APPROVED = 'CLUB_JOIN_APPROVED',
+  CLUB_EVENT_CREATED = 'CLUB_EVENT_CREATED',
+  CLUB_NOTICE = 'CLUB_NOTICE',
 }
 
 export enum JoinAlertDateMode {
@@ -1213,6 +1219,9 @@ export type NotificationDataDto = {
   disputeId?: string;
   participantId?: string;
   rewardAmount?: string;
+  clubId?: string;
+  clubEventId?: string;
+  noticeId?: string;
 };
 
 export type AppNotificationDto = {
@@ -1630,3 +1639,322 @@ export type RecommendedJoinDto = {
 export type RecommendedJoinsResponse = {
   items: RecommendedJoinDto[];
 };
+
+export enum ClubVisibility {
+  PUBLIC = 'PUBLIC',
+  PRIVATE = 'PRIVATE',
+}
+
+export enum ClubJoinMode {
+  APPROVAL = 'APPROVAL',
+  INSTANT = 'INSTANT',
+}
+
+export enum ClubMembershipRole {
+  OWNER = 'OWNER',
+  MANAGER = 'MANAGER',
+  MEMBER = 'MEMBER',
+}
+
+export enum ClubMembershipStatus {
+  PENDING = 'PENDING',
+  ACTIVE = 'ACTIVE',
+  REJECTED = 'REJECTED',
+  LEFT = 'LEFT',
+}
+
+export enum ClubActivityType {
+  SCREEN = 'SCREEN',
+  FIELD = 'FIELD',
+  SCREEN_AND_FIELD = 'SCREEN_AND_FIELD',
+}
+
+export enum ClubAgeGroup {
+  TWENTIES = 'TWENTIES',
+  THIRTIES = 'THIRTIES',
+  FORTIES = 'FORTIES',
+  FIFTIES = 'FIFTIES',
+  SIXTIES_PLUS = 'SIXTIES_PLUS',
+}
+
+export enum ClubEventType {
+  SCREEN = 'SCREEN',
+  FIELD = 'FIELD',
+  OTHER = 'OTHER',
+}
+
+export enum ClubEventStatus {
+  DRAFT = 'DRAFT',
+  OPEN = 'OPEN',
+  SCHEDULED = 'SCHEDULED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum ClubEventAttendanceResponse {
+  ATTENDING = 'ATTENDING',
+  DECLINED = 'DECLINED',
+  MAYBE = 'MAYBE',
+  NO_RESPONSE = 'NO_RESPONSE',
+}
+
+export enum ClubEventAttendanceFinal {
+  ATTENDED = 'ATTENDED',
+  NO_SHOW = 'NO_SHOW',
+}
+
+export enum ClubAccountingEntryType {
+  INCOME = 'INCOME',
+  EXPENSE = 'EXPENSE',
+}
+
+export enum ClubAccountingCategory {
+  MEMBERSHIP_FEE = 'MEMBERSHIP_FEE',
+  JOIN_FEE = 'JOIN_FEE',
+  PARTICIPATION_FEE = 'PARTICIPATION_FEE',
+  DONATION = 'DONATION',
+  OTHER_INCOME = 'OTHER_INCOME',
+  GAME_FEE = 'GAME_FEE',
+  MEAL = 'MEAL',
+  PRIZE = 'PRIZE',
+  RENTAL = 'RENTAL',
+  OTHER_EXPENSE = 'OTHER_EXPENSE',
+}
+
+export type CreateClubRequest = {
+  name: string;
+  coverImageUrl?: string | null;
+  intro?: string | null;
+  region: string;
+  activityType: ClubActivityType;
+  primaryVenueId?: string | null;
+  primaryVenueName?: string | null;
+  joinMode: ClubJoinMode;
+  visibility: ClubVisibility;
+  primaryAgeGroup?: ClubAgeGroup | null;
+};
+
+export type ClubSummaryDto = {
+  id: string;
+  name: string;
+  coverImageUrl: string | null;
+  intro: string | null;
+  region: string;
+  activityType: ClubActivityType;
+  primaryVenueName: string | null;
+  joinMode: ClubJoinMode;
+  visibility: ClubVisibility;
+  primaryAgeGroup: ClubAgeGroup | null;
+  memberCount: number;
+  myRole: ClubMembershipRole | null;
+  myStatus: ClubMembershipStatus | null;
+};
+
+export type ClubDiscoverCardDto = ClubSummaryDto & {
+  eventsThisYear: number;
+  totalAttended: number;
+  averageAttendanceRate: number | null;
+  recent30DayEvents: number;
+  recent30DayAttendanceRate: number | null;
+};
+
+export type ClubDashboardDto = {
+  memberCount: number;
+  eventsThisYear: number;
+  totalAttended: number;
+  averageAttendanceRate: number | null;
+  recent30DayEvents: number;
+  recent30DayAttendanceRate: number | null;
+};
+
+export type ClubDetailDto = ClubSummaryDto & {
+  dashboard: ClubDashboardDto;
+  activeEvents: ClubEventListItemDto[];
+};
+
+export type ClubMembershipDto = {
+  id: string;
+  userId: string;
+  nickname: string;
+  role: ClubMembershipRole;
+  status: ClubMembershipStatus;
+  joinedAt: string | null;
+  requestedAt: string;
+  attendanceRateThisYear: number | null;
+  ageGroupLabel: string | null;
+};
+
+export type CreateClubEventRequest = {
+  title: string;
+  eventType: ClubEventType;
+  startsAt: string;
+  endsAt?: string | null;
+  venueName: string;
+  venueAddress?: string | null;
+  venueId?: string | null;
+  golfFacilityId?: string | null;
+  capacity?: number | null;
+  responseDeadline: string;
+  memo?: string | null;
+};
+
+export type ClubEventListItemDto = {
+  id: string;
+  title: string;
+  eventType: ClubEventType;
+  startsAt: string;
+  venueName: string;
+  status: ClubEventStatus;
+  capacity: number | null;
+  attendingCount: number;
+  declinedCount: number;
+  noResponseCount: number;
+  remainingCapacity: number | null;
+  myResponse: ClubEventAttendanceResponse | null;
+  linkedJoinId: string | null;
+};
+
+export type ClubEventDetailDto = ClubEventListItemDto & {
+  venueAddress: string | null;
+  venueId: string | null;
+  golfFacilityId: string | null;
+  responseDeadline: string;
+  memo: string | null;
+  attendanceFinalized: boolean;
+  finalizedAttendedCount: number;
+  finalizedNoShowCount: number;
+  maybeCount: number;
+  memberAttendingCount: number;
+  externalParticipantCount: number;
+  totalOccupiedCount: number;
+  eventAccounting: { income: string; expense: string; balance: string } | null;
+  attendances: ClubEventAttendanceDto[];
+};
+
+export type ClubMemberAttendanceHistoryItem = {
+  eventId: string;
+  title: string;
+  startsAt: string;
+  response: ClubEventAttendanceResponse;
+  finalStatus: ClubEventAttendanceFinal | null;
+};
+
+export type ClubMemberAttendanceDetailDto = ClubMemberAttendanceStatsDto & {
+  history: ClubMemberAttendanceHistoryItem[];
+};
+
+export type UploadClubCoverResponse = {
+  coverImageUrl: string;
+};
+
+export type ClubEventAttendanceDto = {
+  userId: string;
+  nickname: string;
+  response: ClubEventAttendanceResponse;
+  finalStatus: ClubEventAttendanceFinal | null;
+  respondedAt: string | null;
+};
+
+export type UpdateClubEventAttendanceRequest = {
+  response?: ClubEventAttendanceResponse;
+  finalStatus?: ClubEventAttendanceFinal | null;
+};
+
+export type BulkFinalizeClubEventAttendanceRequest = {
+  items: Array<{ userId: string; finalStatus: ClubEventAttendanceFinal }>;
+};
+
+export type ClubMemberAttendanceStatsDto = {
+  userId: string;
+  nickname: string;
+  period: 'RECENT_30D' | 'THIS_YEAR' | 'ALL';
+  targetEvents: number;
+  attended: number;
+  declined: number;
+  noResponse: number;
+  noShow: number;
+  averageAttendanceRate: number | null;
+};
+
+export type ClubAccountingSummaryDto = {
+  balance: string;
+  incomeThisYear: string;
+  expenseThisYear: string;
+};
+
+export type CreateClubAccountingEntryRequest = {
+  entryType: ClubAccountingEntryType;
+  category: ClubAccountingCategory;
+  amount: string;
+  entryDate: string;
+  memo?: string | null;
+  clubEventId?: string | null;
+};
+
+export type ClubAccountingEntryDto = {
+  id: string;
+  entryType: ClubAccountingEntryType;
+  category: ClubAccountingCategory;
+  amount: string;
+  entryDate: string;
+  memo: string | null;
+  clubEventId: string | null;
+  createdAt: string;
+};
+
+export type CreateClubNoticeRequest = {
+  title: string;
+  body: string;
+  pinned?: boolean;
+  sendPush?: boolean;
+};
+
+export type UpdateClubAccountingEntryRequest = {
+  entryType?: ClubAccountingEntryType;
+  category?: ClubAccountingCategory;
+  amount?: string;
+  entryDate?: string;
+  memo?: string | null;
+  clubEventId?: string | null;
+};
+
+export type UpdateClubNoticeRequest = {
+  title?: string;
+  body?: string;
+  pinned?: boolean;
+};
+
+export type ClubNoticeDto = {
+  id: string;
+  title: string;
+  body: string;
+  pinned: boolean;
+  createdAt: string;
+};
+
+export type ClubJoinRequest = {
+  inviteCode?: string | null;
+};
+
+export type ClubUrgentRecruitPrefillDto = {
+  clubId: string;
+  clubEventId: string;
+  title: string;
+  venueName: string;
+  venueAddress: string | null;
+  venueId: string | null;
+  golfFacilityId: string | null;
+  startsAt: string;
+  remainingSeats: number;
+};
+
+export type ClubListResponse = { items: ClubSummaryDto[] };
+export type ClubDiscoverResponse = { items: ClubDiscoverCardDto[] };
+export type ClubMembershipListResponse = { items: ClubMembershipDto[] };
+export type ClubEventListResponse = { items: ClubEventListItemDto[] };
+export type ClubAccountingListResponse = {
+  summary: ClubAccountingSummaryDto;
+  items: ClubAccountingEntryDto[];
+};
+export type ClubNoticeListResponse = { items: ClubNoticeDto[] };

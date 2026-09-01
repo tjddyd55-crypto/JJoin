@@ -172,6 +172,20 @@ export function MyHomeScreen() {
         </Card>
       </Section>
 
+      <Section title="동호회">
+        <Card variant="base" padding="none" style={styles.settingsCard}>
+          <View style={styles.settingsInner}>
+            <ListRow
+              label="동호회"
+              subtitle="내 동호회 · 동호회 찾기"
+              icon="people"
+              onPress={() => router.push('/my/clubs' as Href)}
+              showSeparator={false}
+            />
+          </View>
+        </Card>
+      </Section>
+
       <Section title="활동">
         <Card variant="base" padding="none" style={styles.settingsCard}>
           <View style={styles.settingsInner}>

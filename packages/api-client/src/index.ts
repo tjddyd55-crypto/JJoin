@@ -95,6 +95,31 @@ import {
   type CreateJoinInvitationsRequest,
   type JoinInvitationDto,
   type PlayedTogetherPersonDto,
+  type ClubListResponse,
+  type ClubDiscoverResponse,
+  type ClubDetailDto,
+  type ClubSummaryDto,
+  type CreateClubRequest,
+  type ClubJoinRequest,
+  type ClubMembershipDto,
+  type ClubMembershipListResponse,
+  type ClubEventListResponse,
+  type ClubEventDetailDto,
+  type CreateClubEventRequest,
+  type UpdateClubEventAttendanceRequest,
+  type BulkFinalizeClubEventAttendanceRequest,
+  type ClubMemberAttendanceStatsDto,
+  type ClubMemberAttendanceDetailDto,
+  type UploadClubCoverResponse,
+  type UpdateClubAccountingEntryRequest,
+  type UpdateClubNoticeRequest,
+  type ClubAccountingEntryDto,
+  type ClubAccountingListResponse,
+  type CreateClubAccountingEntryRequest,
+  type ClubNoticeListResponse,
+  type CreateClubNoticeRequest,
+  type ClubNoticeDto,
+  type ClubUrgentRecruitPrefillDto,
 } from '@jjoin/types';
 
 export type ApiClientConfig = {
@@ -1457,6 +1482,268 @@ export class ApiClient {
     const res = await request(`${this.config.baseUrl}/public/joins/${shareSlug}`, {
       headers: await this.headers(false),
     });
+    return parseJson(res);
+  }
+
+  async createClub(body: CreateClubRequest): Promise<ClubSummaryDto> {
+    const res = await request(`${this.config.baseUrl}/clubs`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async uploadClubCover(body: { localUri: string }): Promise<UploadClubCoverResponse> {
+    const res = await request(`${this.config.baseUrl}/clubs/cover-upload`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async listMyClubs(): Promise<ClubListResponse> {
+    const res = await request(`${this.config.baseUrl}/clubs/mine`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async discoverClubs(): Promise<ClubDiscoverResponse> {
+    const res = await request(`${this.config.baseUrl}/clubs/discover`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getClubDetail(clubId: string): Promise<ClubDetailDto> {
+    const res = await request(`${this.config.baseUrl}/clubs/${clubId}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async joinClub(clubId: string, body: ClubJoinRequest = {}): Promise<ClubMembershipDto> {
+    const res = await request(`${this.config.baseUrl}/clubs/${clubId}/join`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async leaveClub(clubId: string): Promise<{ ok: true }> {
+    const res = await request(`${this.config.baseUrl}/clubs/${clubId}/leave`, {
+      method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async listClubMembers(clubId: string): Promise<ClubMembershipListResponse> {
+    const res = await request(`${this.config.baseUrl}/clubs/${clubId}/members`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async approveClubMember(clubId: string, membershipId: string): Promise<ClubMembershipDto> {
+    const res = await request(`${this.config.baseUrl}/clubs/${clubId}/members/${membershipId}/approve`, {
+      method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async rejectClubMember(clubId: string, membershipId: string): Promise<{ ok: true }> {
+    const res = await request(`${this.config.baseUrl}/clubs/${clubId}/members/${membershipId}/reject`, {
+      method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async updateClubMemberRole(
+    clubId: string,
+    membershipId: string,
+    role: 'MANAGER' | 'MEMBER',
+  ): Promise<ClubMembershipDto> {
+    const res = await request(`${this.config.baseUrl}/clubs/${clubId}/members/${membershipId}/role`, {
+      method: 'PATCH',
+      headers: await this.headers(true),
+      body: JSON.stringify({ role }),
+    });
+    return parseJson(res);
+  }
+
+  async createClubEvent(clubId: string, body: CreateClubEventRequest): Promise<ClubEventDetailDto> {
+    const res = await request(`${this.config.baseUrl}/clubs/${clubId}/events`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async listClubEvents(clubId: string): Promise<ClubEventListResponse> {
+    const res = await request(`${this.config.baseUrl}/clubs/${clubId}/events`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getClubEvent(clubId: string, eventId: string): Promise<ClubEventDetailDto> {
+    const res = await request(`${this.config.baseUrl}/clubs/${clubId}/events/${eventId}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async updateMyClubEventAttendance(
+    clubId: string,
+    eventId: string,
+    body: UpdateClubEventAttendanceRequest,
+  ): Promise<ClubEventDetailDto> {
+    const res = await request(`${this.config.baseUrl}/clubs/${clubId}/events/${eventId}/attendance/me`, {
+      method: 'PATCH',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async finalizeClubEventAttendance(
+    clubId: string,
+    eventId: string,
+    body: BulkFinalizeClubEventAttendanceRequest,
+  ): Promise<ClubEventDetailDto> {
+    const res = await request(
+      `${this.config.baseUrl}/clubs/${clubId}/events/${eventId}/attendance/finalize`,
+      {
+        method: 'POST',
+        headers: await this.headers(true),
+        body: JSON.stringify(body),
+      },
+    );
+    return parseJson(res);
+  }
+
+  async getClubMemberAttendanceStats(
+    clubId: string,
+    targetUserId: string,
+    period: 'RECENT_30D' | 'THIS_YEAR' | 'ALL' = 'THIS_YEAR',
+  ): Promise<ClubMemberAttendanceStatsDto> {
+    const params = new URLSearchParams({ period });
+    const res = await request(
+      `${this.config.baseUrl}/clubs/${clubId}/members/${targetUserId}/attendance-stats?${params}`,
+      { headers: await this.headers(true) },
+    );
+    return parseJson(res);
+  }
+
+  async getClubMemberAttendanceDetail(
+    clubId: string,
+    targetUserId: string,
+    period: 'RECENT_30D' | 'THIS_YEAR' | 'ALL' = 'THIS_YEAR',
+  ): Promise<ClubMemberAttendanceDetailDto> {
+    const params = new URLSearchParams({ period });
+    const res = await request(
+      `${this.config.baseUrl}/clubs/${clubId}/members/${targetUserId}/attendance-detail?${params}`,
+      { headers: await this.headers(true) },
+    );
+    return parseJson(res);
+  }
+
+  async listClubAccounting(
+    clubId: string,
+    period: 'THIS_MONTH' | 'THIS_YEAR' | 'ALL' = 'THIS_YEAR',
+  ): Promise<ClubAccountingListResponse> {
+    const params = new URLSearchParams({ period });
+    const res = await request(`${this.config.baseUrl}/clubs/${clubId}/accounting?${params}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async createClubAccountingEntry(
+    clubId: string,
+    body: CreateClubAccountingEntryRequest,
+  ) {
+    const res = await request(`${this.config.baseUrl}/clubs/${clubId}/accounting`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async updateClubAccountingEntry(
+    clubId: string,
+    entryId: string,
+    body: UpdateClubAccountingEntryRequest,
+  ): Promise<ClubAccountingEntryDto> {
+    const res = await request(`${this.config.baseUrl}/clubs/${clubId}/accounting/${entryId}`, {
+      method: 'PATCH',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async deleteClubAccountingEntry(clubId: string, entryId: string): Promise<{ ok: true }> {
+    const res = await request(`${this.config.baseUrl}/clubs/${clubId}/accounting/${entryId}`, {
+      method: 'DELETE',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async listClubNotices(clubId: string): Promise<ClubNoticeListResponse> {
+    const res = await request(`${this.config.baseUrl}/clubs/${clubId}/notices`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async createClubNotice(clubId: string, body: CreateClubNoticeRequest): Promise<ClubNoticeDto> {
+    const res = await request(`${this.config.baseUrl}/clubs/${clubId}/notices`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async updateClubNotice(
+    clubId: string,
+    noticeId: string,
+    body: UpdateClubNoticeRequest,
+  ): Promise<ClubNoticeDto> {
+    const res = await request(`${this.config.baseUrl}/clubs/${clubId}/notices/${noticeId}`, {
+      method: 'PATCH',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async deleteClubNotice(clubId: string, noticeId: string): Promise<{ ok: true }> {
+    const res = await request(`${this.config.baseUrl}/clubs/${clubId}/notices/${noticeId}`, {
+      method: 'DELETE',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getClubUrgentRecruitPrefill(
+    clubId: string,
+    eventId: string,
+  ): Promise<ClubUrgentRecruitPrefillDto> {
+    const res = await request(
+      `${this.config.baseUrl}/clubs/${clubId}/events/${eventId}/urgent-recruit-prefill`,
+      { headers: await this.headers(true) },
+    );
     return parseJson(res);
   }
 }
