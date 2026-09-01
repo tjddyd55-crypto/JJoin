@@ -9,6 +9,7 @@ import {
 import {
   CHAT_MESSAGE_MAX_LENGTH,
   canAccessJoinChat,
+  canAccessClubLinkedJoinChat,
   chatHideAfterFrom,
   chatPurgeAfterFrom,
   isJoinChatVisibleInUi,
@@ -137,6 +138,15 @@ export class JoinChatService {
     await this.postSystemMessage(room.id, body);
   }
 
+  async syncClubLinkedJoinChat(clubEventId: string): Promise<void> {
+    const join = await this.prisma.join.findFirst({
+      where: { clubEventId, status: { notIn: ['CANCELLED'] } },
+      select: { id: true },
+    });
+    if (!join) return;
+    await this.ensureRoomForJoin(join.id);
+  }
+
   async getRoom(joinId: string, userId: string): Promise<JoinChatRoomDto> {
     await this.ensureRoomForJoin(joinId);
     const join = await this.prisma.join.findUnique({
@@ -149,14 +159,8 @@ export class JoinChatService {
     if (!join) throw new NotFoundException('join_not_found');
     if (!join.chatRoom) throw new NotFoundException('chat_room_not_found');
 
-    const mine = join.participants[0];
-    const role = mine?.role ?? (join.hostUserId === userId ? 'HOST' : null);
-    const allowed = canAccessJoinChat({
-      role,
-      participationStatus: mine?.participationStatus ?? (role === 'HOST' ? 'APPROVED' : null),
-      attendanceIntent: mine?.attendanceIntent,
-    });
-    if (!allowed) throw new ForbiddenException('chat_access_denied');
+    const access = await this.resolveChatAccess(join, userId);
+    if (!access.allowed) throw new ForbiddenException('chat_access_denied');
 
     if (
       !isJoinChatVisibleInUi({
@@ -175,6 +179,7 @@ export class JoinChatService {
       throw new ForbiddenException('chat_membership_required');
     }
 
+    const mine = join.participants[0];
     const lifecycle = resolveChatRoomLifecycleStatus(
       join.status,
       new Date(),
@@ -183,7 +188,8 @@ export class JoinChatService {
     const canPost =
       lifecycle === 'ACTIVE' &&
       join.chatRoom.status === 'ACTIVE' &&
-      mine?.attendanceIntent !== 'DECLINED';
+      mine?.attendanceIntent !== 'DECLINED' &&
+      !access.clubBridgeDeclined;
 
     return {
       roomId: join.chatRoom.id,
@@ -351,10 +357,71 @@ export class JoinChatService {
     return { purgedRooms, purgedMessages, purgedMembers, failedJobs };
   }
 
-  private async syncMembers(
-    roomId: string,
+  private async resolveChatAccess(
+    join: {
+      id: string;
+      hostUserId: string;
+      clubId: string | null;
+      clubEventId: string | null;
+      participants: Array<{
+        role: string;
+        participationStatus: string;
+        attendanceIntent: string;
+      }>;
+    },
+    userId: string,
+  ): Promise<{ allowed: boolean; clubBridgeDeclined: boolean }> {
+    const mine = join.participants[0];
+    const role = mine?.role ?? (join.hostUserId === userId ? 'HOST' : null);
+    const participationStatus =
+      mine?.participationStatus ?? (role === 'HOST' ? 'APPROVED' : null);
+
+    if (
+      canAccessJoinChat({
+        role,
+        participationStatus,
+        attendanceIntent: mine?.attendanceIntent,
+      })
+    ) {
+      return { allowed: true, clubBridgeDeclined: false };
+    }
+
+    if (!join.clubEventId || !join.clubId) {
+      return { allowed: false, clubBridgeDeclined: false };
+    }
+
+    const [membership, attendance, event] = await Promise.all([
+      this.prisma.clubMembership.findUnique({
+        where: { clubId_userId: { clubId: join.clubId, userId } },
+        select: { status: true },
+      }),
+      this.prisma.clubEventAttendance.findUnique({
+        where: { clubEventId_userId: { clubEventId: join.clubEventId, userId } },
+        select: { response: true, finalStatus: true },
+      }),
+      this.prisma.clubEvent.findUnique({
+        where: { id: join.clubEventId },
+        select: { attendanceFinalizedAt: true },
+      }),
+    ]);
+
+    if (membership?.status !== 'ACTIVE' || !attendance) {
+      return { allowed: false, clubBridgeDeclined: attendance?.response === 'DECLINED' };
+    }
+
+    const eventFinalized = Boolean(event?.attendanceFinalizedAt);
+    const allowed = canAccessClubLinkedJoinChat({
+      clubEventAttendance: attendance,
+      eventFinalized,
+    });
+    return { allowed, clubBridgeDeclined: attendance.response === 'DECLINED' };
+  }
+
+  private async collectEligibleChatUserIds(
     join: {
       hostUserId: string;
+      clubId: string | null;
+      clubEventId: string | null;
       participants: Array<{
         userId: string;
         role: string;
@@ -362,7 +429,7 @@ export class JoinChatService {
         attendanceIntent: string;
       }>;
     },
-  ): Promise<void> {
+  ): Promise<Set<string>> {
     const eligibleUserIds = new Set<string>();
     eligibleUserIds.add(join.hostUserId);
     for (const p of join.participants) {
@@ -375,6 +442,55 @@ export class JoinChatService {
         eligibleUserIds.add(p.userId);
       }
     }
+
+    if (join.clubEventId && join.clubId) {
+      const [event, attendances, memberships] = await Promise.all([
+        this.prisma.clubEvent.findUnique({
+          where: { id: join.clubEventId },
+          select: { attendanceFinalizedAt: true },
+        }),
+        this.prisma.clubEventAttendance.findMany({
+          where: { clubEventId: join.clubEventId },
+          select: { userId: true, response: true, finalStatus: true },
+        }),
+        this.prisma.clubMembership.findMany({
+          where: { clubId: join.clubId, status: 'ACTIVE' },
+          select: { userId: true },
+        }),
+      ]);
+      const activeMemberIds = new Set(memberships.map((m) => m.userId));
+      const eventFinalized = Boolean(event?.attendanceFinalizedAt);
+      for (const row of attendances) {
+        if (!activeMemberIds.has(row.userId)) continue;
+        if (
+          canAccessClubLinkedJoinChat({
+            clubEventAttendance: row,
+            eventFinalized,
+          })
+        ) {
+          eligibleUserIds.add(row.userId);
+        }
+      }
+    }
+
+    return eligibleUserIds;
+  }
+
+  private async syncMembers(
+    roomId: string,
+    join: {
+      hostUserId: string;
+      clubId: string | null;
+      clubEventId: string | null;
+      participants: Array<{
+        userId: string;
+        role: string;
+        participationStatus: string;
+        attendanceIntent: string;
+      }>;
+    },
+  ): Promise<void> {
+    const eligibleUserIds = await this.collectEligibleChatUserIds(join);
 
     const existing = await this.prisma.joinChatMember.findMany({ where: { roomId } });
     const existingByUser = new Map(existing.map((m) => [m.userId, m]));

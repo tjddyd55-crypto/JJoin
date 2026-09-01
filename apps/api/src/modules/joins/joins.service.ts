@@ -56,6 +56,7 @@ import {
   computeAutoPayAt,
   computeAttendanceReliability,
   canAccessJoinChat,
+  canAccessJoinChatWithClubBridge,
   isJoinChatVisibleInUi,
   isJoinCapacityJoinable,
   localDayKey,
@@ -409,6 +410,10 @@ export class JoinsService {
     await this.ensureShareSlug(joinId);
     void this.engagementNotify.notifyNewJoinableJoin(joinId);
 
+    if (clubLink) {
+      void this.joinChat.syncClubLinkedJoinChat(clubLink.clubEventId);
+    }
+
     return this.getDetail(joinId, hostUserId);
   }
 
@@ -535,7 +540,32 @@ export class JoinsService {
       join.hostUserId,
       ...join.participants.map((p) => p.userId),
     ]);
-    const detail = this.toDetail(join, viewerUserId, { bookmarked, reliabilityByUserId });
+
+    let clubBridge: { response: string; finalStatus?: string | null; eventFinalized?: boolean } | null =
+      null;
+    if (viewerUserId && join.clubEventId && join.clubId) {
+      const [attendance, clubEvent] = await Promise.all([
+        this.prisma.clubEventAttendance.findUnique({
+          where: {
+            clubEventId_userId: { clubEventId: join.clubEventId, userId: viewerUserId },
+          },
+          select: { response: true, finalStatus: true },
+        }),
+        this.prisma.clubEvent.findUnique({
+          where: { id: join.clubEventId },
+          select: { attendanceFinalizedAt: true },
+        }),
+      ]);
+      if (attendance) {
+        clubBridge = {
+          response: attendance.response,
+          finalStatus: attendance.finalStatus,
+          eventFinalized: Boolean(clubEvent?.attendanceFinalizedAt),
+        };
+      }
+    }
+
+    const detail = this.toDetail(join, viewerUserId, { bookmarked, reliabilityByUserId, clubBridge });
     if (viewerUserId) {
       try {
         detail.settlement = await this.settlement.getJoinSettlements(joinId, viewerUserId);
@@ -1238,6 +1268,7 @@ export class JoinsService {
           attendanceRatePercent: number | null;
         }
       >;
+      clubBridge?: { response: string; finalStatus?: string | null; eventFinalized?: boolean } | null;
     },
   ): JoinDetailDto {
     const hostProfile = this.toPublicHost(
@@ -1289,12 +1320,13 @@ export class JoinsService {
     });
 
     const chatAvailable = viewerUserId
-      ? canAccessJoinChat({
+      ? canAccessJoinChatWithClubBridge({
           role: mine?.role ?? (join.host.id === viewerUserId ? 'HOST' : null),
           participationStatus:
             mine?.participationStatus ??
             (join.host.id === viewerUserId ? 'APPROVED' : null),
           attendanceIntent: mine?.attendanceIntent,
+          clubBridge: extras?.clubBridge ?? null,
         }) &&
         isJoinChatVisibleInUi({
           hasRoom: Boolean(join.chatRoom),
