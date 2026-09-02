@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import {
@@ -16,6 +16,11 @@ import { RewardCoinInput } from '../../src/ui/patterns/RewardCoinInput';
 import { CoinSummaryCard } from '../../src/ui/patterns/CoinSummaryCard';
 import { useJoinCoinPreview } from '../../src/features/create/useJoinCoinPreview';
 import { resolveJoinCreateFooterState } from '../../src/features/join-create/model/join-create-footer-state';
+import {
+  resolveJoinCreatePlayersFromParams,
+  resolveJoinCreateRewardFromParams,
+  shouldResetJoinCreateSession,
+} from '../../src/features/join-create/model/join-create-session';
 import { getSecureSessionStore, useSession } from '../../src/session/SessionContext';
 import { getApiClient } from '../../src/lib/api';
 import { JoinCreateVenueSection } from '../../src/features/join-create/components/JoinCreateVenueSection';
@@ -65,23 +70,54 @@ export default function CreateScreen() {
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
 
   const [selectedVenue, setSelectedVenue] = useState<JoinCreateVenueSelection | null>(null);
-  const [players, setPlayers] = useState(() => {
-    const n = Number(params.players);
-    return Number.isFinite(n) && n >= 2 ? Math.floor(n) : 4;
-  });
-  const [rewardPerParticipant, setRewardPerParticipant] = useState(
-    () =>
-      typeof params.rewardPerParticipant === 'string' && params.rewardPerParticipant
-        ? params.rewardPerParticipant
-        : '0',
+  const [players, setPlayers] = useState(() =>
+    resolveJoinCreatePlayersFromParams(
+      typeof params.players === 'string' ? params.players : undefined,
+    ),
+  );
+  const [rewardPerParticipant, setRewardPerParticipant] = useState(() =>
+    resolveJoinCreateRewardFromParams(
+      typeof params.rewardPerParticipant === 'string' ? params.rewardPerParticipant : undefined,
+    ),
   );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [doneJoinId, setDoneJoinId] = useState<string | null>(null);
   const [resolvingRouteVenue, setResolvingRouteVenue] = useState(false);
+  /** Set on successful create; cleared when a new Create session starts. */
+  const lastCompletedJoinIdRef = useRef<string | null>(null);
+  /** True after leaving Create while a success screen was showing. */
+  const pendingNewSessionRef = useRef(false);
+
+  const resetFormForNewSession = useCallback(() => {
+    setSelectedVenue(null);
+    setPlayers(
+      resolveJoinCreatePlayersFromParams(
+        typeof params.players === 'string' ? params.players : undefined,
+      ),
+    );
+    setRewardPerParticipant(
+      resolveJoinCreateRewardFromParams(
+        typeof params.rewardPerParticipant === 'string'
+          ? params.rewardPerParticipant
+          : undefined,
+      ),
+    );
+    setSubmitting(false);
+    setError(null);
+    clearJoinCreateDraft();
+  }, [params.players, params.rewardPerParticipant]);
 
   useFocusEffect(
     useCallback(() => {
+      // New Create entry after leaving a success screen — never restore that success.
+      if (shouldResetJoinCreateSession({ pendingNewSession: pendingNewSessionRef.current })) {
+        pendingNewSessionRef.current = false;
+        lastCompletedJoinIdRef.current = null;
+        setDoneJoinId(null);
+        resetFormForNewSession();
+      }
+
       const draft = peekJoinCreateDraft();
       if (draft) {
         setPlayers(draft.players);
@@ -90,7 +126,14 @@ export default function CreateScreen() {
         }
         clearJoinCreateDraft();
       }
-    }, [routeVenueId]),
+
+      return () => {
+        // Success stays visible until leave; next focus starts a fresh write session.
+        if (lastCompletedJoinIdRef.current != null) {
+          pendingNewSessionRef.current = true;
+        }
+      };
+    }, [resetFormForNewSession, routeVenueId]),
   );
 
   useEffect(() => {
@@ -224,6 +267,7 @@ export default function CreateScreen() {
         clubEventId: routeClubEventId,
       });
       setDoneJoinId(detail.joinId);
+      lastCompletedJoinIdRef.current = detail.joinId;
       clearJoinCreateDraft();
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'create_failed';
