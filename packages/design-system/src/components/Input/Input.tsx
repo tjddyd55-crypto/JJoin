@@ -29,6 +29,8 @@ export function Input({
   style,
   onFocus,
   onBlur,
+  onContentSizeChange,
+  multiline,
   ...rest
 }: InputProps) {
   const theme = useTheme();
@@ -59,6 +61,7 @@ export function Input({
             backgroundColor: theme.colors.surface.card,
             borderColor,
             opacity: isDisabled ? 0.5 : 1,
+            alignItems: multiline ? 'flex-start' : 'center',
           },
         ]}
       >
@@ -66,6 +69,7 @@ export function Input({
         <TextInput
           placeholderTextColor={theme.colors.text.tertiary}
           editable={editable}
+          multiline={multiline}
           style={[
             styles.input,
             {
@@ -73,6 +77,7 @@ export function Input({
               fontFamily: theme.typography.body.fontFamily,
               fontSize: theme.typography.body.fontSize,
             },
+            multiline ? styles.multiline : null,
             style,
           ]}
           onFocus={(e) => {
@@ -83,6 +88,12 @@ export function Input({
           onBlur={(e) => {
             setFocused(false);
             onBlur?.(e);
+          }}
+          onContentSizeChange={(e) => {
+            onContentSizeChange?.(e);
+            if (focused && multiline) {
+              formScroll?.ensureFocusedVisible();
+            }
           }}
           {...rest}
         />
@@ -105,7 +116,6 @@ const styles = StyleSheet.create({
   wrap: { gap: 6 },
   field: {
     flexDirection: 'row',
-    alignItems: 'center',
     borderWidth: 1,
     paddingHorizontal: 14,
     gap: 8,
@@ -113,5 +123,9 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     paddingVertical: 12,
+  },
+  multiline: {
+    minHeight: 88,
+    textAlignVertical: 'top',
   },
 });
