@@ -29,6 +29,7 @@ import { MockIdentityAdapter } from '../../providers/mock.adapters';
 import { MockMediaAdapter } from '../../providers/mock.adapters';
 import { PrismaService } from '../../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
+import { PremiumService } from '../payments/premium.service';
 
 const USER_INCLUDE = {
   profile: true,
@@ -44,6 +45,7 @@ export class UserAccountService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly wallet: WalletService,
+    private readonly premium: PremiumService,
     private readonly media: MockMediaAdapter,
     private readonly mockIdentity: MockIdentityAdapter,
   ) {}
@@ -65,9 +67,11 @@ export class UserAccountService {
     const reliability = await this.loadAttendanceReliability(userId);
     const me = buildMeFromUser(user, participationCount);
     const walletSummary = await this.wallet.getSummary(userId);
+    const premiumStatus = await this.premium.getStatus(userId);
     return {
       ...me,
       walletSummary,
+      premiumStatus,
       publicProfile: me.publicProfile
         ? {
             ...me.publicProfile,

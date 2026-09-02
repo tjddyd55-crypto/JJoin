@@ -87,6 +87,7 @@ import { JoinEngagementNotifyService } from '../engagement/join-engagement-notif
 import { UrgentVacancyService } from '../join-loop/urgent-vacancy.service';
 import { JoinChatService } from '../join-loop/join-chat.service';
 import { ClubJoinLinkService } from '../clubs/club-join-link.service';
+import { PremiumService } from '../payments/premium.service';
 import type { AttendanceIntent } from '@jjoin/types';
 
 const ACTIVE_JOIN_STATUSES: JoinStatus[] = [JoinStatus.OPEN, JoinStatus.FULL];
@@ -115,6 +116,7 @@ export class JoinsService {
     @Inject(forwardRef(() => JoinChatService))
     private readonly joinChat: JoinChatService,
     private readonly clubJoinLink: ClubJoinLinkService,
+    private readonly premium: PremiumService,
   ) {}
 
   ping() {
@@ -170,6 +172,7 @@ export class JoinsService {
 
   async create(hostUserId: string, raw: CreateJoinRequest): Promise<JoinDetailDto> {
     await this.accounts.assertIdentityVerified(hostUserId, 'CREATE_JOIN');
+    await this.premium.assertCanCreateJoin(hostUserId);
     const parsed = createJoinSchema.safeParse(raw);
     if (!parsed.success) {
       throw new BadRequestException('invalid_create_join');

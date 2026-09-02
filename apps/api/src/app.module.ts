@@ -23,6 +23,7 @@ import { EngagementModule } from './modules/engagement/engagement.module';
 import { JoinLoopModule } from './modules/join-loop/join-loop.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { ClubsModule } from './modules/clubs/clubs.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -52,6 +53,7 @@ import { PrismaModule } from './prisma/prisma.module';
     JoinLoopModule,
     AnalyticsModule,
     ClubsModule,
+    PaymentsModule,
   ],
 })
 export class AppModule {}

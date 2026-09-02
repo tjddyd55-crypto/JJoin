@@ -105,6 +105,12 @@ export function buildMeFromUser(
         : '0',
       recentTransactions: [],
     },
+    premiumStatus: {
+      active: false,
+      startedAt: null,
+      expiresAt: null,
+      remainingDays: null,
+    },
   };
 }
 
