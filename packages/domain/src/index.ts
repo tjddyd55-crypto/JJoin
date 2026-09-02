@@ -274,7 +274,9 @@ export {
   addRewardQuickIncrement,
   computeCoinShortfall,
   computeWalletAfterCreation,
+  formatNumberWithThousandsSeparator,
   normalizeRewardPerParticipantInput,
+  parseNumericInput,
 } from './reward-input';
 
 export {

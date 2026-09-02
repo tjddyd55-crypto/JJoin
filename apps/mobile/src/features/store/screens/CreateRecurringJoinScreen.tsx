@@ -21,6 +21,11 @@ import { createRecurringJoinScheduleSchema } from '@jjoin/validation';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
 import { KstTimePickerField } from '../../../shared/date/KstTimePickerField';
+import {
+  formatNumberWithThousandsSeparator,
+  normalizeRewardPerParticipantInput,
+  parseNumericInput,
+} from '../../../shared/number/numeric-input';
 import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
 import { GENDER_PRESETS } from '../store-ui';
 import { DAY_OF_WEEK_OPTIONS } from '../recurring-join-ui';
@@ -87,7 +92,7 @@ export function CreateRecurringJoinScreen() {
       targetFemaleCount,
       minimumPlayers: Number(minimumPlayers),
       matchingRewardTarget,
-      rewardPerParticipant: rewardPerParticipant.trim(),
+      rewardPerParticipant: normalizeRewardPerParticipantInput(rewardPerParticipant),
       recruitClosesHoursBefore: Number(recruitClosesHoursBefore) || undefined,
     };
     const parsed = createRecurringJoinScheduleSchema.safeParse(body);
@@ -236,8 +241,11 @@ export function CreateRecurringJoinScreen() {
             <Spacer size="sm" />
             <Input
               label="1인당 참가 보상 (Coin)"
-              value={rewardPerParticipant}
-              onChangeText={setRewardPerParticipant}
+              value={formatNumberWithThousandsSeparator(rewardPerParticipant)}
+              onChangeText={(text) => {
+                const next = parseNumericInput(text);
+                setRewardPerParticipant(next ?? '');
+              }}
               keyboardType="number-pad"
             />
           </Section>

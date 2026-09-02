@@ -29,6 +29,11 @@ import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
 import { KstDatePickerField } from '../../../shared/date/KstDatePickerField';
 import { KstTimePickerField } from '../../../shared/date/KstTimePickerField';
+import {
+  formatNumberWithThousandsSeparator,
+  normalizeRewardPerParticipantInput,
+  parseNumericInput,
+} from '../../../shared/number/numeric-input';
 import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
 import {
   composeKstIso,
@@ -96,7 +101,7 @@ export function CreateStoreMatchingJoinScreen() {
   const [rewardPerParticipant, setRewardPerParticipant] = useState(
     () =>
       typeof params.rewardPerParticipant === 'string' && params.rewardPerParticipant
-        ? params.rewardPerParticipant
+        ? normalizeRewardPerParticipantInput(params.rewardPerParticipant)
         : '5000',
   );
   const [genderPresetLabel, setGenderPresetLabel] = useState('남2여2');
@@ -147,7 +152,7 @@ export function CreateStoreMatchingJoinScreen() {
         targetMaleCount,
         targetFemaleCount,
         matchingRewardTarget,
-        rewardPerParticipant,
+        rewardPerParticipant: normalizeRewardPerParticipantInput(rewardPerParticipant),
       });
     } catch {
       return null;
@@ -192,7 +197,7 @@ export function CreateStoreMatchingJoinScreen() {
       targetFemaleCount,
       minimumPlayers: Number(minimumPlayers),
       matchingRewardTarget,
-      rewardPerParticipant,
+      rewardPerParticipant: normalizeRewardPerParticipantInput(rewardPerParticipant),
       idempotencyKey: newIdempotencyKey(),
     });
     if (!parsed.success) {
@@ -346,8 +351,11 @@ export function CreateStoreMatchingJoinScreen() {
             <Spacer size="sm" />
             <Input
               label="1인당 참가 보상 (Coin)"
-              value={rewardPerParticipant}
-              onChangeText={setRewardPerParticipant}
+              value={formatNumberWithThousandsSeparator(rewardPerParticipant)}
+              onChangeText={(text) => {
+                const next = parseNumericInput(text);
+                setRewardPerParticipant(next ?? '');
+              }}
               keyboardType="number-pad"
             />
           </Section>
