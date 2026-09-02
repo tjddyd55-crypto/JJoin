@@ -20,6 +20,7 @@ import {
 import { createRecurringJoinScheduleSchema } from '@jjoin/validation';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
+import { KstTimePickerField } from '../../../shared/date/KstTimePickerField';
 import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
 import { GENDER_PRESETS } from '../store-ui';
 import { DAY_OF_WEEK_OPTIONS } from '../recurring-join-ui';
@@ -171,11 +172,10 @@ export function CreateRecurringJoinScreen() {
 
           <Spacer size="lg" />
           <Section title="시간">
-            <Input
-              label="시작 시간 (HH:mm, KST)"
-              value={startTimeLocal}
-              onChangeText={setStartTimeLocal}
-              placeholder="19:00"
+            <KstTimePickerField
+              label="시작 시간"
+              valueHm={startTimeLocal}
+              onChange={setStartTimeLocal}
             />
             <Spacer size="sm" />
             <Input

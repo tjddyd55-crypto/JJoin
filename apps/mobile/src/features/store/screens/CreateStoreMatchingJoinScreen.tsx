@@ -27,6 +27,8 @@ import {
 import { createStoreMatchingJoinSchema } from '@jjoin/validation';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
+import { KstDatePickerField } from '../../../shared/date/KstDatePickerField';
+import { KstTimePickerField } from '../../../shared/date/KstTimePickerField';
 import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
 import {
   composeKstIso,
@@ -72,6 +74,7 @@ export function CreateStoreMatchingJoinScreen() {
   const [storeOwnershipId, setStoreOwnershipId] = useState('');
   const [gameDate, setGameDate] = useState(defaultStartParts.dateYmd);
   const [startTime, setStartTime] = useState(defaultStartParts.timeHm);
+  const [closeDate, setCloseDate] = useState(defaultCloseParts.dateYmd);
   const [closeTime, setCloseTime] = useState(defaultCloseParts.timeHm);
   const [targetMaleCount, setTargetMaleCount] = useState(() => {
     const n = Number(params.targetMaleCount);
@@ -110,11 +113,11 @@ export function CreateStoreMatchingJoinScreen() {
 
   const recruitClosesAt = useMemo(() => {
     try {
-      return composeKstIso(gameDate, closeTime);
+      return composeKstIso(closeDate, closeTime);
     } catch {
       return '';
     }
-  }, [closeTime, gameDate]);
+  }, [closeDate, closeTime]);
 
   const loadStores = useCallback(async () => {
     const items = await api.getMyStores({ includeWallet: true });
@@ -171,6 +174,14 @@ export function CreateStoreMatchingJoinScreen() {
   async function onCreate() {
     if (!startAt || !recruitClosesAt) {
       setError('날짜와 시간을 확인해 주세요.');
+      return;
+    }
+    if (new Date(recruitClosesAt).getTime() >= new Date(startAt).getTime()) {
+      setError('모집 마감은 시작 시간보다 이전이어야 합니다.');
+      return;
+    }
+    if (new Date(startAt).getTime() <= Date.now()) {
+      setError('시작 시간은 현재보다 이후여야 합니다.');
       return;
     }
     const parsed = createStoreMatchingJoinSchema.safeParse({
@@ -256,28 +267,33 @@ export function CreateStoreMatchingJoinScreen() {
 
           <Spacer size="lg" />
           <Section title="일정">
-            <Input
-              label="게임 날짜 (YYYY-MM-DD)"
-              value={gameDate}
-              onChangeText={setGameDate}
-              placeholder="2026-08-28"
+            <KstDatePickerField
+              label="게임 날짜"
+              dateYmd={gameDate}
+              onChange={setGameDate}
+              disallowPast
             />
             <Spacer size="sm" />
-            <Input
-              label="시작 시간 (HH:mm, KST)"
-              value={startTime}
-              onChangeText={setStartTime}
-              placeholder="20:00"
+            <KstTimePickerField
+              label="시작 시간"
+              valueHm={startTime}
+              onChange={setStartTime}
             />
             <Spacer size="sm" />
-            <Input
-              label="모집 마감 시간 (HH:mm, KST)"
-              value={closeTime}
-              onChangeText={setCloseTime}
-              placeholder="18:00"
+            <KstDatePickerField
+              label="모집 마감 날짜"
+              dateYmd={closeDate}
+              onChange={setCloseDate}
+              disallowPast
+            />
+            <Spacer size="sm" />
+            <KstTimePickerField
+              label="모집 마감 시간"
+              valueHm={closeTime}
+              onChange={setCloseTime}
             />
             <Text variant="caption" tone="tertiary">
-              마감은 시작({startTime || '—'})보다 이전이어야 합니다.
+              마감은 시작보다 이전이어야 합니다.
             </Text>
           </Section>
 
