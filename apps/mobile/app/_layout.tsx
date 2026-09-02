@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StyleSheet, View } from 'react-native';
@@ -14,6 +14,7 @@ import {
 import { resolveOnboardingStep } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
 import { isInternalToolsEnabled } from '../src/lib/internal-tools';
+import { PushRegistrationHost } from '../src/features/notifications/PushRegistrationHost';
 
 if (__DEV__) {
   console.log('[BOOT 01] module _layout loaded');
@@ -25,25 +26,13 @@ export const unstable_settings = {
   initialRouteName: '(tabs)',
 };
 
-const PushRegistrationHost = React.lazy(async () => {
-  try {
-    const mod = await import('../src/features/notifications/PushRegistrationHost');
-    return { default: mod.PushRegistrationHost };
-  } catch (e) {
-    console.warn(
-      '[push] bootstrap module unavailable',
-      e instanceof Error ? e.message.slice(0, 120) : e,
-    );
-    return { default: () => null };
-  }
-});
-
+/**
+ * Eager mount (no React.lazy): Expo async-require/Activity can remount lazy children
+ * without SessionProvider context and crash useSession. Push work stays deferred in
+ * usePushRegistration effects, so shell boot is not blocked by native push modules.
+ */
 function PushBootstrap() {
-  return (
-    <Suspense fallback={null}>
-      <PushRegistrationHost />
-    </Suspense>
-  );
+  return <PushRegistrationHost />;
 }
 
 function AuthGateBootstrap({ children }: { children: React.ReactNode }) {

@@ -1,12 +1,4 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -21,6 +13,7 @@ import {
   type ScrollViewProps,
 } from 'react-native';
 import { ScreenFrame, type ScreenFrameProps } from './ScreenFrame';
+import { FormScrollProvider } from './FormScrollContext';
 import { useTheme } from '../theme';
 
 export type FormScreenFrameProps = ScreenFrameProps &
@@ -28,18 +21,9 @@ export type FormScreenFrameProps = ScreenFrameProps &
     footer?: ReactNode;
   };
 
+export { useFormScroll } from './FormScrollContext';
+
 const KEYBOARD_GAP_PX = 24;
-
-type FormScrollApi = {
-  /** Call from focused TextInput onFocus so mid-session field switches also scroll. */
-  ensureFocusedVisible: () => void;
-};
-
-const FormScrollContext = createContext<FormScrollApi | null>(null);
-
-export function useFormScroll(): FormScrollApi | null {
-  return useContext(FormScrollContext);
-}
 
 /**
  * Form layout with keyboard-safe scroll.
@@ -115,7 +99,7 @@ export function FormScreenFrame({
   );
 
   return (
-    <FormScrollContext.Provider value={{ ensureFocusedVisible }}>
+    <FormScrollProvider value={{ ensureFocusedVisible }}>
       <ScreenFrame padded={false} edges={edges} style={style}>
         <KeyboardAvoidingView
           style={styles.flex}
@@ -151,7 +135,7 @@ export function FormScreenFrame({
           ) : null}
         </KeyboardAvoidingView>
       </ScreenFrame>
-    </FormScrollContext.Provider>
+    </FormScrollProvider>
   );
 }
 

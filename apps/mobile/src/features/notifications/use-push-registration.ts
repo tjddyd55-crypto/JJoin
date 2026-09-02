@@ -3,7 +3,7 @@ import { AppState } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AuthAppState } from '@jjoin/types';
 import { getApiClient } from '../../lib/api';
-import { getSecureSessionStore, useSession } from '../../session/SessionContext';
+import { getSecureSessionStore, useSessionOptional } from '../../session/SessionContext';
 import {
   addNotificationResponseListener,
   configureNotificationHandler,
@@ -15,13 +15,15 @@ import {
 /**
  * Registers Expo push token after session is ready (not on first cold splash).
  * Never fatal: missing native module / projectId / FCM / permission → skip only.
+ * Uses optional session read so a mis-mounted host cannot crash the app shell.
  */
 export function usePushRegistration() {
-  const { appState, me } = useSession();
+  const session = useSessionOptional();
   const router = useRouter();
   const registeredForUser = useRef<string | null>(null);
   const api = getApiClient(getSecureSessionStore());
-  const userId = me?.userId;
+  const appState = session?.appState;
+  const userId = session?.me?.userId;
 
   useEffect(() => {
     void configureNotificationHandler();
@@ -29,8 +31,9 @@ export function usePushRegistration() {
 
   useEffect(() => {
     if (
-      appState !== AuthAppState.READY &&
-      appState !== AuthAppState.AUTHENTICATED_IDENTITY_UNVERIFIED
+      !appState ||
+      (appState !== AuthAppState.READY &&
+        appState !== AuthAppState.AUTHENTICATED_IDENTITY_UNVERIFIED)
     ) {
       return;
     }

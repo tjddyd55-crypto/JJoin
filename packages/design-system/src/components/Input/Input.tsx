@@ -9,7 +9,7 @@ import { Text } from '../../primitives/Text';
 import { useTheme } from '../../theme';
 import type { IconName } from '../../icons/iconTypes';
 import { Icon } from '../../icons/Icon';
-import { useFormScroll } from '../../layout/FormScreenFrame';
+import { useFormScroll } from '../../layout/FormScrollContext';
 
 export type InputProps = TextInputProps & {
   label?: string;
