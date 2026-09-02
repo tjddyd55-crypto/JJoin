@@ -168,6 +168,10 @@ export class PaymentService {
       throw new ServiceUnavailableException('payment_secret_missing');
     }
 
+    // Finalize abandoned READY rows before creating a new confirmable order.
+    // Never delete — only CANCELED. Keeps Toss mid-auth orderId unique per attempt.
+    await this.finalizeStaleReadyOrders(userId, product.id);
+
     const orderId = generateOrderId();
     const checkoutToken = randomBytes(24).toString('base64url');
     const checkoutTokenExpiresAt = new Date(Date.now() + CHECKOUT_TOKEN_TTL_MS);
@@ -222,6 +226,7 @@ export class PaymentService {
     if (!settings.clientKey) throw new ServiceUnavailableException('payment_not_configured');
 
     const { successUrl, failUrl } = resolveCheckoutRedirectUrls(callbackMode);
+    const appScheme = `${resolveMobilePaymentScheme()}://`;
 
     return `<!DOCTYPE html>
 <html lang="ko">
@@ -233,8 +238,9 @@ export class PaymentService {
   <style>
     body { font-family: system-ui, sans-serif; margin: 24px; background: #0f1419; color: #f5f7fa; }
     .card { max-width: 420px; margin: 0 auto; padding: 20px; border-radius: 12px; background: #1a222d; }
+    /* Club Minimal CTA: action.primary (#D4AF37) + text.onGold (#09090A) */
     button { width: 100%; padding: 14px; border: 0; border-radius: 10px; font-size: 16px; font-weight: 600;
-      background: #3d8bfd; color: #fff; cursor: pointer; }
+      background: #D4AF37; color: #09090A; cursor: pointer; }
     button:disabled { opacity: 0.5; }
     .meta { margin-bottom: 16px; line-height: 1.5; }
     .error { color: #ff6b6b; margin-top: 12px; font-size: 14px; }
@@ -266,6 +272,7 @@ export class PaymentService {
           orderName: ${JSON.stringify(payment.product.name)},
           successUrl: ${JSON.stringify(successUrl)},
           failUrl: ${JSON.stringify(failUrl)},
+          appScheme: ${JSON.stringify(appScheme)},
         });
       } catch (e) {
         btn.disabled = false;
@@ -684,6 +691,73 @@ export class PaymentService {
         } as Prisma.InputJsonValue,
       },
     });
+  }
+
+  /**
+   * READY lifecycle:
+   * - expired checkout token → CANCELED (checkout_token_expired)
+   * - same user+product still READY → CANCELED (superseded_by_new_order)
+   * Never deletes rows; never touches PAID/PROCESSING mid-confirm.
+   */
+  private async finalizeStaleReadyOrders(userId: string, productId: string): Promise<void> {
+    const now = new Date();
+    const expired = await this.prisma.payment.updateMany({
+      where: {
+        userId,
+        status: PaymentStatus.READY,
+        checkoutTokenExpiresAt: { lt: now },
+      },
+      data: {
+        status: PaymentStatus.CANCELED,
+        canceledAt: now,
+        providerPayload: { cancelReason: 'checkout_token_expired' } as Prisma.InputJsonValue,
+      },
+    });
+    if (expired.count > 0) {
+      this.logger.log(
+        `PAYMENT_READY_EXPIRED count=${expired.count} userId=${userId}`,
+      );
+    }
+
+    const superseded = await this.prisma.payment.updateMany({
+      where: {
+        userId,
+        productId,
+        status: PaymentStatus.READY,
+      },
+      data: {
+        status: PaymentStatus.CANCELED,
+        canceledAt: now,
+        providerPayload: { cancelReason: 'superseded_by_new_order' } as Prisma.InputJsonValue,
+      },
+    });
+    if (superseded.count > 0) {
+      this.logger.log(
+        `PAYMENT_READY_SUPERSEDED count=${superseded.count} userId=${userId} productId=${productId}`,
+      );
+    }
+  }
+
+  /** User abandoned checkout (back / close). Only READY → CANCELED. */
+  async cancelReadyOrder(userId: string, paymentId: string): Promise<{ ok: true }> {
+    const now = new Date();
+    const result = await this.prisma.payment.updateMany({
+      where: {
+        id: paymentId,
+        userId,
+        status: PaymentStatus.READY,
+      },
+      data: {
+        status: PaymentStatus.CANCELED,
+        canceledAt: now,
+        providerPayload: { cancelReason: 'user_cancelled_checkout' } as Prisma.InputJsonValue,
+      },
+    });
+    if (result.count === 0) {
+      throw new NotFoundException('payment_not_cancelable');
+    }
+    this.logger.log(`PAYMENT_READY_CANCELED paymentId=${paymentId} userId=${userId}`);
+    return { ok: true };
   }
 
   async listMyPayments(userId: string): Promise<PaymentListItemDto[]> {

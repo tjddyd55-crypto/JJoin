@@ -51,3 +51,12 @@ test('development LIVE confirm guard expectation', () => {
     PaymentEnvironment.LIVE === PaymentEnvironment.LIVE && isNonProduction;
   assert.equal(typeof liveInDevBlocked, 'boolean');
 });
+
+test('paymentId path params must be UUID v4 (rejects route collisions like products)', () => {
+  const uuidV4 =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  assert.equal(uuidV4.test('products'), false);
+  assert.equal(uuidV4.test('payments'), false);
+  assert.equal(uuidV4.test('payment-purchase:x'), false);
+  assert.equal(uuidV4.test('550e8400-e29b-41d4-a716-446655440000'), true);
+});

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { PaymentProductType } from '@jjoin/types';
 import { CurrentUserId, MockAuthGuard } from '../../common/mock-auth.guard';
@@ -29,11 +29,21 @@ export class PaymentsController {
   }
 
   @UseGuards(MockAuthGuard)
+  @Post('payments/:paymentId/cancel')
+  cancelReady(
+    @CurrentUserId() userId: string,
+    @Param('paymentId', new ParseUUIDPipe({ version: '4' })) paymentId: string,
+  ) {
+    return this.payments.cancelReadyOrder(userId, paymentId);
+  }
+
+  @UseGuards(MockAuthGuard)
   @Post('payments/toss/confirm')
   confirmToss(@CurrentUserId() userId: string, @Body() body: unknown) {
     return this.payments.confirmTossPayment(userId, body);
   }
 
+  /** Static path must stay above :paymentId to avoid UUID parse / Prisma 500. */
   @UseGuards(MockAuthGuard)
   @Get('payments/me')
   listMine(@CurrentUserId() userId: string) {
@@ -76,7 +86,10 @@ export class PaymentsController {
 
   @UseGuards(MockAuthGuard)
   @Get('payments/:paymentId')
-  getOne(@CurrentUserId() userId: string, @Param('paymentId') paymentId: string) {
+  getOne(
+    @CurrentUserId() userId: string,
+    @Param('paymentId', new ParseUUIDPipe({ version: '4' })) paymentId: string,
+  ) {
     return this.payments.getPaymentDetail(userId, paymentId);
   }
 
