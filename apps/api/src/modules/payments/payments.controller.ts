@@ -46,8 +46,19 @@ export class PaymentsController {
     @Query('callback') callback: string | undefined,
     @Res() res: Response,
   ) {
-    const callbackMode = callback === 'web' ? 'web' : 'app';
+    const callbackMode =
+      callback === 'web' ? 'web' : callback === 'webview' ? 'webview' : 'app';
     const html = await this.payments.getCheckoutPageHtml(token, callbackMode);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  }
+
+  @Get('payments/toss/webview-return')
+  webviewReturn(
+    @Query() query: Record<string, string | string[] | undefined>,
+    @Res() res: Response,
+  ) {
+    const html = this.payments.getWebViewReturnHtml(query);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
   }

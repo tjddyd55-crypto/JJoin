@@ -7,12 +7,29 @@ import { Button, Spacer, Text, useTheme } from '@jjoin/design-system';
 import type { CreatePaymentOrderResponse } from '@jjoin/types';
 import { getApiBaseUrl, getApiClient } from '../../../lib/api';
 import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
-import { isAllowedCheckoutNavigation } from '../payment-checkout-callback';
+import {
+  isAllowedCheckoutNavigation,
+  parsePaymentCallbackUrl,
+} from '../payment-checkout-callback';
 import { confirmPaymentFromCallback } from '../payment-checkout';
 
 type CheckoutPhase = 'creating_order' | 'loading_webview' | 'confirming' | 'load_error';
 
 type PaymentReturnRoute = 'coin-charge' | 'premium';
+
+function isWebViewReturnUrl(url: string): boolean {
+  return url.includes('/payments/toss/webview-return');
+}
+
+function isAppSchemeCallback(
+  url: string,
+  order: CreatePaymentOrderResponse,
+): boolean {
+  return (
+    url.startsWith(order.successRedirectScheme) ||
+    url.startsWith(order.failRedirectScheme)
+  );
+}
 
 export function PaymentCheckoutScreen() {
   const theme = useTheme();
@@ -66,17 +83,18 @@ export function PaymentCheckoutScreen() {
       const currentOrder = orderRef.current;
       if (!currentOrder || handledCallbackRef.current) return false;
 
-      if (
-        !url.startsWith(currentOrder.successRedirectScheme) &&
-        !url.startsWith(currentOrder.failRedirectScheme)
-      ) {
-        return false;
-      }
+      const webviewReturn = isWebViewReturnUrl(url);
+      const appScheme = isAppSchemeCallback(url, currentOrder);
+      if (!webviewReturn && !appScheme) return false;
 
       handledCallbackRef.current = true;
       setPhase('confirming');
 
-      if (url.startsWith(currentOrder.failRedirectScheme)) {
+      const failed =
+        (webviewReturn && url.includes('outcome=fail')) ||
+        url.startsWith(currentOrder.failRedirectScheme);
+
+      if (failed) {
         router.replace({
           pathname: returnTo === 'premium' ? '/my/premium' : '/my/coin-charge',
           params: { paymentError: 'cancelled' },
@@ -84,14 +102,8 @@ export function PaymentCheckoutScreen() {
         return true;
       }
 
-      const callback = {
-        paymentKey: new URL(url).searchParams.get('paymentKey') ?? '',
-        orderId: new URL(url).searchParams.get('orderId') ?? '',
-        amount: Number(new URL(url).searchParams.get('amount')),
-        failed: false,
-      };
-
-      if (!callback.paymentKey || !callback.orderId || !Number.isFinite(callback.amount)) {
+      const callback = parsePaymentCallbackUrl(url);
+      if (!callback || !callback.paymentKey || callback.failed) {
         setLoadError('결제 정보를 확인하지 못했습니다.');
         setPhase('load_error');
         handledCallbackRef.current = false;
@@ -117,10 +129,7 @@ export function PaymentCheckoutScreen() {
       const url = request.url;
       const currentOrder = orderRef.current;
       if (currentOrder) {
-        if (
-          url.startsWith(currentOrder.successRedirectScheme) ||
-          url.startsWith(currentOrder.failRedirectScheme)
-        ) {
+        if (isWebViewReturnUrl(url) || isAppSchemeCallback(url, currentOrder)) {
           void handleCallbackUrl(url);
           return false;
         }
@@ -151,8 +160,14 @@ export function PaymentCheckoutScreen() {
       try {
         const created = await api.createPaymentOrder({ productId });
         if (cancelled) return;
-        orderRef.current = created;
-        setOrder(created);
+        const withWebViewCallback: CreatePaymentOrderResponse = {
+          ...created,
+          checkoutUrl: created.checkoutUrl.includes('?')
+            ? `${created.checkoutUrl}&callback=webview`
+            : `${created.checkoutUrl}?callback=webview`,
+        };
+        orderRef.current = withWebViewCallback;
+        setOrder(withWebViewCallback);
         setPhase('loading_webview');
       } catch {
         if (cancelled) return;
@@ -187,10 +202,15 @@ export function PaymentCheckoutScreen() {
           {loadError ?? '결제 화면을 불러오지 못했습니다.'}
         </Text>
         <Spacer size="lg" />
-        <Button label="다시 시도" onPress={() => router.replace({
-          pathname: '/my/payment-checkout',
-          params: { productId, returnTo },
-        })} />
+        <Button
+          label="다시 시도"
+          onPress={() =>
+            router.replace({
+              pathname: '/my/payment-checkout',
+              params: { productId, returnTo },
+            })
+          }
+        />
         <Spacer size="sm" />
         <Button label="닫기" variant="secondary" onPress={closeWithCancel} />
       </View>
@@ -230,7 +250,7 @@ const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   pad: { paddingHorizontal: 24 },
   loadingOverlay: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(15,20,25,0.6)',
   },
 });

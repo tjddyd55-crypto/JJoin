@@ -64,6 +64,42 @@ export class TossPaymentProvider {
     };
   }
 
+  async getPaymentByOrderId(
+    secretKey: string,
+    orderId: string,
+  ): Promise<TossConfirmResult> {
+    const res = await fetch(
+      `https://api.tosspayments.com/v1/payments/orders/${encodeURIComponent(orderId)}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`,
+        },
+      },
+    );
+    const rawText = await res.text();
+    let raw: Record<string, unknown>;
+    try {
+      raw = JSON.parse(rawText) as Record<string, unknown>;
+    } catch {
+      raw = { message: rawText.slice(0, 200) };
+    }
+    if (!res.ok) {
+      throw new TossPaymentError(
+        typeof raw.message === 'string' ? raw.message : 'toss_lookup_failed',
+        res.status,
+        raw,
+      );
+    }
+    return {
+      paymentKey: String(raw.paymentKey ?? ''),
+      orderId: String(raw.orderId ?? orderId),
+      totalAmount: Number(raw.totalAmount),
+      status: String(raw.status ?? ''),
+      raw,
+    };
+  }
+
   async cancelPayment(secretKey: string, input: TossCancelInput): Promise<Record<string, unknown>> {
     const res = await fetch(
       `https://api.tosspayments.com/v1/payments/${encodeURIComponent(input.paymentKey)}/cancel`,

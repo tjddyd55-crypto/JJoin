@@ -65,17 +65,23 @@ function isDevelopmentPaymentEnvironment(): boolean {
   return resolvePublicApiBase().includes('development');
 }
 
-type CheckoutCallbackMode = 'app' | 'web';
+type CheckoutCallbackMode = 'app' | 'web' | 'webview';
 
 function resolveCheckoutRedirectUrls(
   callbackMode: CheckoutCallbackMode = 'app',
 ): { successUrl: string; failUrl: string } {
   const scheme = resolveMobilePaymentScheme();
+  const base = resolvePublicApiBase();
   if (callbackMode === 'web' && isDevelopmentPaymentEnvironment()) {
-    const base = resolvePublicApiBase();
     return {
       successUrl: `${base}/payments/toss/web-callback?outcome=success`,
       failUrl: `${base}/payments/toss/web-callback?outcome=fail`,
+    };
+  }
+  if (callbackMode === 'webview') {
+    return {
+      successUrl: `${base}/payments/toss/webview-return?outcome=success`,
+      failUrl: `${base}/payments/toss/webview-return?outcome=fail`,
     };
   }
   return {
@@ -268,6 +274,39 @@ export class PaymentService {
       }
     });
   </script>
+</body>
+</html>`;
+  }
+
+  getWebViewReturnHtml(query: Record<string, string | string[] | undefined>): string {
+    const outcome = String(query.outcome ?? 'success');
+    const failed = outcome === 'fail';
+    const orderId = String(query.orderId ?? '');
+    const amount = String(query.amount ?? '');
+    const paymentKey = String(query.paymentKey ?? '');
+    const code = String(query.code ?? '');
+    const message = String(query.message ?? '');
+    return `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JJOIN 결제 ${failed ? '실패' : '처리 중'}</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 24px; background: #0f1419; color: #f5f7fa; }
+    .card { max-width: 420px; margin: 0 auto; padding: 20px; border-radius: 12px; background: #1a222d; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>${failed ? '결제 실패' : '결제 확인 중'}</h1>
+    <p>${failed ? '결제가 완료되지 않았습니다.' : '앱에서 결제를 확인하고 있습니다…'}</p>
+    ${orderId ? `<p>orderId: <code>${escapeHtml(orderId)}</code></p>` : ''}
+    ${amount ? `<p>amount: <code>${escapeHtml(amount)}</code></p>` : ''}
+    ${failed && code ? `<p>code: <code>${escapeHtml(code)}</code></p>` : ''}
+    ${failed && message ? `<p>${escapeHtml(message)}</p>` : ''}
+    ${!failed && paymentKey ? `<p hidden data-payment-key="${escapeHtml(paymentKey)}"></p>` : ''}
+  </div>
 </body>
 </html>`;
   }

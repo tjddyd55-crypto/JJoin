@@ -35,6 +35,17 @@ test('matchPaymentCallbackUrl detects success and fail prefixes', () => {
   assert.equal(fail.kind, 'fail');
 });
 
+test('parsePaymentCallbackUrl works for https webview-return URLs', () => {
+  const parsed = parsePaymentCallbackUrl(
+    `${API}/payments/toss/webview-return?outcome=success&paymentKey=pay_https&orderId=JJ9&amount=10000`,
+  );
+  assert.ok(parsed);
+  assert.equal(parsed.paymentKey, 'pay_https');
+  assert.equal(parsed.orderId, 'JJ9');
+  assert.equal(parsed.amount, 10000);
+  assert.equal(parsed.failed, false);
+});
+
 test('isAllowedCheckoutNavigation allows API and Toss hosts only', () => {
   assert.equal(
     isAllowedCheckoutNavigation(`${API}/payments/toss/checkout-page?token=abc`, API),
