@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
-  findNodeHandle,
+  Dimensions,
   InteractionManager,
   Keyboard,
   KeyboardAvoidingView,
@@ -16,6 +16,10 @@ import {
 } from 'react-native';
 import { ScreenFrame, type ScreenFrameProps } from './ScreenFrame';
 import { FormScrollProvider } from './FormScrollContext';
+import {
+  KEYBOARD_SCROLL_CLEARANCE_PX,
+  resolveKeyboardBottomInset,
+} from './keyboardBottomInset';
 import { useTheme } from '../theme';
 
 export type FormScreenFrameProps = ScreenFrameProps &
@@ -24,26 +28,20 @@ export type FormScreenFrameProps = ScreenFrameProps &
   };
 
 export { useFormScroll } from './FormScrollContext';
-
-const KEYBOARD_GAP_PX = 24;
-/** Extra clearance for IME toolbars (Samsung / Gboard suggestion strip). */
-const KEYBOARD_TOOLBAR_EXTRA_PX = 40;
-const KEYBOARD_SCROLL_EXTRA_PX = KEYBOARD_GAP_PX + KEYBOARD_TOOLBAR_EXTRA_PX;
-
-type ScrollResponderWithKeyboard = {
-  scrollResponderScrollNativeHandleToKeyboard?: (
-    nodeHandle: number,
-    additionalOffset?: number,
-    preventNegativeScrollOffset?: boolean,
-  ) => void;
-};
+export {
+  KEYBOARD_GAP_PX,
+  KEYBOARD_IME_CHROME_PX,
+  KEYBOARD_SCROLL_CLEARANCE_PX,
+  resolveKeyboardBottomInset,
+} from './keyboardBottomInset';
 
 /**
  * Form layout with keyboard-safe scroll.
  *
  * - Scroll drag must NOT dismiss the keyboard (manual scroll while typing).
  * - Sticky footer collapses while keyboard is open so it cannot cover inputs.
- * - Focused TextInput is scrolled above the keyboard after it is actually shown.
+ * - Dynamic bottom inset gives enough scroll range for bottom fields.
+ * - Focused TextInput is scrolled above the keyboard after layout settles.
  */
 export function FormScreenFrame({
   padded = true,
@@ -61,64 +59,92 @@ export function FormScreenFrame({
   const lastKeyboardEvent = useRef<KeyboardEvent | null>(null);
   const scrollGeneration = useRef(0);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [keyboardBottomInset, setKeyboardBottomInset] = useState(0);
 
-  const scrollFocusedInputAboveKeyboard = useCallback((event: KeyboardEvent | null) => {
-    const focused = TextInput.State.currentlyFocusedInput?.();
-    if (!focused || !scrollRef.current || !event) return;
+  const measureAndScrollFocused = useCallback(
+    (event: KeyboardEvent, allowCorrection: boolean) => {
+      const focused = TextInput.State.currentlyFocusedInput?.();
+      if (!focused || !scrollRef.current) return;
 
-    const scrollView = scrollRef.current as ScrollView & {
-      getScrollResponder?: () => ScrollResponderWithKeyboard | null;
-    };
-    const nodeHandle = findNodeHandle(focused as never);
-    const responder = scrollView.getScrollResponder?.();
+      // measureInWindow + scrollTo only. Native keyboard-scroll updates content
+      // offset without syncing scrollOffsetY and under-corrects on Android.
+      const keyboardTop = event.endCoordinates.screenY;
+      focused.measureInWindow((_x, y, _width, height) => {
+        const fieldBottom = y + height;
+        const targetBottom = keyboardTop - KEYBOARD_SCROLL_CLEARANCE_PX;
+        if (fieldBottom <= targetBottom) return;
 
-    // Prefer RN's native keyboard scroll when available (stable on Android).
-    if (nodeHandle != null && responder?.scrollResponderScrollNativeHandleToKeyboard) {
-      responder.scrollResponderScrollNativeHandleToKeyboard(
-        nodeHandle,
-        KEYBOARD_SCROLL_EXTRA_PX,
-        true,
-      );
-    }
+        const delta = fieldBottom - targetBottom;
+        const nextY = Math.max(0, scrollOffsetY.current + delta);
+        scrollOffsetY.current = nextY;
+        scrollRef.current?.scrollTo({ y: nextY, animated: true });
 
-    // Verify with window coords — native scroll offset alone often leaves the
-    // field under Samsung/Gboard IME toolbars.
-    const keyboardTop = event.endCoordinates.screenY;
-    focused.measureInWindow((_x, y, _width, height) => {
-      const fieldBottom = y + height;
-      const targetBottom = keyboardTop - KEYBOARD_GAP_PX;
-      if (fieldBottom <= targetBottom) return;
-      const delta = fieldBottom - targetBottom;
-      scrollRef.current?.scrollTo({
-        y: Math.max(0, scrollOffsetY.current + delta),
-        animated: true,
+        if (!allowCorrection) return;
+
+        // One residual correction after scroll + layout settle. No loops.
+        requestAnimationFrame(() => {
+          InteractionManager.runAfterInteractions(() => {
+            const stillFocused = TextInput.State.currentlyFocusedInput?.();
+            const latest = lastKeyboardEvent.current;
+            if (!stillFocused || !latest || !scrollRef.current) return;
+            stillFocused.measureInWindow((_x2, y2, _w2, height2) => {
+              const bottom2 = y2 + height2;
+              const target2 = latest.endCoordinates.screenY - KEYBOARD_SCROLL_CLEARANCE_PX;
+              if (bottom2 <= target2) return;
+              const residual = bottom2 - target2;
+              const correctedY = Math.max(0, scrollOffsetY.current + residual);
+              scrollOffsetY.current = correctedY;
+              scrollRef.current?.scrollTo({ y: correctedY, animated: true });
+            });
+          });
+        });
       });
-    });
-  }, []);
+    },
+    [],
+  );
 
   const ensureFocusedVisible = useCallback(() => {
+    const event = lastKeyboardEvent.current;
+    if (!event) return;
+
     const generation = ++scrollGeneration.current;
-    const run = () => {
+    const run = (allowCorrection: boolean) => {
       if (generation !== scrollGeneration.current) return;
-      scrollFocusedInputAboveKeyboard(lastKeyboardEvent.current);
+      measureAndScrollFocused(event, allowCorrection);
     };
 
-    // Wait for keyboard + footer collapse layout, not an arbitrary long timeout.
+    // Footer collapse + inset padding must layout before measure.
     requestAnimationFrame(() => {
-      requestAnimationFrame(run);
+      requestAnimationFrame(() => run(true));
     });
-    InteractionManager.runAfterInteractions(run);
-  }, [scrollFocusedInputAboveKeyboard]);
+    InteractionManager.runAfterInteractions(() => {
+      setTimeout(() => run(false), 48);
+    });
+  }, [measureAndScrollFocused]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
     const showSub = Keyboard.addListener(showEvent, (event) => {
       lastKeyboardEvent.current = event;
+      const height = Math.max(0, event.endCoordinates.height);
+      const top = event.endCoordinates.screenY;
+      const windowHeight = Dimensions.get('window').height;
+      setKeyboardHeight(height);
+      setKeyboardBottomInset(
+        resolveKeyboardBottomInset({
+          keyboardHeight: height,
+          keyboardTop: top,
+          windowHeight,
+        }),
+      );
       setKeyboardVisible(true);
     });
     const hideSub = Keyboard.addListener(hideEvent, () => {
       lastKeyboardEvent.current = null;
+      setKeyboardHeight(0);
+      setKeyboardBottomInset(0);
       setKeyboardVisible(false);
       scrollGeneration.current += 1;
     });
@@ -128,11 +154,11 @@ export function FormScreenFrame({
     };
   }, []);
 
-  // Scroll after keyboardVisible re-render collapses the sticky footer.
+  // Scroll after inset + footer collapse re-render settles.
   useEffect(() => {
     if (!keyboardVisible || !lastKeyboardEvent.current) return;
     ensureFocusedVisible();
-  }, [keyboardVisible, ensureFocusedVisible]);
+  }, [keyboardVisible, keyboardHeight, keyboardBottomInset, ensureFocusedVisible]);
 
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -141,6 +167,8 @@ export function FormScreenFrame({
     },
     [onScroll],
   );
+
+  const bottomInset = theme.layoutSpacing.sectionGap + keyboardBottomInset;
 
   return (
     <FormScrollProvider value={{ ensureFocusedVisible }}>
@@ -162,7 +190,7 @@ export function FormScreenFrame({
             contentContainerStyle={[
               padded && { paddingHorizontal: theme.layoutSpacing.screenHorizontal },
               {
-                paddingBottom: theme.layoutSpacing.sectionGap,
+                paddingBottom: bottomInset,
                 flexGrow: 1,
               },
               contentContainerStyle,
