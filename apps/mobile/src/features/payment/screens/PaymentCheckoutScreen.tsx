@@ -6,9 +6,9 @@ import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTyp
 import { Button, Spacer, Text, useTheme } from '@jjoin/design-system';
 import type { CreatePaymentOrderResponse } from '@jjoin/types';
 import { getApiBaseUrl, getApiClient } from '../../../lib/api';
-import { getSecureSessionStore, useSession } from '../../session/SessionContext';
-import { isAllowedCheckoutNavigation } from './payment-checkout-callback';
-import { confirmPaymentFromCallback } from './payment-checkout';
+import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
+import { isAllowedCheckoutNavigation } from '../payment-checkout-callback';
+import { confirmPaymentFromCallback } from '../payment-checkout';
 
 type CheckoutPhase = 'creating_order' | 'loading_webview' | 'confirming' | 'load_error';
 
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   pad: { paddingHorizontal: 24 },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(15,20,25,0.6)',
   },
 });
