@@ -1,9 +1,9 @@
 /**
- * Display-only number formatting for UI (ko-KR grouping).
+ * Display-only number formatting for UI (thousands grouping with `,`).
  * Do not use formatted strings in arithmetic — format after calculation.
+ *
+ * Uses explicit digit grouping (not Intl) so Hermes/Android always show commas.
  */
-
-const NUMBER_FORMAT = new Intl.NumberFormat('ko-KR');
 
 function toFiniteNumber(value: string | number | null | undefined): number | null {
   if (value === null || value === undefined || value === '') return null;
@@ -16,12 +16,45 @@ function toFiniteNumber(value: string | number | null | undefined): number | nul
   return Number.isFinite(n) ? n : null;
 }
 
+/** Truncate and insert `,` thousands separators. */
+export function formatGroupedInteger(n: number): string {
+  if (!Number.isFinite(n)) return '0';
+  const truncated = Math.trunc(n);
+  const sign = truncated < 0 ? '-' : '';
+  const digits = String(Math.abs(truncated));
+  return `${sign}${digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+}
+
+/**
+ * Coin balance/amount digits only: 80200 → "80,200".
+ * null / undefined / '' / NaN → "0" (wallet-safe default).
+ */
+export function formatCoinAmount(value: string | number | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '0';
+  const n = toFiniteNumber(value);
+  if (n === null) return '0';
+  return formatGroupedInteger(n);
+}
+
+/**
+ * Signed ledger amount: "+80200" → "+80,200", "-1000" → "-1,000".
+ * null / undefined / '' → "0".
+ */
+export function formatSignedCoinAmount(value: string | number | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '0';
+  const n = toFiniteNumber(value);
+  if (n === null) return '0';
+  if (n > 0) return `+${formatGroupedInteger(n)}`;
+  if (n < 0) return `-${formatGroupedInteger(Math.abs(n))}`;
+  return '0';
+}
+
 /** Quantity/amount display: 5000 → "5,000". Non-numeric values pass through. */
 export function formatNumber(value: string | number | null | undefined): string {
   if (value === null || value === undefined || value === '') return '—';
   const n = toFiniteNumber(value);
   if (n === null) return String(value);
-  return NUMBER_FORMAT.format(n);
+  return formatGroupedInteger(n);
 }
 
 /** Coin display without sign: 5000 → "5,000C" */
@@ -31,7 +64,7 @@ export function formatCoin(value: string | number | null | undefined): string {
     if (value === null || value === undefined || value === '') return '—';
     return String(value);
   }
-  return `${NUMBER_FORMAT.format(n)}C`;
+  return `${formatGroupedInteger(n)}C`;
 }
 
 /** Signed coin: 5000 → "+5,000C", -5000 → "-5,000C", 0 → "0C" */
@@ -41,9 +74,9 @@ export function formatSignedCoin(value: string | number | null | undefined): str
     if (value === null || value === undefined || value === '') return '—';
     return String(value);
   }
-  if (n > 0) return `+${NUMBER_FORMAT.format(n)}C`;
-  if (n < 0) return `-${NUMBER_FORMAT.format(Math.abs(n))}C`;
-  return `${NUMBER_FORMAT.format(0)}C`;
+  if (n > 0) return `+${formatGroupedInteger(n)}C`;
+  if (n < 0) return `-${formatGroupedInteger(Math.abs(n))}C`;
+  return `${formatGroupedInteger(0)}C`;
 }
 
 /** Coin amount with space before unit label used in some screens: "5,000 Coin" */
@@ -56,5 +89,5 @@ export function formatCoinWithLabel(
     if (value === null || value === undefined || value === '') return `— ${label}`;
     return `${String(value)} ${label}`;
   }
-  return `${NUMBER_FORMAT.format(n)} ${label}`;
+  return `${formatGroupedInteger(n)} ${label}`;
 }

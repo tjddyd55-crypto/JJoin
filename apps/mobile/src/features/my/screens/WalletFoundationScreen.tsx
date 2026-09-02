@@ -10,7 +10,7 @@ import {
   Text,
   useTheme,
 } from '@jjoin/design-system';
-import { formatCoinWithLabel } from '@jjoin/domain';
+import { formatCoinWithLabel, formatSignedCoinAmount } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
 import type { WalletSummaryDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
@@ -110,7 +110,7 @@ export function WalletFoundationScreen() {
               {tx.label}
             </Text>
             <Text variant="bodyStrong" tone="primary">
-              {tx.amount}
+              {formatSignedCoinAmount(tx.amount)}
             </Text>
           </View>
         ))

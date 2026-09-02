@@ -4,19 +4,39 @@
  */
 
 import { compareCoinAmounts, subCoinAmounts } from './coin-amount';
+import { formatGroupedInteger } from './display-number';
 
 /** Quick-add denominations — UI config only, not business policy. */
 export const REWARD_QUICK_ADD_DENOMINATIONS = [1, 5, 10, 50, 100] as const;
 
 const MAX_REWARD_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
 
+/**
+ * Live input parse: digits only, strip commas/junk.
+ * Empty → null (allows clearing the field while typing).
+ * Leading zeros normalize (e.g. "0001000" → "1000").
+ */
+export function parseNumericInput(raw: string): string | null {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 0) return null;
+  const parsed = Number.parseInt(digits, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  return String(Math.min(parsed, MAX_REWARD_SAFE_INTEGER));
+}
+
+/** Display-only thousands grouping: 10000 → "10,000". Empty/null → "". */
+export function formatNumberWithThousandsSeparator(
+  value: string | number | null | undefined,
+): string {
+  if (value === null || value === undefined || value === '') return '';
+  const n = typeof value === 'number' ? value : Number(String(value).replace(/,/g, ''));
+  if (!Number.isFinite(n) || n < 0) return '';
+  return formatGroupedInteger(Math.min(Math.trunc(n), MAX_REWARD_SAFE_INTEGER));
+}
+
 /** Normalize manual numeric input: digits only, no leading zeros, empty → "0". */
 export function normalizeRewardPerParticipantInput(raw: string): string {
-  const digits = raw.replace(/\D/g, '');
-  if (digits.length === 0) return '0';
-  const parsed = Number.parseInt(digits, 10);
-  if (!Number.isFinite(parsed) || parsed < 0) return '0';
-  return String(Math.min(parsed, MAX_REWARD_SAFE_INTEGER));
+  return parseNumericInput(raw) ?? '0';
 }
 
 /** Additive quick-increment on current reward (never below 0). */

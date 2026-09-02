@@ -1,4 +1,4 @@
-import { formatCoin } from '@jjoin/domain';
+import { formatCoin, formatNumber } from '@jjoin/domain';
 import type { JoinCoinPreviewDto } from '@jjoin/types';
 
 export type JoinCreateFooterState = {
@@ -77,7 +77,7 @@ export function resolveJoinCreateFooterState(params: Params): JoinCreateFooterSt
     }
     if (shortfall) {
       return {
-        helperText: insufficientLabel.replace('{amount}', shortfall),
+        helperText: insufficientLabel.replace('{amount}', formatNumber(shortfall)),
         showWalletCta: true,
         createDisabled,
         createLabel,

@@ -4,7 +4,9 @@ import {
   addRewardQuickIncrement,
   computeCoinShortfall,
   computeWalletAfterCreation,
+  formatNumberWithThousandsSeparator,
   normalizeRewardPerParticipantInput,
+  parseNumericInput,
 } from './reward-input';
 import { computeJoinCoinRequirement } from './coin-join';
 
@@ -13,6 +15,24 @@ test('normalize reward input strips non-digits and leading zeros', () => {
   assert.equal(normalizeRewardPerParticipantInput('0010'), '10');
   assert.equal(normalizeRewardPerParticipantInput('35abc'), '35');
   assert.equal(normalizeRewardPerParticipantInput('110'), '110');
+});
+
+test('parseNumericInput strips commas and rejects empty/non-digit', () => {
+  assert.equal(parseNumericInput('10,000'), '10000');
+  assert.equal(parseNumericInput('1,000'), '1000');
+  assert.equal(parseNumericInput('0001000'), '1000');
+  assert.equal(parseNumericInput(''), null);
+  assert.equal(parseNumericInput('abc'), null);
+  assert.equal(parseNumericInput('-5'), '5');
+});
+
+test('formatNumberWithThousandsSeparator groups digits', () => {
+  assert.equal(formatNumberWithThousandsSeparator(1000), '1,000');
+  assert.equal(formatNumberWithThousandsSeparator(10000), '10,000');
+  assert.equal(formatNumberWithThousandsSeparator(100000), '100,000');
+  assert.equal(formatNumberWithThousandsSeparator('5000'), '5,000');
+  assert.equal(formatNumberWithThousandsSeparator(null), '');
+  assert.equal(formatNumberWithThousandsSeparator(''), '');
 });
 
 test('quick add is additive on single rewardPerParticipant state', () => {

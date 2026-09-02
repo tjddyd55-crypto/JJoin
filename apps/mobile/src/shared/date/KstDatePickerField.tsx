@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
-import { Button, Text, spacing, useTheme } from '@jjoin/design-system';
+import { Keyboard, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Button, Icon, Row, Text, spacing, useTheme } from '@jjoin/design-system';
 import { localDayKey } from '@jjoin/domain';
 import { formatKstDatePickerLabel } from './kst-date-format';
 
@@ -68,7 +68,10 @@ export function KstDatePickerField({ label, dateYmd, onChange, disallowPast = tr
         <Text variant="bodyStrong">{label}</Text>
       ) : null}
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label ? `${label}, ${formatKstDatePickerLabel(dateYmd)}` : formatKstDatePickerLabel(dateYmd)}
         onPress={() => {
+          Keyboard.dismiss();
           const p = parseYmd(dateYmd);
           setViewYear(p.year);
           setViewMonth(p.month);
@@ -79,10 +82,17 @@ export function KstDatePickerField({ label, dateYmd, onChange, disallowPast = tr
           {
             borderColor: theme.colors.border.subtle,
             backgroundColor: theme.colors.surface.card,
+            minHeight: theme.sizes.input.md,
           },
         ]}
       >
-        <Text variant="body">{formatKstDatePickerLabel(dateYmd)}</Text>
+        <Row align="center" gap="sm">
+          <Icon name="calendar" size="md" tone="tertiary" />
+          <Text variant="body" style={styles.fieldText}>
+            {formatKstDatePickerLabel(dateYmd)}
+          </Text>
+          <Icon name="chevronDown" size="sm" tone="tertiary" />
+        </Row>
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
@@ -159,7 +169,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    justifyContent: 'center',
   },
+  fieldText: { flex: 1 },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
