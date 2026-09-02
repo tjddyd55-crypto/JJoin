@@ -300,7 +300,7 @@ export default function CreateScreen() {
               label="코인 충전하기"
               variant="secondary"
               size="sm"
-              onPress={() => router.push('/my/wallet')}
+              onPress={() => router.push('/my/coin-charge')}
             />
           ) : null}
           <Button
@@ -363,6 +363,8 @@ export default function CreateScreen() {
           loading={previewLoading && !preview}
           error={previewError}
           shortfall={shortfall}
+          creatorUserTypeLabel={preview?.creatorUserTypeLabel}
+          creationCoinEnabled={preview?.creationCoinEnabled}
         />
 
         {error ? (
