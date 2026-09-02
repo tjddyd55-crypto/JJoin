@@ -58,6 +58,28 @@ function resolveMobilePaymentScheme(): string {
   return (process.env.PAYMENT_MOBILE_SCHEME ?? 'jjoindev').trim();
 }
 
+function shouldUseWebCheckoutCallback(): boolean {
+  if (process.env.PAYMENT_CHECKOUT_WEB_CALLBACK === '1') return true;
+  const envName = (process.env.RAILWAY_ENVIRONMENT_NAME ?? '').toLowerCase();
+  if (envName === 'development') return true;
+  return resolvePublicApiBase().includes('development');
+}
+
+function resolveCheckoutRedirectUrls(): { successUrl: string; failUrl: string } {
+  const scheme = resolveMobilePaymentScheme();
+  if (!shouldUseWebCheckoutCallback()) {
+    return {
+      successUrl: `${scheme}://payment/success`,
+      failUrl: `${scheme}://payment/fail`,
+    };
+  }
+  const base = resolvePublicApiBase();
+  return {
+    successUrl: `${base}/payments/toss/web-callback?outcome=success`,
+    failUrl: `${base}/payments/toss/web-callback?outcome=fail`,
+  };
+}
+
 function generateOrderId(): string {
   return `JJ${randomBytes(12).toString('base64url')}`;
 }
@@ -189,9 +211,7 @@ export class PaymentService {
     const settings = await this.loadProviderSettings();
     if (!settings.clientKey) throw new ServiceUnavailableException('payment_not_configured');
 
-    const scheme = resolveMobilePaymentScheme();
-    const successUrl = `${scheme}://payment/success`;
-    const failUrl = `${scheme}://payment/fail`;
+    const { successUrl, failUrl } = resolveCheckoutRedirectUrls();
 
     return `<!DOCTYPE html>
 <html lang="ko">
@@ -244,6 +264,40 @@ export class PaymentService {
       }
     });
   </script>
+</body>
+</html>`;
+  }
+
+  getWebCallbackHtml(query: Record<string, string | string[] | undefined>): string {
+    const outcome = String(query.outcome ?? 'success');
+    const failed = outcome === 'fail';
+    const paymentKey = String(query.paymentKey ?? '');
+    const orderId = String(query.orderId ?? '');
+    const amount = String(query.amount ?? '');
+    const code = String(query.code ?? '');
+    const message = String(query.message ?? '');
+    return `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JJOIN 결제 ${failed ? '실패' : '완료'}</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 24px; background: #0f1419; color: #f5f7fa; }
+    .card { max-width: 520px; margin: 0 auto; padding: 20px; border-radius: 12px; background: #1a222d; line-height: 1.6; }
+    code { word-break: break-all; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>${failed ? '결제 실패' : '결제 승인 대기'}</h1>
+    <p>orderId: <code>${escapeHtml(orderId)}</code></p>
+    <p>amount: <code>${escapeHtml(amount)}</code></p>
+    ${paymentKey ? `<p>paymentKey: <code>${escapeHtml(paymentKey)}</code></p>` : ''}
+    ${failed && code ? `<p>code: <code>${escapeHtml(code)}</code></p>` : ''}
+    ${failed && message ? `<p>message: ${escapeHtml(message)}</p>` : ''}
+    <p>${failed ? '앱/서버 confirm 없이 종료되었습니다.' : '서버 confirm API를 호출하면 코인/프리미엄이 지급됩니다.'}</p>
+  </div>
 </body>
 </html>`;
   }

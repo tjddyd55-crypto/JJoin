@@ -47,6 +47,13 @@ export class PaymentsController {
     res.send(html);
   }
 
+  @Get('payments/toss/web-callback')
+  webCallback(@Query() query: Record<string, string | string[] | undefined>, @Res() res: Response) {
+    const html = this.payments.getWebCallbackHtml(query);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  }
+
   @UseGuards(MockAuthGuard)
   @Get('payments/:paymentId')
   getOne(@CurrentUserId() userId: string, @Param('paymentId') paymentId: string) {
