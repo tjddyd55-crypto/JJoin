@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect, type Href } from 'expo-router';
 import {
@@ -20,6 +20,8 @@ import {
 } from '../../join-create/model/join-create-venue';
 import { composeKstIso, splitKstDateTime } from '../../store/matching-join-ui';
 import { KstDatePickerField } from '../../../shared/date/KstDatePickerField';
+import { KstTimePickerField } from '../../../shared/date/KstTimePickerField';
+import { parseHm } from '../../../shared/date/kst-time';
 import {
   clearClubEventVenueDraft,
   peekClubEventVenueDraft,
@@ -32,16 +34,6 @@ function defaultEventDateTime() {
   const startsAt = new Date(Date.now() + 7 * 24 * 60 * 60_000);
   startsAt.setMinutes(0, 0, 0);
   return splitKstDateTime(startsAt.toISOString());
-}
-
-const TIME_PATTERN = /^(\d{1,2}):(\d{2})$/;
-
-function isValidTimeHm(value: string): boolean {
-  const match = TIME_PATTERN.exec(value.trim());
-  if (!match) return false;
-  const h = Number(match[1]);
-  const m = Number(match[2]);
-  return h >= 0 && h <= 23 && m >= 0 && m <= 59;
 }
 
 export function ClubCreateEventScreen() {
@@ -108,8 +100,8 @@ export function ClubCreateEventScreen() {
       setError('모임명은 필수입니다.');
       return;
     }
-    if (!isValidTimeHm(startTime) || !isValidTimeHm(deadlineTime)) {
-      setError('시간은 HH:mm 형식으로 입력해 주세요.');
+    if (!parseHm(startTime) || !parseHm(deadlineTime)) {
+      setError('시작·마감 시간을 선택해 주세요.');
       return;
     }
     if (isScreen) {
@@ -122,11 +114,23 @@ export function ClubCreateEventScreen() {
       return;
     }
 
+    let startsAt: string;
+    let responseDeadline: string;
+    try {
+      startsAt = composeKstIso(dateYmd, startTime);
+      responseDeadline = composeKstIso(deadlineDateYmd, deadlineTime);
+    } catch {
+      setError('날짜와 시간을 확인해 주세요.');
+      return;
+    }
+    if (new Date(responseDeadline).getTime() >= new Date(startsAt).getTime()) {
+      setError('참석 응답 마감은 시작 시간보다 이전이어야 합니다.');
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
     try {
-      const startsAt = composeKstIso(dateYmd, startTime);
-      const responseDeadline = composeKstIso(deadlineDateYmd, deadlineTime);
       const resolvedName = isScreen
         ? resolveVenueDisplayName({
             golfFacilityDisplayName: selectedVenue!.name,
@@ -181,15 +185,7 @@ export function ClubCreateEventScreen() {
           ))}
         </View>
         <KstDatePickerField label="날짜" dateYmd={dateYmd} onChange={setDateYmd} disallowPast />
-        <Field label="시작 시간 (HH:mm)">
-          <TextInput
-            value={startTime}
-            onChangeText={setStartTime}
-            placeholder="19:00"
-            keyboardType="numbers-and-punctuation"
-            style={inputStyle}
-          />
-        </Field>
+        <KstTimePickerField label="시작 시간" valueHm={startTime} onChange={setStartTime} />
 
         {isScreen ? (
           <Field label="스크린장 (GolfFacility)">
@@ -204,7 +200,9 @@ export function ClubCreateEventScreen() {
               <Stack gap="xs">
                 <Text variant="bodyStrong">{venueDisplayName}</Text>
                 {selectedVenue.address ? (
-                  <Text variant="caption" tone="secondary">{selectedVenue.address}</Text>
+                  <Text variant="caption" tone="secondary">
+                    {selectedVenue.address}
+                  </Text>
                 ) : null}
               </Stack>
             ) : null}
@@ -230,22 +228,23 @@ export function ClubCreateEventScreen() {
         />
         <Field label="참석 응답 마감">
           <KstDatePickerField dateYmd={deadlineDateYmd} onChange={setDeadlineDateYmd} disallowPast />
-          <TextInput
-            value={deadlineTime}
-            onChangeText={setDeadlineTime}
-            placeholder="HH:mm"
-            keyboardType="numbers-and-punctuation"
-            style={inputStyle}
-          />
+          <KstTimePickerField valueHm={deadlineTime} onChange={setDeadlineTime} />
         </Field>
-        <TextInput value={memo} onChangeText={setMemo} placeholder="간단 메모" style={inputStyle} />
+        <TextInput
+          value={memo}
+          onChangeText={setMemo}
+          placeholder="간단 메모"
+          multiline
+          textAlignVertical="top"
+          style={[inputStyle, styles.memo]}
+        />
         {error ? <Text tone="error">{error}</Text> : null}
       </Stack>
     </FormScreenFrame>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <Stack gap="xs">
       <Text variant="bodyStrong">{label}</Text>
@@ -256,4 +255,5 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const styles = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  memo: { minHeight: 96 },
 });

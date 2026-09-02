@@ -219,9 +219,12 @@ export {
 
 export {
   formatCoin,
+  formatCoinAmount,
   formatCoinWithLabel,
+  formatGroupedInteger,
   formatNumber,
   formatSignedCoin,
+  formatSignedCoinAmount,
 } from './display-number';
 
 export {
@@ -274,7 +277,9 @@ export {
   addRewardQuickIncrement,
   computeCoinShortfall,
   computeWalletAfterCreation,
+  formatNumberWithThousandsSeparator,
   normalizeRewardPerParticipantInput,
+  parseNumericInput,
 } from './reward-input';
 
 export {

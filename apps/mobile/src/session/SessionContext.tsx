@@ -301,3 +301,8 @@ export function useSession() {
   if (!ctx) throw new Error('useSession must be used within SessionProvider');
   return ctx;
 }
+
+/** Non-throwing read for hosts that may mount outside the provider during HMR/lazy load. */
+export function useSessionOptional() {
+  return useContext(SessionContext);
+}

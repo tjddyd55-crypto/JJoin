@@ -49,6 +49,8 @@ export {
   ScreenFrame,
   ScrollScreenFrame,
   FormScreenFrame,
+  resolveKeyboardBottomInset,
+  useFormScroll,
   StickyActionFrame,
   Section,
   type ScreenFrameProps,
