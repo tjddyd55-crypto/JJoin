@@ -30,11 +30,20 @@ import {
   type GrowthAnalyticsDto,
   type GrowthAnalyticsPeriod,
   type StoreOwnershipRequestDto,
+  type AdminPaymentProviderSettingsDto,
+  type UpdateAdminPaymentProviderSettingsRequest,
+  type AdminPaymentListResponse,
+  type AdminPaymentDetailDto,
+  type PaymentProductDto,
 } from '@jjoin/types';
 import { formatKoreanPhoneDisplay, formatNumber } from '@jjoin/domain';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:3000';
 const TOKEN_KEY = 'jjoin_admin_token';
+const isDevelopmentAdmin =
+  API_BASE.includes('development') ||
+  API_BASE.includes('127.0.0.1') ||
+  API_BASE.includes('localhost');
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const token = localStorage.getItem(TOKEN_KEY);
@@ -206,6 +215,8 @@ function Shell({ children }: { children: React.ReactNode }) {
   const storeVerificationActive = path.startsWith('/admin/store-verifications');
   const approvedStoresActive = path.startsWith('/admin/stores');
   const analyticsActive = path.startsWith('/admin/analytics');
+  const paymentSettingsActive = path.startsWith('/admin/payment-settings');
+  const paymentHistoryActive = path.startsWith('/admin/payments');
   if (!token) {
     return <Navigate to="/admin/login" replace />;
   }
@@ -222,6 +233,15 @@ function Shell({ children }: { children: React.ReactNode }) {
           </Link>
           <Link to="/admin/coin" className={coinActive ? 'nav-active' : undefined}>
             코인 관리
+          </Link>
+          <Link to="/admin/payments" className={paymentHistoryActive ? 'nav-active' : undefined}>
+            결제 내역
+          </Link>
+          <Link
+            to="/admin/payment-settings"
+            className={paymentSettingsActive ? 'nav-active' : undefined}
+          >
+            결제 설정
           </Link>
           <Link
             to="/admin/store-verifications"
@@ -306,6 +326,14 @@ function AdminDashboard() {
           <Link to="/admin/coin" className="card dash-link-card">
             <span className="dash-link-title">코인 관리</span>
             <span className="dash-link-desc">공급 · 발행 · 정합성</span>
+          </Link>
+          <Link to="/admin/payment-settings" className="card dash-link-card">
+            <span className="dash-link-title">결제 설정</span>
+            <span className="dash-link-desc">Toss TEST 키 · 활성화</span>
+          </Link>
+          <Link to="/admin/payments" className="card dash-link-card">
+            <span className="dash-link-title">결제 내역</span>
+            <span className="dash-link-desc">코인·프리미엄 결제 기록</span>
           </Link>
           <Link to="/admin/disputes" className="card dash-link-card">
             <span className="dash-link-title">분쟁 관리</span>
@@ -1668,6 +1696,256 @@ function GrowthAnalyticsPage() {
   );
 }
 
+function PaymentSettingsPage() {
+  const [settings, setSettings] = useState<AdminPaymentProviderSettingsDto | null>(null);
+  const [products, setProducts] = useState<PaymentProductDto[]>([]);
+  const [enabled, setEnabled] = useState(false);
+  const [environment, setEnvironment] = useState<'TEST' | 'LIVE'>('TEST');
+  const [clientKey, setClientKey] = useState('');
+  const [secretKey, setSecretKey] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void Promise.all([
+      api<AdminPaymentProviderSettingsDto>('/admin/payment-settings'),
+      api<{ items: PaymentProductDto[] }>('/admin/payment-products'),
+    ])
+      .then(([s, p]) => {
+        setSettings(s);
+        setEnabled(s.enabled);
+        setEnvironment(s.environment);
+        setClientKey(s.clientKey ?? '');
+        setProducts(p.items);
+        setError(null);
+      })
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : 'load_failed');
+      });
+  }, []);
+
+  async function save() {
+    setBusy(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const body: UpdateAdminPaymentProviderSettingsRequest = {
+        enabled,
+        environment: isDevelopmentAdmin ? 'TEST' : environment,
+        clientKey: clientKey.trim() || null,
+        ...(secretKey.trim() ? { secretKey: secretKey.trim() } : {}),
+      };
+      const updated = await api<AdminPaymentProviderSettingsDto>('/admin/payment-settings', {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      });
+      setSettings(updated);
+      setEnabled(updated.enabled);
+      setEnvironment(updated.environment);
+      setClientKey(updated.clientKey ?? '');
+      setSecretKey('');
+      setMessage('저장되었습니다.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '저장 실패');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="admin-page">
+      <div className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">결제 설정</h1>
+          <p className="admin-page-desc">Toss Payments 연동 키와 활성화 상태를 관리합니다.</p>
+        </div>
+      </div>
+
+      {error ? <p className="admin-error-banner">{error}</p> : null}
+      {message ? <p className="admin-section-desc">{message}</p> : null}
+
+      <section className="card admin-section" style={{ marginBottom: 12 }}>
+        <strong className="admin-section-title">Provider: TOSS</strong>
+        <p className="admin-section-desc">상태: {settings?.statusLabel ?? '—'}</p>
+        {isDevelopmentAdmin ? (
+          <p className="admin-section-desc">
+            Development Admin에서는 TEST 환경만 저장할 수 있습니다. LIVE 결제 승인은 서버에서
+            차단됩니다.
+          </p>
+        ) : null}
+        <label style={{ display: 'block', marginBottom: 12 }}>
+          <span>Enabled</span>
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(e) => setEnabled(e.target.checked)}
+            style={{ marginLeft: 8 }}
+          />
+        </label>
+        <label style={{ display: 'block', marginBottom: 12 }}>
+          <span>Environment</span>
+          <select
+            value={isDevelopmentAdmin ? 'TEST' : environment}
+            disabled={isDevelopmentAdmin}
+            onChange={(e) => setEnvironment(e.target.value as 'TEST' | 'LIVE')}
+            style={{ marginLeft: 8 }}
+          >
+            <option value="TEST">TEST</option>
+            <option value="LIVE">LIVE</option>
+          </select>
+        </label>
+        <label style={{ display: 'block', marginBottom: 12 }}>
+          <span>Client Key</span>
+          <input
+            style={{ display: 'block', width: '100%', marginTop: 4 }}
+            value={clientKey}
+            onChange={(e) => setClientKey(e.target.value)}
+          />
+        </label>
+        <label style={{ display: 'block', marginBottom: 12 }}>
+          <span>Secret Key</span>
+          <input
+            type="password"
+            style={{ display: 'block', width: '100%', marginTop: 4 }}
+            value={secretKey}
+            onChange={(e) => setSecretKey(e.target.value)}
+            placeholder={settings?.hasSecretKey ? (settings.secretKeyMasked ?? '설정됨') : ''}
+            autoComplete="new-password"
+          />
+        </label>
+        {settings?.hasSecretKey && settings.secretKeyMasked ? (
+          <p className="admin-section-desc">저장된 Secret: {settings.secretKeyMasked}</p>
+        ) : settings?.hasSecretKey ? (
+          <p className="admin-section-desc">저장된 Secret: 설정됨</p>
+        ) : null}
+        <div className="admin-page-actions" style={{ marginTop: 12 }}>
+          <button type="button" className="btn-primary" disabled={busy} onClick={() => void save()}>
+            저장
+          </button>
+        </div>
+      </section>
+
+      <section className="card admin-section">
+        <strong className="admin-section-title">상품</strong>
+        <div className="admin-table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>코드</th>
+                <th>이름</th>
+                <th>가격</th>
+                <th>코인/기간</th>
+                <th>활성</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.map((p) => (
+                <tr key={p.id}>
+                  <td>{p.code}</td>
+                  <td>{p.name}</td>
+                  <td>{formatCoin(p.price)}</td>
+                  <td>{p.coinAmount ?? `${p.premiumDays ?? '-'}일`}</td>
+                  <td>{p.active ? 'Y' : 'N'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function PaymentsAdminListPage() {
+  const [items, setItems] = useState<AdminPaymentListResponse['items']>([]);
+  const [selected, setSelected] = useState<AdminPaymentDetailDto | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void api<AdminPaymentListResponse>('/admin/payments')
+      .then((res) => {
+        setItems(res.items);
+        setError(null);
+      })
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : 'load_failed');
+      });
+  }, []);
+
+  return (
+    <div className="admin-page">
+      <div className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">결제 내역</h1>
+          <p className="admin-page-desc">코인 충전·프리미엄 결제 기록을 조회합니다.</p>
+        </div>
+      </div>
+
+      {error ? <p className="admin-error-banner">{error}</p> : null}
+
+      <div className="card admin-section">
+        {items.length === 0 && !error ? (
+          <p className="admin-empty">결제 내역이 없습니다</p>
+        ) : (
+          <div className="admin-table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>결제일</th>
+                  <th>사용자</th>
+                  <th>상품</th>
+                  <th>금액</th>
+                  <th>상태</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((row) => (
+                  <tr key={row.id}>
+                    <td>{formatDate(row.approvedAt ?? row.createdAt)}</td>
+                    <td>{row.userNickname ?? row.userId.slice(0, 8)}</td>
+                    <td>{row.productName}</td>
+                    <td>{formatCoin(row.amount)}</td>
+                    <td>{row.status}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() =>
+                          void api<AdminPaymentDetailDto>(`/admin/payments/${row.id}`).then(
+                            setSelected,
+                          )
+                        }
+                      >
+                        상세
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {selected ? (
+        <section className="card admin-section" style={{ marginTop: 12 }}>
+          <strong className="admin-section-title">결제 상세</strong>
+          <p>Payment ID: {selected.id}</p>
+          <p>orderId: {selected.orderId}</p>
+          <p>paymentKey: {selected.paymentKeyMasked ?? '—'}</p>
+          <p>사용자: {selected.userNickname ?? selected.userId}</p>
+          <p>상품: {selected.productName}</p>
+          <p>금액: {formatCoin(selected.amount)}</p>
+          <p>상태: {selected.status}</p>
+          <p>승인: {selected.approvedAt ? formatDate(selected.approvedAt) : '—'}</p>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
 export function AdminApp() {
   return (
     <Shell>
@@ -1683,6 +1961,8 @@ export function AdminApp() {
         <Route path="store-verifications/:requestId" element={<StoreVerificationDetailPage />} />
         <Route path="stores" element={<ApprovedStoresPage />} />
         <Route path="stores/:ownershipId" element={<ApprovedStoreDetailPage />} />
+        <Route path="payment-settings" element={<PaymentSettingsPage />} />
+        <Route path="payments" element={<PaymentsAdminListPage />} />
       </Routes>
     </Shell>
   );
