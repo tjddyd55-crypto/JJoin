@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import {
   Text,
@@ -230,7 +230,16 @@ export default function CreateScreen() {
       if (msg.startsWith('network_error')) setError('네트워크 오류 — API 연결을 확인하세요.');
       else if (msg.includes('401')) setError('로그인이 필요합니다.');
       else if (msg.includes('INSUFFICIENT_BALANCE')) setError(t('create.coin.insufficient'));
-      else setError('조인 생성에 실패했습니다.');
+      else if (msg.includes('JOIN_HOST_LIMIT')) {
+        Alert.alert(
+          '조인 생성 제한',
+          '일반 회원은 동시에 운영 중인 조인 수에 제한이 있습니다. 프리미엄 회원은 제한 없이 조인을 만들 수 있습니다.',
+          [
+            { text: '닫기', style: 'cancel' },
+            { text: '프리미엄 알아보기', onPress: () => router.push('/my/premium') },
+          ],
+        );
+      } else setError('조인 생성에 실패했습니다.');
     } finally {
       setSubmitting(false);
     }

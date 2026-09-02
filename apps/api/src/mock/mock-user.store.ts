@@ -324,6 +324,12 @@ export class MockUserStore {
         totalCoin: String(Number(user.availableCoin) + Number(user.heldCoin)),
         recentTransactions: [],
       },
+      premiumStatus: {
+        active: false,
+        startedAt: null,
+        expiresAt: null,
+        remainingDays: null,
+      },
     };
   }
 }

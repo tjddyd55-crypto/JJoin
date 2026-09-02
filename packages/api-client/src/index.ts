@@ -121,6 +121,15 @@ import {
   type CreateClubNoticeRequest,
   type ClubNoticeDto,
   type ClubUrgentRecruitPrefillDto,
+  type PaymentProductDto,
+  type PaymentProductType,
+  type PublicPaymentConfigDto,
+  type CreatePaymentOrderRequest,
+  type CreatePaymentOrderResponse,
+  type ConfirmTossPaymentRequest,
+  type PaymentListResponse,
+  type PaymentDetailDto,
+  type PremiumStatusDto,
 } from '@jjoin/types';
 
 export type ApiClientConfig = {
@@ -1754,6 +1763,65 @@ export class ApiClient {
       `${this.config.baseUrl}/clubs/${clubId}/events/${eventId}/urgent-recruit-prefill`,
       { headers: await this.headers(true) },
     );
+    return parseJson(res);
+  }
+
+  async listPaymentProducts(type?: PaymentProductType): Promise<PaymentProductDto[]> {
+    const qs = type ? `?type=${encodeURIComponent(type)}` : '';
+    const res = await request(`${this.config.baseUrl}/payment-products${qs}`, {
+      headers: await this.headers(false),
+    });
+    return parseJson(res);
+  }
+
+  async getPublicPaymentConfig(): Promise<PublicPaymentConfigDto> {
+    const res = await request(`${this.config.baseUrl}/payment-config/public`, {
+      headers: await this.headers(false),
+    });
+    return parseJson(res);
+  }
+
+  async createPaymentOrder(body: CreatePaymentOrderRequest): Promise<CreatePaymentOrderResponse> {
+    const res = await request(`${this.config.baseUrl}/payments/orders`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async cancelReadyPayment(paymentId: string): Promise<{ ok: true }> {
+    const res = await request(`${this.config.baseUrl}/payments/${encodeURIComponent(paymentId)}/cancel`, {
+      method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async confirmTossPayment(body: ConfirmTossPaymentRequest): Promise<{
+    payment: PaymentDetailDto;
+    premiumStatus?: { expiresAt: string; startedAt: string };
+    coinCredited?: string;
+  }> {
+    const res = await request(`${this.config.baseUrl}/payments/toss/confirm`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async listMyPayments(): Promise<PaymentListResponse> {
+    const res = await request(`${this.config.baseUrl}/payments/me`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getPremiumStatus(): Promise<PremiumStatusDto> {
+    const res = await request(`${this.config.baseUrl}/me/premium`, {
+      headers: await this.headers(true),
+    });
     return parseJson(res);
   }
 }

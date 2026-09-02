@@ -358,6 +358,8 @@ model User {
   clubAccountingEntries    ClubAccountingEntry[]      @relation("ClubAccountingCreator")
   clubNoticesCreated       ClubNotice[]               @relation("ClubNoticeCreator")
   clubEventAttendances     ClubEventAttendance[]
+  payments                 Payment[]
+  premiumMembership        PremiumMembership?
 
   @@map("users")
 }
@@ -1730,4 +1732,111 @@ model ClubNotice {
 
   @@index([clubId, pinned, createdAt])
   @@map("club_notices")
+}
+
+enum PaymentProviderKind {
+  TOSS
+}
+
+enum PaymentEnvironment {
+  TEST
+  LIVE
+}
+
+enum PaymentProductType {
+  COIN_CHARGE
+  PREMIUM_PASS
+}
+
+enum PaymentStatus {
+  READY
+  PROCESSING
+  PAID
+  FAILED
+  CANCELED
+  REFUNDED
+}
+
+enum PremiumMembershipStatus {
+  ACTIVE
+  EXPIRED
+  CANCELED
+}
+
+model PaymentProduct {
+  id           String             @id @default(uuid()) @db.Uuid
+  code         String             @unique
+  type         PaymentProductType
+  name         String
+  description  String?
+  price        Int
+  coinAmount   Decimal?           @map("coin_amount") @db.Decimal(18, 4)
+  premiumDays  Int?               @map("premium_days")
+  active       Boolean            @default(true)
+  sortOrder    Int                @default(0) @map("sort_order")
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  payments Payment[]
+
+  @@index([type, active, sortOrder])
+  @@map("payment_products")
+}
+
+model Payment {
+  id                     String              @id @default(uuid()) @db.Uuid
+  userId                 String              @map("user_id") @db.Uuid
+  productId              String              @map("product_id") @db.Uuid
+  type                   PaymentProductType
+  provider               PaymentProviderKind @default(TOSS)
+  orderId                String              @unique @map("order_id")
+  paymentKey             String?             @map("payment_key")
+  amount                 Int
+  status                 PaymentStatus       @default(READY)
+  checkoutToken          String?             @unique @map("checkout_token")
+  checkoutTokenExpiresAt DateTime?           @map("checkout_token_expires_at") @db.Timestamptz(6)
+  requestedAt            DateTime            @default(now()) @map("requested_at") @db.Timestamptz(6)
+  approvedAt             DateTime?           @map("approved_at") @db.Timestamptz(6)
+  canceledAt             DateTime?           @map("canceled_at") @db.Timestamptz(6)
+  providerPayload        Json?               @map("provider_payload")
+  createdAt              DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product           PaymentProduct     @relation(fields: [productId], references: [id], onDelete: Restrict)
+  premiumMembership PremiumMembership?
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@map("payments")
+}
+
+model PaymentProviderSettings {
+  id                  String               @id @default("default")
+  provider            PaymentProviderKind  @default(TOSS)
+  enabled             Boolean              @default(false)
+  environment         PaymentEnvironment   @default(TEST)
+  clientKey           String?              @map("client_key")
+  secretKeyEncrypted  String?              @map("secret_key_encrypted")
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("payment_provider_settings")
+}
+
+model PremiumMembership {
+  id              String                  @id @default(uuid()) @db.Uuid
+  userId          String                  @unique @map("user_id") @db.Uuid
+  status          PremiumMembershipStatus @default(ACTIVE)
+  startedAt       DateTime                @map("started_at") @db.Timestamptz(6)
+  expiresAt       DateTime                @map("expires_at") @db.Timestamptz(6)
+  lastPaymentId   String?                 @unique @map("last_payment_id") @db.Uuid
+  createdAt       DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastPayment Payment? @relation(fields: [lastPaymentId], references: [id], onDelete: SetNull)
+
+  @@index([expiresAt])
+  @@map("premium_memberships")
 }

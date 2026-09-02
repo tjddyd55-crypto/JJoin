@@ -2,6 +2,7 @@
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -18,6 +19,7 @@ import {
   canHostPayReward,
   computeAutoPayAt,
   formatCountdownMs,
+  isRewardTransferRequired,
   isSettlementWindowOpen,
   isTerminalRewardStatus,
   settlementRefundIdempotencyKey,
@@ -45,6 +47,7 @@ const SETTLING_ELIGIBLE: JoinStatus[] = [
 
 @Injectable()
 export class SettlementService {
+  private readonly logger = new Logger(SettlementService.name);
   private readonly clock: SettlementClock;
 
   constructor(
@@ -145,11 +148,23 @@ export class SettlementService {
         if (p.role === 'HOST' || !p.settlement) continue;
         if (p.settlement.rewardStatus !== 'HELD') continue;
         if (open) {
-          await tx.rewardSettlement.update({
-            where: { id: p.settlement.id },
-            data: { rewardStatus: 'PENDING_CONFIRMATION' },
-          });
-          openedSettlementIds.push(p.settlement.id);
+          const amount = String(p.settlement.amount);
+          if (!isRewardTransferRequired(amount)) {
+            await tx.rewardSettlement.update({
+              where: { id: p.settlement.id },
+              data: { rewardStatus: 'AUTO_PAID', paidAt: now },
+            });
+            await tx.joinParticipant.update({
+              where: { id: p.id },
+              data: { participationStatus: 'COMPLETED' },
+            });
+          } else {
+            await tx.rewardSettlement.update({
+              where: { id: p.settlement.id },
+              data: { rewardStatus: 'PENDING_CONFIRMATION' },
+            });
+            openedSettlementIds.push(p.settlement.id);
+          }
         }
       }
 
@@ -316,6 +331,16 @@ export class SettlementService {
       }
 
       const amount = String(settlement.amount);
+      if (!isRewardTransferRequired(amount)) {
+        return this.finalizeZeroRewardSettlement(tx, {
+          settlement,
+          participant,
+          joinId,
+          mode,
+          now,
+        });
+      }
+
       const hostWallet = await this.ledger.getOrCreateWallet(join.hostUserId, join.coinAssetId, tx);
       const participantWallet = await this.ledger.getOrCreateWallet(
         participant.userId,
@@ -657,18 +682,27 @@ export class SettlementService {
     });
 
     let processed = 0;
+    let failed = 0;
     for (const row of due) {
       const join = row.participant.join;
       if (join.status === 'CANCELLED') continue;
-      const result = await this.payParticipant(
-        join.id,
-        row.joinParticipantId,
-        join.hostUserId,
-        'AUTO',
-      );
-      if (result.ok) processed += 1;
+      try {
+        const result = await this.payParticipant(
+          join.id,
+          row.joinParticipantId,
+          join.hostUserId,
+          'AUTO',
+        );
+        if (result.ok) processed += 1;
+      } catch (e) {
+        failed += 1;
+        const message = e instanceof Error ? e.message : String(e);
+        this.logger.error(
+          `settlement_autopay_row_failed settlementId=${row.id} joinId=${join.id} message=${message}`,
+        );
+      }
     }
-    return { scanned: due.length, processed, now: now.toISOString() };
+    return { scanned: due.length, processed, failed, now: now.toISOString() };
   }
 
   /** DEV/mock QA — advance scheduledEndAt/autoPayAt for settlement E2E. */
@@ -932,6 +966,39 @@ export class SettlementService {
         refundedAt: now,
       },
     });
+  }
+
+  private async finalizeZeroRewardSettlement(
+    tx: Prisma.TransactionClient,
+    params: {
+      settlement: { id: string; rewardStatus: string };
+      participant: { id: string };
+      joinId: string;
+      mode: 'MANUAL' | 'AUTO';
+      now: Date;
+    },
+  ) {
+    const nextRewardStatus = params.mode === 'AUTO' ? 'AUTO_PAID' : 'PAID';
+    const claimed = await tx.rewardSettlement.updateMany({
+      where: { id: params.settlement.id, rewardStatus: 'PENDING_CONFIRMATION' },
+      data: {
+        rewardStatus: nextRewardStatus,
+        paidAt: params.now,
+        paidTxId: null,
+      },
+    });
+
+    if (claimed.count === 0) {
+      return tx.rewardSettlement.findUniqueOrThrow({ where: { id: params.settlement.id } });
+    }
+
+    await tx.joinParticipant.update({
+      where: { id: params.participant.id },
+      data: { participationStatus: 'COMPLETED' },
+    });
+
+    await this.tryCompleteJoin(tx, params.joinId);
+    return tx.rewardSettlement.findUniqueOrThrow({ where: { id: params.settlement.id } });
   }
 
   private async tryCompleteJoin(tx: Prisma.TransactionClient, joinId: string) {

@@ -1,3 +1,5 @@
+import { isCoinAmountPositive } from './coin-amount';
+
 /**
  * Participant-level reward settlement helpers.
  * Clock is injectable in tests — production uses UTC system time.
@@ -70,6 +72,11 @@ export function settlementRefundIdempotencyKey(settlementId: string): string {
 
 export function settlementRowIdempotencyKey(participantId: string): string {
   return `settlement:participant:${participantId}`;
+}
+
+/** Zero-reward joins have no ledger transfer; settlement can close without coin movement. */
+export function isRewardTransferRequired(amount: string): boolean {
+  return isCoinAmountPositive(amount);
 }
 
 export function formatCountdownMs(until: Date, now: Date): number {

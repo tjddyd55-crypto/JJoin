@@ -1,7 +1,9 @@
 import { StyleSheet, View } from 'react-native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
   Badge,
+  Button,
   Card,
   ScrollScreenFrame,
   Spacer,
@@ -17,6 +19,7 @@ import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
 
 export function WalletFoundationScreen() {
   const theme = useTheme();
+  const router = useRouter();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [wallet, setWallet] = useState<WalletSummaryDto | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -32,9 +35,11 @@ export function WalletFoundationScreen() {
     }
   }, [api]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
 
   return (
     <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
@@ -76,6 +81,18 @@ export function WalletFoundationScreen() {
         거래내역
       </Text>
       <Spacer size="sm" />
+      <Button
+        label="코인 충전"
+        variant="secondary"
+        onPress={() => router.push('/my/coin-charge')}
+      />
+      <Spacer size="sm" />
+      <Button
+        label="결제 내역"
+        variant="secondary"
+        onPress={() => router.push('/my/payment-history')}
+      />
+      <Spacer size="md" />
       {(wallet?.recentTransactions.length ?? 0) === 0 ? (
         <Text variant="body" tone="secondary">
           {t('wallet.emptyTx')}

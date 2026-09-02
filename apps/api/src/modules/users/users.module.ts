@@ -4,9 +4,10 @@ import { UsersService } from './users.service';
 import { UserAccountService } from './user-account.service';
 import { MockMediaAdapter, MockIdentityAdapter } from '../../providers/mock.adapters';
 import { WalletModule } from '../wallet/wallet.module';
+import { PaymentsModule } from '../payments/payments.module';
 
 @Module({
-  imports: [WalletModule],
+  imports: [WalletModule, PaymentsModule],
   controllers: [UsersController],
   providers: [UsersService, UserAccountService, MockMediaAdapter, MockIdentityAdapter],
   exports: [UsersService, UserAccountService],

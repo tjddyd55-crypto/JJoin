@@ -28,7 +28,7 @@ function showWithdrawTbd() {
 }
 
 export function MyHomeScreen() {
-  const { me, logout } = useSession();
+  const { me, logout, refreshMe } = useSession();
   const router = useRouter();
   const theme = useTheme();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
@@ -37,6 +37,7 @@ export function MyHomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      void refreshMe().catch(() => undefined);
       void api
         .getMyStores()
         .then((stores) =>
@@ -45,7 +46,7 @@ export function MyHomeScreen() {
           ),
         )
         .catch(() => setHasActiveStores(false));
-    }, [api]),
+    }, [api, refreshMe]),
   );
 
   if (!profile) {
@@ -141,6 +142,48 @@ export function MyHomeScreen() {
             label={t('my.wallet')}
             icon="wallet"
             onPress={() => router.push('/my/wallet')}
+          />
+          <ListRow
+            label="코인 충전"
+            icon="wallet"
+            onPress={() => router.push('/my/coin-charge')}
+          />
+          <ListRow
+            label="결제 내역"
+            icon="calendar"
+            onPress={() => router.push('/my/payment-history')}
+            showSeparator={false}
+          />
+        </Card>
+      </Section>
+
+      <Section title="프리미엄 회원">
+        <Card variant="elevated" padding="md">
+          {me?.premiumStatus.active ? (
+            <>
+              <Row align="center" gap="sm">
+                <Badge label="PREMIUM" variant="gold" />
+                <Text variant="bodyStrong">프리미엄 이용 중</Text>
+              </Row>
+              <Spacer size="xs" />
+              <Text variant="meta" tone="secondary">
+                {me.premiumStatus.expiresAt
+                  ? `${new Date(me.premiumStatus.expiresAt).toLocaleDateString('ko-KR')}까지`
+                  : ''}
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text variant="body" tone="secondary">
+                더 자유롭게 조인을 만들어보세요.
+              </Text>
+            </>
+          )}
+          <Spacer size="sm" />
+          <ListRow
+            label={me?.premiumStatus.active ? '이용기간 연장' : '프리미엄 알아보기'}
+            icon="verified"
+            onPress={() => router.push('/my/premium')}
             showSeparator={false}
           />
         </Card>

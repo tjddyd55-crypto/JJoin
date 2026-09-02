@@ -8,12 +8,19 @@ import { AdminAuthService } from './admin-auth.service';
 import { AdminBootstrapService } from './admin-bootstrap.service';
 import { SettlementModule } from '../settlement/settlement.module';
 import { WalletModule } from '../wallet/wallet.module';
+import { PaymentsModule } from '../payments/payments.module';
+import { AdminPaymentsController } from '../payments/admin-payments.controller';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { AdminGuard } from '../../common/admin.guard';
 
 @Module({
-  imports: [PrismaModule, SettlementModule, WalletModule],
-  controllers: [AdminDisputeController, AdminCoinSupplyController, AdminAuthController],
+  imports: [PrismaModule, SettlementModule, WalletModule, PaymentsModule],
+  controllers: [
+    AdminDisputeController,
+    AdminCoinSupplyController,
+    AdminAuthController,
+    AdminPaymentsController,
+  ],
   providers: [
     AdminDisputeService,
     AdminCoinSupplyService,

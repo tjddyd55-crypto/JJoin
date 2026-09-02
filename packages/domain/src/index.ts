@@ -64,6 +64,7 @@ export {
   isTerminalRewardStatus,
   settlementRefundIdempotencyKey,
   settlementRowIdempotencyKey,
+  isRewardTransferRequired,
   settlementTransferIdempotencyKey,
   systemSettlementClock,
   TERMINAL_REWARD_STATUSES,
@@ -549,6 +550,18 @@ export {
 } from './club-activity-regions';
 
 export { isRawVenueIdLabel, resolveVenueDisplayName } from './venue-display';
+
+export {
+  PREMIUM_PASS_DEFAULT_DAYS,
+  NORMAL_USER_ACTIVE_HOST_JOIN_LIMIT,
+  isPremiumActive,
+  premiumRemainingDays,
+  extendPremiumExpiry,
+  canBypassJoinHostLimit,
+  exceedsJoinHostLimit,
+  maskSecretKey,
+  type PremiumMembershipSnapshot,
+} from './premium-membership';
 
 export {
   isWithinKstYear,
