@@ -272,7 +272,10 @@ export class PaymentService {
           orderName: ${JSON.stringify(payment.product.name)},
           successUrl: ${JSON.stringify(successUrl)},
           failUrl: ${JSON.stringify(failUrl)},
-          appScheme: ${JSON.stringify(appScheme)},
+          card: {
+            // Toss v2: appScheme is under card (not top-level).
+            appScheme: ${JSON.stringify(appScheme)},
+          },
         });
       } catch (e) {
         btn.disabled = false;

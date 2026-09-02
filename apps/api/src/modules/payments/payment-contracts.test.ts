@@ -60,3 +60,23 @@ test('paymentId path params must be UUID v4 (rejects route collisions like produ
   assert.equal(uuidV4.test('payment-purchase:x'), false);
   assert.equal(uuidV4.test('550e8400-e29b-41d4-a716-446655440000'), true);
 });
+
+test('Toss v2 requestPayment nests appScheme under card (not top-level)', () => {
+  // Top-level appScheme → runtime "정의되지 않은 파라미터입니다"
+  const nested = `
+        await payment.requestPayment({
+          method: 'CARD',
+          card: {
+            appScheme: "jjoindev://",
+          },
+        });
+  `;
+  const topLevel = `
+        await payment.requestPayment({
+          method: 'CARD',
+          appScheme: "jjoindev://",
+        });
+  `;
+  assert.match(nested, /card:\s*\{[\s\S]*appScheme:/);
+  assert.equal(/card:\s*\{[\s\S]*appScheme:/.test(topLevel), false);
+});
