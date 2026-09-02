@@ -75,12 +75,23 @@ export class PremiumService {
     return isPremiumActive(row?.expiresAt, new Date());
   }
 
-  private async hasActiveStoreOwnership(userId: string): Promise<boolean> {
+  async hasActiveStoreOwnership(userId: string): Promise<boolean> {
     const row = await this.prisma.storeOwnership.findFirst({
       where: { userId, status: 'ACTIVE' },
       select: { id: true },
     });
     return Boolean(row);
+  }
+
+  async resolveCreatorRoleFlags(userId: string): Promise<{
+    isPremiumActive: boolean;
+    hasActiveStoreOwnership: boolean;
+  }> {
+    const [isPremiumActive, hasActiveStoreOwnership] = await Promise.all([
+      this.isUserPremiumActive(userId),
+      this.hasActiveStoreOwnership(userId),
+    ]);
+    return { isPremiumActive, hasActiveStoreOwnership };
   }
 
   private async countActiveHostedJoins(userId: string): Promise<number> {

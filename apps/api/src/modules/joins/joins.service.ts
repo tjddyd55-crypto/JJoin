@@ -60,6 +60,8 @@ import {
   isJoinChatVisibleInUi,
   isJoinCapacityJoinable,
   localDayKey,
+  computeCoinShortfall,
+  joinCreatorUserTypeLabelKo,
 } from '@jjoin/domain';
 import { createJoinSchema, joinCoinPreviewSchema } from '@jjoin/validation';
 import { Prisma } from '@prisma/client';
@@ -76,7 +78,6 @@ import { MeVenuesService } from '../venues/me-venues.service';
 import {
   CoinPolicyDisabledError,
   resolveDefaultRewardPerParticipant,
-  resolveRoomCreationFee,
 } from '../../coin/dev-coin-policy';
 import { UserAccountService } from '../users/user-account.service';
 import { mockUserStore } from '../../mock/mock-user.store';
@@ -88,6 +89,7 @@ import { UrgentVacancyService } from '../join-loop/urgent-vacancy.service';
 import { JoinChatService } from '../join-loop/join-chat.service';
 import { ClubJoinLinkService } from '../clubs/club-join-link.service';
 import { PremiumService } from '../payments/premium.service';
+import { JoinCreationCoinPolicyService } from './join-creation-coin-policy.service';
 import type { AttendanceIntent } from '@jjoin/types';
 
 const ACTIVE_JOIN_STATUSES: JoinStatus[] = [JoinStatus.OPEN, JoinStatus.FULL];
@@ -117,6 +119,7 @@ export class JoinsService {
     private readonly joinChat: JoinChatService,
     private readonly clubJoinLink: ClubJoinLinkService,
     private readonly premium: PremiumService,
+    private readonly joinCreationCoinPolicy: JoinCreationCoinPolicyService,
   ) {}
 
   ping() {
@@ -133,10 +136,12 @@ export class JoinsService {
       throw new BadRequestException('invalid_coin_preview');
     }
     let reward: string;
-    let roomCreationFee: string;
+    let creationSnapshot: Awaited<
+      ReturnType<JoinCreationCoinPolicyService['resolveCreationCostForUser']>
+    >;
     try {
       reward = parsed.data.rewardPerParticipant ?? resolveDefaultRewardPerParticipant();
-      roomCreationFee = resolveRoomCreationFee();
+      creationSnapshot = await this.joinCreationCoinPolicy.resolveCreationCostForUser(hostUserId);
     } catch (e) {
       if (e instanceof CoinPolicyDisabledError) {
         throw new ServiceUnavailableException({
@@ -146,6 +151,7 @@ export class JoinsService {
       }
       throw e;
     }
+    const roomCreationFee = creationSnapshot.creationCoinCost;
     const requirement = computeJoinCoinRequirement({
       plannedPlayerCount: parsed.data.plannedPlayerCount,
       rewardPerParticipant: reward,
@@ -167,6 +173,13 @@ export class JoinsService {
       walletAvailable,
       walletAfterCreation,
       canCreate,
+      creatorUserType: creationSnapshot.creatorUserType,
+      creatorUserTypeLabel: joinCreatorUserTypeLabelKo(creationSnapshot.creatorUserType),
+      creationCoinEnabled: creationSnapshot.creationCoinEnabled,
+      creationCoinCost: creationSnapshot.creationCoinCost,
+      coinShortfall: canCreate
+        ? null
+        : computeCoinShortfall(walletAvailable, requirement.totalRequiredCoin),
     };
   }
 
@@ -211,10 +224,12 @@ export class JoinsService {
     }
 
     let rewardPerParticipant: string;
-    let roomCreationFee: string;
+    let creationSnapshot: Awaited<
+      ReturnType<JoinCreationCoinPolicyService['resolveCreationCostForUser']>
+    >;
     try {
       rewardPerParticipant = input.rewardPerParticipant ?? resolveDefaultRewardPerParticipant();
-      roomCreationFee = resolveRoomCreationFee();
+      creationSnapshot = await this.joinCreationCoinPolicy.resolveCreationCostForUser(hostUserId);
     } catch (e) {
       if (e instanceof CoinPolicyDisabledError) {
         throw new ServiceUnavailableException({
@@ -224,6 +239,7 @@ export class JoinsService {
       }
       throw e;
     }
+    const roomCreationFee = creationSnapshot.creationCoinCost;
     const requirement = computeJoinCoinRequirement({
       plannedPlayerCount: input.plannedPlayerCount,
       rewardPerParticipant,
@@ -325,6 +341,8 @@ export class JoinsService {
             rewardPerParticipant: new Prisma.Decimal(requirement.rewardPerParticipant),
             coinAssetId: coinAsset.id,
             roomCreationFeeAmount: new Prisma.Decimal(requirement.roomCreationFee),
+            creatorUserType: creationSnapshot.creatorUserType,
+            creationCoinEnabled: creationSnapshot.creationCoinEnabled,
             rewardHoldTotalAmount: new Prisma.Decimal(requirement.rewardHoldTotal),
             participants: {
               create: {
