@@ -35,6 +35,8 @@ import {
   type AdminPaymentListResponse,
   type AdminPaymentDetailDto,
   type PaymentProductDto,
+  type JoinCreationCoinPolicyDto,
+  type UpdateJoinCreationCoinPolicyRequest,
 } from '@jjoin/types';
 import { formatKoreanPhoneDisplay, formatNumber } from '@jjoin/domain';
 
@@ -217,6 +219,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   const analyticsActive = path.startsWith('/admin/analytics');
   const paymentSettingsActive = path.startsWith('/admin/payment-settings');
   const paymentHistoryActive = path.startsWith('/admin/payments');
+  const joinCoinPolicyActive = path.startsWith('/admin/join-coin-policy');
   if (!token) {
     return <Navigate to="/admin/login" replace />;
   }
@@ -242,6 +245,12 @@ function Shell({ children }: { children: React.ReactNode }) {
             className={paymentSettingsActive ? 'nav-active' : undefined}
           >
             결제 설정
+          </Link>
+          <Link
+            to="/admin/join-coin-policy"
+            className={joinCoinPolicyActive ? 'nav-active' : undefined}
+          >
+            조인 설정
           </Link>
           <Link
             to="/admin/store-verifications"
@@ -330,6 +339,10 @@ function AdminDashboard() {
           <Link to="/admin/payment-settings" className="card dash-link-card">
             <span className="dash-link-title">결제 설정</span>
             <span className="dash-link-desc">Toss TEST 키 · 활성화</span>
+          </Link>
+          <Link to="/admin/join-coin-policy" className="card dash-link-card">
+            <span className="dash-link-title">조인 설정</span>
+            <span className="dash-link-desc">유형별 조인 생성 코인</span>
           </Link>
           <Link to="/admin/payments" className="card dash-link-card">
             <span className="dash-link-title">결제 내역</span>
@@ -1946,6 +1959,174 @@ function PaymentsAdminListPage() {
   );
 }
 
+function parseCommaInt(raw: string): number | null {
+  const cleaned = raw.replace(/,/g, '').trim();
+  if (cleaned === '') return null;
+  const n = Number(cleaned);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) return null;
+  return n;
+}
+
+function JoinCoinPolicyPage() {
+  type RoleKey = 'general' | 'premium' | 'storeOwner';
+  type RoleDraft = { enabled: boolean; costText: string };
+
+  const [draft, setDraft] = useState<Record<RoleKey, RoleDraft> | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void api<JoinCreationCoinPolicyDto>('/admin/join-coin-policy')
+      .then((policy) => {
+        setDraft({
+          general: { enabled: policy.general.enabled, costText: formatNumber(policy.general.cost) },
+          premium: { enabled: policy.premium.enabled, costText: formatNumber(policy.premium.cost) },
+          storeOwner: {
+            enabled: policy.storeOwner.enabled,
+            costText: formatNumber(policy.storeOwner.cost),
+          },
+        });
+        setError(null);
+      })
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : 'load_failed');
+      });
+  }, []);
+
+  function updateRole(key: RoleKey, patch: Partial<RoleDraft>) {
+    setDraft((prev) => (prev ? { ...prev, [key]: { ...prev[key], ...patch } } : prev));
+  }
+
+  function onCostChange(key: RoleKey, raw: string) {
+    const digits = raw.replace(/[^\d]/g, '');
+    if (digits === '') {
+      updateRole(key, { costText: '' });
+      return;
+    }
+    const n = Number(digits);
+    if (!Number.isFinite(n)) return;
+    updateRole(key, { costText: formatNumber(n) });
+  }
+
+  async function save() {
+    if (!draft) return;
+    const generalCost = parseCommaInt(draft.general.costText);
+    const premiumCost = parseCommaInt(draft.premium.costText);
+    const storeOwnerCost = parseCommaInt(draft.storeOwner.costText);
+    if (generalCost == null || premiumCost == null || storeOwnerCost == null) {
+      setMessage('금액은 0 이상의 정수여야 합니다.');
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const body: UpdateJoinCreationCoinPolicyRequest = {
+        general: { enabled: draft.general.enabled, cost: generalCost },
+        premium: { enabled: draft.premium.enabled, cost: premiumCost },
+        storeOwner: { enabled: draft.storeOwner.enabled, cost: storeOwnerCost },
+      };
+      const updated = await api<JoinCreationCoinPolicyDto>('/admin/join-coin-policy', {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      });
+      setDraft({
+        general: { enabled: updated.general.enabled, costText: formatNumber(updated.general.cost) },
+        premium: { enabled: updated.premium.enabled, costText: formatNumber(updated.premium.cost) },
+        storeOwner: {
+          enabled: updated.storeOwner.enabled,
+          costText: formatNumber(updated.storeOwner.cost),
+        },
+      });
+      setMessage('저장되었습니다. 변경된 설정은 변경 이후 새로 생성되는 조인부터 적용됩니다.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '저장 실패');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const rows: Array<{ key: RoleKey; label: string }> = [
+    { key: 'general', label: '일반 사용자' },
+    { key: 'premium', label: '프리미엄 사용자' },
+    { key: 'storeOwner', label: '업주' },
+  ];
+
+  return (
+    <div className="admin-page">
+      <div className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">조인 생성 코인 설정</h1>
+          <p className="admin-page-desc">
+            사용자 유형별로 조인을 생성할 때 필요한 코인 비용을 설정합니다.
+          </p>
+        </div>
+      </div>
+
+      <p className="admin-section-desc">
+        변경된 설정은 변경 이후 새로 생성되는 조인부터 적용됩니다. 참가보상 코인은 별도로 계산됩니다.
+      </p>
+      <p className="admin-section-desc">
+        OFF면 생성비는 0이며, 입력해 둔 금액은 다시 ON할 때 복원됩니다.
+      </p>
+
+      {error ? <p className="admin-error-banner">{error}</p> : null}
+      {message ? <p className="admin-section-desc">{message}</p> : null}
+
+      {!draft ? (
+        <p>불러오는 중…</p>
+      ) : (
+        <section className="card admin-section" style={{ marginBottom: 12, maxWidth: 560 }}>
+          {rows.map(({ key, label }) => {
+            const row = draft[key];
+            return (
+              <div
+                key={key}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  marginBottom: 12,
+                  flexWrap: 'wrap',
+                }}
+              >
+                <strong style={{ minWidth: 120 }}>{label}</strong>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <input
+                    type="checkbox"
+                    checked={row.enabled}
+                    onChange={(e) => updateRole(key, { enabled: e.target.checked })}
+                  />
+                  {row.enabled ? 'ON' : 'OFF'}
+                </label>
+                <input
+                  inputMode="numeric"
+                  disabled={!row.enabled}
+                  value={row.costText}
+                  onChange={(e) => onCostChange(key, e.target.value)}
+                  style={{
+                    width: 140,
+                    opacity: row.enabled ? 1 : 0.5,
+                    background: row.enabled ? undefined : '#f3f3f3',
+                  }}
+                />
+                <span>Coin</span>
+                {!row.enabled ? (
+                  <span style={{ color: '#888', fontSize: 13 }}>적용 금액 0 Coin</span>
+                ) : null}
+              </div>
+            );
+          })}
+          <button type="button" disabled={busy} onClick={() => void save()}>
+            저장
+          </button>
+        </section>
+      )}
+    </div>
+  );
+}
+
 export function AdminApp() {
   return (
     <Shell>
@@ -1963,6 +2144,7 @@ export function AdminApp() {
         <Route path="stores/:ownershipId" element={<ApprovedStoreDetailPage />} />
         <Route path="payment-settings" element={<PaymentSettingsPage />} />
         <Route path="payments" element={<PaymentsAdminListPage />} />
+        <Route path="join-coin-policy" element={<JoinCoinPolicyPage />} />
       </Routes>
     </Shell>
   );
