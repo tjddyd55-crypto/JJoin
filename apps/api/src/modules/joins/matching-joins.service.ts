@@ -29,6 +29,7 @@ import {
   estimateEndAt,
   resolveMatchingRewardDisposition,
   isRewardEligibleMatchingGender,
+  isRewardTransferRequired,
   settlementRefundIdempotencyKey,
   settlementRowIdempotencyKey,
   settlementTransferIdempotencyKey,
@@ -431,6 +432,21 @@ export class MatchingJoinsService {
           continue;
         }
 
+        if (!isRewardTransferRequired(rewardAmount)) {
+          await tx.rewardSettlement.update({
+            where: { id: settlement.id },
+            data: { rewardStatus: 'PAID', paidAt: now },
+          });
+          await tx.joinParticipant.update({
+            where: { id: participant.id },
+            data: {
+              participationStatus: 'COMPLETED',
+              confirmedAt: participant.confirmedAt ?? now,
+            },
+          });
+          continue;
+        }
+
         const participantWallet = await this.ledger.getOrCreateWallet(
           participant.userId,
           join.coinAssetId,
@@ -488,16 +504,18 @@ export class MatchingJoinsService {
 
         const holdBacked = isRewardEligibleMatchingGender(gender, rewardTarget);
         if (holdBacked) {
-          await this.ledger.applyRewardRefund(tx, {
-            hostWalletId: hostWallet.id,
-            coinAssetId: join.coinAssetId,
-            amount: rewardAmount,
-            settlementId: settlement.id,
-            joinId,
-            idempotencyKey: settlementRefundIdempotencyKey(settlement.id),
-          });
-          if (settlement.holdId) {
-            await this.ledger.refreshCoinHoldStatus(tx, settlement.holdId);
+          if (isRewardTransferRequired(rewardAmount)) {
+            await this.ledger.applyRewardRefund(tx, {
+              hostWalletId: hostWallet.id,
+              coinAssetId: join.coinAssetId,
+              amount: rewardAmount,
+              settlementId: settlement.id,
+              joinId,
+              idempotencyKey: settlementRefundIdempotencyKey(settlement.id),
+            });
+            if (settlement.holdId) {
+              await this.ledger.refreshCoinHoldStatus(tx, settlement.holdId);
+            }
           }
           await tx.rewardSettlement.update({
             where: { id: settlement.id },

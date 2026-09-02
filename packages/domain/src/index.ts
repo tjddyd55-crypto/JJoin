@@ -64,6 +64,7 @@ export {
   isTerminalRewardStatus,
   settlementRefundIdempotencyKey,
   settlementRowIdempotencyKey,
+  isRewardTransferRequired,
   settlementTransferIdempotencyKey,
   systemSettlementClock,
   TERMINAL_REWARD_STATUSES,

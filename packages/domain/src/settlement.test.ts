@@ -5,6 +5,7 @@ import {
   canHostPayReward,
   computeAutoPayAt,
   formatCountdownMs,
+  isRewardTransferRequired,
   isSettlementWindowOpen,
   isTerminalRewardStatus,
 } from './settlement';
@@ -62,4 +63,17 @@ test('terminal reward statuses', () => {
 
 test('countdown never negative', () => {
   assert.equal(formatCountdownMs(new Date('2026-08-22T10:00:00.000Z'), new Date('2026-08-22T11:00:00.000Z')), 0);
+});
+
+test('isRewardTransferRequired — zero reward needs no ledger movement', () => {
+  assert.equal(isRewardTransferRequired('0'), false);
+  assert.equal(isRewardTransferRequired('0.0000'), false);
+  assert.equal(isRewardTransferRequired('1'), true);
+  assert.equal(isRewardTransferRequired('0.0001'), true);
+});
+
+test('terminal reward statuses include AUTO_PAID and REFUNDED', () => {
+  assert.equal(isTerminalRewardStatus('AUTO_PAID'), true);
+  assert.equal(isTerminalRewardStatus('REFUNDED'), true);
+  assert.equal(isTerminalRewardStatus('NOT_ELIGIBLE'), true);
 });
