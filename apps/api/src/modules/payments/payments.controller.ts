@@ -48,8 +48,12 @@ export class PaymentsController {
   }
 
   @Get('payments/toss/web-callback')
-  webCallback(@Query() query: Record<string, string | string[] | undefined>, @Res() res: Response) {
-    const html = this.payments.getWebCallbackHtml(query);
+  async webCallback(
+    @Query() query: Record<string, string | string[] | undefined>,
+    @Res() res: Response,
+  ) {
+    const { statusCode, html } = await this.payments.processWebCallback(query);
+    res.status(statusCode);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
   }

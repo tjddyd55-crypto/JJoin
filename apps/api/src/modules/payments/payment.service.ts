@@ -268,35 +268,171 @@ export class PaymentService {
 </html>`;
   }
 
-  getWebCallbackHtml(query: Record<string, string | string[] | undefined>): string {
+  async processWebCallback(
+    query: Record<string, string | string[] | undefined>,
+  ): Promise<{ statusCode: number; html: string }> {
+    if (!shouldUseWebCheckoutCallback()) {
+      return {
+        statusCode: 404,
+        html: '<!DOCTYPE html><html><body><p>Not found</p></body></html>',
+      };
+    }
+
     const outcome = String(query.outcome ?? 'success');
     const failed = outcome === 'fail';
-    const paymentKey = String(query.paymentKey ?? '');
-    const orderId = String(query.orderId ?? '');
-    const amount = String(query.amount ?? '');
-    const code = String(query.code ?? '');
-    const message = String(query.message ?? '');
+    const paymentKey = String(query.paymentKey ?? '').trim();
+    const orderId = String(query.orderId ?? '').trim();
+    const amountRaw = String(query.amount ?? '').trim();
+    const code = String(query.code ?? '').trim();
+    const message = String(query.message ?? '').trim();
+
+    if (failed) {
+      if (orderId) {
+        const payment = await this.prisma.payment.findUnique({ where: { orderId } });
+        if (payment && CONFIRMABLE_STATUSES.includes(payment.status as PaymentStatus)) {
+          await this.markFailed(payment.id, 'toss_callback_fail', {
+            code,
+            message,
+          });
+        }
+      }
+      return {
+        statusCode: 200,
+        html: this.buildWebCallbackResultHtml({
+          title: '결제 실패',
+          failed: true,
+          orderId,
+          amount: amountRaw,
+          code,
+          message,
+          detail: '결제가 완료되지 않았습니다. 코인·프리미엄은 지급되지 않습니다.',
+        }),
+      };
+    }
+
+    if (!paymentKey || !orderId || !amountRaw) {
+      return {
+        statusCode: 400,
+        html: this.buildWebCallbackResultHtml({
+          title: '결제 정보 부족',
+          failed: true,
+          orderId,
+          amount: amountRaw,
+          detail: 'Toss success callback 값이 올바르지 않습니다.',
+        }),
+      };
+    }
+
+    const amount = Number(amountRaw);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return {
+        statusCode: 400,
+        html: this.buildWebCallbackResultHtml({
+          title: '결제 금액 오류',
+          failed: true,
+          orderId,
+          amount: amountRaw,
+          detail: '결제 금액이 올바르지 않습니다.',
+        }),
+      };
+    }
+
+    const payment = await this.prisma.payment.findUnique({
+      where: { orderId },
+      include: { product: true },
+    });
+    if (!payment) {
+      return {
+        statusCode: 404,
+        html: this.buildWebCallbackResultHtml({
+          title: '주문을 찾을 수 없습니다',
+          failed: true,
+          orderId,
+          amount: amountRaw,
+          detail: 'orderId에 해당하는 결제 주문이 없습니다.',
+        }),
+      };
+    }
+
+    try {
+      const result = await this.confirmTossPayment(payment.userId, {
+        paymentKey,
+        orderId,
+        amount,
+      });
+      const detailParts = [
+        `상품: ${result.payment.productName ?? payment.product.name}`,
+        `상태: ${result.payment.status}`,
+        `금액: ${result.payment.amount.toLocaleString('ko-KR')}원`,
+      ];
+      if (result.coinCredited) {
+        detailParts.push(`코인 지급: ${result.coinCredited}`);
+      }
+      if (result.premiumStatus?.expiresAt) {
+        detailParts.push(`프리미엄 만료: ${result.premiumStatus.expiresAt}`);
+      }
+      return {
+        statusCode: 200,
+        html: this.buildWebCallbackResultHtml({
+          title: '결제 완료',
+          failed: false,
+          orderId,
+          amount: amountRaw,
+          detail: detailParts.join(' · '),
+        }),
+      };
+    } catch (e) {
+      const reason =
+        e instanceof BadRequestException || e instanceof ForbiddenException
+          ? String((e.getResponse() as { message?: string })?.message ?? e.message)
+          : 'payment_confirm_failed';
+      this.logger.warn(
+        `WEB_CALLBACK_CONFIRM_FAILED orderId=${orderId} reason=${reason}`,
+      );
+      return {
+        statusCode: 400,
+        html: this.buildWebCallbackResultHtml({
+          title: '결제 승인 실패',
+          failed: true,
+          orderId,
+          amount: amountRaw,
+          detail: '서버 confirm에 실패했습니다. 결제 내역에서 상태를 확인해주세요.',
+        }),
+      };
+    }
+  }
+
+  private buildWebCallbackResultHtml(input: {
+    title: string;
+    failed: boolean;
+    orderId: string;
+    amount: string;
+    code?: string;
+    message?: string;
+    detail: string;
+  }): string {
     return `<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>JJOIN 결제 ${failed ? '실패' : '완료'}</title>
+  <title>JJOIN ${escapeHtml(input.title)}</title>
   <style>
     body { font-family: system-ui, sans-serif; margin: 24px; background: #0f1419; color: #f5f7fa; }
     .card { max-width: 520px; margin: 0 auto; padding: 20px; border-radius: 12px; background: #1a222d; line-height: 1.6; }
+    .ok { color: #7dd87d; }
+    .bad { color: #ff6b6b; }
     code { word-break: break-all; }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>${failed ? '결제 실패' : '결제 승인 대기'}</h1>
-    <p>orderId: <code>${escapeHtml(orderId)}</code></p>
-    <p>amount: <code>${escapeHtml(amount)}</code></p>
-    ${paymentKey ? `<p>paymentKey: <code>${escapeHtml(paymentKey)}</code></p>` : ''}
-    ${failed && code ? `<p>code: <code>${escapeHtml(code)}</code></p>` : ''}
-    ${failed && message ? `<p>message: ${escapeHtml(message)}</p>` : ''}
-    <p>${failed ? '앱/서버 confirm 없이 종료되었습니다.' : '서버 confirm API를 호출하면 코인/프리미엄이 지급됩니다.'}</p>
+    <h1 class="${input.failed ? 'bad' : 'ok'}">${escapeHtml(input.title)}</h1>
+    ${input.orderId ? `<p>orderId: <code>${escapeHtml(input.orderId)}</code></p>` : ''}
+    ${input.amount ? `<p>amount: <code>${escapeHtml(input.amount)}</code></p>` : ''}
+    ${input.code ? `<p>code: <code>${escapeHtml(input.code)}</code></p>` : ''}
+    ${input.message ? `<p>${escapeHtml(input.message)}</p>` : ''}
+    <p>${escapeHtml(input.detail)}</p>
   </div>
 </body>
 </html>`;

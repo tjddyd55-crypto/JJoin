@@ -224,7 +224,66 @@ async function main() {
       checkoutUrl: order.checkoutUrl,
     });
     console.log('OK guards', { orderTamper: tamperOrder.status, ownership: ownership.status, amountTamper: amountTamper.status });
-    console.log('NEXT: complete Toss TEST checkout in browser, then run with --confirm-coin');
+    console.log(
+      'NEXT: open checkoutUrl in desktop browser, complete Toss TEST once (web callback auto-confirms).',
+    );
+    console.log('THEN: ORDER_ID=' + order.orderId + ' pnpm exec tsx scripts/payment-dev-e2e.ts --verify-coin');
+    return;
+  }
+
+  if (mode === '--verify-coin') {
+    const orderId = process.env.ORDER_ID;
+    assert(orderId, 'Set ORDER_ID from preflight output');
+
+    const before = Number(process.env.BALANCE_BEFORE ?? await walletBalance(devA));
+    const adminRows = await j<{
+      items: Array<{ id: string; status: string; amount: number; orderId: string; productName: string }>;
+    }>('/admin/payments', { headers: admin });
+    assert(adminRows.status === 200, `admin payments ${adminRows.status}`);
+    const row = adminRows.body.items.find((p) => p.orderId === orderId);
+    assert(row, 'payment row for orderId');
+    assert(row.status === 'PAID', 'PAID');
+    assert(row.amount === 10000, 'amount 10000');
+
+    const detail = await j<{ status: string; amount: number; orderId: string }>(`/payments/${row.id}`, {
+      headers: devA,
+    });
+    assert(detail.status === 200, `payment detail ${detail.status}`);
+    assert(detail.body.status === 'PAID', 'user detail PAID');
+    assert(detail.body.orderId === orderId, 'orderId match');
+
+    const after = await walletBalance(devA);
+    assert(Number(after) === before + 10000, `balance +10000 (${before} -> ${after})`);
+
+    const dup = await confirm(devA, {
+      paymentKey: 'pay_web_callback_dup_probe',
+      orderId,
+      amount: 10000,
+    });
+    assert(dup.status === 200 || dup.status === 201, `dup confirm ${dup.status}`);
+    assert(dup.body.payment.status === 'PAID', 'dup PAID');
+    const afterDup = await walletBalance(devA);
+    assert(afterDup === after, 'no duplicate credit');
+
+    const tamper = await confirm(devA, {
+      paymentKey: 'pay_web_callback_dup_probe',
+      orderId,
+      amount: 10001,
+    });
+    assert(tamper.status === 400, `tamper status ${tamper.status}`);
+    const afterTamper = await walletBalance(devA);
+    assert(afterTamper === after, 'tamper no credit');
+
+    const other = await confirm(devB, {
+      paymentKey: 'pay_web_callback_dup_probe',
+      orderId,
+      amount: 10000,
+    });
+    assert(other.status === 403, `ownership ${other.status}`);
+
+    const payments = await adminPayments(admin);
+    assert(payments.some((p) => p.status === 'PAID' && p.amount === 10000), 'admin sees PAID coin');
+    console.log('OK coin verify after web callback', { orderId, before, after, afterDup, paymentId: row.id });
     return;
   }
 
@@ -265,8 +324,51 @@ async function main() {
   if (mode === '--premium-preflight') {
     const statusBefore = await premiumStatus(devA);
     const order = await createOrder(devA, byCode.PREMIUM_30D!.id);
-    console.log('OK premium order', { orderId: order.orderId, premiumBefore: statusBefore });
-    console.log('NEXT: complete premium checkout, then --confirm-premium');
+    console.log('OK premium order', { orderId: order.orderId, premiumBefore: statusBefore, checkoutUrl: order.checkoutUrl });
+    console.log(
+      'NEXT: open checkoutUrl in desktop browser, complete Toss TEST once (web callback auto-confirms).',
+    );
+    console.log('THEN: ORDER_ID=' + order.orderId + ' pnpm exec tsx scripts/payment-dev-e2e.ts --verify-premium');
+    return;
+  }
+
+  if (mode === '--verify-premium') {
+    const orderId = process.env.ORDER_ID;
+    assert(orderId, 'Set ORDER_ID from premium-preflight output');
+
+    const adminRows = await j<{
+      items: Array<{ id: string; status: string; amount: number; orderId: string }>;
+    }>('/admin/payments', { headers: admin });
+    assert(adminRows.status === 200, `admin payments ${adminRows.status}`);
+    const row = adminRows.body.items.find((p) => p.orderId === orderId);
+    assert(row, 'premium payment row');
+    assert(row.status === 'PAID', 'premium PAID');
+    assert(row.amount === 9900, 'amount 9900');
+
+    const payment = await j<{ status: string; amount: number; orderId: string }>(`/payments/${row.id}`, {
+      headers: devA,
+    });
+    assert(payment.status === 200, `payment detail ${payment.status}`);
+    assert(payment.body.status === 'PAID', 'user detail PAID');
+    assert(payment.body.orderId === orderId, 'orderId match');
+
+    const after = await premiumStatus(devA);
+    assert(after.active === true, 'premium active');
+    assert(after.expiresAt, 'expiresAt set');
+    const expires1 = after.expiresAt!;
+
+    const dup = await confirm(devA, {
+      paymentKey: 'pay_web_callback_dup_probe',
+      orderId,
+      amount: 9900,
+    });
+    assert(dup.status === 200 || dup.status === 201, 'premium dup');
+    const afterDup = await premiumStatus(devA);
+    assert(afterDup.expiresAt === expires1, 'no duplicate extension');
+
+    const payments = await adminPayments(admin);
+    assert(payments.filter((p) => p.status === 'PAID' && p.amount === 9900).length >= 1, 'admin premium PAID');
+    console.log('OK premium verify after web callback', { orderId, expiresAt: expires1 });
     return;
   }
 
