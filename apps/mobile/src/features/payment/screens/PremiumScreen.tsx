@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Badge,
   Button,
@@ -14,7 +14,6 @@ import { PaymentProductType, type PaymentProductDto, type PremiumStatusDto } fro
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
 import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
-import { runPaymentCheckout } from '../payment-checkout';
 
 function formatKrw(price: number) {
   return `₩${formatNumber(price)}`;
@@ -26,11 +25,11 @@ function formatDate(iso: string) {
 
 export function PremiumScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ paymentSuccess?: string; paymentError?: string }>();
   const { me, refreshMe } = useSession();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [product, setProduct] = useState<PaymentProductDto | null>(null);
   const [premium, setPremium] = useState<PremiumStatusDto | null>(me?.premiumStatus ?? null);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successPremium, setSuccessPremium] = useState<PremiumStatusDto | null>(null);
 
@@ -47,24 +46,28 @@ export function PremiumScreen() {
     void load().catch(() => setError('프리미엄 정보를 불러오지 못했습니다.'));
   }, [load]);
 
-  const onPurchase = async () => {
-    if (!product || busy) return;
-    setBusy(true);
-    setError(null);
-    const result = await runPaymentCheckout(api, product.id);
-    if (!result.ok) {
-      setError(
-        result.reason === 'cancelled'
-          ? '결제가 취소되었습니다.'
-          : '결제를 완료하지 못했습니다. 다시 시도해주세요.',
-      );
-      setBusy(false);
+  useEffect(() => {
+    if (params.paymentSuccess === '1') {
+      void (async () => {
+        await refreshMe();
+        const status = await api.getPremiumStatus();
+        setSuccessPremium(status);
+        setPremium(status);
+      })();
       return;
     }
-    await refreshMe();
-    const status = await api.getPremiumStatus();
-    setSuccessPremium(status);
-    setBusy(false);
+    if (params.paymentError === 'cancelled') {
+      setError('결제가 취소되었습니다.');
+    }
+  }, [api, params.paymentError, params.paymentSuccess, refreshMe]);
+
+  const onPurchase = () => {
+    if (!product) return;
+    setError(null);
+    router.push({
+      pathname: '/my/payment-checkout',
+      params: { productId: product.id, returnTo: 'premium' },
+    });
   };
 
   if (successPremium) {
@@ -170,9 +173,8 @@ export function PremiumScreen() {
               : `${formatKrw(product.price)} 프리미엄 시작하기`
             : '상품 준비 중'
         }
-        disabled={!product || busy}
-        loading={busy}
-        onPress={() => void onPurchase()}
+        disabled={!product}
+        onPress={onPurchase}
       />
     </ScrollScreenFrame>
   );

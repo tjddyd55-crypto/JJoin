@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Button,
   Card,
@@ -14,7 +14,6 @@ import { PaymentProductType, type PaymentProductDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
 import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
-import { runPaymentCheckout } from '../payment-checkout';
 
 function formatKrw(price: number) {
   return `₩${formatNumber(price)}`;
@@ -23,12 +22,16 @@ function formatKrw(price: number) {
 export function CoinChargeScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    successCoin?: string;
+    successBalance?: string;
+    paymentError?: string;
+  }>();
   const { refreshMe } = useSession();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [products, setProducts] = useState<PaymentProductDto[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [balance, setBalance] = useState<string>('0');
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successCoin, setSuccessCoin] = useState<string | null>(null);
   const [successBalance, setSuccessBalance] = useState<string | null>(null);
@@ -47,27 +50,28 @@ export function CoinChargeScreen() {
     void load().catch(() => setError('상품을 불러오지 못했습니다.'));
   }, [load]);
 
-  const selected = products.find((p) => p.id === selectedId) ?? null;
-
-  const onCharge = async () => {
-    if (!selected || busy) return;
-    setBusy(true);
-    setError(null);
-    const result = await runPaymentCheckout(api, selected.id);
-    if (!result.ok) {
-      setError(
-        result.reason === 'cancelled'
-          ? '결제가 취소되었습니다.'
-          : '결제를 완료하지 못했습니다. 다시 시도해주세요.',
-      );
-      setBusy(false);
+  useEffect(() => {
+    if (params.successCoin) {
+      setSuccessCoin(params.successCoin);
+      setSuccessBalance(params.successBalance ?? null);
+      void refreshMe();
+      void load();
       return;
     }
-    await refreshMe();
-    const wallet = await api.getWallet();
-    setSuccessCoin(result.data.coinCredited ?? selected.coinAmount ?? '0');
-    setSuccessBalance(wallet.availableCoin);
-    setBusy(false);
+    if (params.paymentError === 'cancelled') {
+      setError('결제가 취소되었습니다.');
+    }
+  }, [params.paymentError, params.successBalance, params.successCoin, load, refreshMe]);
+
+  const selected = products.find((p) => p.id === selectedId) ?? null;
+
+  const onCharge = () => {
+    if (!selected) return;
+    setError(null);
+    router.push({
+      pathname: '/my/payment-checkout',
+      params: { productId: selected.id, returnTo: 'coin-charge' },
+    });
   };
 
   if (successCoin) {
@@ -150,9 +154,8 @@ export function CoinChargeScreen() {
       <Spacer size="lg" />
       <Button
         label={selected ? `${formatKrw(selected.price)} 충전하기` : '상품을 선택하세요'}
-        disabled={!selected || busy}
-        loading={busy}
-        onPress={() => void onCharge()}
+        disabled={!selected}
+        onPress={onCharge}
       />
     </ScrollScreenFrame>
   );

@@ -1,6 +1,6 @@
-import * as WebBrowser from 'expo-web-browser';
 import type { ApiClient } from '@jjoin/api-client';
 import type { PaymentDetailDto, PremiumStatusDto } from '@jjoin/types';
+import type { ParsedPaymentCallback } from './payment-checkout-callback';
 
 export type PaymentCheckoutSuccess = {
   payment: PaymentDetailDto;
@@ -18,41 +18,13 @@ export type PaymentCheckoutResult =
   | { ok: true; data: PaymentCheckoutSuccess }
   | { ok: false; reason: PaymentCheckoutFailureReason };
 
-function parseCallbackUrl(url: string): {
-  paymentKey: string;
-  orderId: string;
-  amount: number;
-  failed: boolean;
-} | null {
-  try {
-    const parsed = new URL(url);
-    const failed = parsed.pathname.includes('fail') || parsed.hostname === 'fail';
-    const paymentKey = parsed.searchParams.get('paymentKey');
-    const orderId = parsed.searchParams.get('orderId');
-    const amount = Number(parsed.searchParams.get('amount'));
-    if (!paymentKey || !orderId || !Number.isFinite(amount)) return null;
-    return { paymentKey, orderId, amount, failed };
-  } catch {
-    return null;
-  }
-}
-
-export async function runPaymentCheckout(
+export async function confirmPaymentFromCallback(
   api: ApiClient,
-  productId: string,
+  callback: ParsedPaymentCallback,
 ): Promise<PaymentCheckoutResult> {
-  const order = await api.createPaymentOrder({ productId });
-  const session = await WebBrowser.openAuthSessionAsync(
-    order.checkoutUrl,
-    order.successRedirectScheme,
-  );
-  if (session.type !== 'success' || !session.url) {
-    return { ok: false, reason: session.type === 'cancel' ? 'cancelled' : 'invalid_callback' };
+  if (callback.failed) {
+    return { ok: false, reason: 'cancelled' };
   }
-
-  const callback = parseCallbackUrl(session.url);
-  if (!callback) return { ok: false, reason: 'invalid_callback' };
-  if (callback.failed) return { ok: false, reason: 'cancelled' };
 
   try {
     const confirmed = await api.confirmTossPayment({

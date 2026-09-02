@@ -1,0 +1,236 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { WebView, type WebViewNavigation } from 'react-native-webview';
+import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
+import { Button, Spacer, Text, useTheme } from '@jjoin/design-system';
+import type { CreatePaymentOrderResponse } from '@jjoin/types';
+import { getApiBaseUrl, getApiClient } from '../../../lib/api';
+import { getSecureSessionStore, useSession } from '../../session/SessionContext';
+import { isAllowedCheckoutNavigation } from './payment-checkout-callback';
+import { confirmPaymentFromCallback } from './payment-checkout';
+
+type CheckoutPhase = 'creating_order' | 'loading_webview' | 'confirming' | 'load_error';
+
+type PaymentReturnRoute = 'coin-charge' | 'premium';
+
+export function PaymentCheckoutScreen() {
+  const theme = useTheme();
+  const router = useRouter();
+  const { refreshMe } = useSession();
+  const params = useLocalSearchParams<{ productId?: string; returnTo?: string }>();
+  const productId = params.productId ?? '';
+  const returnTo = (params.returnTo === 'premium' ? 'premium' : 'coin-charge') as PaymentReturnRoute;
+
+  const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
+
+  const [phase, setPhase] = useState<CheckoutPhase>('creating_order');
+  const [order, setOrder] = useState<CreatePaymentOrderResponse | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const handledCallbackRef = useRef(false);
+  const orderRef = useRef<CreatePaymentOrderResponse | null>(null);
+
+  const closeWithCancel = useCallback(() => {
+    router.back();
+  }, [router]);
+
+  const finishSuccess = useCallback(
+    async (result: Awaited<ReturnType<typeof confirmPaymentFromCallback>>) => {
+      if (!result.ok) return;
+      await refreshMe();
+
+      if (returnTo === 'coin-charge') {
+        const wallet = await api.getWallet();
+        router.replace({
+          pathname: '/my/coin-charge',
+          params: {
+            successCoin: result.data.coinCredited ?? '0',
+            successBalance: wallet.availableCoin,
+          },
+        });
+        return;
+      }
+
+      router.replace({
+        pathname: '/my/premium',
+        params: { paymentSuccess: '1' },
+      });
+    },
+    [api, refreshMe, returnTo, router],
+  );
+
+  const handleCallbackUrl = useCallback(
+    async (url: string) => {
+      const currentOrder = orderRef.current;
+      if (!currentOrder || handledCallbackRef.current) return false;
+
+      if (
+        !url.startsWith(currentOrder.successRedirectScheme) &&
+        !url.startsWith(currentOrder.failRedirectScheme)
+      ) {
+        return false;
+      }
+
+      handledCallbackRef.current = true;
+      setPhase('confirming');
+
+      if (url.startsWith(currentOrder.failRedirectScheme)) {
+        router.replace({
+          pathname: returnTo === 'premium' ? '/my/premium' : '/my/coin-charge',
+          params: { paymentError: 'cancelled' },
+        });
+        return true;
+      }
+
+      const callback = {
+        paymentKey: new URL(url).searchParams.get('paymentKey') ?? '',
+        orderId: new URL(url).searchParams.get('orderId') ?? '',
+        amount: Number(new URL(url).searchParams.get('amount')),
+        failed: false,
+      };
+
+      if (!callback.paymentKey || !callback.orderId || !Number.isFinite(callback.amount)) {
+        setLoadError('결제 정보를 확인하지 못했습니다.');
+        setPhase('load_error');
+        handledCallbackRef.current = false;
+        return true;
+      }
+
+      const confirmed = await confirmPaymentFromCallback(api, callback);
+      if (!confirmed.ok) {
+        setLoadError('결제를 완료하지 못했습니다. 다시 시도해주세요.');
+        setPhase('load_error');
+        handledCallbackRef.current = false;
+        return true;
+      }
+
+      await finishSuccess(confirmed);
+      return true;
+    },
+    [api, finishSuccess, returnTo, router],
+  );
+
+  const onShouldStartLoadWithRequest = useCallback(
+    (request: ShouldStartLoadRequest) => {
+      const url = request.url;
+      const currentOrder = orderRef.current;
+      if (currentOrder) {
+        if (
+          url.startsWith(currentOrder.successRedirectScheme) ||
+          url.startsWith(currentOrder.failRedirectScheme)
+        ) {
+          void handleCallbackUrl(url);
+          return false;
+        }
+      }
+
+      if (!isAllowedCheckoutNavigation(url, apiBaseUrl)) return false;
+      return true;
+    },
+    [apiBaseUrl, handleCallbackUrl],
+  );
+
+  const onNavigationStateChange = useCallback(
+    (event: WebViewNavigation) => {
+      void handleCallbackUrl(event.url);
+    },
+    [handleCallbackUrl],
+  );
+
+  useEffect(() => {
+    if (!productId) {
+      setLoadError('결제 상품 정보가 없습니다.');
+      setPhase('load_error');
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const created = await api.createPaymentOrder({ productId });
+        if (cancelled) return;
+        orderRef.current = created;
+        setOrder(created);
+        setPhase('loading_webview');
+      } catch {
+        if (cancelled) return;
+        setLoadError('결제 주문을 만들지 못했습니다.');
+        setPhase('load_error');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [api, productId]);
+
+  if (phase === 'creating_order' || phase === 'confirming') {
+    return (
+      <View style={[styles.centered, { backgroundColor: theme.colors.app.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.action.primary} />
+        <Spacer size="md" />
+        <Text variant="body" tone="secondary">
+          {phase === 'confirming' ? '결제를 확인하는 중입니다…' : '결제 화면을 준비하는 중입니다…'}
+        </Text>
+      </View>
+    );
+  }
+
+  if (phase === 'load_error' || !order) {
+    return (
+      <View style={[styles.centered, styles.pad, { backgroundColor: theme.colors.app.background }]}>
+        <Text variant="sectionTitle">결제를 진행할 수 없습니다</Text>
+        <Spacer size="sm" />
+        <Text variant="body" tone="secondary">
+          {loadError ?? '결제 화면을 불러오지 못했습니다.'}
+        </Text>
+        <Spacer size="lg" />
+        <Button label="다시 시도" onPress={() => router.replace({
+          pathname: '/my/payment-checkout',
+          params: { productId, returnTo },
+        })} />
+        <Spacer size="sm" />
+        <Button label="닫기" variant="secondary" onPress={closeWithCancel} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.flex, { backgroundColor: theme.colors.app.background }]}>
+      <WebView
+        source={{ uri: order.checkoutUrl }}
+        originWhitelist={['https://*', 'http://*', 'jjoin://*', 'jjoindev://*']}
+        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+        onNavigationStateChange={onNavigationStateChange}
+        onError={() => {
+          setLoadError('결제 화면을 불러오지 못했습니다.');
+          setPhase('load_error');
+        }}
+        onHttpError={() => {
+          setLoadError('결제 화면을 불러오지 못했습니다.');
+          setPhase('load_error');
+        }}
+        startInLoadingState
+        renderLoading={() => (
+          <View style={[styles.centered, styles.loadingOverlay]}>
+            <ActivityIndicator size="large" color={theme.colors.action.primary} />
+          </View>
+        )}
+        setSupportMultipleWindows={false}
+        sharedCookiesEnabled
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  pad: { paddingHorizontal: 24 },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15,20,25,0.6)',
+  },
+});
