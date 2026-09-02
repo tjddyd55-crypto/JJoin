@@ -49,6 +49,7 @@ export {
   ScreenFrame,
   ScrollScreenFrame,
   FormScreenFrame,
+  useFormScroll,
   StickyActionFrame,
   Section,
   type ScreenFrameProps,

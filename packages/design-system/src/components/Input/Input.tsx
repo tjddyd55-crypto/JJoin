@@ -9,6 +9,7 @@ import { Text } from '../../primitives/Text';
 import { useTheme } from '../../theme';
 import type { IconName } from '../../icons/iconTypes';
 import { Icon } from '../../icons/Icon';
+import { useFormScroll } from '../../layout/FormScreenFrame';
 
 export type InputProps = TextInputProps & {
   label?: string;
@@ -31,6 +32,7 @@ export function Input({
   ...rest
 }: InputProps) {
   const theme = useTheme();
+  const formScroll = useFormScroll();
   const [focused, setFocused] = useState(false);
   const hasError = Boolean(error);
   const isDisabled = editable === false;
@@ -75,6 +77,7 @@ export function Input({
           ]}
           onFocus={(e) => {
             setFocused(true);
+            formScroll?.ensureFocusedVisible();
             onFocus?.(e);
           }}
           onBlur={(e) => {
