@@ -224,6 +224,7 @@ async function main() {
       orderId: order.orderId,
       amount: order.amount,
       checkoutUrl: order.checkoutUrl,
+      browserCheckoutUrl: `${order.checkoutUrl}&callback=web`,
     });
     console.log('OK guards', { orderTamper: tamperOrder.status, ownership: ownership.status, amountTamper: amountTamper.status });
     console.log(
@@ -326,7 +327,12 @@ async function main() {
   if (mode === '--premium-preflight') {
     const statusBefore = await premiumStatus(devA);
     const order = await createOrder(devA, byCode.PREMIUM_30D!.id);
-    console.log('OK premium order', { orderId: order.orderId, premiumBefore: statusBefore, checkoutUrl: order.checkoutUrl });
+    console.log('OK premium order', {
+      orderId: order.orderId,
+      premiumBefore: statusBefore,
+      checkoutUrl: order.checkoutUrl,
+      browserCheckoutUrl: `${order.checkoutUrl}&callback=web`,
+    });
     console.log(
       'NEXT: open checkoutUrl in desktop browser, complete Toss TEST once (web callback auto-confirms).',
     );

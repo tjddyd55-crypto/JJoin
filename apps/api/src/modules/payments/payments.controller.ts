@@ -41,8 +41,13 @@ export class PaymentsController {
   }
 
   @Get('payments/toss/checkout-page')
-  async checkoutPage(@Query('token') token: string, @Res() res: Response) {
-    const html = await this.payments.getCheckoutPageHtml(token);
+  async checkoutPage(
+    @Query('token') token: string,
+    @Query('callback') callback: string | undefined,
+    @Res() res: Response,
+  ) {
+    const callbackMode = callback === 'web' ? 'web' : 'app';
+    const html = await this.payments.getCheckoutPageHtml(token, callbackMode);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
   }

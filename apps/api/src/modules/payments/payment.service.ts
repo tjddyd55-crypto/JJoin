@@ -58,25 +58,29 @@ function resolveMobilePaymentScheme(): string {
   return (process.env.PAYMENT_MOBILE_SCHEME ?? 'jjoindev').trim();
 }
 
-function shouldUseWebCheckoutCallback(): boolean {
+function isDevelopmentPaymentEnvironment(): boolean {
   if (process.env.PAYMENT_CHECKOUT_WEB_CALLBACK === '1') return true;
   const envName = (process.env.RAILWAY_ENVIRONMENT_NAME ?? '').toLowerCase();
   if (envName === 'development') return true;
   return resolvePublicApiBase().includes('development');
 }
 
-function resolveCheckoutRedirectUrls(): { successUrl: string; failUrl: string } {
+type CheckoutCallbackMode = 'app' | 'web';
+
+function resolveCheckoutRedirectUrls(
+  callbackMode: CheckoutCallbackMode = 'app',
+): { successUrl: string; failUrl: string } {
   const scheme = resolveMobilePaymentScheme();
-  if (!shouldUseWebCheckoutCallback()) {
+  if (callbackMode === 'web' && isDevelopmentPaymentEnvironment()) {
+    const base = resolvePublicApiBase();
     return {
-      successUrl: `${scheme}://payment/success`,
-      failUrl: `${scheme}://payment/fail`,
+      successUrl: `${base}/payments/toss/web-callback?outcome=success`,
+      failUrl: `${base}/payments/toss/web-callback?outcome=fail`,
     };
   }
-  const base = resolvePublicApiBase();
   return {
-    successUrl: `${base}/payments/toss/web-callback?outcome=success`,
-    failUrl: `${base}/payments/toss/web-callback?outcome=fail`,
+    successUrl: `${scheme}://payment/success`,
+    failUrl: `${scheme}://payment/fail`,
   };
 }
 
@@ -192,7 +196,7 @@ export class PaymentService {
     };
   }
 
-  async getCheckoutPageHtml(token: string): Promise<string> {
+  async getCheckoutPageHtml(token: string, callbackMode: CheckoutCallbackMode = 'app'): Promise<string> {
     const payment = await this.prisma.payment.findFirst({
       where: { checkoutToken: token },
       include: { product: true },
@@ -211,7 +215,7 @@ export class PaymentService {
     const settings = await this.loadProviderSettings();
     if (!settings.clientKey) throw new ServiceUnavailableException('payment_not_configured');
 
-    const { successUrl, failUrl } = resolveCheckoutRedirectUrls();
+    const { successUrl, failUrl } = resolveCheckoutRedirectUrls(callbackMode);
 
     return `<!DOCTYPE html>
 <html lang="ko">
@@ -271,7 +275,7 @@ export class PaymentService {
   async processWebCallback(
     query: Record<string, string | string[] | undefined>,
   ): Promise<{ statusCode: number; html: string }> {
-    if (!shouldUseWebCheckoutCallback()) {
+    if (!isDevelopmentPaymentEnvironment()) {
       return {
         statusCode: 404,
         html: '<!DOCTYPE html><html><body><p>Not found</p></body></html>',
