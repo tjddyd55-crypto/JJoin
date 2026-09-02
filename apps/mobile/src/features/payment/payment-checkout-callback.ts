@@ -68,6 +68,11 @@ export function matchPaymentCallbackUrl(
   return { kind: 'none' };
 }
 
+/**
+ * @deprecated Prefer classifyCheckoutNavigation — kept for host allowlist tests.
+ * During live checkout, http(s) card-issuer pages must load; custom schemes are
+ * handled by payment-checkout-external-nav.
+ */
 export function isAllowedCheckoutNavigation(url: string, apiBaseUrl: string): boolean {
   const normalized = url.trim();
   if (!normalized || normalized === 'about:blank') return true;

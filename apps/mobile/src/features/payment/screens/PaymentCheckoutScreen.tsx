@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
 import { Button, Spacer, Text, useTheme } from '@jjoin/design-system';
 import type { CreatePaymentOrderResponse } from '@jjoin/types';
-import { getApiBaseUrl, getApiClient } from '../../../lib/api';
+import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
+import { parsePaymentCallbackUrl } from '../payment-checkout-callback';
 import {
-  isAllowedCheckoutNavigation,
-  parsePaymentCallbackUrl,
-} from '../payment-checkout-callback';
+  classifyCheckoutNavigation,
+  resolveExternalOpenUrl,
+  shouldLoadInWebView,
+} from '../payment-checkout-external-nav';
 import { confirmPaymentFromCallback } from '../payment-checkout';
 
 type CheckoutPhase = 'creating_order' | 'loading_webview' | 'confirming' | 'load_error';
@@ -31,6 +33,14 @@ function isAppSchemeCallback(
   );
 }
 
+async function openExternalPaymentUrl(url: string): Promise<void> {
+  try {
+    await Linking.openURL(url);
+  } catch {
+    // App missing / unresolved — user stays on checkout; do not crash WebView.
+  }
+}
+
 export function PaymentCheckoutScreen() {
   const theme = useTheme();
   const router = useRouter();
@@ -40,7 +50,6 @@ export function PaymentCheckoutScreen() {
   const returnTo = (params.returnTo === 'premium' ? 'premium' : 'coin-charge') as PaymentReturnRoute;
 
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
-  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
 
   const [phase, setPhase] = useState<CheckoutPhase>('creating_order');
   const [order, setOrder] = useState<CreatePaymentOrderResponse | null>(null);
@@ -50,8 +59,14 @@ export function PaymentCheckoutScreen() {
   const orderRef = useRef<CreatePaymentOrderResponse | null>(null);
 
   const closeWithCancel = useCallback(() => {
+    const current = orderRef.current;
+    if (current?.paymentId) {
+      void api.cancelReadyPayment(current.paymentId).catch(() => {
+        // Already canceled / superseded — ignore.
+      });
+    }
     router.back();
-  }, [router]);
+  }, [api, router]);
 
   const finishSuccess = useCallback(
     async (result: Awaited<ReturnType<typeof confirmPaymentFromCallback>>) => {
@@ -124,6 +139,28 @@ export function PaymentCheckoutScreen() {
     [api, finishSuccess, returnTo, router],
   );
 
+  const handleExternalNavigation = useCallback((url: string): boolean => {
+    const decision = classifyCheckoutNavigation(url);
+    if (shouldLoadInWebView(decision)) return true;
+
+    if (decision.kind === 'merchant_callback') {
+      void handleCallbackUrl(url);
+      return false;
+    }
+
+    if (decision.kind === 'block') {
+      return false;
+    }
+
+    const openUrl = resolveExternalOpenUrl(decision);
+    if (openUrl) {
+      void openExternalPaymentUrl(openUrl);
+    } else if (decision.fallbackUrl) {
+      void openExternalPaymentUrl(decision.fallbackUrl);
+    }
+    return false;
+  }, [handleCallbackUrl]);
+
   const onShouldStartLoadWithRequest = useCallback(
     (request: ShouldStartLoadRequest) => {
       const url = request.url;
@@ -134,18 +171,39 @@ export function PaymentCheckoutScreen() {
           return false;
         }
       }
-
-      if (!isAllowedCheckoutNavigation(url, apiBaseUrl)) return false;
-      return true;
+      return handleExternalNavigation(url);
     },
-    [apiBaseUrl, handleCallbackUrl],
+    [handleCallbackUrl, handleExternalNavigation],
   );
 
   const onNavigationStateChange = useCallback(
     (event: WebViewNavigation) => {
-      void handleCallbackUrl(event.url);
+      const url = event.url;
+      if (isWebViewReturnUrl(url)) {
+        void handleCallbackUrl(url);
+        return;
+      }
+      const decision = classifyCheckoutNavigation(url);
+      if (!shouldLoadInWebView(decision) && decision.kind !== 'merchant_callback') {
+        handleExternalNavigation(url);
+      } else {
+        void handleCallbackUrl(url);
+      }
     },
-    [handleCallbackUrl],
+    [handleCallbackUrl, handleExternalNavigation],
+  );
+
+  const onOpenWindow = useCallback(
+    (syntheticEvent: { nativeEvent: { targetUrl: string } }) => {
+      const targetUrl = syntheticEvent.nativeEvent.targetUrl;
+      if (!targetUrl) return;
+      if (isWebViewReturnUrl(targetUrl)) {
+        void handleCallbackUrl(targetUrl);
+        return;
+      }
+      handleExternalNavigation(targetUrl);
+    },
+    [handleCallbackUrl, handleExternalNavigation],
   );
 
   useEffect(() => {
@@ -221,9 +279,24 @@ export function PaymentCheckoutScreen() {
     <View style={[styles.flex, { backgroundColor: theme.colors.app.background }]}>
       <WebView
         source={{ uri: order.checkoutUrl }}
-        originWhitelist={['https://*', 'http://*', 'jjoin://*', 'jjoindev://*']}
+        originWhitelist={[
+          'https://*',
+          'http://*',
+          'jjoin://*',
+          'jjoindev://*',
+          'intent://*',
+          'market://*',
+          'mpocket.online.ansimclick://*',
+          'mpocket.ansimclick.cert://*',
+          'monimopay://*',
+          'monimopayauth://*',
+          'samsungpay://*',
+          'supertoss://*',
+          'ispmobile://*',
+        ]}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         onNavigationStateChange={onNavigationStateChange}
+        onOpenWindow={onOpenWindow}
         onError={() => {
           setLoadError('결제 화면을 불러오지 못했습니다.');
           setPhase('load_error');
@@ -238,8 +311,16 @@ export function PaymentCheckoutScreen() {
             <ActivityIndicator size="large" color={theme.colors.action.primary} />
           </View>
         )}
-        setSupportMultipleWindows={false}
+        /**
+         * Card issuers may use window.open for auth. Keep single WebView document
+         * and route the target URL through our classifier (App-to-App / https).
+         */
+        setSupportMultipleWindows={true}
+        javaScriptCanOpenWindowsAutomatically
         sharedCookiesEnabled
+        javaScriptEnabled
+        domStorageEnabled
+        thirdPartyCookiesEnabled
       />
     </View>
   );
@@ -250,7 +331,7 @@ const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   pad: { paddingHorizontal: 24 },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(15,20,25,0.6)',
   },
 });

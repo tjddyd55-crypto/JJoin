@@ -1790,6 +1790,14 @@ export class ApiClient {
     return parseJson(res);
   }
 
+  async cancelReadyPayment(paymentId: string): Promise<{ ok: true }> {
+    const res = await request(`${this.config.baseUrl}/payments/${encodeURIComponent(paymentId)}/cancel`, {
+      method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
   async confirmTossPayment(body: ConfirmTossPaymentRequest): Promise<{
     payment: PaymentDetailDto;
     premiumStatus?: { expiresAt: string; startedAt: string };

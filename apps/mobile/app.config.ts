@@ -148,6 +148,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         },
       },
     ],
+    './plugins/with-toss-payment-queries.js',
   ];
 
   // Dev Launcher only for Development identity (eas developmentClient).
@@ -203,6 +204,16 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
           '주변 스크린골프장과 조인을 찾기 위해 현재 위치를 사용합니다.',
+        // Toss card/bank App-to-App schemes — merged further by with-toss-payment-queries.
+        LSApplicationQueriesSchemes: [
+          'supertoss',
+          'mpocket.online.ansimclick',
+          'mpocket.ansimclick.cert',
+          'monimopay',
+          'monimopayauth',
+          'samsungpay',
+          'ispmobile',
+        ],
       },
     },
     android: {

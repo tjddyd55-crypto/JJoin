@@ -17,6 +17,10 @@ function statusLabel(status: PaymentStatus) {
       return '취소';
     case PaymentStatus.REFUNDED:
       return '환불';
+    case PaymentStatus.READY:
+      return '결제대기';
+    case PaymentStatus.PROCESSING:
+      return '승인중';
     default:
       return '진행중';
   }
