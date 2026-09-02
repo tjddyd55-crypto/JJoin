@@ -9,7 +9,7 @@ import {
   StickyActionFrame,
   Stack,
 } from '@jjoin/design-system';
-import { computeCoinShortfall, computeRewardEligibleSlots } from '@jjoin/domain';
+import { computeCoinShortfall, computeRewardEligibleSlots, formatNumber } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
 import { JoinMethod, SCREEN_GOLF_CODE, IdentityStatus } from '@jjoin/types';
 import { RewardCoinInput } from '../../src/ui/patterns/RewardCoinInput';
@@ -246,7 +246,7 @@ export default function CreateScreen() {
     if (!canCreate) {
       setError(
         shortfall
-          ? t('create.coin.insufficientAmount').replace('{amount}', shortfall)
+          ? t('create.coin.insufficientAmount').replace('{amount}', formatNumber(shortfall))
           : t('create.coin.insufficient'),
       );
       return;

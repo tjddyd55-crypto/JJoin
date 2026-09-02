@@ -4,12 +4,12 @@
  */
 
 import { compareCoinAmounts, subCoinAmounts } from './coin-amount';
+import { formatGroupedInteger } from './display-number';
 
 /** Quick-add denominations — UI config only, not business policy. */
 export const REWARD_QUICK_ADD_DENOMINATIONS = [1, 5, 10, 50, 100] as const;
 
 const MAX_REWARD_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
-const NUMBER_FORMAT = new Intl.NumberFormat('ko-KR');
 
 /**
  * Live input parse: digits only, strip commas/junk.
@@ -31,7 +31,7 @@ export function formatNumberWithThousandsSeparator(
   if (value === null || value === undefined || value === '') return '';
   const n = typeof value === 'number' ? value : Number(String(value).replace(/,/g, ''));
   if (!Number.isFinite(n) || n < 0) return '';
-  return NUMBER_FORMAT.format(Math.min(Math.trunc(n), MAX_REWARD_SAFE_INTEGER));
+  return formatGroupedInteger(Math.min(Math.trunc(n), MAX_REWARD_SAFE_INTEGER));
 }
 
 /** Normalize manual numeric input: digits only, no leading zeros, empty → "0". */
