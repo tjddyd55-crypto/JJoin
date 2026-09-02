@@ -471,6 +471,19 @@ export const updateAdminPaymentProviderSettingsSchema = z.object({
   secretKey: z.string().trim().max(200).nullable().optional(),
 });
 
+const joinCreationCoinRolePolicySchema = z.object({
+  enabled: z.boolean(),
+  cost: z.number().int().min(0).max(1_000_000_000),
+});
+
+export const updateJoinCreationCoinPolicySchema = z.object({
+  general: joinCreationCoinRolePolicySchema,
+  premium: joinCreationCoinRolePolicySchema,
+  storeOwner: joinCreationCoinRolePolicySchema,
+});
+
+export type UpdateJoinCreationCoinPolicyInput = z.infer<typeof updateJoinCreationCoinPolicySchema>;
+
 export const updatePaymentProductSchema = z.object({
   name: z.string().trim().min(1).max(80).optional(),
   description: z.string().trim().max(200).nullable().optional(),

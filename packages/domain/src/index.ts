@@ -232,6 +232,22 @@ export {
 } from './coin-join';
 
 export {
+  DEFAULT_JOIN_CREATION_COIN_POLICY,
+  JOIN_CREATOR_USER_TYPES,
+  assertJoinCreationCoinPolicy,
+  joinCreatorUserTypeLabelKo,
+  normalizeCreationCostInteger,
+  resolveEffectiveCreationCost,
+  resolveJoinCreatorUserType,
+  rolePolicyForUserType,
+  type JoinCreationCoinPolicy,
+  type JoinCreationCoinRolePolicy,
+  type JoinCreationCostSnapshot,
+  type JoinCreatorUserType,
+  type ResolveJoinCreatorUserTypeInput,
+} from './join-creation-coin-policy';
+
+export {
   assertRecruitClosesBeforeStart,
   assertValidMinimumPlayers,
   buildStoreMatchingSecondaryLabel,

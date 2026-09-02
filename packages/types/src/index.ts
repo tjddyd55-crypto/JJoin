@@ -269,6 +269,40 @@ export type JoinCoinPreviewDto = {
   /** available − totalRequired when affordable; else walletAvailable unchanged. */
   walletAfterCreation: string;
   canCreate: boolean;
+  /** Resolved creator tier for this preview. */
+  creatorUserType?: JoinCreatorUserType;
+  /** Korean label for UI (일반 회원 / 프리미엄 회원 / 업주). */
+  creatorUserTypeLabel?: string;
+  /** Whether creation fee policy is enabled for this user type. */
+  creationCoinEnabled?: boolean;
+  /** Effective creation cost (0 when disabled). Same as roomCreationFee. */
+  creationCoinCost?: string;
+  /** wallet shortfall when !canCreate; else null. */
+  coinShortfall?: string | null;
+};
+
+export type JoinCreatorUserType = 'GENERAL' | 'PREMIUM' | 'STORE_OWNER';
+
+export type JoinCreationCoinRolePolicyDto = {
+  enabled: boolean;
+  cost: number;
+};
+
+export type JoinCreationCoinPolicyDto = {
+  general: JoinCreationCoinRolePolicyDto;
+  premium: JoinCreationCoinRolePolicyDto;
+  storeOwner: JoinCreationCoinRolePolicyDto;
+};
+
+export type UpdateJoinCreationCoinPolicyRequest = JoinCreationCoinPolicyDto;
+
+export type MeJoinCoinPolicyDto = {
+  userType: JoinCreatorUserType;
+  userTypeLabel: string;
+  enabled: boolean;
+  cost: number;
+  /** Effective coin amount string for create. */
+  creationCoinCost: string;
 };
 
 export type MeDto = {
