@@ -14,6 +14,7 @@ import {
   shouldLoadInWebView,
 } from '../payment-checkout-external-nav';
 import { confirmPaymentFromCallback } from '../payment-checkout';
+import { setCoinChargePaymentHandoff } from '../payment-return-handoff';
 
 type CheckoutPhase = 'creating_order' | 'loading_webview' | 'confirming' | 'load_error';
 
@@ -75,13 +76,12 @@ export function PaymentCheckoutScreen() {
 
       if (returnTo === 'coin-charge') {
         const wallet = await api.getWallet();
-        router.replace({
-          pathname: '/my/coin-charge',
-          params: {
-            successCoin: result.data.coinCredited ?? '0',
-            successBalance: wallet.availableCoin,
-          },
+        setCoinChargePaymentHandoff({
+          credited: result.data.coinCredited ?? '0',
+          balance: wallet.availableCoin,
         });
+        // back() keeps a single coin-charge instance so balance state can refresh on focus.
+        router.back();
         return;
       }
 
@@ -110,10 +110,14 @@ export function PaymentCheckoutScreen() {
         url.startsWith(currentOrder.failRedirectScheme);
 
       if (failed) {
-        router.replace({
-          pathname: returnTo === 'premium' ? '/my/premium' : '/my/coin-charge',
-          params: { paymentError: 'cancelled' },
-        });
+        if (returnTo === 'coin-charge') {
+          router.back();
+        } else {
+          router.replace({
+            pathname: '/my/premium',
+            params: { paymentError: 'cancelled' },
+          });
+        }
         return true;
       }
 

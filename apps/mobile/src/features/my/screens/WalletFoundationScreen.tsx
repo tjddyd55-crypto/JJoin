@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
   Badge,
   Button,
@@ -35,9 +35,11 @@ export function WalletFoundationScreen() {
     }
   }, [api]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
 
   return (
     <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>

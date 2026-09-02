@@ -28,7 +28,7 @@ function showWithdrawTbd() {
 }
 
 export function MyHomeScreen() {
-  const { me, logout } = useSession();
+  const { me, logout, refreshMe } = useSession();
   const router = useRouter();
   const theme = useTheme();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
@@ -37,6 +37,7 @@ export function MyHomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      void refreshMe().catch(() => undefined);
       void api
         .getMyStores()
         .then((stores) =>
@@ -45,7 +46,7 @@ export function MyHomeScreen() {
           ),
         )
         .catch(() => setHasActiveStores(false));
-    }, [api]),
+    }, [api, refreshMe]),
   );
 
   if (!profile) {

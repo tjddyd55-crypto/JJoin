@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Button,
   Card,
@@ -14,6 +14,7 @@ import { PaymentProductType, type PaymentProductDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
 import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
+import { consumeCoinChargePaymentHandoff } from '../payment-return-handoff';
 
 function formatKrw(price: number) {
   return `₩${formatNumber(price)}`;
@@ -36,42 +37,87 @@ export function CoinChargeScreen() {
   const [successCoin, setSuccessCoin] = useState<string | null>(null);
   const [successBalance, setSuccessBalance] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    const [items, wallet] = await Promise.all([
-      api.listPaymentProducts(PaymentProductType.COIN_CHARGE),
-      api.getWallet(),
-    ]);
-    setProducts(items);
+  const refreshBalance = useCallback(async () => {
+    const wallet = await api.getWallet();
     setBalance(wallet.availableCoin);
-    if (!selectedId && items[0]) setSelectedId(items[0].id);
-  }, [api, selectedId]);
+    return wallet.availableCoin;
+  }, [api]);
+
+  const loadProducts = useCallback(async () => {
+    const items = await api.listPaymentProducts(PaymentProductType.COIN_CHARGE);
+    setProducts(items);
+    setSelectedId((current) => current ?? items[0]?.id ?? null);
+  }, [api]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+
+      void (async () => {
+        try {
+          const handoff = consumeCoinChargePaymentHandoff();
+          if (handoff) {
+            if (cancelled) return;
+            setSuccessCoin(handoff.credited);
+            setSuccessBalance(handoff.balance);
+            setBalance(handoff.balance);
+            setError(null);
+            await refreshMe();
+            return;
+          }
+
+          const nextBalance = await refreshBalance();
+          if (cancelled) return;
+          setBalance(nextBalance);
+          await refreshMe();
+        } catch {
+          if (!cancelled) setError('잔액을 불러오지 못했습니다.');
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+      };
+    }, [refreshBalance, refreshMe]),
+  );
 
   useEffect(() => {
-    void load().catch(() => setError('상품을 불러오지 못했습니다.'));
-  }, [load]);
+    void loadProducts().catch(() => setError('상품을 불러오지 못했습니다.'));
+  }, [loadProducts]);
 
   useEffect(() => {
+    // Legacy deep-link / replace params fallback.
     if (params.successCoin) {
       setSuccessCoin(params.successCoin);
       setSuccessBalance(params.successBalance ?? null);
+      if (params.successBalance) setBalance(params.successBalance);
       void refreshMe();
-      void load();
       return;
     }
     if (params.paymentError === 'cancelled') {
       setError('결제가 취소되었습니다.');
     }
-  }, [params.paymentError, params.successBalance, params.successCoin, load, refreshMe]);
+  }, [params.paymentError, params.successBalance, params.successCoin, refreshMe]);
 
   const selected = products.find((p) => p.id === selectedId) ?? null;
 
   const onCharge = () => {
     if (!selected) return;
     setError(null);
+    setSuccessCoin(null);
+    setSuccessBalance(null);
     router.push({
       pathname: '/my/payment-checkout',
       params: { productId: selected.id, returnTo: 'coin-charge' },
     });
+  };
+
+  const onSuccessAck = () => {
+    const next = successBalance ?? balance;
+    setBalance(next);
+    setSuccessCoin(null);
+    setSuccessBalance(null);
+    void refreshBalance().catch(() => undefined);
   };
 
   if (successCoin) {
@@ -92,7 +138,7 @@ export function CoinChargeScreen() {
           </Text>
         </Card>
         <Spacer size="lg" />
-        <Button label="확인" onPress={() => router.back()} />
+        <Button label="확인" onPress={onSuccessAck} />
       </ScrollScreenFrame>
     );
   }
