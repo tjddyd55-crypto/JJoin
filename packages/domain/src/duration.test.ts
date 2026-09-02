@@ -61,6 +61,12 @@ function baseMe(overrides: Partial<MeDto> = {}): MeDto {
       totalCoin: '0',
       recentTransactions: [],
     },
+    premiumStatus: {
+      active: false,
+      startedAt: null,
+      expiresAt: null,
+      remainingDays: null,
+    },
     ...overrides,
   };
 }

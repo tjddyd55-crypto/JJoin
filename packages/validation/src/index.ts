@@ -451,3 +451,37 @@ export const updateClubNoticeSchema = z.object({
   body: z.string().trim().min(1).max(2000).optional(),
   pinned: z.boolean().optional(),
 });
+
+export const createPaymentOrderSchema = z
+  .object({
+    productId: z.string().uuid(),
+  })
+  .strict();
+
+export const confirmTossPaymentSchema = z.object({
+  paymentKey: z.string().trim().min(1).max(200),
+  orderId: z.string().trim().min(1).max(100),
+  amount: z.number().int().positive(),
+});
+
+export const updateAdminPaymentProviderSettingsSchema = z.object({
+  enabled: z.boolean().optional(),
+  environment: z.enum(['TEST', 'LIVE']).optional(),
+  clientKey: z.string().trim().max(200).nullable().optional(),
+  secretKey: z.string().trim().max(200).nullable().optional(),
+});
+
+export const updatePaymentProductSchema = z.object({
+  name: z.string().trim().min(1).max(80).optional(),
+  description: z.string().trim().max(200).nullable().optional(),
+  price: z.number().int().positive().optional(),
+  coinAmount: z
+    .string()
+    .trim()
+    .regex(/^\d+(\.\d{1,4})?$/)
+    .nullable()
+    .optional(),
+  premiumDays: z.number().int().positive().nullable().optional(),
+  active: z.boolean().optional(),
+  sortOrder: z.number().int().optional(),
+});

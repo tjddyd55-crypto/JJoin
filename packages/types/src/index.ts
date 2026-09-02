@@ -283,6 +283,7 @@ export type MeDto = {
   identity: PrivateIdentityDto;
   socialLinks: SocialAccountLinkDto[];
   walletSummary: WalletSummaryDto;
+  premiumStatus: PremiumStatusDto;
 };
 
 export type AuthSessionDto = {
@@ -1989,3 +1990,135 @@ export type ClubAccountingListResponse = {
   items: ClubAccountingEntryDto[];
 };
 export type ClubNoticeListResponse = { items: ClubNoticeDto[] };
+
+export enum PaymentProviderKind {
+  TOSS = 'TOSS',
+}
+
+export enum PaymentEnvironment {
+  TEST = 'TEST',
+  LIVE = 'LIVE',
+}
+
+export enum PaymentProductType {
+  COIN_CHARGE = 'COIN_CHARGE',
+  PREMIUM_PASS = 'PREMIUM_PASS',
+}
+
+export enum PaymentStatus {
+  READY = 'READY',
+  PROCESSING = 'PROCESSING',
+  PAID = 'PAID',
+  FAILED = 'FAILED',
+  CANCELED = 'CANCELED',
+  REFUNDED = 'REFUNDED',
+}
+
+export type PaymentProductDto = {
+  id: string;
+  code: string;
+  type: PaymentProductType;
+  name: string;
+  description: string | null;
+  price: number;
+  coinAmount: string | null;
+  premiumDays: number | null;
+  active: boolean;
+  sortOrder: number;
+};
+
+export type PaymentProductListResponse = { items: PaymentProductDto[] };
+
+export type PublicPaymentConfigDto = {
+  provider: PaymentProviderKind;
+  environment: PaymentEnvironment;
+  clientKey: string;
+  enabled: boolean;
+};
+
+export type CreatePaymentOrderRequest = {
+  productId: string;
+};
+
+export type CreatePaymentOrderResponse = {
+  paymentId: string;
+  orderId: string;
+  amount: number;
+  orderName: string;
+  clientKey: string;
+  checkoutToken: string;
+  checkoutUrl: string;
+  successRedirectScheme: string;
+  failRedirectScheme: string;
+};
+
+export type ConfirmTossPaymentRequest = {
+  paymentKey: string;
+  orderId: string;
+  amount: number;
+};
+
+export type PaymentListItemDto = {
+  id: string;
+  type: PaymentProductType;
+  productName: string;
+  amount: number;
+  status: PaymentStatus;
+  approvedAt: string | null;
+  createdAt: string;
+};
+
+export type PaymentListResponse = { items: PaymentListItemDto[] };
+
+export type PaymentDetailDto = PaymentListItemDto & {
+  orderId: string;
+  provider: PaymentProviderKind;
+};
+
+export type PremiumStatusDto = {
+  active: boolean;
+  startedAt: string | null;
+  expiresAt: string | null;
+  remainingDays: number | null;
+};
+
+export type AdminPaymentProviderSettingsDto = {
+  provider: PaymentProviderKind;
+  enabled: boolean;
+  environment: PaymentEnvironment;
+  clientKey: string | null;
+  secretKeyMasked: string | null;
+  hasSecretKey: boolean;
+  statusLabel: string;
+};
+
+export type UpdateAdminPaymentProviderSettingsRequest = {
+  enabled?: boolean;
+  environment?: PaymentEnvironment;
+  clientKey?: string | null;
+  secretKey?: string | null;
+};
+
+export type AdminPaymentListItemDto = PaymentListItemDto & {
+  userId: string;
+  userNickname: string | null;
+  orderId: string;
+};
+
+export type AdminPaymentListResponse = { items: AdminPaymentListItemDto[] };
+
+export type AdminPaymentDetailDto = AdminPaymentListItemDto & {
+  provider: PaymentProviderKind;
+  paymentKeyMasked: string | null;
+  canceledAt: string | null;
+};
+
+export type UpdatePaymentProductRequest = {
+  name?: string;
+  description?: string | null;
+  price?: number;
+  coinAmount?: string | null;
+  premiumDays?: number | null;
+  active?: boolean;
+  sortOrder?: number;
+};
