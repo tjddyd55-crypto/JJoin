@@ -187,9 +187,7 @@ async function main() {
 
   if (mode === '--preflight') {
     const balanceBefore = await walletBalance(devA);
-    const order = await createOrder(devA, byCode.COIN_10000!.id);
-    const balanceAfterOrder = await walletBalance(devA);
-    assert(balanceAfterOrder === balanceBefore, 'balance unchanged before confirm');
+    const guardOrder = await createOrder(devA, byCode.COIN_10000!.id);
 
     const tamperOrder = await j('/payments/orders', {
       method: 'POST',
@@ -203,19 +201,23 @@ async function main() {
 
     const ownership = await confirm(devB, {
       paymentKey: 'pay_test_ownership_probe',
-      orderId: order.orderId,
-      amount: order.amount,
+      orderId: guardOrder.orderId,
+      amount: guardOrder.amount,
     });
     assert(ownership.status === 403, `ownership ${ownership.status}`);
 
     const amountTamper = await confirm(devA, {
       paymentKey: 'pay_test_amount_probe',
-      orderId: order.orderId,
-      amount: order.amount + 1,
+      orderId: guardOrder.orderId,
+      amount: guardOrder.amount + 1,
     });
     assert(amountTamper.status === 400, `confirm amount tamper ${amountTamper.status}`);
     const balanceAfterTamper = await walletBalance(devA);
     assert(balanceAfterTamper === balanceBefore, 'tamper confirm no credit');
+
+    const order = await createOrder(devA, byCode.COIN_10000!.id);
+    const balanceAfterOrder = await walletBalance(devA);
+    assert(balanceAfterOrder === balanceBefore, 'balance unchanged before confirm');
 
     console.log('OK coin order', {
       paymentId: order.paymentId,
