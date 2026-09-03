@@ -84,13 +84,13 @@ export class UsersService {
     return this.accounts.completeLocationOnboarding(userId);
   }
 
-  async getPublicProfile(userId: string) {
+  async getPublicProfile(userId: string, viewerUserId?: string | null) {
     if (mockUserStore.isMemoryOnlyUser(userId)) {
       const profile = mockUserStore.getPublicProfile(userId);
       if (!profile) throw new NotFoundException('user_not_found');
       return profile;
     }
-    return this.accounts.getPublicProfile(userId);
+    return this.accounts.getPublicProfile(userId, viewerUserId);
   }
 
   getSportProfiles(userId: string) {

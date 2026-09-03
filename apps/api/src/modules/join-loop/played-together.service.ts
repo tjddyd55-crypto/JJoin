@@ -5,6 +5,7 @@ import {
 } from '@jjoin/domain';
 import type { PlayedTogetherPersonDto } from '@jjoin/types';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PlayerReviewService } from './player-review.service';
 
 type PlayedRow = {
   user_id: string;
@@ -19,11 +20,14 @@ type PlayedRow = {
 
 @Injectable()
 export class PlayedTogetherService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly reviews: PlayerReviewService,
+  ) {}
 
   /**
    * Co-participants from COMPLETED joins only.
-   * Single aggregation query — no N+1.
+   * Pair aggregation is one SQL query; reputation is batched (no N+1).
    */
   async listForUser(userId: string): Promise<PlayedTogetherPersonDto[]> {
     const rows = await this.prisma.$queryRaw<PlayedRow[]>`
@@ -73,6 +77,8 @@ export class PlayedTogetherService {
       LIMIT 100
     `;
 
+    const reputationByUser = await this.reviews.getReputationBatch(rows.map((r) => r.user_id));
+
     return rows.map((row) => {
       const completedCount = Number(row.completed_count);
       const noShowCount = Number(row.no_show_count);
@@ -80,6 +86,11 @@ export class PlayedTogetherService {
         completedCount,
         noShowCount,
       });
+      const reputation = reputationByUser.get(row.user_id) ?? {
+        averageRating: null,
+        averageRatingDisplay: null,
+        reviewCount: 0,
+      };
       return {
         userId: row.user_id,
         nickname: row.nickname ?? '사용자',
@@ -91,6 +102,9 @@ export class PlayedTogetherService {
         completedJoinCount: completedCount,
         noShowCount,
         attendanceRatePercent: reliability.attendanceRatePercent,
+        averageRating: reputation.averageRating,
+        averageRatingDisplay: reputation.averageRatingDisplay,
+        reviewCount: reputation.reviewCount,
       };
     });
   }

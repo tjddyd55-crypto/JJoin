@@ -1035,6 +1035,15 @@ export class SettlementService {
         where: { id: joinId },
         data: { status: 'COMPLETED' },
       });
+      // Host also "attended" the completed join — required for played-together + reviews.
+      await tx.joinParticipant.updateMany({
+        where: {
+          joinId,
+          role: 'HOST',
+          participationStatus: { in: ['APPROVED', 'CONFIRMED'] },
+        },
+        data: { participationStatus: 'COMPLETED' },
+      });
       await tx.joinChatRoom.updateMany({
         where: { joinId, status: { in: ['ACTIVE', 'READ_ONLY'] } },
         data: {

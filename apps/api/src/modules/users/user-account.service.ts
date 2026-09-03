@@ -12,7 +12,7 @@ import {
   type MeDto,
   type PublicUserProfileDto,
 } from '@jjoin/types';
-import { computeAttendanceReliability } from '@jjoin/domain';
+import { computeAttendanceReliability, computePlayerReputation } from '@jjoin/domain';
 import { profileEditSchema, profileSetupSchema, termsConsentSchema } from '@jjoin/validation';
 import { Prisma } from '@prisma/client';
 import { createHash, randomUUID } from 'node:crypto';
@@ -65,6 +65,7 @@ export class UserAccountService {
       where: { userId, participationStatus: { in: ['APPROVED', 'CONFIRMED', 'COMPLETED'] } },
     });
     const reliability = await this.loadAttendanceReliability(userId);
+    const reputation = await this.loadPlayerReputation(userId);
     const me = buildMeFromUser(user, participationCount);
     const walletSummary = await this.wallet.getSummary(userId);
     const premiumStatus = await this.premium.getStatus(userId);
@@ -78,6 +79,9 @@ export class UserAccountService {
             completedJoinCount: reliability.completedCount,
             noShowCount: reliability.noShowCount,
             attendanceRatePercent: reliability.attendanceRatePercent,
+            averageRating: reputation.averageRating,
+            averageRatingDisplay: reputation.averageRatingDisplay,
+            reviewCount: reputation.reviewCount,
           }
         : null,
     };
@@ -96,6 +100,31 @@ export class UserAccountService {
       completedCount: completedJoinCount,
       noShowCount,
     });
+  }
+
+  private async loadPlayerReputation(userId: string) {
+    const rows = await this.prisma.playerReview.findMany({
+      where: { revieweeUserId: userId, visibility: 'VISIBLE' },
+      select: { rating: true },
+    });
+    return computePlayerReputation(rows.map((r) => r.rating));
+  }
+
+  private async countPlayedTogether(viewerUserId: string, otherUserId: string): Promise<number> {
+    if (!viewerUserId || viewerUserId === otherUserId) return 0;
+    const rows = await this.prisma.$queryRaw<Array<{ c: bigint | number }>>`
+      SELECT COUNT(*)::int AS c
+      FROM join_participants jp_me
+      INNER JOIN joins j ON j.id = jp_me.join_id
+      INNER JOIN join_participants jp_other
+        ON jp_other.join_id = jp_me.join_id
+       AND jp_other.user_id = ${otherUserId}::uuid
+      WHERE jp_me.user_id = ${viewerUserId}::uuid
+        AND j.status::text = 'COMPLETED'
+        AND jp_me.participation_status::text = 'COMPLETED'
+        AND jp_other.participation_status::text = 'COMPLETED'
+    `;
+    return Number(rows[0]?.c ?? 0);
   }
 
   async acceptTerms(userId: string, body: unknown): Promise<MeDto> {
@@ -282,19 +311,31 @@ export class UserAccountService {
     return this.getMe(userId);
   }
 
-  async getPublicProfile(userId: string): Promise<PublicUserProfileDto> {
+  async getPublicProfile(
+    userId: string,
+    viewerUserId?: string | null,
+  ): Promise<PublicUserProfileDto> {
     const user = await this.loadUser(userId);
     if (!user.profile) throw new NotFoundException('user_not_found');
     const participationCount = await this.prisma.joinParticipant.count({
       where: { userId, participationStatus: { in: ['APPROVED', 'CONFIRMED', 'COMPLETED'] } },
     });
     const reliability = await this.loadAttendanceReliability(userId);
+    const reputation = await this.loadPlayerReputation(userId);
     const profile = buildPublicProfileFromUser(user, participationCount);
+    const playedCountWithViewer =
+      viewerUserId && viewerUserId !== userId
+        ? await this.countPlayedTogether(viewerUserId, userId)
+        : null;
     return {
       ...profile,
       completedJoinCount: reliability.completedCount,
       noShowCount: reliability.noShowCount,
       attendanceRatePercent: reliability.attendanceRatePercent,
+      averageRating: reputation.averageRating,
+      averageRatingDisplay: reputation.averageRatingDisplay,
+      reviewCount: reputation.reviewCount,
+      playedCountWithViewer,
     };
   }
 

@@ -548,6 +548,15 @@ export class MatchingJoinsService {
         where: { id: joinId },
         data: { status: 'COMPLETED' },
       });
+
+      await tx.joinParticipant.updateMany({
+        where: {
+          joinId,
+          role: 'HOST',
+          participationStatus: { in: ['APPROVED', 'CONFIRMED'] },
+        },
+        data: { participationStatus: 'COMPLETED' },
+      });
     });
 
     const join = await this.prisma.join.findUniqueOrThrow({ where: { id: joinId } });

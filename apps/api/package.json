@@ -9,7 +9,7 @@
     "start:prod": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo \"lint placeholder\"",
-    "test": "node --import tsx --test src/auth/password.test.ts src/common/cron-secret.test.ts src/modules/golf-facilities/golf-facility-search-query.test.ts src/modules/store-ownership/store-ownership-kpi.test.ts src/modules/join-loop/join-loop-contracts.test.ts src/modules/joins/store-growth-api-contracts.test.ts src/modules/payments/payment-contracts.test.ts src/modules/joins/join-creation-coin-policy.contracts.test.ts"
+    "test": "node --import tsx --test src/auth/password.test.ts src/common/cron-secret.test.ts src/modules/golf-facilities/golf-facility-search-query.test.ts src/modules/store-ownership/store-ownership-kpi.test.ts src/modules/join-loop/join-loop-contracts.test.ts src/modules/joins/store-growth-api-contracts.test.ts src/modules/payments/payment-contracts.test.ts src/modules/joins/join-creation-coin-policy.contracts.test.ts src/modules/join-loop/player-review.contracts.test.ts"
   },
   "dependencies": {
     "@jjoin/domain": "workspace:*",
