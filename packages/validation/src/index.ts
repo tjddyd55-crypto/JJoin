@@ -484,6 +484,14 @@ export const updateJoinCreationCoinPolicySchema = z.object({
 
 export type UpdateJoinCreationCoinPolicyInput = z.infer<typeof updateJoinCreationCoinPolicySchema>;
 
+export const upsertPlayerReviewSchema = z.object({
+  revieweeUserId: z.string().uuid(),
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().max(100).nullable().optional(),
+});
+
+export type UpsertPlayerReviewInput = z.infer<typeof upsertPlayerReviewSchema>;
+
 export const updatePaymentProductSchema = z.object({
   name: z.string().trim().min(1).max(80).optional(),
   description: z.string().trim().max(200).nullable().optional(),

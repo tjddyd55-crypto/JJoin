@@ -353,6 +353,21 @@ export {
 } from './attendance-reliability';
 
 export {
+  PLAYER_REVIEW_COMMENT_MAX_LENGTH,
+  PLAYER_REVIEW_RATING_MAX,
+  PLAYER_REVIEW_RATING_MIN,
+  assertPlayerReviewRating,
+  computePlayerReputation,
+  evaluatePlayerReviewEligibility,
+  formatAverageRating,
+  normalizePlayerReviewComment,
+  playedTogetherPairsFromAttendees,
+  type PlayerReputationAggregate,
+  type PlayerReviewEligibilityInput,
+  type PlayerReviewEligibilityResult,
+} from './player-review';
+
+export {
   JOIN_ALERT_TIME_BANDS,
   bookmarkNotificationEventKey,
   createJoinShareSlug,

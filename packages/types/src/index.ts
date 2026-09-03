@@ -204,8 +204,8 @@ export type SportProfileDto = {
 export type PublicUserProfileDto = {
   id: string;
   nickname: string;
-  avatarUrl: string | null;
   verifiedBadge: boolean;
+  avatarUrl: string | null;
   genderDisplay: string | null;
   ageBand: AgeBand | null;
   regionLabel: string | null;
@@ -217,6 +217,12 @@ export type PublicUserProfileDto = {
   noShowCount?: number;
   /** 0–100; null when no attendance outcomes yet. */
   attendanceRatePercent?: number | null;
+  /** Subjective ★ reputation (received reviews). Null average when reviewCount=0. */
+  averageRating?: number | null;
+  averageRatingDisplay?: string | null;
+  reviewCount?: number;
+  /** Viewer-relative played-together count; omitted on self profile. */
+  playedCountWithViewer?: number | null;
 };
 
 /** Never include real name, phone, CI/DI, raw birth date here. */
@@ -909,6 +915,50 @@ export type PlayedTogetherPersonDto = {
   completedJoinCount: number;
   noShowCount: number;
   attendanceRatePercent: number | null;
+  averageRating: number | null;
+  averageRatingDisplay: string | null;
+  reviewCount: number;
+};
+
+export type PlayerReputationDto = {
+  averageRating: number | null;
+  averageRatingDisplay: string | null;
+  reviewCount: number;
+};
+
+export type PlayerReviewPublicDto = {
+  reviewId: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+};
+
+export type JoinReviewTargetDto = {
+  userId: string;
+  nickname: string;
+  avatarUrl: string | null;
+  myReview: {
+    reviewId: string;
+    rating: number;
+    comment: string | null;
+  } | null;
+};
+
+export type UpsertPlayerReviewRequest = {
+  revieweeUserId: string;
+  rating: number;
+  comment?: string | null;
+};
+
+export type PlayerReviewDto = {
+  reviewId: string;
+  joinId: string;
+  reviewerUserId: string;
+  revieweeUserId: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type JoinListItemDto = {
