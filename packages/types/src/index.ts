@@ -1261,6 +1261,7 @@ export enum NotificationType {
   CLUB_JOIN_APPROVED = 'CLUB_JOIN_APPROVED',
   CLUB_EVENT_CREATED = 'CLUB_EVENT_CREATED',
   CLUB_NOTICE = 'CLUB_NOTICE',
+  JOIN_RECOMMENDATION = 'JOIN_RECOMMENDATION',
 }
 
 export enum JoinAlertDateMode {
@@ -1701,6 +1702,13 @@ export type RecurringJoinRunSummary = {
 };
 
 export type RecommendReasonCode =
+  | 'PLAYED_TOGETHER_HOST'
+  | 'PLAYED_TOGETHER_PARTICIPANT'
+  | 'ALMOST_FILLED'
+  | 'NEARBY'
+  | 'CLOSING_SOON'
+  | 'HIGH_RATED_HOST'
+  | 'FREQUENT_VENUE'
   | 'FOLLOWED_STORE'
   | 'PAST_VENUE'
   | 'SAME_REGION'
@@ -1718,6 +1726,11 @@ export type RecommendedJoinDto = {
   isUrgent: boolean;
   reasonCode: RecommendReasonCode;
   reasonLabel: string;
+  /** Up to 2 explainable reasons (priority order). */
+  reasons?: Array<{ code: RecommendReasonCode; label: string }>;
+  distanceMeters?: number | null;
+  hostAverageRatingDisplay?: string | null;
+  hostReviewCount?: number | null;
   debug?: { score: number; signals: RecommendReasonCode[] };
 };
 
