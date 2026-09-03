@@ -7,14 +7,10 @@ import {
   OptionalUserId,
 } from '../../common/mock-auth.guard';
 import type { SportSkillLevel } from '@jjoin/types';
-import { PlayerReviewService } from '../join-loop/player-review.service';
 
 @Controller()
 export class UsersController {
-  constructor(
-    private readonly service: UsersService,
-    private readonly reviews: PlayerReviewService,
-  ) {}
+  constructor(private readonly service: UsersService) {}
 
   @Get('users/_meta')
   meta() {
@@ -86,15 +82,5 @@ export class UsersController {
   @Get('users/:id/public-profile')
   publicProfile(@Param('id') id: string, @OptionalUserId() viewerId: string | null) {
     return this.service.getPublicProfile(id, viewerId);
-  }
-
-  @Get('users/:id/reputation')
-  reputation(@Param('id') id: string) {
-    return this.reviews.getReputation(id);
-  }
-
-  @Get('users/:id/reviews')
-  listReviews(@Param('id') id: string) {
-    return this.reviews.listPublicReviews(id);
   }
 }
