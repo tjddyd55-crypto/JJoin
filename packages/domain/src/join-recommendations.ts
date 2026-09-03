@@ -87,6 +87,25 @@ export const RECOMMEND_REASON_LABEL_KO: Record<RecommendReasonCode, string> = {
   JOINABLE_FALLBACK: '지금 참가 가능한 조인',
 };
 
+/** Short UI tags for join cards (max 2). Push/alerts may use RECOMMEND_REASON_LABEL_KO. */
+export const RECOMMEND_REASON_SHORT_LABEL_KO: Record<RecommendReasonCode, string> = {
+  PLAYED_TOGETHER_HOST: '함께 친 방장',
+  PLAYED_TOGETHER_PARTICIPANT: '함께 친 사람',
+  ALMOST_FILLED: '마감 임박',
+  NEARBY: '내 주변',
+  CLOSING_SOON: '곧 마감',
+  HIGH_RATED_HOST: '평점 좋은 방장',
+  FREQUENT_VENUE: '자주 가는 매장',
+  FOLLOWED_STORE: '팔로우 매장',
+  PAST_VENUE: '방문한 매장',
+  SAME_REGION: '내 지역',
+  PLAYED_TOGETHER: '함께 친 사람',
+  PREFERRED_TIME: '선호 시간',
+  URGENT: '긴급 모집',
+  TODAY_NEARBY: '오늘 · 근처',
+  JOINABLE_FALLBACK: '참가 가능',
+};
+
 /** Reason display priority (lower index = higher priority). Max 2 shown. */
 export const RECOMMEND_REASON_PRIORITY: RecommendReasonCode[] = [
   'PLAYED_TOGETHER_HOST',

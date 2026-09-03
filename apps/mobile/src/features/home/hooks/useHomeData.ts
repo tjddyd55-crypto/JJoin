@@ -114,7 +114,7 @@ export function useHomeData(userId: string | undefined) {
       recommendedResult.status === 'fulfilled' ? recommendedResult.value.items : [];
     const clubs = clubsResult.status === 'fulfilled' ? clubsResult.value.items : [];
 
-    const todayJoins = pickTodayDiscoverJoins(discoverRows, 2);
+    const todayJoins = pickTodayDiscoverJoins(discoverRows, 3);
     const urgentJoins = pickUrgentJoins(discoverRows, recommended, 1);
 
     setState((prev) => ({

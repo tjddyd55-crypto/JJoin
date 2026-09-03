@@ -1,13 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { Text, spacing, useTheme } from '@jjoin/design-system';
-import type { RecommendedJoinDto } from '@jjoin/types';
-import { getApiClient } from '../../../lib/api';
-import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
-import { HomeRecommendedList } from '../../home/components/HomeJoinSections';
 import { JoinDiscoveryProvider, useJoinDiscovery } from './JoinDiscoveryContext';
 import { DiscoverListPanel } from './components/DiscoverListPanel';
 import { DiscoveryFilterChrome } from './components/DiscoveryFilterChrome';
@@ -28,12 +24,9 @@ export function ExploreDiscoveryScreen() {
 function ExploreDiscoveryBody() {
   const theme = useTheme();
   const router = useRouter();
-  const { me } = useSession();
-  const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const { filter, patchFilter } = useJoinDiscovery();
   const [deviceLocation, setDeviceLocation] = useState<MapCoordinate | null>(null);
   const [locationDenied, setLocationDenied] = useState(false);
-  const [recommended, setRecommended] = useState<RecommendedJoinDto[]>([]);
   const isMap = filter.view === 'MAP';
   const isRegion = filter.view === 'REGION';
   const isList = !isMap && !isRegion;
@@ -58,26 +51,6 @@ function ExploreDiscoveryBody() {
       }
     })();
   }, []);
-
-  useEffect(() => {
-    if (!me?.userId || !isList) return;
-    let alive = true;
-    void (async () => {
-      try {
-        const res = await api.getRecommendedJoins({
-          limit: 3,
-          lat: deviceLocation?.latitude,
-          lng: deviceLocation?.longitude,
-        });
-        if (alive) setRecommended(res.items);
-      } catch {
-        if (alive) setRecommended([]);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [api, me?.userId, isList, deviceLocation?.latitude, deviceLocation?.longitude]);
 
   return (
     <SafeAreaView
@@ -156,17 +129,6 @@ function ExploreDiscoveryBody() {
         </>
       ) : (
         <>
-          {recommended.length > 0 ? (
-            <View style={styles.recommendBlock}>
-              <Text variant="sectionTitle" tone="primary">
-                나에게 맞는 조인
-              </Text>
-              <HomeRecommendedList
-                items={recommended}
-                onPress={(joinId) => router.push(`/join/${joinId}`)}
-              />
-            </View>
-          ) : null}
           <DiscoveryFilterChrome
             locationDenied={locationDenied}
             deviceLocation={deviceLocation}
@@ -206,10 +168,5 @@ const styles = StyleSheet.create({
   mapHost: {
     flex: 1,
     minHeight: 0,
-  },
-  recommendBlock: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
-    gap: spacing.xs,
   },
 });
