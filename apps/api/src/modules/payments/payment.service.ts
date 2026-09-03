@@ -238,9 +238,9 @@ export class PaymentService {
   <style>
     body { font-family: system-ui, sans-serif; margin: 24px; background: #F8F9F6; color: #17212B; }
     .card { max-width: 420px; margin: 0 auto; padding: 20px; border-radius: 12px; background: #FFFFFF; border: 1px solid #E5E8E3; }
-    /* Bright Social Sports CTA: lime + deep navy text (never white on lime) */
+    /* Bright Social Sports CTA: deep navy + white */
     button { width: 100%; padding: 14px; border: 0; border-radius: 10px; font-size: 16px; font-weight: 600;
-      background: #A7E65B; color: #17212B; cursor: pointer; }
+      background: #17212B; color: #FFFFFF; cursor: pointer; }
     button:disabled { opacity: 0.5; }
     .meta { margin-bottom: 16px; line-height: 1.5; }
     .error { color: #E05252; margin-top: 12px; font-size: 14px; }

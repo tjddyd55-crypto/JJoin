@@ -1,8 +1,8 @@
 import { palette } from './palette';
 
 /**
- * Semantic Bright Social Sports colors — preferred via `useTheme().colors`.
- * Premium Black & Gold lives under `premiumColors` / `theme.premium`.
+ * Semantic Bright Social Sports — Navy-centered UI, lime relegated to brand accent only.
+ * Premium Black & Gold: `premiumColors` / `theme.premium`.
  */
 export const semanticColors = {
   app: {
@@ -13,58 +13,72 @@ export const semanticColors = {
     card: palette.white,
     elevated: palette.softSurface,
     floating: palette.white,
-    soft: palette.paleGreen,
+    soft: palette.selectedSurface,
   },
   border: {
     subtle: palette.borderLight,
     strong: palette.mutedText,
   },
   action: {
-    /** Fresh Lime — CTA bg; pair with text.onPrimary (Deep Navy), never white text */
-    primary: palette.lime500,
-    primaryHover: palette.lime600,
-    primaryDark: palette.lime600,
+    /** Primary CTA — Deep Navy fill, white label */
+    primary: palette.deepNavy,
+    primaryHover: palette.softNavy,
+    primaryDark: palette.deepNavy,
     secondary: palette.white,
     ghost: 'transparent',
     danger: palette.softRed,
-    info: palette.skyBlue,
+    info: palette.infoBlue,
+  },
+  brand: {
+    /** Logo / icon plate / tiny decoration only — never body text or large UI fills */
+    limeAccent: palette.limeAccent,
+  },
+  state: {
+    active: palette.activeGreen,
+    onActive: palette.white,
+    selectedSurface: palette.selectedSurface,
+    selectedText: palette.selectedText,
+    selectedBorder: palette.activeGreen,
   },
   reward: {
-    /** Coin / reward accents stay lime-forward in general UI */
-    primary: palette.lime600,
-    secondary: palette.lime500,
-    light: palette.paleGreen,
-    muted: palette.limeSoft,
+    primary: palette.activeGreen,
+    secondary: palette.selectedText,
+    light: palette.selectedSurface,
+    muted: palette.successSoft,
   },
   navigation: {
-    active: palette.lime600,
+    active: palette.deepNavy,
     inactive: palette.mutedText,
+    /** Small tab indicator dot — brand accent only */
+    indicator: palette.limeAccent,
   },
   map: {
-    accent: palette.skyBlue,
-    accentSoft: palette.skySoft,
+    accent: palette.infoBlue,
+    accentSoft: palette.infoSurface,
   },
   text: {
     primary: palette.deepNavy,
-    secondary: palette.softNavy,
+    secondary: palette.secondaryText,
     tertiary: palette.mutedText,
     inverse: palette.white,
-    /** Deep Navy on Fresh Lime CTA — WCAG AA target */
-    onPrimary: palette.deepNavy,
+    /** On primary (navy) CTA */
+    onPrimary: palette.white,
+    link: palette.infoBlue,
+    success: palette.selectedText,
     /**
-     * @deprecated alias of onPrimary (Club Minimal “onGold” naming)
+     * @deprecated Use `text.onPrimary` (white on navy CTA). Kept for compile-time migration.
      */
-    onGold: palette.deepNavy,
+    onGold: palette.white,
   },
   status: {
-    success: palette.lime600,
-    successSoft: palette.successSoft,
+    success: palette.activeGreen,
+    successSoft: palette.selectedSurface,
     warning: palette.softOrange,
     warningSoft: palette.softOrangeSoft,
     error: palette.softRed,
     errorSoft: palette.softRedSoft,
-    info: palette.skyBlue,
-    infoSoft: palette.skySoft,
+    info: palette.infoBlue,
+    infoSoft: palette.infoSurface,
   },
 } as const;
 
@@ -81,25 +95,23 @@ export const premiumColors = {
 } as const;
 
 /**
- * Legacy flat color tokens — kept for existing screen imports during migration.
- * Prefer `useTheme().colors` for new code.
+ * Legacy flat color tokens — migration only. New code: `useTheme().colors`.
  */
 export const colors = {
-  primary: palette.lime500,
-  primarySoft: palette.paleGreen,
+  primary: palette.deepNavy,
+  primarySoft: palette.selectedSurface,
   background: palette.warmWhite,
   surface: palette.white,
   textPrimary: palette.deepNavy,
-  textSecondary: palette.mutedText,
-  /** @deprecated use theme text.tertiary in new code */
+  textSecondary: palette.secondaryText,
   muted: palette.mutedText,
   border: palette.borderLight,
   danger: palette.softRed,
   dangerSoft: palette.softRedSoft,
   warning: palette.softOrange,
   warningSoft: palette.softOrangeSoft,
-  coin: palette.lime600,
-  coinSoft: palette.paleGreen,
+  coin: palette.activeGreen,
+  coinSoft: palette.selectedSurface,
   overlay: 'rgba(23, 33, 43, 0.45)',
   white: palette.white,
 } as const;

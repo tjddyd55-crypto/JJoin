@@ -136,14 +136,14 @@ function SummaryRow({
       <View style={styles.valueCol}>
         <Text
           variant="bodyStrong"
-          style={highlight ? { color: theme.colors.action.primary } : undefined}
+          style={highlight ? { color: theme.colors.reward.primary } : undefined}
         >
           {value}
         </Text>
         {suffix ? (
           <Text
             variant="bodyStrong"
-            style={highlight ? { color: theme.colors.action.primary } : undefined}
+            style={highlight ? { color: theme.colors.reward.primary } : undefined}
           >
             {suffix}
           </Text>

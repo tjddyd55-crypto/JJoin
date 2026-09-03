@@ -17,10 +17,10 @@ export function MapVenueMarker({ selected = false, caption, kind = 'venue' }: Ma
   const size = selected ? 44 : 36;
   const bg =
     kind === 'me'
-      ? theme.colors.status.info
+      ? theme.colors.map.accent
       : kind === 'user'
         ? theme.colors.surface.floating
-        : theme.colors.action.primary;
+        : theme.colors.map.accent;
 
   return (
     <View style={[styles.wrap, { width: size, height: size }]}>
@@ -40,7 +40,7 @@ export function MapVenueMarker({ selected = false, caption, kind = 'venue' }: Ma
         <Icon
           name={kind === 'me' ? 'currentLocation' : kind === 'user' ? 'people' : 'golf'}
           size="sm"
-          tone={kind === 'venue' ? 'inverse' : 'primary'}
+          tone={kind === 'venue' || kind === 'me' ? 'inverse' : 'primary'}
         />
       </View>
       {caption ? (
@@ -71,7 +71,7 @@ export function CurrentLocationControl({ onPress }: { onPress: () => void }) {
         },
       ]}
     >
-      <Icon name="currentLocation" size="md" tone="gold" />
+      <Icon name="currentLocation" size="md" tone="primary" />
     </Pressable>
   );
 }
@@ -86,12 +86,12 @@ export function ReSearchAreaControl({ onPress }: { onPress: () => void }) {
         styles.reSearch,
         {
           backgroundColor: theme.colors.surface.elevated,
-          borderColor: theme.colors.action.primary,
+          borderColor: theme.colors.border.subtle,
           borderRadius: theme.radius.full,
         },
       ]}
     >
-      <Text variant="caption" style={{ color: theme.colors.action.primary }}>
+      <Text variant="caption" tone="link">
         이 지역 재검색
       </Text>
     </Pressable>

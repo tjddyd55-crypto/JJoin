@@ -11,7 +11,6 @@ type Props = {
 /** 빈 상태 등 보조 CTA — full-width Button 대신 compact pill */
 export function CompactTextAction({ label, onPress, accessibilityLabel }: Props) {
   const theme = useTheme();
-  const gold = theme.colors.action.primary;
 
   return (
     <Pressable
@@ -26,7 +25,7 @@ export function CompactTextAction({ label, onPress, accessibilityLabel }: Props)
         },
       ]}
     >
-      <Text variant="meta" style={{ color: gold }}>
+      <Text variant="meta" tone="link">
         {label}
       </Text>
     </Pressable>

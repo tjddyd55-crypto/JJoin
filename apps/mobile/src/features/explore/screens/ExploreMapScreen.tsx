@@ -1147,7 +1147,7 @@ export function ExploreMapScreen({
             onPress={() => applyKeywordSearch(searchQuery)}
             disabled={loading || searchLoading}
           >
-            <Text variant="body" style={{ color: theme.colors.action.primary }}>
+            <Text variant="body" tone="link">
               {searchLoading ? '검색 중…' : '검색'}
             </Text>
           </Pressable>
@@ -1215,13 +1215,13 @@ export function ExploreMapScreen({
           ))}
           {placeSource === 'GOLF_FACILITY' ? (
             <Pressable style={[styles.searchRow, rowBorder]} onPress={switchToKakaoPlaces}>
-              <Text variant="body" style={{ color: theme.colors.action.primary }}>
+              <Text variant="body" tone="link">
                 찾는 장소가 없나요? · 카카오 장소 검색
               </Text>
             </Pressable>
           ) : (
             <Pressable style={[styles.searchRow, rowBorder]} onPress={switchToGolfFacility}>
-              <Text variant="body" style={{ color: theme.colors.action.primary }}>
+              <Text variant="body" tone="link">
                 스크린골프장 DB로 돌아가기
               </Text>
             </Pressable>
@@ -1233,7 +1233,7 @@ export function ExploreMapScreen({
               goMyLocation();
             }}
           >
-            <Text variant="body" style={{ color: theme.colors.action.primary }}>
+            <Text variant="body" tone="link">
               현재 위치로
             </Text>
           </Pressable>

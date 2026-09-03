@@ -41,7 +41,7 @@ function QuickMenuCell({ item }: { item: QuickMenuItem }) {
           {
             backgroundColor: theme.colors.surface.elevated,
             borderRadius: theme.radius.md,
-            borderColor: item.accent ? theme.colors.action.primary : 'transparent',
+            borderColor: item.accent ? theme.colors.state.active : 'transparent',
             borderWidth: item.accent ? 1 : 0,
           },
         ]}
@@ -54,11 +54,8 @@ function QuickMenuCell({ item }: { item: QuickMenuItem }) {
       </View>
       <Text
         variant="caption"
-        tone={item.accent ? undefined : 'secondary'}
-        style={[
-          styles.label,
-          item.accent ? { color: theme.colors.action.primary } : undefined,
-        ]}
+        tone={item.accent ? 'success' : 'secondary'}
+        style={styles.label}
         numberOfLines={2}
       >
         {item.label}

@@ -87,13 +87,13 @@ export function HomeUrgentJoinCard({ items, onPress }: UrgentProps) {
         styles.urgentCard,
         {
           backgroundColor: theme.colors.surface.card,
-          borderColor: theme.colors.action.primary,
+          borderColor: theme.colors.state.active,
           opacity: pressed ? 0.92 : 1,
         },
       ]}
     >
       <View style={styles.urgentTop}>
-        <Text variant="bodyStrong" style={{ color: theme.colors.action.primary }}>
+        <Text variant="bodyStrong" tone="success">
           {formatHomeJoinTime(item.startAt)}
         </Text>
         <Badge label="긴급" variant="warning" />
@@ -104,7 +104,7 @@ export function HomeUrgentJoinCard({ items, onPress }: UrgentProps) {
       <Text variant="caption" tone="tertiary" numberOfLines={1}>
         {formatHomeRegionLabel(item.regionLabel)}
       </Text>
-      <Text variant="caption" style={{ color: theme.colors.action.primary }}>
+      <Text variant="caption" tone="success">
         {formatRemainingSeats(item.seatsLeft)}
       </Text>
     </Pressable>

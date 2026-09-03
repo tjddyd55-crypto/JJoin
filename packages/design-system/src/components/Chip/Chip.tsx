@@ -16,13 +16,13 @@ export function Chip({ label, variant = 'filter', selected = false, disabled, st
   const isSelected = selected || variant === 'selected';
 
   const bg = isSelected
-    ? theme.colors.surface.soft
+    ? theme.colors.state.selectedSurface
     : variant === 'quickAdd'
       ? theme.colors.surface.elevated
       : theme.colors.surface.card;
 
-  const border = isSelected ? theme.colors.action.primaryDark : theme.colors.border.subtle;
-  const textTone = isSelected ? 'primary' : variant === 'quickAdd' ? 'primary' : 'secondary';
+  const border = isSelected ? theme.colors.state.selectedBorder : theme.colors.border.subtle;
+  const textTone = isSelected ? 'success' : variant === 'quickAdd' ? 'primary' : 'secondary';
 
   return (
     <Pressable

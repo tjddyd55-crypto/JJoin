@@ -47,12 +47,11 @@ export function RegionFacilityList({
   bottomPadding = spacing.xl,
 }: Props) {
   const theme = useTheme();
-  const gold = theme.colors.action.primary;
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color={gold} />
+        <ActivityIndicator color={theme.colors.action.primary} />
       </View>
     );
   }
@@ -64,7 +63,7 @@ export function RegionFacilityList({
           {error}
         </Text>
         <Pressable onPress={onRetry} style={styles.retry}>
-          <Text variant="meta" style={{ color: gold }}>
+          <Text variant="meta" tone="link">
             다시 시도
           </Text>
         </Pressable>
@@ -83,7 +82,7 @@ export function RegionFacilityList({
         </Text>
         {onSwitchToMap ? (
           <Pressable onPress={onSwitchToMap} style={styles.mapLink}>
-            <Text variant="meta" style={{ color: gold }}>
+            <Text variant="meta" tone="link">
               지도에서 스크린장 찾기
             </Text>
           </Pressable>

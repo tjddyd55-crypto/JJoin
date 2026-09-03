@@ -263,7 +263,7 @@ export function JoinCreateVenueSection({
         <View style={styles.rowBetween}>
           <Text variant="bodyStrong">장소</Text>
           <Pressable onPress={() => setChangeOpen(true)} hitSlop={8}>
-            <Text variant="caption" style={{ color: theme.colors.action.primary }}>
+            <Text variant="caption" tone="link">
               변경
             </Text>
           </Pressable>
@@ -277,7 +277,7 @@ export function JoinCreateVenueSection({
               <Text
                 variant="body"
                 tone={selected.isFavorite ? 'primary' : 'tertiary'}
-                style={selected.isFavorite ? { color: theme.colors.action.primary } : undefined}
+                style={selected.isFavorite ? { color: theme.colors.reward.primary } : undefined}
               >
                 {selected.isFavorite ? '★' : '☆'}
               </Text>

@@ -42,7 +42,6 @@ export function RegionJoinListPanel({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const requestSeq = useRef(0);
-  const gold = theme.colors.action.primary;
 
   const load = useCallback(async () => {
     const seq = ++requestSeq.current;
@@ -87,7 +86,7 @@ export function RegionJoinListPanel({
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color={gold} />
+        <ActivityIndicator color={theme.colors.action.primary} />
       </View>
     );
   }

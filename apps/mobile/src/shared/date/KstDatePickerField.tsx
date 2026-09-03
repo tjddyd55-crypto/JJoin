@@ -29,7 +29,8 @@ function ymdFromParts(year: number, month: number, day: number): string {
 
 export function KstDatePickerField({ label, dateYmd, onChange, disallowPast = true }: Props) {
   const theme = useTheme();
-  const gold = theme.colors.action.primary;
+  const selectedSurface = theme.colors.state.selectedSurface;
+  const selectedText = theme.colors.state.selectedText;
   const todayYmd = localDayKey(new Date(), 'Asia/Seoul');
   const initial = parseYmd(dateYmd);
   const [open, setOpen] = useState(false);
@@ -134,15 +135,18 @@ export function KstDatePickerField({ label, dateYmd, onChange, disallowPast = tr
                     }}
                     style={[
                       styles.dayCell,
-                      isSelected && { backgroundColor: gold },
-                      isToday && !isSelected && styles.todayRing,
+                      isSelected && { backgroundColor: selectedSurface },
+                      isToday && !isSelected && {
+                        borderWidth: 1,
+                        borderColor: theme.colors.state.active,
+                      },
                     ]}
                   >
                     <Text
                       variant="body"
                       style={{
                         color: isSelected
-                          ? '#1A1A1A'
+                          ? selectedText
                           : isPast
                             ? theme.colors.text.tertiary
                             : theme.colors.text.primary,
@@ -205,9 +209,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 999,
-  },
-  todayRing: {
-    borderWidth: 1,
-    borderColor: '#C9A227',
   },
 });

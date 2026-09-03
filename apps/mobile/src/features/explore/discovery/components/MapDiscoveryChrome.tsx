@@ -33,7 +33,6 @@ export function MapDiscoveryChrome({
   const [dateOpen, setDateOpen] = useState(false);
   const [regionMenuOpen, setRegionMenuOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const gold = theme.colors.action.primary;
   const nearbyDisabled = locationDenied && !deviceLocation;
 
   return (
@@ -50,7 +49,7 @@ export function MapDiscoveryChrome({
           },
         ]}
       >
-        <Text variant="meta" style={{ color: gold }}>
+        <Text variant="meta" tone="link">
           {formatDateChip(filter.date)} {'\u25BE'}
         </Text>
       </Pressable>
@@ -66,7 +65,7 @@ export function MapDiscoveryChrome({
           },
         ]}
       >
-        <Text variant="meta" style={{ color: gold }}>
+        <Text variant="meta" tone="link">
           {filter.region.label} {'\u25BE'}
         </Text>
       </Pressable>

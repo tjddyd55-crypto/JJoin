@@ -59,7 +59,6 @@ function facilitySubtitle(facility: GolfFacilityMapDto): string {
 
 export function StoreFacilityFinderModal({ visible, api, onClose, onSelect }: Props) {
   const theme = useTheme();
-  const gold = theme.colors.action.primary;
   const [viewStack, setViewStack] = useState<FinderView[]>([{ kind: 'sido' }]);
   const [facilities, setFacilities] = useState<GolfFacilityMapDto[]>([]);
   const [loading, setLoading] = useState(false);
@@ -265,7 +264,7 @@ export function StoreFacilityFinderModal({ visible, api, onClose, onSelect }: Pr
               />
               {loading ? (
                 <View style={styles.loadingRow}>
-                  <ActivityIndicator size="small" color={gold} />
+                  <ActivityIndicator size="small" color={theme.colors.action.primary} />
                   <Text variant="caption" tone="secondary">
                     매장 불러오는 중…
                   </Text>

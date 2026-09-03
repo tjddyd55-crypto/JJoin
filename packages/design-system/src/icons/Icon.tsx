@@ -204,7 +204,8 @@ export function Icon({ name, size = 'md', tone = 'secondary', accessibilityLabel
       case 'tertiary':
         return theme.colors.text.tertiary;
       case 'gold':
-        return theme.colors.action.primary;
+        /** @deprecated — maps to active green emphasis, not lime or navy CTA */
+        return theme.colors.state.active;
       case 'inverse':
         return theme.colors.text.inverse;
       case 'error':

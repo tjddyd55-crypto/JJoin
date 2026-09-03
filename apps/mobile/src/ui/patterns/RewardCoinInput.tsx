@@ -166,7 +166,7 @@ function SummaryRow({
       </Text>
       <Text
         variant="bodyStrong"
-        style={highlight ? { color: theme.colors.action.primary } : undefined}
+        style={highlight ? { color: theme.colors.reward.primary } : undefined}
       >
         {value}
       </Text>

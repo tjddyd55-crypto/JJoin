@@ -24,7 +24,6 @@ export function WeekStrip({
 }: Props) {
   const theme = useTheme();
   const cells = useMemo(() => buildWeekStrip(weekAnchorDate), [weekAnchorDate]);
-  const gold = theme.colors.action.primary;
   const rangeLabel = useMemo(() => {
     if (cells.length === 0) return '이번 주';
     const first = cells[0]!;
@@ -70,7 +69,6 @@ export function WeekStrip({
             cell={cell}
             selected={cell.date === selectedDate}
             count={dayCounts?.[cell.date] ?? 0}
-            gold={gold}
             compact={compact}
             onPress={() => onSelectDate(cell.date)}
           />
@@ -80,7 +78,6 @@ export function WeekStrip({
   );
 }
 
-/** Muted weekend tones — selected (gold) state always wins. */
 function weekendTextColor(
   weekdayIndex: number,
   theme: ReturnType<typeof useTheme>,
@@ -94,14 +91,12 @@ function DayCell({
   cell,
   selected,
   count,
-  gold,
   compact,
   onPress,
 }: {
   cell: WeekDayCell;
   selected: boolean;
   count: number;
-  gold: string;
   compact: boolean;
   onPress: () => void;
 }) {
@@ -126,10 +121,8 @@ function DayCell({
     >
       <Text
         variant="meta"
-        tone={selected ? 'primary' : 'tertiary'}
-        style={
-          selected ? { color: gold } : weekendColor ? { color: weekendColor } : undefined
-        }
+        tone={selected ? 'success' : 'tertiary'}
+        style={!selected && weekendColor ? { color: weekendColor } : undefined}
       >
         {cell.weekdayLabel}
       </Text>
@@ -137,20 +130,17 @@ function DayCell({
         style={[
           compact ? styles.dayNumCompact : styles.dayNum,
           selected
-            ? { backgroundColor: gold, borderRadius: theme.radius.md }
+            ? {
+                backgroundColor: theme.colors.state.selectedSurface,
+                borderRadius: theme.radius.md,
+              }
             : null,
         ]}
       >
         <Text
           variant={compact ? 'meta' : 'body'}
-          tone="primary"
-          style={
-            selected
-              ? { color: theme.colors.text.onGold }
-              : weekendColor
-                ? { color: weekendColor }
-                : undefined
-          }
+          tone={selected ? 'success' : 'primary'}
+          style={!selected && weekendColor ? { color: weekendColor } : undefined}
         >
           {cell.dayOfMonth}
         </Text>

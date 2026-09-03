@@ -23,7 +23,7 @@ export function RegionPickerSheet({
   onSaveFavorite,
 }: Props) {
   const theme = useTheme();
-  const gold = theme.colors.action.primary;
+  const selectedBorder = theme.colors.state.selectedBorder;
   const [sido, setSido] = useState(ADMIN_SIDO_GROUPS[0]?.sido ?? '서울특별시');
   const group = useMemo(
     () => ADMIN_SIDO_GROUPS.find((g) => g.sido === sido) ?? ADMIN_SIDO_GROUPS[0],
@@ -64,14 +64,12 @@ export function RegionPickerSheet({
                 style={[
                   styles.sidoChip,
                   {
-                    borderColor: selected ? gold : theme.colors.border.subtle,
+                    borderColor: selected ? selectedBorder : theme.colors.border.subtle,
+                    backgroundColor: selected ? theme.colors.state.selectedSurface : 'transparent',
                   },
                 ]}
               >
-                <Text
-                  variant="meta"
-                  style={selected ? { color: gold } : undefined}
-                >
+                <Text variant="meta" tone={selected ? 'success' : 'secondary'}>
                   {g.label}
                 </Text>
               </Pressable>
@@ -106,7 +104,7 @@ export function RegionPickerSheet({
                     accessibilityLabel={`${d.label} 즐겨찾기 저장`}
                     hitSlop={8}
                   >
-                    <Text variant="meta" style={{ color: gold }}>
+                    <Text variant="meta" tone="link">
                       저장
                     </Text>
                   </Pressable>

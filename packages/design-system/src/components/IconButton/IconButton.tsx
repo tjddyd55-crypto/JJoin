@@ -41,7 +41,7 @@ export function IconButton({
     }
   })();
 
-  const tone = effectiveVariant === 'selected' ? 'gold' : 'secondary';
+  const tone = effectiveVariant === 'selected' ? 'primary' : 'secondary';
 
   return (
     <Pressable

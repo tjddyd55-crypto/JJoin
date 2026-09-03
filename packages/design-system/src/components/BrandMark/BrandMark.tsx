@@ -62,7 +62,7 @@ export function BrandMark({
         ? theme.premium.text
         : theme.colors.text.primary;
   const lime =
-    tone === 'premium' ? theme.premium.gold : theme.colors.action.primary;
+    tone === 'premium' ? theme.premium.gold : theme.colors.brand.limeAccent;
   const monogramColor = tone === 'onLime' ? theme.colors.text.onPrimary : navy;
 
   if (variant === 'symbol') {

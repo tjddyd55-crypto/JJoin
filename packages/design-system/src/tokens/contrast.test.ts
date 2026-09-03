@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { palette, semanticColors } from '../tokens';
+import { palette } from './palette';
+import { semanticColors } from './colors';
 
 function luminance(hex: string): number {
   const h = hex.replace('#', '');
@@ -19,9 +20,41 @@ function contrastRatio(a: string, b: string): number {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-test('Fresh Lime CTA with Deep Navy text meets WCAG AA (>=4.5)', () => {
-  const ratio = contrastRatio(palette.lime500, palette.deepNavy);
-  assert.ok(ratio >= 4.5, `expected >=4.5, got ${ratio.toFixed(2)}`);
-  assert.equal(semanticColors.text.onPrimary, palette.deepNavy);
-  assert.notEqual(semanticColors.text.onPrimary, palette.white);
+test('Primary CTA Navy/White meets WCAG AA', () => {
+  const ratio = contrastRatio(palette.deepNavy, palette.white);
+  assert.ok(ratio >= 4.5, `navy/white expected >=4.5, got ${ratio.toFixed(2)}`);
+  assert.equal(semanticColors.text.onPrimary, palette.white);
+  assert.equal(semanticColors.action.primary, palette.deepNavy);
+});
+
+test('Body text on Warm White background meets WCAG AA', () => {
+  const ratio = contrastRatio(palette.deepNavy, palette.warmWhite);
+  assert.ok(ratio >= 4.5, `primary/bg expected >=4.5, got ${ratio.toFixed(2)}`);
+});
+
+test('Secondary text on Warm White meets WCAG AA for large text threshold', () => {
+  const ratio = contrastRatio(palette.secondaryText, palette.warmWhite);
+  assert.ok(ratio >= 3, `secondary/bg expected >=3, got ${ratio.toFixed(2)}`);
+});
+
+test('Selected chip text on selected surface meets WCAG AA', () => {
+  const ratio = contrastRatio(palette.selectedText, palette.selectedSurface);
+  assert.ok(ratio >= 4.5, `selected text/surface expected >=4.5, got ${ratio.toFixed(2)}`);
+});
+
+test('Link text on Warm White meets WCAG AA', () => {
+  const ratio = contrastRatio(palette.infoBlue, palette.warmWhite);
+  assert.ok(ratio >= 4.5, `link/bg expected >=4.5, got ${ratio.toFixed(2)}`);
+});
+
+test('Active green on selected surface is readable', () => {
+  const ratio = contrastRatio(palette.activeGreen, palette.selectedSurface);
+  assert.ok(ratio >= 3, `active green on pale surface expected >=3, got ${ratio.toFixed(2)}`);
+});
+
+test('Brand lime accent is not used as primary CTA or body text color', () => {
+  assert.notEqual(semanticColors.action.primary, palette.limeAccent);
+  assert.notEqual(semanticColors.text.primary, palette.limeAccent);
+  assert.notEqual(semanticColors.text.secondary, palette.limeAccent);
+  assert.notEqual(semanticColors.navigation.active, palette.limeAccent);
 });

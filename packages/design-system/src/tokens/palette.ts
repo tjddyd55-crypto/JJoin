@@ -1,28 +1,41 @@
 /**
  * Bright Social Sports primitive palette — screens must not import this directly.
  * Use semantic tokens via `useTheme().colors` (or `theme.premium` for Premium surfaces).
- *
- * Archived Black & Gold primitives remain under `premium*` for Premium-only UI.
  */
 export const palette = {
   // --- Bright Social Sports core ---
   warmWhite: '#F8F9F6',
   white: '#FFFFFF',
   deepNavy: '#17212B',
-  lime500: '#A7E65B',
-  lime600: '#66B83F',
-  skyBlue: '#59B7F7',
-  paleGreen: '#EFF8E7',
-  borderLight: '#E5E8E3',
+  secondaryText: '#59636C',
   mutedText: '#7D858C',
-  softNavy: '#2A3642',
+  borderLight: '#E2E6E1',
   softSurface: '#F1F3EF',
+
+  /** UI active / success green — not for large fills or body text on white alone */
+  activeGreen: '#4F7F3A',
+  selectedSurface: '#EFF6E9',
+  selectedText: '#365F2A',
+  paleGreen: '#EFF8E7',
+
+  /** Info — dark blue for text/links; bright sky for decorative only */
+  infoBlue: '#3278A8',
+  infoSurface: '#EAF4FA',
+  skyBlue: '#59B7F7',
+  skySoft: 'rgba(89, 183, 247, 0.16)',
+
+  /** Brand accent only — logo dot, icon plate, tiny decoration. Not general UI primary. */
+  limeAccent: '#9BCB5A',
+  /** @deprecated App icon plate only — do not use in general UI */
+  lime500: '#A7E65B',
+
+  softNavy: '#2A3642',
   softOrange: '#E8A04D',
   softOrangeSoft: 'rgba(232, 160, 77, 0.16)',
   softRed: '#E05252',
   softRedSoft: 'rgba(224, 82, 82, 0.14)',
-  skySoft: 'rgba(89, 183, 247, 0.16)',
-  limeSoft: 'rgba(167, 230, 91, 0.28)',
+  successSoft: 'rgba(79, 127, 58, 0.14)',
+  limeSoft: 'rgba(155, 203, 90, 0.22)',
   navyMuted: 'rgba(23, 33, 43, 0.08)',
 
   // --- Premium / archived Black & Gold (Premium surfaces only) ---
@@ -38,8 +51,7 @@ export const palette = {
   premiumBorder: '#2A2A2E',
 
   /**
-   * @deprecated Prefer semantic Bright tokens. Kept for transitional imports /
-   * Club Minimal archive naming in tests and Premium helpers.
+   * @deprecated Club Minimal archive naming — Premium or migration only.
    */
   neutral950: '#0B0B0C',
   neutral900: '#111113',
@@ -57,14 +69,14 @@ export const palette = {
   gold400: '#E3C76D',
   gold300: '#C6A75E',
   goldMuted: 'rgba(212, 175, 55, 0.35)',
-  success500: '#66B83F',
-  successSoft: 'rgba(102, 184, 63, 0.16)',
+  lime600: '#66B83F',
+  success500: '#4F7F3A',
   warning500: '#E8A04D',
   warningSoft: 'rgba(232, 160, 77, 0.16)',
   error500: '#E05252',
   errorSoft: 'rgba(224, 82, 82, 0.14)',
-  info500: '#59B7F7',
-  infoSoft: 'rgba(89, 183, 247, 0.16)',
+  info500: '#367FAF',
+  infoSoft: 'rgba(54, 127, 175, 0.14)',
 } as const;
 
 export type PaletteToken = keyof typeof palette;

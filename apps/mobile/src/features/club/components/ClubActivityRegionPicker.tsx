@@ -24,7 +24,6 @@ type Props = {
 
 export function ClubActivityRegionPicker({ value, onChange, minCount = 1 }: Props) {
   const theme = useTheme();
-  const gold = theme.colors.action.primary;
   const [open, setOpen] = useState(false);
   const [viewStack, setViewStack] = useState<RegionView[]>([{ kind: 'sido' }]);
 

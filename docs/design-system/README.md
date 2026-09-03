@@ -37,14 +37,20 @@ Token → Primitive → Component → Layout → Pattern (mobile) → Screen
 
 ### CTA contrast
 
-Primary CTA = Fresh Lime (`#A7E65B`) background + Deep Navy (`#17212B`) text.  
-**Never** put white text on Fresh Lime.
+Primary CTA = Deep Navy (`#17212B`) background + White (`#FFFFFF`) text.  
+Secondary CTA = White background + Navy text + light border.
+
+Brand lime (`#9BCB5A`) is `brand.limeAccent` only — logo dot, icon plate, tiny decoration. **Never** lime body text or lime-filled general buttons.
+
+Selected chips = Pale Green surface (`#EFF6E9`) + Dark Green text (`#365F2A`).  
+Link text = Dark Blue (`#367FAF`).
 
 ### How To Change
 
 | Question | Where to edit |
 |----------|---------------|
-| Primary CTA color? | `palette.lime500` → `semanticColors.action.primary` |
+| Primary CTA color? | `palette.deepNavy` → `semanticColors.action.primary` |
+| Brand lime accent? | `palette.limeAccent` → `semanticColors.brand.limeAccent` |
 | App background? | `palette.warmWhite` → `semanticColors.app.background` |
 | Premium gold? | `palette.premiumGold` → `premiumColors.gold` |
 | Screen horizontal padding? | `layoutSpacing.screenHorizontal` |

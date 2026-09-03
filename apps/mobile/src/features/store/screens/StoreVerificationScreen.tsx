@@ -70,7 +70,6 @@ function statusBadgeVariant(
 export function StoreVerificationScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const gold = theme.colors.action.primary;
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
 
   const [requests, setRequests] = useState<StoreOwnershipRequestDto[]>([]);
@@ -178,7 +177,7 @@ export function StoreVerificationScreen() {
   if (loading) {
     return (
       <FormScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
-        <ActivityIndicator color={gold} />
+        <ActivityIndicator color={theme.colors.action.primary} />
       </FormScreenFrame>
     );
   }
@@ -256,7 +255,7 @@ export function StoreVerificationScreen() {
       <Section title="새 매장 인증">
         {selectedFacility ? (
           <Card variant="elevated" padding="md" style={styles.selectedFacility}>
-            <Text variant="meta" style={{ color: gold }}>
+            <Text variant="meta" tone="success">
               ✓ 선택한 매장
             </Text>
             <Spacer size="xs" />

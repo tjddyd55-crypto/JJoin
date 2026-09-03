@@ -43,7 +43,7 @@ export function BottomNavigation({ items }: BottomNavigationProps) {
             onPress={item.onPress}
             style={styles.item}
           >
-            <Icon name={item.icon} size="md" tone={active ? 'gold' : 'tertiary'} />
+            <Icon name={item.icon} size="md" tone={active ? 'primary' : 'tertiary'} />
             <Text variant="navLabel" tone={active ? 'primary' : 'tertiary'} style={active ? { color: theme.colors.navigation.active } : undefined}>
               {item.label}
             </Text>

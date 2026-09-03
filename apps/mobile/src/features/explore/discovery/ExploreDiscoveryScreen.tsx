@@ -34,7 +34,6 @@ function ExploreDiscoveryBody() {
   const [deviceLocation, setDeviceLocation] = useState<MapCoordinate | null>(null);
   const [locationDenied, setLocationDenied] = useState(false);
   const [recommended, setRecommended] = useState<RecommendedJoinDto[]>([]);
-  const gold = theme.colors.action.primary;
   const isMap = filter.view === 'MAP';
   const isRegion = filter.view === 'REGION';
   const isList = !isMap && !isRegion;
@@ -104,16 +103,16 @@ function ExploreDiscoveryBody() {
                 style={[
                   styles.viewChip,
                   {
-                    borderColor: selected ? gold : theme.colors.border.subtle,
+                    borderColor: selected ? theme.colors.state.selectedBorder : theme.colors.border.subtle,
                     backgroundColor: selected
-                      ? theme.colors.surface.card
+                      ? theme.colors.state.selectedSurface
                       : 'transparent',
                   },
                 ]}
               >
                 <Text
                   variant="meta"
-                  style={selected ? { color: gold } : undefined}
+                  tone={selected ? 'success' : 'secondary'}
                 >
                   {item.label}
                 </Text>
@@ -129,7 +128,7 @@ function ExploreDiscoveryBody() {
             accessibilityLabel="리스트로 돌아가기"
             hitSlop={8}
           >
-            <Text variant="meta" style={{ color: gold }}>
+            <Text variant="meta" tone="link">
               {'\u2039'} 리스트
             </Text>
           </Pressable>

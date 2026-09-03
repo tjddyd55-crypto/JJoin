@@ -18,11 +18,11 @@ type Props = {
   };
 };
 
-function CountText({ count, gold, muted }: { count: number; gold: string; muted: string }) {
+function CountText({ count, accent, muted }: { count: number; accent: string; muted: string }) {
   return (
     <Text
       variant="bodyStrong"
-      style={{ color: count > 0 ? gold : muted, minWidth: 24, textAlign: 'right' }}
+      style={{ color: count > 0 ? accent : muted, minWidth: 24, textAlign: 'right' }}
     >
       {count}
     </Text>
@@ -39,13 +39,13 @@ export function RegionSummaryList({
   leadingItem,
 }: Props) {
   const theme = useTheme();
-  const gold = theme.colors.action.primary;
+  const accent = theme.colors.state.active;
   const muted = theme.colors.text.tertiary;
 
   if (loading && items.length === 0 && !leadingItem) {
     return (
       <View style={styles.loadingRow}>
-        <ActivityIndicator color={gold} />
+        <ActivityIndicator color={theme.colors.action.primary} />
       </View>
     );
   }
@@ -57,7 +57,7 @@ export function RegionSummaryList({
           {error}
         </Text>
         <Pressable onPress={onRetry} style={styles.retry}>
-          <Text variant="meta" style={{ color: gold }}>
+          <Text variant="meta" tone="link">
             다시 시도
           </Text>
         </Pressable>
@@ -72,7 +72,7 @@ export function RegionSummaryList({
     >
       {loading ? (
         <View style={styles.loadingInline}>
-          <ActivityIndicator color={gold} size="small" />
+          <ActivityIndicator color={theme.colors.action.primary} size="small" />
         </View>
       ) : null}
       {leadingItem ? (
@@ -90,7 +90,7 @@ export function RegionSummaryList({
           </Text>
           <View style={styles.countWrap}>
             {leadingItem.count != null ? (
-              <CountText count={leadingItem.count} gold={gold} muted={muted} />
+              <CountText count={leadingItem.count} accent={accent} muted={muted} />
             ) : (
               <Text variant="meta" tone="tertiary">
                 {'\u203A'}
@@ -113,7 +113,7 @@ export function RegionSummaryList({
           <Text variant="body" tone="primary" style={styles.label}>
             {item.label}
           </Text>
-          <CountText count={item.count} gold={gold} muted={muted} />
+          <CountText count={item.count} accent={accent} muted={muted} />
         </Pressable>
       ))}
     </ScrollView>

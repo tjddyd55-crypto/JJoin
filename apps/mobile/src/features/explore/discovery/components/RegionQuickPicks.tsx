@@ -23,7 +23,7 @@ export function RegionQuickPicks({
   onChangeRegion,
 }: Props) {
   const theme = useTheme();
-  const gold = theme.colors.action.primary;
+  const selectedBorder = theme.colors.state.selectedBorder;
 
   return (
     <View style={styles.wrap}>
@@ -45,9 +45,9 @@ export function RegionQuickPicks({
               style={[
                 styles.chip,
                 {
-                  borderColor: selected ? gold : theme.colors.border.subtle,
+                  borderColor: selected ? selectedBorder : theme.colors.border.subtle,
                   backgroundColor: selected
-                    ? theme.colors.surface.card
+                    ? theme.colors.state.selectedSurface
                     : theme.colors.surface.base,
                   opacity: chip.disabled ? 0.45 : 1,
                 },
@@ -55,8 +55,7 @@ export function RegionQuickPicks({
             >
               <Text
                 variant="meta"
-                style={selected ? { color: gold } : undefined}
-                tone={selected ? 'primary' : 'secondary'}
+                tone={selected ? 'success' : 'secondary'}
               >
                 {chip.region.label}
               </Text>

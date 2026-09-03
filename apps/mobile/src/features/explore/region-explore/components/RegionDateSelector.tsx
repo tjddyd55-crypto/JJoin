@@ -12,7 +12,6 @@ type Props = {
 
 export function RegionDateSelector({ selectedDate, onSelectDate }: Props) {
   const theme = useTheme();
-  const gold = theme.colors.action.primary;
   const todayKey = useMemo(() => localDayKey(new Date()), []);
   const cells = useMemo(
     () => buildRegionDateStrip(todayKey, STRIP_DAYS),
@@ -39,10 +38,12 @@ export function RegionDateSelector({ selectedDate, onSelectDate }: Props) {
           >
             <Text
               variant="meta"
-              tone={cell.isToday && !selected ? undefined : 'tertiary'}
+              tone={selected ? 'success' : cell.isToday ? undefined : 'tertiary'}
               style={[
                 styles.weekday,
-                cell.isToday && !selected ? { color: gold } : undefined,
+                cell.isToday && !selected
+                  ? { color: theme.colors.state.active }
+                  : undefined,
                 isWeekend && !selected && !cell.isToday
                   ? { color: theme.colors.text.secondary }
                   : undefined,
@@ -54,17 +55,17 @@ export function RegionDateSelector({ selectedDate, onSelectDate }: Props) {
               style={[
                 styles.dayNum,
                 selected
-                  ? { backgroundColor: gold, borderRadius: theme.radius.md }
+                  ? {
+                      backgroundColor: theme.colors.state.selectedSurface,
+                      borderRadius: theme.radius.md,
+                    }
                   : null,
               ]}
             >
               <Text
                 variant="meta"
-                tone="primary"
-                style={[
-                  styles.dayNumText,
-                  selected ? { color: theme.colors.text.onGold, fontWeight: '700' } : undefined,
-                ]}
+                tone={selected ? 'success' : 'primary'}
+                style={[styles.dayNumText, selected ? { fontWeight: '700' } : undefined]}
               >
                 {cell.dayOfMonth}
               </Text>

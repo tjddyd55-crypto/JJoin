@@ -63,7 +63,6 @@ const FAB_CLEARANCE = FAB_SIZE + spacing.md + spacing.sm;
 
 export function RegionJoinExploreScreen({ embedded = false, onSwitchToMap }: Props) {
   const theme = useTheme();
-  const gold = theme.colors.action.primary;
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [selectedDate, setSelectedDate] = useState(() => localDayKey(new Date()));
   const [weekAnchorDate, setWeekAnchorDate] = useState(() =>
@@ -415,7 +414,7 @@ export function RegionJoinExploreScreen({ embedded = false, onSwitchToMap }: Pro
               hitSlop={8}
               style={styles.backBtn}
             >
-              <Text variant="meta" style={{ color: gold }}>
+              <Text variant="meta" tone="link">
                 {'\u2039'} 뒤로
               </Text>
             </Pressable>

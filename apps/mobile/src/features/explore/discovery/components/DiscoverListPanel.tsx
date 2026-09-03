@@ -46,7 +46,8 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const requestSeq = useRef(0);
-  const gold = theme.colors.action.primary;
+  const selectedBorder = theme.colors.state.selectedBorder;
+  const selectedTextColor = theme.colors.state.selectedText;
 
   const load = useCallback(async () => {
     const seq = ++requestSeq.current;
@@ -129,13 +130,14 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
               style={[
                 styles.filterChip,
                 {
-                  borderColor: selected ? gold : theme.colors.border.subtle,
+                  borderColor: selected ? selectedBorder : theme.colors.border.subtle,
+                  backgroundColor: selected ? theme.colors.state.selectedSurface : 'transparent',
                 },
               ]}
             >
               <Text
                 variant="meta"
-                style={selected ? { color: gold } : undefined}
+                style={selected ? { color: selectedTextColor } : undefined}
               >
                 {id === 'ALL' ? '전체' : '참가 가능'}
               </Text>
@@ -151,13 +153,14 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
               style={[
                 styles.filterChip,
                 {
-                  borderColor: selected ? gold : theme.colors.border.subtle,
+                  borderColor: selected ? selectedBorder : theme.colors.border.subtle,
+                  backgroundColor: selected ? theme.colors.state.selectedSurface : 'transparent',
                 },
               ]}
             >
               <Text
                 variant="meta"
-                style={selected ? { color: gold } : undefined}
+                style={selected ? { color: selectedTextColor } : undefined}
               >
                 {id === 'TIME' ? '시간순' : '거리순'}
               </Text>
@@ -172,7 +175,7 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
           <RefreshControl refreshing={loading} onRefresh={() => void load()} />
         }
       >
-        {loading && !data ? <ActivityIndicator color={gold} /> : null}
+        {loading && !data ? <ActivityIndicator color={theme.colors.action.primary} /> : null}
         {error ? (
           <Text variant="meta" tone="tertiary">
             {error}

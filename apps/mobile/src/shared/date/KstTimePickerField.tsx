@@ -28,6 +28,8 @@ type Props = {
 
 export function KstTimePickerField({ label, valueHm, onChange }: Props) {
   const theme = useTheme();
+  const selectedSurface = theme.colors.state.selectedSurface;
+  const selectedText = theme.colors.state.selectedText;
   const parsed = parseHm(valueHm);
   const [open, setOpen] = useState(false);
   const [directMode, setDirectMode] = useState(false);
@@ -167,13 +169,13 @@ export function KstTimePickerField({ label, valueHm, onChange }: Props) {
                           onPress={() => setHour(h)}
                           style={[
                             styles.option,
-                            selected && { backgroundColor: theme.colors.action.primary },
+                            selected && { backgroundColor: selectedSurface },
                           ]}
                         >
                           <Text
                             variant="body"
                             style={{
-                              color: selected ? '#1A1A1A' : theme.colors.text.primary,
+                              color: selected ? selectedText : theme.colors.text.primary,
                               textAlign: 'center',
                             }}
                           >
@@ -197,13 +199,13 @@ export function KstTimePickerField({ label, valueHm, onChange }: Props) {
                           onPress={() => setMinute(m)}
                           style={[
                             styles.option,
-                            selected && { backgroundColor: theme.colors.action.primary },
+                            selected && { backgroundColor: selectedSurface },
                           ]}
                         >
                           <Text
                             variant="body"
                             style={{
-                              color: selected ? '#1A1A1A' : theme.colors.text.primary,
+                              color: selected ? selectedText : theme.colors.text.primary,
                               textAlign: 'center',
                             }}
                           >
