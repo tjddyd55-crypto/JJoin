@@ -1,8 +1,8 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { JoinHostAvatar } from '../JoinHostAvatar';
-import { JoinStatusBadge } from '../JoinStatusBadge';
 import { Text } from '../../primitives/Text';
-import { Row } from '../../primitives/Row';
+import { useTheme } from '../../theme';
+import { shadows } from '../../tokens';
 
 export type JoinHostSummaryProps = {
   nickname: string;
@@ -15,27 +15,34 @@ export type JoinHostSummaryProps = {
 export function JoinHostSummary({
   nickname,
   avatarUrl,
-  verified,
   metaLine,
   onPress,
 }: JoinHostSummaryProps) {
+  const theme = useTheme();
   const inner = (
-    <Row gap="md" align="center" style={styles.row}>
-      <JoinHostAvatar profileImageUrl={avatarUrl} hostName={nickname} size="lg" showHostBadge />
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: theme.colors.surface.card,
+          borderColor: theme.colors.border.subtle,
+          borderRadius: theme.radius.lg,
+        },
+        shadows.card,
+      ]}
+    >
+      <JoinHostAvatar profileImageUrl={avatarUrl} hostName={nickname} size="lg" />
       <View style={styles.textCol}>
-        <Row gap="xs" align="center">
-          <Text variant="bodyStrong" tone="primary" numberOfLines={1}>
-            {nickname}
-          </Text>
-          {verified ? <JoinStatusBadge label="인증" tone="open" /> : null}
-        </Row>
+        <Text variant="sectionTitle" tone="primary" numberOfLines={1} style={styles.name}>
+          {`${nickname} · 방장`}
+        </Text>
         {metaLine ? (
-          <Text variant="meta" tone="secondary" numberOfLines={2}>
+          <Text variant="meta" tone="secondary" numberOfLines={2} style={styles.meta}>
             {metaLine}
           </Text>
         ) : null}
       </View>
-    </Row>
+    </View>
   );
 
   if (!onPress) return inner;
@@ -48,13 +55,27 @@ export function JoinHostSummary({
 }
 
 const styles = StyleSheet.create({
-  row: {
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: StyleSheet.hairlineWidth,
     minWidth: 0,
   },
   textCol: {
     flex: 1,
     gap: 4,
     minWidth: 0,
+  },
+  name: {
+    fontSize: 18,
+    lineHeight: 24,
+  },
+  meta: {
+    fontSize: 14,
+    lineHeight: 20,
   },
   pressable: {
     minHeight: 44,

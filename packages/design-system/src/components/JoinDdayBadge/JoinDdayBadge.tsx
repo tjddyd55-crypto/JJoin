@@ -14,11 +14,14 @@ export function JoinDdayBadge({ label }: JoinDdayBadgeProps) {
         styles.badge,
         {
           backgroundColor: theme.colors.join.dday.surface,
-          borderRadius: theme.radius.sm,
+          borderRadius: theme.radius.full,
         },
       ]}
     >
-      <Text variant="caption" tone="primary" style={{ color: theme.colors.join.dday.text }}>
+      <Text
+        variant="caption"
+        style={[styles.label, { color: theme.colors.join.dday.text }]}
+      >
         {label}
       </Text>
     </View>
@@ -27,7 +30,12 @@ export function JoinDdayBadge({ label }: JoinDdayBadgeProps) {
 
 const styles = StyleSheet.create({
   badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  label: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
   },
 });

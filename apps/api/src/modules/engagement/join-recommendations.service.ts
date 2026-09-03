@@ -88,6 +88,7 @@ export class JoinRecommendationsService {
         },
         select: {
           id: true,
+          title: true,
           status: true,
           startAt: true,
           recruitClosesAt: true,
@@ -241,6 +242,7 @@ export class JoinRecommendationsService {
       const hostProfile = hostProfileMap.get(join.hostUserId);
       const dto: RecommendedJoinDto = {
         joinId: r.joinId,
+        title: join.title ?? null,
         venueName,
         startAt: join.startAt.toISOString(),
         seatsLeft,

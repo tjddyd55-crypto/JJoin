@@ -216,6 +216,7 @@ export function ExploreBottomSheetBody(props: {
               {v.joinPreviews.map((j) => (
                 <JoinCard
                   key={j.joinId}
+                  title={j.title}
                   venue={v.name}
                   startAt={j.startAt}
                   scheduledEndAt={j.scheduledEndAt}
@@ -223,6 +224,7 @@ export function ExploreBottomSheetBody(props: {
                   participantCount={j.currentParticipants}
                   plannedPlayerCount={j.maxParticipants}
                   host={j.hostNickname}
+                  hostAvatarUrl={j.hostAvatarUrl}
                   hostVerified={j.hostVerified}
                   rewardPerParticipant={j.rewardCoin}
                   isUrgent={j.isUrgent}

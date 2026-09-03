@@ -11,7 +11,8 @@ import type { JoinCardProps, JoinCardStatusBadge, JoinStatusBadgeTone } from '@j
 const TZ = 'Asia/Seoul';
 
 export function formatJoinDisplayTitle(title: string): string {
-  if (!__DEV__) return title;
+  const isDev = typeof __DEV__ !== 'undefined' && __DEV__;
+  if (!isDev) return title;
   const trimmed = title.trim();
   if (/^QA-Role-Coin/i.test(trimmed)) return '거제 오션뷰 스크린';
   if (/^DEV\s*E2E/i.test(trimmed)) return '퇴근 후 저녁 라운드';
@@ -43,12 +44,31 @@ export function formatJoinScheduleListLabel(startAt: string, now = new Date()): 
 }
 
 export function formatJoinScheduleDetailDate(startAt: string): string {
-  return new Intl.DateTimeFormat('ko-KR', {
+  const date = new Date(startAt);
+  const datePart = new Intl.DateTimeFormat('ko-KR', {
     timeZone: TZ,
     month: 'long',
     day: 'numeric',
-    weekday: 'long',
-  }).format(new Date(startAt));
+  }).format(date);
+  const weekday = new Intl.DateTimeFormat('ko-KR', {
+    timeZone: TZ,
+    weekday: 'short',
+  }).format(date);
+  return `${datePart} (${weekday})`;
+}
+
+export function formatJoinCapacityTileValue(current: number, max: number): string {
+  return `${current} / ${max}명`;
+}
+
+export function formatJoinRewardTileValue(amount: string | number | null | undefined): string | null {
+  const label = formatSignedCoin(amount);
+  if (!label) return null;
+  return label.startsWith('+') || label.startsWith('-') ? label : `+${label}`;
+}
+
+export function resolveJoinDisplayTitle(venueName: string, title?: string | null): string {
+  return formatJoinDisplayTitle((title?.trim() || venueName).trim());
 }
 
 export function formatJoinScheduleDetailTime(startAt: string): string {
@@ -256,9 +276,7 @@ export function baseJoinCardFields(
     now: options?.now,
   });
 
-  const displayTitle = formatJoinDisplayTitle(
-    (input.title?.trim() || input.venueName).trim(),
-  );
+  const displayTitle = resolveJoinDisplayTitle(input.venueName, input.title);
 
   return {
     variant: options?.variant,

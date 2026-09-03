@@ -10,7 +10,7 @@ export function JoinScheduleRow({ label }: JoinScheduleRowProps) {
   return (
     <View style={styles.row}>
       <Icon name="calendar" size="sm" tone="tertiary" />
-      <Text variant="meta" tone="primary" numberOfLines={1} style={styles.text}>
+      <Text variant="meta" tone="secondary" numberOfLines={1} style={styles.text}>
         {label}
       </Text>
     </View>
@@ -21,10 +21,12 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 8,
     minWidth: 0,
   },
   text: {
     flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
   },
 });

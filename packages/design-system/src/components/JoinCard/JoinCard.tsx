@@ -58,7 +58,7 @@ export function JoinCard({
 }: JoinCardProps) {
   const theme = useTheme();
   const isCompact = variant === 'compact' || variant === 'preview';
-  const avatarSize = isCompact ? 'md' : 'md';
+  const titleLines = variant === 'management' || variant === 'default' ? 2 : 1;
 
   const badges: JoinCardStatusBadge[] = [...(statusBadges ?? [])];
   if (isUrgent && !badges.some((b) => b.label.includes('긴급'))) {
@@ -79,49 +79,53 @@ export function JoinCard({
         {
           backgroundColor: theme.colors.surface.card,
           borderColor: theme.colors.border.subtle,
-          borderRadius: theme.radius.lg,
+          borderRadius: theme.radius.joinCard,
         },
         shadows.card,
       ]}
     >
-      <View style={styles.topRow}>
-        <View style={styles.badgeRow}>
-          {ddayLabel ? <JoinDdayBadge label={ddayLabel} /> : null}
-          {badges.map((badge) => (
-            <JoinStatusBadge key={badge.label} label={badge.label} tone={badge.tone} />
-          ))}
-        </View>
+      <View style={styles.mainRow}>
         <JoinHostAvatar
           profileImageUrl={hostAvatarUrl}
           hostName={hostNickname}
-          size={avatarSize}
+          size="md"
           showHostBadge
         />
-      </View>
-
-      <View style={styles.body}>
-        <Text variant="cardTitle" tone="primary" numberOfLines={variant === 'management' ? 2 : 1}>
-          {title}
-        </Text>
-        <JoinVenueRow venueName={venueName} subLabel={venueSubLabel} />
-        <JoinScheduleRow label={scheduleLabel} />
-        <JoinCapacityRow
-          countLabel={countLabel}
-          seatsHighlight={seatsHighlight}
-          highlightTone={seatsHighlightTone}
-        />
-        {reasonTags && reasonTags.length > 0 ? (
-          <View style={styles.tags}>
-            {reasonTags.slice(0, 2).map((tag) => (
-              <RecommendationReasonTag key={tag} label={tag} />
+        <View style={styles.body}>
+          <View style={styles.badgeRow}>
+            {ddayLabel ? <JoinDdayBadge label={ddayLabel} /> : null}
+            {badges.map((badge) => (
+              <JoinStatusBadge key={badge.label} label={badge.label} tone={badge.tone} />
             ))}
           </View>
-        ) : null}
-        {rewardLabel && variant !== 'preview' ? (
-          <Text variant="meta" tone="success" numberOfLines={1}>
-            {rewardLabel}
+          <Text
+            variant="sectionTitle"
+            tone="primary"
+            numberOfLines={titleLines}
+            style={styles.title}
+          >
+            {title}
           </Text>
-        ) : null}
+          <JoinVenueRow venueName={venueName} subLabel={venueSubLabel} emphasis="list" />
+          <JoinScheduleRow label={scheduleLabel} />
+          <JoinCapacityRow
+            countLabel={countLabel}
+            seatsHighlight={seatsHighlight}
+            highlightTone={seatsHighlightTone}
+          />
+          {reasonTags && reasonTags.length > 0 ? (
+            <View style={styles.tags}>
+              {reasonTags.slice(0, 2).map((tag) => (
+                <RecommendationReasonTag key={tag} label={tag} />
+              ))}
+            </View>
+          ) : null}
+          {rewardLabel && variant !== 'preview' ? (
+            <Text variant="meta" tone="success" numberOfLines={1}>
+              {rewardLabel}
+            </Text>
+          ) : null}
+        </View>
       </View>
     </View>
   );
@@ -142,36 +146,36 @@ export function JoinCard({
 
 const styles = StyleSheet.create({
   card: {
-    gap: 8,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     borderWidth: StyleSheet.hairlineWidth,
   },
   cardCompact: {
     paddingVertical: 10,
   },
-  topRow: {
+  mainRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  badgeRow: {
-    flex: 1,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    alignItems: 'center',
-    minWidth: 0,
+    gap: 12,
   },
   body: {
-    gap: 3,
+    flex: 1,
+    gap: 7,
     minWidth: 0,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 18,
+    lineHeight: 24,
   },
   tags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 2,
+    gap: 8,
   },
 });

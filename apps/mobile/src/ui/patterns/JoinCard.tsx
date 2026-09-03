@@ -9,6 +9,7 @@ import { splitJoinCapacityDisplay } from '../join-display';
 export type JoinCardProps = {
   sport?: string;
   distance?: string | null;
+  title?: string | null;
   venue: string;
   startAt: string;
   participantCount: number;
@@ -27,6 +28,7 @@ export type JoinCardProps = {
 /** Legacy pattern wrapper — maps to design-system JoinCard (host photo → brand fallback). */
 export function JoinCard({
   distance,
+  title,
   venue,
   startAt,
   participantCount,
@@ -60,7 +62,7 @@ export function JoinCard({
       hostAvatarUrl,
       rewardPerParticipant: String(rewardPerParticipant),
       isUrgent,
-      title: venue,
+      title: title ?? null,
     },
     { variant: 'preview', statusBadge: status },
   );

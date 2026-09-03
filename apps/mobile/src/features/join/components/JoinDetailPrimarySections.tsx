@@ -1,31 +1,28 @@
 import { Linking, StyleSheet, View } from 'react-native';
 import {
-  JoinCapacitySummary,
   JoinDdayBadge,
   JoinHostSummary,
   JoinRequirementChips,
-  JoinScheduleSummary,
   JoinStatusBadge,
+  JoinSummaryGrid,
   JoinVenueSummary,
   ParticipantAvatarStack,
-  Section,
   Text,
   useTheme,
 } from '@jjoin/design-system';
-import { formatSignedCoin } from '@jjoin/domain';
 import type { JoinDetailDto } from '@jjoin/types';
 import {
+  formatJoinCapacityTileValue,
+  formatJoinRewardTileValue,
   formatJoinScheduleDetailDate,
   formatJoinScheduleDetailTime,
   resolveJoinDdayForCard,
+  resolveJoinDisplayTitle,
   resolveJoinListStatusBadges,
-  splitJoinCapacityDisplay,
 } from '../../../ui/join-display';
-import { matchingDeadlineLabel } from '../../store/matching-join-ui';
 
 export type JoinDetailPrimarySectionsProps = {
   detail: JoinDetailDto;
-  isHost: boolean;
   matching: boolean;
   slotLabel: string | null;
   onOpenHost?: () => void;
@@ -35,20 +32,12 @@ function formatHostMetaLine(detail: JoinDetailDto): string | null {
   const host = detail.host;
   const parts: string[] = [];
   if (host.averageRatingDisplay && (host.reviewCount ?? 0) > 0) {
-    parts.push(`★ ${host.averageRatingDisplay} (${host.reviewCount})`);
+    parts.push(`매너 ${host.averageRatingDisplay}`);
   }
   if (host.playedCountWithViewer != null && host.playedCountWithViewer > 0) {
-    parts.push(`함께한 ${host.playedCountWithViewer}회`);
-  }
-  if (host.completedJoinCount != null) {
-    parts.push(`참석 ${host.completedJoinCount}`);
-  }
-  if (host.attendanceRatePercent != null) {
-    parts.push(`참석률 ${host.attendanceRatePercent}%`);
-  }
-  const profileBits = [host.genderDisplay, host.ageBand].filter(Boolean);
-  if (profileBits.length > 0) {
-    parts.unshift(profileBits.join(' · '));
+    parts.push(`함께한 조인 ${host.playedCountWithViewer}회`);
+  } else if (host.completedJoinCount != null) {
+    parts.push(`함께한 조인 ${host.completedJoinCount}회`);
   }
   return parts.length > 0 ? parts.join(' · ') : null;
 }
@@ -70,21 +59,20 @@ function requirementLabels(detail: JoinDetailDto, matching: boolean): string[] {
 function participantStackItems(detail: JoinDetailDto) {
   return detail.participants.map((p) => ({
     id: p.participantId,
-    nickname: p.nickname,
+    nickname: p.role === 'HOST' ? `${p.nickname} · 방장` : p.nickname,
     avatarUrl: p.role === 'HOST' ? detail.host.avatarUrl : null,
-    isHost: p.role === 'HOST',
+    isHost: false,
   }));
 }
 
 export function JoinDetailPrimarySections({
   detail,
-  isHost,
   matching,
   slotLabel,
   onOpenHost,
 }: JoinDetailPrimarySectionsProps) {
   const theme = useTheme();
-  const displayTitle = (detail.title?.trim() || detail.venue.name).trim();
+  const displayTitle = resolveJoinDisplayTitle(detail.venue.name, detail.title);
   const dday = resolveJoinDdayForCard({
     startAt: detail.startAt,
     status: detail.status,
@@ -97,17 +85,36 @@ export function JoinDetailPrimarySections({
     seatsLeft: detail.availableSlots,
     scheduledEndAt: detail.scheduledEndAt,
   });
-  const capacity = splitJoinCapacityDisplay({
-    current: detail.confirmedPlayerCount,
-    max: detail.plannedPlayerCount,
-    seatsLeft: detail.availableSlots,
-  });
-  const rewardLabel = formatSignedCoin(detail.rewardPerParticipant);
   const requirements = requirementLabels(detail, matching);
-  const endLabel =
-    detail.scheduledEndAt && detail.scheduledEndAt !== detail.startAt
-      ? formatJoinScheduleDetailTime(detail.scheduledEndAt)
-      : null;
+  const rewardTile = formatJoinRewardTileValue(detail.rewardPerParticipant);
+  const capacityValue =
+    slotLabel ??
+    formatJoinCapacityTileValue(detail.confirmedPlayerCount, detail.plannedPlayerCount);
+
+  const summaryItems = [
+    {
+      label: '라운드 일자',
+      value: formatJoinScheduleDetailDate(detail.startAt),
+      variant: 'info' as const,
+    },
+    {
+      label: '티타임',
+      value: formatJoinScheduleDetailTime(detail.startAt),
+      variant: 'info' as const,
+    },
+    {
+      label: '모집 인원',
+      value: capacityValue,
+      variant: 'success' as const,
+    },
+    ...(rewardTile
+      ? [{ label: '참가 보상', value: rewardTile, variant: 'success' as const }]
+      : []),
+  ];
+
+  const distanceLabel = detail.venue.regionLabel
+    ? detail.venue.regionLabel
+    : null;
 
   const openMap = () => {
     const { latitude, longitude } = detail.venue;
@@ -123,79 +130,69 @@ export function JoinDetailPrimarySections({
             <JoinStatusBadge key={badge.label} label={badge.label} tone={badge.tone} />
           ))}
         </View>
-        <Text variant="screenTitle" tone="primary" numberOfLines={2}>
+        <Text variant="screenTitle" tone="primary" numberOfLines={2} style={styles.title}>
           {displayTitle}
         </Text>
       </View>
 
-      <Section title="방장">
-        <JoinHostSummary
-          nickname={detail.host.nickname}
-          avatarUrl={detail.host.avatarUrl}
-          verified={detail.host.verifiedBadge}
-          metaLine={formatHostMetaLine(detail)}
-          onPress={onOpenHost}
-        />
-      </Section>
+      <JoinHostSummary
+        nickname={detail.host.nickname}
+        avatarUrl={detail.host.avatarUrl}
+        metaLine={formatHostMetaLine(detail)}
+        onPress={onOpenHost}
+      />
 
-      <Section title="장소">
-        <JoinVenueSummary
-          venueName={detail.venue.name}
-          address={detail.venue.address}
-          distanceLabel={detail.venue.regionLabel}
-          onOpenMap={openMap}
-        />
-      </Section>
+      <JoinVenueSummary
+        venueName={detail.venue.name}
+        address={detail.venue.address}
+        distanceLabel={distanceLabel}
+        onOpenMap={openMap}
+      />
 
-      <Section title="일정">
-        <JoinScheduleSummary
-          dateLabel={formatJoinScheduleDetailDate(detail.startAt)}
-          startLabel={formatJoinScheduleDetailTime(detail.startAt)}
-          endLabel={endLabel}
-        />
-      </Section>
-
-      <Section title="모집 현황">
-        <JoinCapacitySummary
-          countLabel={capacity.countLabel}
-          seatsHighlight={capacity.seatsHighlight}
-          seatsHighlightTone={capacity.seatsHighlightTone}
-          slotLabel={slotLabel}
-          deadlineLabel={
-            matching
-              ? matchingDeadlineLabel(detail.recruitClosesAt) ?? undefined
-              : undefined
-          }
-        />
-      </Section>
+      <Text variant="screenTitle" tone="primary" style={styles.sectionTitle}>
+        일정 및 모집 현황
+      </Text>
+      <JoinSummaryGrid items={summaryItems} />
 
       {detail.description?.trim() ? (
-        <Section title="조인 소개">
-          <Text variant="body" tone="secondary">{detail.description.trim()}</Text>
-        </Section>
+        <>
+          <Text variant="screenTitle" tone="primary" style={styles.sectionTitle}>
+            조인 소개
+          </Text>
+          <View
+            style={[
+              styles.introCard,
+              {
+                backgroundColor: theme.colors.surface.card,
+                borderColor: theme.colors.border.subtle,
+                borderRadius: theme.radius.lg,
+              },
+            ]}
+          >
+            <Text variant="body" tone="primary" style={styles.introBody}>
+              {detail.description.trim()}
+            </Text>
+          </View>
+        </>
       ) : null}
 
       {requirements.length > 0 ? (
-        <Section title="참가 조건">
-          <JoinRequirementChips labels={requirements} />
-        </Section>
-      ) : null}
-
-      <Section title={`참가자 ${detail.confirmedPlayerCount}/${detail.plannedPlayerCount}`}>
-        {detail.participants.length > 0 ? (
-          <ParticipantAvatarStack items={participantStackItems(detail)} />
-        ) : (
-          <Text variant="meta" tone="tertiary">아직 참가자가 없습니다.</Text>
-        )}
-      </Section>
-
-      {rewardLabel ? (
-        <Section title="참가 보상">
-          <Text variant="coinMedium" style={{ color: theme.colors.reward.primary }}>
-            {rewardLabel}
+        <>
+          <Text variant="screenTitle" tone="primary" style={styles.sectionTitle}>
+            참가 조건
           </Text>
-        </Section>
+          <JoinRequirementChips labels={requirements} />
+        </>
       ) : null}
+
+      <Text variant="screenTitle" tone="primary" style={styles.sectionTitle}>
+        참가자 {detail.confirmedPlayerCount}/{detail.plannedPlayerCount}
+      </Text>
+      {detail.participants.length > 0 ? (
+        <ParticipantAvatarStack items={participantStackItems(detail)} />
+      ) : (
+        <Text variant="meta" tone="tertiary">아직 참가자가 없습니다.</Text>
+      )}
     </>
   );
 }
@@ -203,12 +200,30 @@ export function JoinDetailPrimarySections({
 const styles = StyleSheet.create({
   header: {
     gap: 10,
-    marginBottom: 8,
   },
   badgeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 8,
     alignItems: 'center',
+  },
+  title: {
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '700',
+  },
+  sectionTitle: {
+    fontSize: 20,
+    lineHeight: 28,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  introCard: {
+    padding: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  introBody: {
+    fontSize: 15,
+    lineHeight: 22,
   },
 });

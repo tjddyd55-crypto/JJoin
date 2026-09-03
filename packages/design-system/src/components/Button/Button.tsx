@@ -13,7 +13,14 @@ import { opacity } from '../../tokens';
 import type { IconName } from '../../icons/iconTypes';
 import { Icon } from '../../icons/Icon';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+export type ButtonVariant =
+  | 'primary'
+  | 'secondary'
+  | 'ghost'
+  | 'danger'
+  | 'successSoft'
+  | 'leave'
+  | 'muted';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 export type ButtonProps = PressableProps & {
@@ -73,6 +80,27 @@ export function Button({
           text: theme.colors.text.inverse,
           icon: 'inverse' as const,
         };
+      case 'successSoft':
+        return {
+          bg: theme.colors.state.selectedSurface,
+          border: theme.colors.state.selectedSurface,
+          text: theme.colors.state.selectedText,
+          icon: 'primary' as const,
+        };
+      case 'leave':
+        return {
+          bg: theme.colors.surface.card,
+          border: theme.colors.join.status.urgent,
+          text: theme.colors.join.status.urgentText,
+          icon: 'primary' as const,
+        };
+      case 'muted':
+        return {
+          bg: theme.colors.surface.elevated,
+          border: theme.colors.border.subtle,
+          text: theme.colors.text.tertiary,
+          icon: 'secondary' as const,
+        };
     }
   })();
 
@@ -85,7 +113,7 @@ export function Button({
         styles.base,
         {
           minHeight: height,
-          borderRadius: theme.radius.md,
+          borderRadius: theme.radius.lg,
           backgroundColor: palette.bg,
           borderColor: palette.border,
           opacity: isDisabled ? opacity.disabled : pressed ? opacity.pressed : 1,

@@ -4,7 +4,7 @@ import { Text } from '../../primitives/Text';
 import { BrandMark } from '../BrandMark';
 import { useTheme } from '../../theme';
 
-export type JoinHostAvatarSize = 'md' | 'lg';
+export type JoinHostAvatarSize = 'sm' | 'md' | 'lg';
 
 export type JoinHostAvatarProps = {
   profileImageUrl?: string | null;
@@ -23,7 +23,13 @@ export function JoinHostAvatar({
   fallback = 'brand',
 }: JoinHostAvatarProps) {
   const theme = useTheme();
-  const pixel = size === 'lg' ? theme.sizes.avatar.joinHostLg : theme.sizes.avatar.joinHost;
+  const pixel =
+    size === 'lg'
+      ? theme.sizes.avatar.joinHostLg
+      : size === 'sm'
+        ? 44
+        : theme.sizes.avatar.joinHost;
+  const radius = pixel / 2;
   const [imageFailed, setImageFailed] = useState(false);
   const showProfile = profileImageUrl && !imageFailed;
 
@@ -35,7 +41,7 @@ export function JoinHostAvatar({
           {
             width: pixel,
             height: pixel,
-            borderRadius: theme.radius.md,
+            borderRadius: radius,
             backgroundColor: showProfile
               ? theme.colors.surface.elevated
               : theme.colors.state.selectedSurface,
@@ -46,13 +52,17 @@ export function JoinHostAvatar({
         {showProfile ? (
           <Image
             source={{ uri: profileImageUrl }}
-            style={{ width: pixel, height: pixel, borderRadius: theme.radius.md }}
+            style={{ width: pixel, height: pixel, borderRadius: radius }}
             resizeMode="cover"
             accessibilityLabel={hostName ? `${hostName} 프로필` : '방장 프로필'}
             onError={() => setImageFailed(true)}
           />
         ) : fallback === 'brand' ? (
-          <BrandMark variant="symbol" tone="default" style={styles.brand} />
+          <BrandMark
+            variant="symbol"
+            tone="default"
+            style={{ transform: [{ scale: pixel < 50 ? 0.7 : 0.85 }] }}
+          />
         ) : null}
       </View>
       {showHostBadge ? (
@@ -84,9 +94,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-  },
-  brand: {
-    transform: [{ scale: 0.85 }],
   },
   badge: {
     position: 'absolute',

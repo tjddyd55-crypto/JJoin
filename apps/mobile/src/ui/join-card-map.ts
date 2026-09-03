@@ -23,6 +23,9 @@ export {
   splitJoinCapacityDisplay,
   resolveJoinDdayForCard,
   resolveJoinListStatusBadges,
+  formatJoinCapacityTileValue,
+  formatJoinRewardTileValue,
+  resolveJoinDisplayTitle,
 } from './join-display';
 
 export function recommendShortReasonLabels(item: RecommendedJoinDto): string[] {
@@ -47,7 +50,7 @@ export function mapRecommendedToJoinCardProps(
       hostNickname: item.hostNickname,
       hostAvatarUrl: item.hostAvatarUrl,
       isUrgent: item.isUrgent,
-      title: item.venueName,
+      title: item.title,
     },
     { ...options, variant: options?.variant ?? 'compact' },
   );
@@ -79,7 +82,7 @@ export function mapDiscoverToJoinCardProps(
         hostNickname: item.hostNickname,
         hostAvatarUrl: item.hostAvatarUrl,
         rewardPerParticipant: item.rewardPerParticipant,
-        title: item.venueName,
+        title: item.title,
       },
       { ...options, variant: options?.variant ?? 'default' },
     ),
@@ -106,7 +109,7 @@ export function mapJoinListItemToJoinCardProps(
         hostAvatarUrl: item.hostAvatarUrl,
         rewardPerParticipant: item.rewardPerParticipant,
         isUrgent: item.isUrgent,
-        title: item.venueName,
+        title: item.title,
       },
       { ...options, variant: options?.variant ?? 'management' },
     ),
@@ -133,7 +136,8 @@ export function mapExplorePreviewToJoinCardProps(
         hostNickname: preview.hostNickname,
         isUrgent: preview.isUrgent,
         rewardPerParticipant: preview.rewardCoin,
-        title: venueName,
+        title: preview.title,
+        hostAvatarUrl: preview.hostAvatarUrl,
       },
       { ...options, variant: options?.variant ?? 'preview' },
     ),

@@ -47,7 +47,10 @@ import {
   canSetAttendanceIntent,
 } from '../../../src/features/join/attendance-intent-ui';
 import { JoinDetailPrimarySections } from '../../../src/features/join/components/JoinDetailPrimarySections';
-import { resolveJoinDetailPrimaryCta } from '../../../src/features/join/join-detail-cta';
+import {
+  joinDetailCtaButtonVariant,
+  resolveJoinDetailPrimaryCta,
+} from '../../../src/features/join/join-detail-cta';
 
 function rewardStatusLabel(status: RewardStatus): string {
   switch (status) {
@@ -592,7 +595,6 @@ export default function JoinDetailScreen() {
 
         <JoinDetailPrimarySections
           detail={detail}
-          isHost={isHost}
           matching={matching}
           slotLabel={slotLabel}
           onOpenHost={() => router.push(`/user/${detail.host.id}`)}
@@ -799,11 +801,12 @@ export default function JoinDetailScreen() {
       <StickyActionFrame>
         <Button
           label={primaryCta.label}
+          variant={joinDetailCtaButtonVariant(primaryCta.presentation)}
           disabled={primaryCta.disabled}
           loading={busy}
           onPress={() => {
-            if (primaryCta.label === '참가 신청') void onApply();
-            else if (primaryCta.label === '참가 취소') void onLeaveStoreJoin();
+            if (primaryCta.presentation === 'apply') void onApply();
+            else if (primaryCta.presentation === 'leave') void onLeaveStoreJoin();
           }}
         />
         {detail.status === JoinStatus.COMPLETED ? (
@@ -884,7 +887,7 @@ export default function JoinDetailScreen() {
             onPress={() => void onCancelStoreJoin()}
           />
         ) : null}
-        {canLeaveMatching && primaryCta.label !== '참가 취소' ? (
+        {canLeaveMatching && primaryCta.presentation !== 'leave' ? (
           <Button
             label="참가 취소"
             variant="secondary"

@@ -94,6 +94,7 @@ export type DiscoverFacilityJoinsQuery = {
 
 type DiscoveryJoinRow = {
   id: string;
+  title: string | null;
   status: string;
   joinKind: string;
   startAt: Date;
@@ -664,6 +665,7 @@ export class JoinDiscoveryService {
     return {
       joinId: row.id,
       status: row.status as JoinStatus,
+      title: row.title ?? null,
       startAt: row.startAt.toISOString(),
       scheduledEndAt: row.scheduledEndAt.toISOString(),
       venueId: row.venue.id,

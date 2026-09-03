@@ -1,14 +1,17 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { JoinStatus, JoinMethod, type JoinDetailDto } from '@jjoin/types';
-import { resolveJoinDetailPrimaryCta } from './join-detail-cta';
+import {
+  joinDetailCtaButtonVariant,
+  resolveJoinDetailPrimaryCta,
+} from './join-detail-cta';
 
 const baseDetail: JoinDetailDto = {
   joinId: 'j1',
   status: JoinStatus.OPEN,
   joinMethod: JoinMethod.OPEN,
   sportCode: 'SCREEN_GOLF',
-  title: '테스트',
+  title: '테스트 조인',
   description: null,
   startAt: '2026-12-01T10:00:00.000Z',
   scheduledEndAt: '2026-12-01T14:00:00.000Z',
@@ -53,6 +56,8 @@ test('resolveJoinDetailPrimaryCta returns apply for open join', () => {
   });
   assert.equal(cta.label, '참가 신청');
   assert.equal(cta.disabled, false);
+  assert.equal(cta.presentation, 'apply');
+  assert.equal(joinDetailCtaButtonVariant(cta.presentation), 'primary');
 });
 
 test('resolveJoinDetailPrimaryCta returns host manage label', () => {
@@ -63,4 +68,5 @@ test('resolveJoinDetailPrimaryCta returns host manage label', () => {
   });
   assert.equal(cta.label, '조인 관리');
   assert.equal(cta.disabled, true);
+  assert.equal(cta.presentation, 'host');
 });

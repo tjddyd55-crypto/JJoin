@@ -32,6 +32,8 @@ export const palette = {
   softNavy: '#2A3642',
   softOrange: '#E8A04D',
   softOrangeSoft: 'rgba(232, 160, 77, 0.16)',
+  /** Dark orange for urgent/last-seat emphasis text */
+  darkOrange: '#965717',
   softRed: '#E05252',
   softRedSoft: 'rgba(224, 82, 82, 0.14)',
   successSoft: 'rgba(79, 127, 58, 0.14)',

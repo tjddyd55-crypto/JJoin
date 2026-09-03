@@ -84,21 +84,23 @@ export const semanticColors = {
     status: {
       open: palette.activeGreen,
       openSurface: palette.selectedSurface,
+      openText: palette.selectedText,
       urgent: palette.softOrange,
       urgentSurface: palette.softOrangeSoft,
+      urgentText: palette.darkOrange,
       full: palette.mutedText,
       fullSurface: palette.softSurface,
       closed: palette.mutedText,
       closedSurface: palette.softSurface,
     },
     dday: {
-      text: palette.deepNavy,
+      text: palette.infoBlue,
       surface: palette.infoSurface,
     },
     venue: palette.secondaryText,
     capacity: {
       available: palette.selectedText,
-      lastSeat: palette.softOrange,
+      lastSeat: palette.darkOrange,
       full: palette.mutedText,
     },
     surface: {

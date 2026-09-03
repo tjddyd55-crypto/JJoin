@@ -1,4 +1,6 @@
-import { Badge, type BadgeVariant } from '../Badge';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '../../primitives/Text';
+import { useTheme } from '../../theme';
 
 export type JoinStatusBadgeTone = 'open' | 'urgent' | 'full' | 'closed' | 'neutral' | 'ongoing';
 
@@ -7,21 +9,57 @@ export type JoinStatusBadgeProps = {
   tone?: JoinStatusBadgeTone;
 };
 
-function variantForTone(tone: JoinStatusBadgeTone): BadgeVariant {
+function colorsForTone(
+  tone: JoinStatusBadgeTone,
+  theme: ReturnType<typeof import('../../theme').useTheme>,
+) {
   switch (tone) {
     case 'urgent':
-      return 'warning';
+      return {
+        bg: theme.colors.join.status.urgentSurface,
+        text: theme.colors.join.status.urgentText,
+      };
     case 'open':
     case 'ongoing':
-      return 'success';
+      return {
+        bg: theme.colors.join.status.openSurface,
+        text: theme.colors.join.status.openText,
+      };
     case 'full':
     case 'closed':
-      return 'neutral';
+    case 'neutral':
+      return {
+        bg: theme.colors.join.status.fullSurface,
+        text: theme.colors.join.status.full,
+      };
     default:
-      return 'neutral';
+      return {
+        bg: theme.colors.join.status.fullSurface,
+        text: theme.colors.join.status.full,
+      };
   }
 }
 
 export function JoinStatusBadge({ label, tone = 'neutral' }: JoinStatusBadgeProps) {
-  return <Badge label={label} variant={variantForTone(tone)} />;
+  const theme = useTheme();
+  const { bg, text } = colorsForTone(tone, theme);
+  return (
+    <View style={[styles.badge, { backgroundColor: bg, borderRadius: theme.radius.full }]}>
+      <Text variant="caption" style={[styles.label, { color: text }]}>
+        {label}
+      </Text>
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  badge: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  label: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+  },
+});

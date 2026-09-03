@@ -380,12 +380,14 @@ export type ExploreFilter = 'ALL' | 'VENUE' | 'USER' | 'TODAY_JOIN';
 export type ExploreJoinPreviewDto = {
   joinId: string;
   status: JoinStatus;
+  title?: string | null;
   startAt: string;
   scheduledEndAt: string;
   currentParticipants: number;
   maxParticipants: number;
   rewardCoin: string;
   hostNickname: string;
+  hostAvatarUrl?: string | null;
   hostVerified: boolean;
   /** Urgent vacancy recruitment flag. */
   isUrgent?: boolean;
@@ -965,6 +967,7 @@ export type JoinListItemDto = {
   joinId: string;
   status: JoinStatus;
   joinMethod: JoinMethod;
+  title?: string | null;
   startAt: string;
   scheduledEndAt: string;
   plannedPlayerCount: number;
@@ -1120,6 +1123,7 @@ export type JoinDiscoveryJoinability = 'ALL' | 'JOINABLE';
 export type DiscoverJoinCardDto = {
   joinId: string;
   status: JoinStatus;
+  title?: string | null;
   startAt: string;
   scheduledEndAt: string;
   venueId: string;
@@ -1722,6 +1726,7 @@ export type RecommendReasonCode =
 
 export type RecommendedJoinDto = {
   joinId: string;
+  title?: string | null;
   venueName: string;
   startAt: string;
   seatsLeft: number;

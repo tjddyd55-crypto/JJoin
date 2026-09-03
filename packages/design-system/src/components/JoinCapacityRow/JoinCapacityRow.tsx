@@ -25,14 +25,22 @@ export function JoinCapacityRow({
   return (
     <View style={styles.row}>
       <Icon name="people" size="sm" tone="tertiary" />
-      <Text variant="meta" tone="secondary" numberOfLines={1} style={styles.text}>
-        {countLabel}
-        {seatsHighlight ? (
-          <Text variant="meta" style={{ color: highlightColor }}>
-            {` · ${seatsHighlight}`}
+      <View style={styles.textRow}>
+        {countLabel ? (
+          <Text variant="meta" tone="secondary" numberOfLines={1} style={styles.count}>
+            {countLabel}
           </Text>
         ) : null}
-      </Text>
+        {seatsHighlight ? (
+          <Text
+            variant="caption"
+            numberOfLines={1}
+            style={[styles.highlight, { color: highlightColor }]}
+          >
+            {seatsHighlight}
+          </Text>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -41,10 +49,23 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+    minWidth: 0,
+  },
+  textRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 4,
     minWidth: 0,
   },
-  text: {
-    flex: 1,
+  count: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  highlight: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
   },
 });

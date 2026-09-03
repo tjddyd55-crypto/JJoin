@@ -1192,23 +1192,33 @@ export class JoinsService {
   private toJoinPreview(join: {
     id: string;
     status: string;
+    title?: string | null;
     startAt: Date;
     scheduledEndAt: Date;
     confirmedPlayerCount: number;
     plannedPlayerCount: number;
     rewardPerParticipant: Prisma.Decimal;
-    host: { profile: { nickname: string } | null };
+    isUrgent?: boolean;
+    host: {
+      profile: {
+        nickname: string;
+        avatarAsset?: { storageKey: string } | null;
+      } | null;
+    };
   }): ExploreJoinPreviewDto {
     return {
       joinId: join.id,
       status: join.status as JoinStatus,
+      title: join.title ?? null,
       startAt: join.startAt.toISOString(),
       scheduledEndAt: join.scheduledEndAt.toISOString(),
       currentParticipants: join.confirmedPlayerCount,
       maxParticipants: join.plannedPlayerCount,
       rewardCoin: String(join.rewardPerParticipant),
       hostNickname: join.host.profile?.nickname ?? '호스트',
+      hostAvatarUrl: join.host.profile?.avatarAsset?.storageKey ?? null,
       hostVerified: true,
+      isUrgent: join.isUrgent ?? false,
     };
   }
 
@@ -1401,6 +1411,7 @@ export class JoinsService {
       status: string;
       joinMethod: string;
       joinKind?: string;
+      title?: string | null;
       startAt: Date;
       scheduledEndAt: Date;
       plannedPlayerCount: number;
@@ -1472,6 +1483,7 @@ export class JoinsService {
       joinId: join.id,
       status: join.status as JoinStatus,
       joinMethod: join.joinMethod as JoinMethod,
+      title: join.title ?? null,
       startAt: join.startAt.toISOString(),
       scheduledEndAt: join.scheduledEndAt.toISOString(),
       plannedPlayerCount: join.plannedPlayerCount,
