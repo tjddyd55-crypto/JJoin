@@ -48,12 +48,13 @@ export function Button({
         return {
           bg: theme.colors.action.primary,
           border: theme.colors.action.primary,
-          text: theme.colors.text.onGold,
-          icon: 'onGold' as const,
+          // Fresh Lime CTA uses Deep Navy text — never white on lime
+          text: theme.colors.text.onPrimary,
+          icon: 'onPrimary' as const,
         };
       case 'secondary':
         return {
-          bg: theme.colors.surface.card,
+          bg: theme.colors.action.secondary,
           border: theme.colors.border.subtle,
           text: theme.colors.text.primary,
           icon: 'primary' as const,
@@ -98,13 +99,11 @@ export function Button({
         <ActivityIndicator color={palette.text} />
       ) : (
         <View style={styles.content}>
-          {leftIcon ? <Icon name={leftIcon} size="md" tone={palette.icon === 'onGold' ? 'inverse' : 'primary'} /> : null}
+          {leftIcon ? <Icon name={leftIcon} size="md" tone="primary" /> : null}
           <Text variant="button" style={{ color: palette.text }}>
             {label}
           </Text>
-          {rightIcon ? (
-            <Icon name={rightIcon} size="md" tone={palette.icon === 'onGold' ? 'inverse' : 'primary'} />
-          ) : null}
+          {rightIcon ? <Icon name={rightIcon} size="md" tone="primary" /> : null}
         </View>
       )}
     </Pressable>

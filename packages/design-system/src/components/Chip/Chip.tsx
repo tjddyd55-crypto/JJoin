@@ -16,12 +16,12 @@ export function Chip({ label, variant = 'filter', selected = false, disabled, st
   const isSelected = selected || variant === 'selected';
 
   const bg = isSelected
-    ? theme.colors.surface.floating
+    ? theme.colors.surface.soft
     : variant === 'quickAdd'
       ? theme.colors.surface.elevated
       : theme.colors.surface.card;
 
-  const border = isSelected ? theme.colors.action.primary : theme.colors.border.subtle;
+  const border = isSelected ? theme.colors.action.primaryDark : theme.colors.border.subtle;
   const textTone = isSelected ? 'primary' : variant === 'quickAdd' ? 'primary' : 'secondary';
 
   return (

@@ -1,79 +1,109 @@
 import { palette } from './palette';
 
-/** Semantic Club Minimal colors — preferred for new code via useTheme(). */
+/**
+ * Semantic Bright Social Sports colors — preferred via `useTheme().colors`.
+ * Premium Black & Gold lives under `premiumColors` / `theme.premium`.
+ */
 export const semanticColors = {
   app: {
-    background: palette.neutral950,
+    background: palette.warmWhite,
   },
   surface: {
-    base: palette.neutral900,
-    card: palette.neutral850,
-    elevated: palette.neutral800,
-    floating: palette.neutral750,
+    base: palette.warmWhite,
+    card: palette.white,
+    elevated: palette.softSurface,
+    floating: palette.white,
+    soft: palette.paleGreen,
   },
   border: {
-    subtle: palette.neutral700,
-    strong: palette.neutral600,
+    subtle: palette.borderLight,
+    strong: palette.mutedText,
   },
   action: {
-    primary: palette.gold500,
-    primaryHover: palette.gold400,
-    secondary: palette.neutral850,
+    /** Fresh Lime — CTA bg; pair with text.onPrimary (Deep Navy), never white text */
+    primary: palette.lime500,
+    primaryHover: palette.lime600,
+    primaryDark: palette.lime600,
+    secondary: palette.white,
     ghost: 'transparent',
-    danger: palette.error500,
+    danger: palette.softRed,
+    info: palette.skyBlue,
   },
   reward: {
-    primary: palette.gold500,
-    secondary: palette.gold600,
-    light: palette.gold400,
-    muted: palette.goldMuted,
+    /** Coin / reward accents stay lime-forward in general UI */
+    primary: palette.lime600,
+    secondary: palette.lime500,
+    light: palette.paleGreen,
+    muted: palette.limeSoft,
   },
   navigation: {
-    active: palette.gold500,
-    inactive: palette.neutral500,
+    active: palette.lime600,
+    inactive: palette.mutedText,
+  },
+  map: {
+    accent: palette.skyBlue,
+    accentSoft: palette.skySoft,
   },
   text: {
-    primary: palette.neutral100,
-    secondary: palette.neutral300,
-    tertiary: palette.neutral500,
-    inverse: palette.neutral950,
-    onGold: palette.neutral950,
+    primary: palette.deepNavy,
+    secondary: palette.softNavy,
+    tertiary: palette.mutedText,
+    inverse: palette.white,
+    /** Deep Navy on Fresh Lime CTA — WCAG AA target */
+    onPrimary: palette.deepNavy,
+    /**
+     * @deprecated alias of onPrimary (Club Minimal “onGold” naming)
+     */
+    onGold: palette.deepNavy,
   },
   status: {
-    success: palette.success500,
+    success: palette.lime600,
     successSoft: palette.successSoft,
-    warning: palette.warning500,
-    warningSoft: palette.warningSoft,
-    error: palette.error500,
-    errorSoft: palette.errorSoft,
-    info: palette.info500,
-    infoSoft: palette.infoSoft,
+    warning: palette.softOrange,
+    warningSoft: palette.softOrangeSoft,
+    error: palette.softRed,
+    errorSoft: palette.softRedSoft,
+    info: palette.skyBlue,
+    infoSoft: palette.skySoft,
   },
+} as const;
+
+/** Premium-only semantic tokens — do not use on general Home/Join/nav. */
+export const premiumColors = {
+  background: palette.premiumBg,
+  surface: palette.premiumSurface,
+  elevated: palette.premiumElevated,
+  gold: palette.premiumGold,
+  text: palette.premiumIvory,
+  textMuted: palette.premiumMuted,
+  border: palette.premiumBorder,
+  badge: palette.premiumGoldMuted,
 } as const;
 
 /**
  * Legacy flat color tokens — kept for existing screen imports during migration.
- * New code should use `useTheme().colors` instead.
+ * Prefer `useTheme().colors` for new code.
  */
 export const colors = {
-  primary: '#0A6B56',
-  primarySoft: '#E0F2ED',
-  background: '#F5F6F8',
-  surface: '#FFFFFF',
-  textPrimary: '#1C2128',
-  textSecondary: '#6B7280',
+  primary: palette.lime500,
+  primarySoft: palette.paleGreen,
+  background: palette.warmWhite,
+  surface: palette.white,
+  textPrimary: palette.deepNavy,
+  textSecondary: palette.mutedText,
   /** @deprecated use theme text.tertiary in new code */
-  muted: '#9CA3AF',
-  border: '#E5E7EB',
-  danger: '#C0392B',
-  dangerSoft: '#FDECEC',
-  warning: '#B86B14',
-  warningSoft: '#FFF4E5',
-  coin: '#26748C',
-  coinSoft: '#E8F4F7',
-  overlay: 'rgba(20, 22, 26, 0.55)',
-  white: '#FFFFFF',
+  muted: palette.mutedText,
+  border: palette.borderLight,
+  danger: palette.softRed,
+  dangerSoft: palette.softRedSoft,
+  warning: palette.softOrange,
+  warningSoft: palette.softOrangeSoft,
+  coin: palette.lime600,
+  coinSoft: palette.paleGreen,
+  overlay: 'rgba(23, 33, 43, 0.45)',
+  white: palette.white,
 } as const;
 
 export type ColorToken = keyof typeof colors;
 export type SemanticColors = typeof semanticColors;
+export type PremiumColors = typeof premiumColors;

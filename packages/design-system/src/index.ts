@@ -1,13 +1,15 @@
-/** @jjoin/design-system — Club Minimal SSOT for React Native UI */
+/** @jjoin/design-system — Bright Social Sports SSOT for React Native UI */
 
 // Tokens
 export * from './tokens';
 
 // Theme
 export {
+  brightSocialSportsTheme,
   clubMinimalTheme,
   ThemeProvider,
   useTheme,
+  type BrightSocialSportsTheme,
   type ClubMinimalTheme,
 } from './theme';
 
@@ -35,6 +37,8 @@ export { Input, type InputProps } from './components/Input';
 export { Card, type CardProps, type CardVariant, type CardPadding } from './components/Card';
 export { Chip, type ChipProps, type ChipVariant } from './components/Chip';
 export { Badge, type BadgeProps, type BadgeVariant } from './components/Badge';
+export { BrandMark, type BrandMarkVariant, type BrandMarkTone } from './components/BrandMark';
+export { PremiumBadge } from './components/PremiumBadge';
 export { AppBar, type AppBarProps } from './components/AppBar';
 export {
   BottomNavigation,

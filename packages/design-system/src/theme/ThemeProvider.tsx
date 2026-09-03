@@ -1,17 +1,20 @@
 import { createContext, useContext, type ReactNode } from 'react';
-import { clubMinimalTheme, type ClubMinimalTheme } from './clubMinimalTheme';
+import {
+  brightSocialSportsTheme,
+  type BrightSocialSportsTheme,
+} from './clubMinimalTheme';
 
-const ThemeContext = createContext<ClubMinimalTheme>(clubMinimalTheme);
+const ThemeContext = createContext<BrightSocialSportsTheme>(brightSocialSportsTheme);
 
 type Props = {
   children: ReactNode;
-  theme?: ClubMinimalTheme;
+  theme?: BrightSocialSportsTheme;
 };
 
-export function ThemeProvider({ children, theme = clubMinimalTheme }: Props) {
+export function ThemeProvider({ children, theme = brightSocialSportsTheme }: Props) {
   return <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>;
 }
 
-export function useTheme(): ClubMinimalTheme {
+export function useTheme(): BrightSocialSportsTheme {
   return useContext(ThemeContext);
 }

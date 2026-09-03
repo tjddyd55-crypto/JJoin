@@ -1,12 +1,26 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { palette, semanticColors, layoutSpacing, sizes } from './index';
+import { palette, semanticColors, premiumColors, layoutSpacing, sizes } from './index';
 import { iconNames } from '../icons/iconTypes';
 
-test('semantic colors map from Club Minimal palette', () => {
-  assert.equal(semanticColors.app.background, palette.neutral950);
-  assert.equal(semanticColors.action.primary, palette.gold500);
-  assert.equal(semanticColors.text.primary, palette.neutral100);
+test('semantic colors map from Bright Social Sports palette', () => {
+  assert.equal(semanticColors.app.background, palette.warmWhite);
+  assert.equal(semanticColors.action.primary, palette.lime500);
+  assert.equal(semanticColors.text.primary, palette.deepNavy);
+  assert.equal(semanticColors.text.onPrimary, palette.deepNavy);
+  assert.equal(semanticColors.text.onGold, semanticColors.text.onPrimary);
+  assert.equal(semanticColors.map.accent, palette.skyBlue);
+});
+
+test('premium tokens keep archived Black & Gold', () => {
+  assert.equal(premiumColors.background, palette.premiumBg);
+  assert.equal(premiumColors.gold, palette.premiumGold);
+  assert.equal(premiumColors.text, palette.premiumIvory);
+});
+
+test('primary CTA never uses white text on lime', () => {
+  assert.notEqual(semanticColors.text.onPrimary, palette.white);
+  assert.equal(semanticColors.text.onPrimary, palette.deepNavy);
 });
 
 test('layout spacing matches Figma handoff', () => {

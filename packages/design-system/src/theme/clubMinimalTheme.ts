@@ -1,5 +1,6 @@
 import {
   semanticColors,
+  premiumColors,
   layoutSpacing,
   spacing,
   radius,
@@ -10,9 +11,11 @@ import {
   palette,
 } from '../tokens';
 
-export const clubMinimalTheme = {
-  name: 'clubMinimal' as const,
+/** Bright Social Sports theme — code design SSOT for general app UI. */
+export const brightSocialSportsTheme = {
+  name: 'brightSocialSports' as const,
   colors: semanticColors,
+  premium: premiumColors,
   palette,
   spacing,
   layoutSpacing,
@@ -23,4 +26,11 @@ export const clubMinimalTheme = {
   shadows,
 } as const;
 
-export type ClubMinimalTheme = typeof clubMinimalTheme;
+export type BrightSocialSportsTheme = typeof brightSocialSportsTheme;
+
+/**
+ * @deprecated Use `brightSocialSportsTheme`. Alias kept so existing ThemeProvider
+ * consumers keep compiling during the rebrand.
+ */
+export const clubMinimalTheme = brightSocialSportsTheme;
+export type ClubMinimalTheme = BrightSocialSportsTheme;

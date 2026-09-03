@@ -7,6 +7,7 @@ type SemanticColor =
   | 'secondary'
   | 'tertiary'
   | 'inverse'
+  | 'onPrimary'
   | 'onGold'
   | 'success'
   | 'warning'
@@ -28,8 +29,9 @@ function resolveToneColor(tone: SemanticColor, theme: ReturnType<typeof useTheme
       return theme.colors.text.tertiary;
     case 'inverse':
       return theme.colors.text.inverse;
+    case 'onPrimary':
     case 'onGold':
-      return theme.colors.text.onGold;
+      return theme.colors.text.onPrimary;
     case 'success':
       return theme.colors.status.success;
     case 'warning':

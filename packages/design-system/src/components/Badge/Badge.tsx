@@ -2,7 +2,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from '../../primitives/Text';
 import { useTheme } from '../../theme';
 
-export type BadgeVariant = 'neutral' | 'gold' | 'success' | 'warning' | 'error';
+export type BadgeVariant = 'neutral' | 'gold' | 'accent' | 'success' | 'warning' | 'error';
 
 export type BadgeProps = {
   label: string;
@@ -15,7 +15,10 @@ export function Badge({ label, variant = 'neutral' }: BadgeProps) {
   const { bg, tone } = (() => {
     switch (variant) {
       case 'gold':
-        return { bg: theme.colors.reward.muted, tone: 'primary' as const };
+        // Premium-facing gold soft surface
+        return { bg: theme.premium.badge, tone: 'primary' as const };
+      case 'accent':
+        return { bg: theme.colors.surface.soft, tone: 'primary' as const };
       case 'success':
         return { bg: theme.colors.status.successSoft, tone: 'success' as const };
       case 'warning':
