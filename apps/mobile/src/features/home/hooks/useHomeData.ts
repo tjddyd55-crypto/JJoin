@@ -55,7 +55,7 @@ export function useHomeData(userId: string | undefined) {
     const discoverTask = (async () => {
       try {
         const permission = await Location.getForegroundPermissionsAsync();
-        if (permission.status !== 'granted') return [];
+        if (permission.status !== 'granted') return { rows: [] as DiscoverJoinCardDto[], lat: null as number | null, lng: null as number | null };
         const pos = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
         });
@@ -68,13 +68,37 @@ export function useHomeData(userId: string | undefined) {
           sort: 'TIME',
           joinability: 'JOINABLE',
         });
-        return [...res.ongoing, ...res.upcoming];
+        return {
+          rows: [...res.ongoing, ...res.upcoming],
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        };
       } catch {
-        return [];
+        return { rows: [] as DiscoverJoinCardDto[], lat: null, lng: null };
       }
     })();
 
-    const recommendedTask = api.getRecommendedJoins({ limit: 5 }).catch(() => ({ items: [] }));
+    const recommendedTask = (async () => {
+      try {
+        const permission = await Location.getForegroundPermissionsAsync();
+        let lat: number | undefined;
+        let lng: number | undefined;
+        if (permission.status === 'granted') {
+          try {
+            const pos = await Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.Balanced,
+            });
+            lat = pos.coords.latitude;
+            lng = pos.coords.longitude;
+          } catch {
+            /* nearby bonus optional */
+          }
+        }
+        return api.getRecommendedJoins({ limit: 5, lat, lng });
+      } catch {
+        return { items: [] as RecommendedJoinDto[] };
+      }
+    })();
     const clubsTask = api.listMyClubs().catch(() => ({ items: [] }));
 
     const [discoverResult, recommendedResult, clubsResult] = await Promise.allSettled([
@@ -84,7 +108,7 @@ export function useHomeData(userId: string | undefined) {
     ]);
 
     if (discoverResult.status === 'fulfilled') {
-      discoverRows = discoverResult.value;
+      discoverRows = discoverResult.value.rows;
     }
     const recommended =
       recommendedResult.status === 'fulfilled' ? recommendedResult.value.items : [];
