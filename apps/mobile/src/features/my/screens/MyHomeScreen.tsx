@@ -105,6 +105,14 @@ export function MyHomeScreen() {
             {profile.attendanceRatePercent != null ? (
               <Badge label={`참석률 ${profile.attendanceRatePercent}%`} variant="gold" />
             ) : null}
+            {profile.reviewCount != null && profile.reviewCount > 0 && profile.averageRatingDisplay ? (
+              <Badge
+                label={`★ ${profile.averageRatingDisplay} · 후기 ${profile.reviewCount}`}
+                variant="gold"
+              />
+            ) : (
+              <Badge label="평가 없음" variant="neutral" />
+            )}
             {profile.verifiedBadge ? (
               <Badge label={t('profile.verified')} variant="success" />
             ) : (

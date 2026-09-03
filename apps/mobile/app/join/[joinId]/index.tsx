@@ -898,6 +898,18 @@ export default function JoinDetailScreen() {
       </ScrollScreenFrame>
 
       <StickyActionFrame>
+        {detail.status === JoinStatus.COMPLETED ? (
+          <Button
+            label="함께한 사람 평가하기"
+            variant="secondary"
+            onPress={() =>
+              router.push({
+                pathname: '/join/[joinId]/reviews',
+                params: { joinId },
+              })
+            }
+          />
+        ) : null}
         {showUrgentActivate ? (
           <Button
             label="긴급 모집"
