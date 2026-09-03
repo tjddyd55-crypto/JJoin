@@ -39,7 +39,32 @@ export { Chip, type ChipProps, type ChipVariant } from './components/Chip';
 export { Badge, type BadgeProps, type BadgeVariant } from './components/Badge';
 export { BrandMark, type BrandMarkVariant, type BrandMarkTone } from './components/BrandMark';
 export { JoinHostAvatar, type JoinHostAvatarProps, type JoinHostAvatarSize } from './components/JoinHostAvatar';
-export { JoinCard, type JoinCardProps } from './components/JoinCard';
+export {
+  JoinCard,
+  type JoinCardProps,
+  type JoinCardVariant,
+  type JoinCardStatusBadge,
+} from './components/JoinCard';
+export { JoinDdayBadge, type JoinDdayBadgeProps } from './components/JoinDdayBadge';
+export {
+  JoinStatusBadge,
+  type JoinStatusBadgeProps,
+  type JoinStatusBadgeTone,
+} from './components/JoinStatusBadge';
+export { JoinVenueRow, type JoinVenueRowProps } from './components/JoinVenueRow';
+export { JoinScheduleRow, type JoinScheduleRowProps } from './components/JoinScheduleRow';
+export { JoinCapacityRow, type JoinCapacityRowProps } from './components/JoinCapacityRow';
+export { JoinHostSummary, type JoinHostSummaryProps } from './components/JoinHostSummary';
+export { JoinStickyActionBar, type JoinStickyActionBarProps } from './components/JoinStickyActionBar';
+export { JoinRequirementChips, type JoinRequirementChipsProps } from './components/JoinRequirementChips';
+export {
+  ParticipantAvatarStack,
+  type ParticipantAvatarStackItem,
+  type ParticipantAvatarStackProps,
+} from './components/ParticipantAvatarStack';
+export { JoinScheduleSummary, type JoinScheduleSummaryProps } from './components/JoinScheduleSummary';
+export { JoinVenueSummary, type JoinVenueSummaryProps } from './components/JoinVenueSummary';
+export { JoinCapacitySummary, type JoinCapacitySummaryProps } from './components/JoinCapacitySummary';
 export { RecommendationReasonTag, type RecommendationReasonTagProps } from './components/RecommendationReasonTag';
 export { SectionHeader, type SectionHeaderProps } from './components/SectionHeader';
 export { EmptyState, type EmptyStateProps } from './components/EmptyState';

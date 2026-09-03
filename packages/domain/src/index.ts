@@ -345,6 +345,12 @@ export {
 } from './join-discovery';
 
 export {
+  computeJoinDdayLabel,
+  type JoinDdayKind,
+  type JoinDdayLabel,
+} from './join-dday';
+
+export {
   computeAttendanceReliability,
   formatTodayJoinableBadge,
   isJoinCapacityJoinable,

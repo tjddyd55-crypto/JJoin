@@ -1,1 +1,6 @@
-export { JoinCard, type JoinCardProps } from './JoinCard';
+export {
+  JoinCard,
+  type JoinCardProps,
+  type JoinCardVariant,
+  type JoinCardStatusBadge,
+} from './JoinCard';

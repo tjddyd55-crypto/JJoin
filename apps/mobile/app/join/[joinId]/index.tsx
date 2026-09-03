@@ -29,13 +29,9 @@ import { getSecureSessionStore, useSession } from '../../../src/session/SessionC
 import {
   isStoreMatchingJoin,
   matchingCanConfirmAttendance,
-  matchingDeadlineLabel,
-  matchingDisplayStatusLabel,
   matchingDisplaySubtitle,
-  matchingRewardBenefitLabel,
   matchingRewardResultLabel,
   matchingSlotProgressLabel,
-  formatKstTime,
 } from '../../../src/features/store/matching-join-ui';
 import {
   canActivateUrgentVacancy,
@@ -50,6 +46,8 @@ import {
   attendanceIntentLabel,
   canSetAttendanceIntent,
 } from '../../../src/features/join/attendance-intent-ui';
+import { JoinDetailPrimarySections } from '../../../src/features/join/components/JoinDetailPrimarySections';
+import { resolveJoinDetailPrimaryCta } from '../../../src/features/join/join-detail-cta';
 
 function rewardStatusLabel(status: RewardStatus): string {
   switch (status) {
@@ -469,9 +467,6 @@ export default function JoinDetailScreen() {
     );
   }
 
-  const startLabel = new Date(detail.startAt).toLocaleString('ko-KR', {
-    timeZone: 'Asia/Seoul',
-  });
   const matching = isStoreMatchingJoin(detail);
   const slotLabel = matching
     ? matchingSlotProgressLabel(
@@ -480,9 +475,6 @@ export default function JoinDetailScreen() {
         detail.confirmedMaleCount,
         detail.confirmedFemaleCount,
       )
-    : null;
-  const matchingStatusLabel = matching
-    ? matchingDisplayStatusLabel(detail, isHost ? 'host' : 'participant')
     : null;
   const matchingSubtitle = matching ? matchingDisplaySubtitle(detail) : null;
   const canCancelMatching =
@@ -548,156 +540,63 @@ export default function JoinDetailScreen() {
     isHost,
     participationStatus: detail.myParticipation?.participationStatus,
   });
+  const primaryCta = resolveJoinDetailPrimaryCta({
+    detail,
+    isHost,
+    canLeave: canLeaveMatching,
+  });
 
   return (
     <View style={styles.root}>
-      <ScrollScreenFrame style={styles.scroll} contentPaddingBottom={24}>
-        <Section title={detail.venue.name} subtitle={startLabel}>
-          <Row justify="space-between" align="center" style={styles.headerActions}>
-            <Row gap="sm" align="center" style={styles.badgeRow}>
-              {matching ? <Badge label="매장 인증" variant="gold" /> : null}
-              {detail.isUrgent ? <Badge label="긴급 모집" variant="warning" /> : null}
-              <Badge label={matchingStatusLabel ?? detail.status} variant="gold" />
-            </Row>
-            <Row gap="sm" align="center">
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={detail.bookmarked ? '찜 해제' : '찜하기'}
-                onPress={() => void onToggleBookmark()}
-                hitSlop={8}
-                style={styles.iconHit}
-              >
-                <Text
-                  variant="sectionTitle"
-                  style={{
-                    color: detail.bookmarked
-                      ? theme.colors.action.primary
-                      : theme.colors.text.tertiary,
-                  }}
-                >
-                  {detail.bookmarked ? '♥' : '♡'}
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="공유"
-                onPress={() => void onShare()}
-                hitSlop={8}
-                style={styles.iconHit}
-              >
-                <Icon name="share" size="md" tone="secondary" />
-              </Pressable>
-            </Row>
-          </Row>
-          {matchingSubtitle ? (
-            <Text variant="caption" tone="secondary">
-              {matchingSubtitle}
+      <ScrollScreenFrame style={styles.scroll} contentPaddingBottom={140}>
+        <Row justify="flex-end" align="center" gap="sm" style={styles.headerActions}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={detail.bookmarked ? '찜 해제' : '찜하기'}
+            onPress={() => void onToggleBookmark()}
+            hitSlop={8}
+            style={styles.iconHit}
+          >
+            <Text
+              variant="sectionTitle"
+              style={{
+                color: detail.bookmarked
+                  ? theme.colors.action.primary
+                  : theme.colors.text.tertiary,
+              }}
+            >
+              {detail.bookmarked ? '♥' : '♡'}
             </Text>
-          ) : null}
-          {participantRewardLabel ? (
-            <Text variant="body" tone="secondary" style={{ color: theme.colors.reward.primary }}>
-              {participantRewardLabel}
-            </Text>
-          ) : null}
-          <Text variant="body" tone="secondary">
-            {detail.confirmedPlayerCount}/{detail.plannedPlayerCount}명
-          </Text>
-        </Section>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="공유"
+            onPress={() => void onShare()}
+            hitSlop={8}
+            style={styles.iconHit}
+          >
+            <Icon name="share" size="md" tone="secondary" />
+          </Pressable>
+        </Row>
 
-        {matching ? (
-          <Section title="모집 정보">
-            {slotLabel ? (
-              <Text variant="body" tone="secondary">
-                {slotLabel}
-              </Text>
-            ) : null}
-            {detail.recruitmentLabel ? (
-              <Text variant="body" tone="secondary">
-                {detail.recruitmentLabel}
-              </Text>
-            ) : null}
-            {detail.minimumPlayers != null ? (
-              <Text variant="caption" tone="tertiary">
-                최소 {detail.minimumPlayers}명 진행
-              </Text>
-            ) : null}
-            {matchingDeadlineLabel(detail.recruitClosesAt) ? (
-              <Text variant="caption" tone="tertiary">
-                {matchingDeadlineLabel(detail.recruitClosesAt)}
-              </Text>
-            ) : null}
-            <Text variant="caption" tone="tertiary">
-              시작 {formatKstTime(detail.startAt)} · 종료 {formatKstTime(detail.scheduledEndAt)}
-            </Text>
-            {matchingRewardBenefitLabel(detail.matchingRewardTarget, detail.rewardPerParticipant) ? (
-              <Text variant="body" tone="secondary" style={{ color: theme.colors.reward.primary }}>
-                {matchingRewardBenefitLabel(detail.matchingRewardTarget, detail.rewardPerParticipant)}
-              </Text>
-            ) : null}
-          </Section>
+        {matchingSubtitle ? (
+          <Text variant="caption" tone="secondary">
+            {matchingSubtitle}
+          </Text>
+        ) : null}
+        {participantRewardLabel ? (
+          <Text variant="body" tone="secondary" style={{ color: theme.colors.reward.primary }}>
+            {participantRewardLabel}
+          </Text>
         ) : null}
 
-        <Section title="호스트">
-          <Text variant="bodyStrong" tone="primary">
-            {detail.host.nickname}
-            {detail.host.verifiedBadge ? ' · 인증' : ''}
-          </Text>
-          {detail.host.completedJoinCount != null || detail.host.noShowCount != null ? (
-            <Text variant="meta" tone="secondary">
-              참석 {detail.host.completedJoinCount ?? 0} · 노쇼 {detail.host.noShowCount ?? 0}
-              {detail.host.attendanceRatePercent != null
-                ? ` · 참석률 ${detail.host.attendanceRatePercent}%`
-                : ''}
-            </Text>
-          ) : null}
-        </Section>
-
-        <Section title="참가자">
-          <Text variant="body" tone="secondary">
-            {detail.confirmedPlayerCount}/{detail.plannedPlayerCount}명 · 참가 방식{' '}
-            {detail.joinMethod}
-          </Text>
-          {detail.myParticipation ? (
-            <Text variant="meta" tone="secondary">
-              내 상태: {detail.myParticipation.participationStatus} (
-              {detail.myParticipation.role})
-            </Text>
-          ) : null}
-          {detail.participants.map((p) => (
-            <Card key={p.participantId} variant="base" padding="md" style={styles.attendanceCard}>
-              <Row justify="space-between" align="center" gap="sm">
-                <Text variant="bodyStrong" tone="primary" style={styles.participantName}>
-                  {p.nickname}
-                  {p.role === 'HOST' ? ' · 호스트' : ''}
-                </Text>
-                {p.role !== 'HOST' &&
-                (p.participationStatus === ParticipationStatus.APPROVED ||
-                  p.participationStatus === ParticipationStatus.CONFIRMED) ? (
-                  <Badge
-                    label={attendanceIntentLabel(p.attendanceIntent)}
-                    variant={attendanceIntentBadgeVariant(p.attendanceIntent)}
-                  />
-                ) : null}
-              </Row>
-              <Text variant="meta" tone="secondary">
-                {p.participationStatus}
-                {p.completedJoinCount != null || p.noShowCount != null
-                  ? ` · 참석 ${p.completedJoinCount ?? 0} · 노쇼 ${p.noShowCount ?? 0}`
-                  : ''}
-                {p.attendanceRatePercent != null ? ` · ${p.attendanceRatePercent}%` : ''}
-              </Text>
-            </Card>
-          ))}
-        </Section>
-
-        <Section title="보상">
-          <Text variant="coinMedium" style={{ color: theme.colors.reward.primary }}>
-            {formatCoinWithLabel(detail.rewardPerParticipant)}
-          </Text>
-          <Text variant="caption" tone="tertiary">
-            1인당 참가 보상
-          </Text>
-        </Section>
+        <JoinDetailPrimarySections
+          detail={detail}
+          isHost={isHost}
+          matching={matching}
+          slotLabel={slotLabel}
+          onOpenHost={() => router.push(`/user/${detail.host.id}`)}
+        />
 
         {mySettlement ? (
           <Section title="내 정산">
@@ -898,6 +797,15 @@ export default function JoinDetailScreen() {
       </ScrollScreenFrame>
 
       <StickyActionFrame>
+        <Button
+          label={primaryCta.label}
+          disabled={primaryCta.disabled}
+          loading={busy}
+          onPress={() => {
+            if (primaryCta.label === '참가 신청') void onApply();
+            else if (primaryCta.label === '참가 취소') void onLeaveStoreJoin();
+          }}
+        />
         {detail.status === JoinStatus.COMPLETED ? (
           <Button
             label="함께한 사람 평가하기"
@@ -968,9 +876,6 @@ export default function JoinDetailScreen() {
             />
           </View>
         ) : null}
-        {!isHost && !detail.myParticipation ? (
-          <Button label="참가 신청" loading={busy} onPress={() => void onApply()} />
-        ) : null}
         {canCancelMatching ? (
           <Button
             label="모집 조인 취소"
@@ -979,7 +884,7 @@ export default function JoinDetailScreen() {
             onPress={() => void onCancelStoreJoin()}
           />
         ) : null}
-        {canLeaveMatching ? (
+        {canLeaveMatching && primaryCta.label !== '참가 취소' ? (
           <Button
             label="참가 취소"
             variant="secondary"

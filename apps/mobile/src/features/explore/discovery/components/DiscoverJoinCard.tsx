@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Button, JoinCard as DSJoinCard, spacing } from '@jjoin/design-system';
-import { formatSignedCoin } from '@jjoin/domain';
 import type { DiscoverJoinCardDto } from '@jjoin/types';
 import {
   isStoreMatchingJoin,
@@ -10,6 +9,7 @@ import {
   matchingSlotProgressLabel,
 } from '../../../store/matching-join-ui';
 import { mapDiscoverToJoinCardProps } from '../../../../ui/join-card-map';
+import { splitJoinCapacityDisplay } from '../../../../ui/join-display';
 
 type Props = {
   join: DiscoverJoinCardDto;
@@ -43,7 +43,16 @@ export function DiscoverJoinCard({ join, onPress, onJoinPress }: Props) {
       join.matchingRewardTarget,
       join.rewardPerParticipant,
     );
-    cardProps.participantLabel = slotLabel ?? cardProps.participantLabel;
+    if (slotLabel) {
+      const capacity = splitJoinCapacityDisplay({
+        current: join.currentParticipants,
+        max: join.maxParticipants,
+        seatsLeft: join.availableSlots,
+      });
+      cardProps.countLabel = slotLabel;
+      cardProps.seatsHighlight = capacity.seatsHighlight;
+      cardProps.seatsHighlightTone = capacity.seatsHighlightTone;
+    }
     cardProps.rewardLabel = rewardLabel ?? cardProps.rewardLabel;
   }
 

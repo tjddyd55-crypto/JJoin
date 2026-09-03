@@ -1,48 +1,81 @@
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Icon } from '../../icons/Icon';
 import { Text } from '../../primitives/Text';
-import { Badge } from '../Badge';
+import { JoinCapacityRow } from '../JoinCapacityRow';
+import { JoinDdayBadge } from '../JoinDdayBadge';
 import { JoinHostAvatar } from '../JoinHostAvatar';
+import { JoinScheduleRow } from '../JoinScheduleRow';
+import { JoinStatusBadge, type JoinStatusBadgeTone } from '../JoinStatusBadge';
+import { JoinVenueRow } from '../JoinVenueRow';
 import { RecommendationReasonTag } from '../RecommendationReasonTag';
 import { useTheme } from '../../theme';
 import { shadows } from '../../tokens';
 
+export type JoinCardVariant = 'compact' | 'default' | 'preview' | 'management';
+
+export type JoinCardStatusBadge = {
+  label: string;
+  tone?: JoinStatusBadgeTone;
+};
+
 export type JoinCardProps = {
+  variant?: JoinCardVariant;
   title: string;
-  timeLabel: string;
-  regionLabel?: string | null;
-  distanceLabel?: string | null;
-  participantLabel: string;
+  venueName: string;
+  venueSubLabel?: string | null;
+  scheduleLabel: string;
+  countLabel: string;
+  seatsHighlight?: string | null;
+  seatsHighlightTone?: 'available' | 'lastSeat' | 'full';
+  ddayLabel?: string | null;
+  statusBadges?: JoinCardStatusBadge[];
   hostNickname?: string | null;
   hostAvatarUrl?: string | null;
   reasonTags?: string[];
   rewardLabel?: string | null;
   isUrgent?: boolean;
-  statusBadge?: string | null;
   onPress?: () => void;
+  accessibilityLabel?: string;
 };
 
 export function JoinCard({
+  variant = 'default',
   title,
-  timeLabel,
-  regionLabel,
-  distanceLabel,
-  participantLabel,
+  venueName,
+  venueSubLabel,
+  scheduleLabel,
+  countLabel,
+  seatsHighlight,
+  seatsHighlightTone = 'available',
+  ddayLabel,
+  statusBadges,
   hostNickname,
   hostAvatarUrl,
   reasonTags,
   rewardLabel,
   isUrgent,
-  statusBadge,
   onPress,
+  accessibilityLabel,
 }: JoinCardProps) {
   const theme = useTheme();
-  const locationBits = [regionLabel, distanceLabel].filter(Boolean).join(' · ');
+  const isCompact = variant === 'compact' || variant === 'preview';
+  const avatarSize = isCompact ? 'md' : 'md';
+
+  const badges: JoinCardStatusBadge[] = [...(statusBadges ?? [])];
+  if (isUrgent && !badges.some((b) => b.label.includes('긴급'))) {
+    badges.unshift({ label: '긴급 모집', tone: 'urgent' });
+  }
+
+  const a11yLabel =
+    accessibilityLabel ??
+    [ddayLabel, title, venueName, scheduleLabel, countLabel, seatsHighlight]
+      .filter(Boolean)
+      .join(' · ');
 
   const inner = (
     <View
       style={[
         styles.card,
+        isCompact ? styles.cardCompact : null,
         {
           backgroundColor: theme.colors.surface.card,
           borderColor: theme.colors.border.subtle,
@@ -51,45 +84,32 @@ export function JoinCard({
         shadows.card,
       ]}
     >
-      <JoinHostAvatar
-        profileImageUrl={hostAvatarUrl}
-        hostName={hostNickname}
-        size="md"
-        showHostBadge
-      />
+      <View style={styles.topRow}>
+        <View style={styles.badgeRow}>
+          {ddayLabel ? <JoinDdayBadge label={ddayLabel} /> : null}
+          {badges.map((badge) => (
+            <JoinStatusBadge key={badge.label} label={badge.label} tone={badge.tone} />
+          ))}
+        </View>
+        <JoinHostAvatar
+          profileImageUrl={hostAvatarUrl}
+          hostName={hostNickname}
+          size={avatarSize}
+          showHostBadge
+        />
+      </View>
 
       <View style={styles.body}>
-        <View style={styles.titleRow}>
-          <Text variant="cardTitle" tone="primary" numberOfLines={1} style={styles.title}>
-            {title}
-          </Text>
-          {isUrgent ? <Badge label="긴급" variant="warning" /> : null}
-          {statusBadge ? <Badge label={statusBadge} variant="neutral" /> : null}
-        </View>
-
-        <View style={styles.metaRow}>
-          <Icon name="calendar" size="sm" tone="tertiary" />
-          <Text variant="meta" tone="primary" numberOfLines={1}>
-            {timeLabel}
-          </Text>
-        </View>
-
-        {locationBits ? (
-          <View style={styles.metaRow}>
-            <Icon name="location" size="sm" tone="tertiary" />
-            <Text variant="meta" tone="secondary" numberOfLines={1}>
-              {locationBits}
-            </Text>
-          </View>
-        ) : null}
-
-        <View style={styles.metaRow}>
-          <Icon name="people" size="sm" tone="tertiary" />
-          <Text variant="meta" tone="secondary" numberOfLines={1}>
-            {participantLabel}
-          </Text>
-        </View>
-
+        <Text variant="cardTitle" tone="primary" numberOfLines={variant === 'management' ? 2 : 1}>
+          {title}
+        </Text>
+        <JoinVenueRow venueName={venueName} subLabel={venueSubLabel} />
+        <JoinScheduleRow label={scheduleLabel} />
+        <JoinCapacityRow
+          countLabel={countLabel}
+          seatsHighlight={seatsHighlight}
+          highlightTone={seatsHighlightTone}
+        />
         {reasonTags && reasonTags.length > 0 ? (
           <View style={styles.tags}>
             {reasonTags.slice(0, 2).map((tag) => (
@@ -97,8 +117,7 @@ export function JoinCard({
             ))}
           </View>
         ) : null}
-
-        {rewardLabel ? (
+        {rewardLabel && variant !== 'preview' ? (
           <Text variant="meta" tone="success" numberOfLines={1}>
             {rewardLabel}
           </Text>
@@ -112,6 +131,7 @@ export function JoinCard({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={a11yLabel}
       onPress={onPress}
       style={({ pressed }) => [{ opacity: pressed ? 0.92 : 1 }]}
     >
@@ -122,31 +142,30 @@ export function JoinCard({
 
 const styles = StyleSheet.create({
   card: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
+    gap: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderWidth: StyleSheet.hairlineWidth,
   },
-  body: {
+  cardCompact: {
+    paddingVertical: 10,
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  badgeRow: {
     flex: 1,
-    minWidth: 0,
-    gap: 3,
-  },
-  titleRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
     flexWrap: 'wrap',
-  },
-  title: {
-    flexShrink: 1,
-  },
-  metaRow: {
-    flexDirection: 'row',
+    gap: 6,
     alignItems: 'center',
-    gap: 4,
+    minWidth: 0,
+  },
+  body: {
+    gap: 3,
     minWidth: 0,
   },
   tags: {

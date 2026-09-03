@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { JoinStatus } from '@jjoin/types';
+import {
+  formatJoinScheduleListLabel,
+  resolveJoinListStatusBadges,
+  splitJoinCapacityDisplay,
+} from './join-display';
+
+test('formatJoinScheduleListLabel uses today label', () => {
+  const label = formatJoinScheduleListLabel(
+    '2026-09-17T10:00:00.000Z',
+    new Date('2026-09-17T03:00:00.000Z'),
+  );
+  assert.match(label, /^오늘 ·/);
+});
+
+test('resolveJoinListStatusBadges includes urgent and last seat', () => {
+  const badges = resolveJoinListStatusBadges({
+    status: JoinStatus.OPEN,
+    isUrgent: true,
+    seatsLeft: 1,
+  });
+  assert.ok(badges.some((b) => b.label === '긴급 모집'));
+  assert.ok(badges.some((b) => b.label === '마감 임박'));
+});

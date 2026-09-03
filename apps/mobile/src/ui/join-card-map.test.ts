@@ -4,6 +4,7 @@ import {
   formatJoinDisplayTitle,
   formatJoinParticipantDisplay,
   recommendShortReasonLabels,
+  splitJoinCapacityDisplay,
 } from './join-card-map';
 import type { RecommendedJoinDto } from '@jjoin/types';
 
@@ -26,6 +27,18 @@ test('recommendShortReasonLabels returns max 2 short tags', () => {
   assert.equal(tags.length, 2);
   assert.equal(tags[0], '내 주변');
   assert.equal(tags[1], '시간대가 맞아요');
+});
+
+test('splitJoinCapacityDisplay separates count and seat highlight', () => {
+  const parts = splitJoinCapacityDisplay({ current: 0, max: 4, seatsLeft: 4 });
+  assert.equal(parts.countLabel, '0/4명');
+  assert.equal(parts.seatsHighlight, '4자리 남음');
+  assert.equal(parts.seatsHighlightTone, 'available');
+});
+
+test('splitJoinCapacityDisplay marks last seat tone', () => {
+  const parts = splitJoinCapacityDisplay({ current: 3, max: 4, seatsLeft: 1 });
+  assert.equal(parts.seatsHighlightTone, 'lastSeat');
 });
 
 test('formatJoinParticipantDisplay normalizes seat info once', () => {

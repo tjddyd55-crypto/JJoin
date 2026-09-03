@@ -1,0 +1,30 @@
+import { StyleSheet, View } from 'react-native';
+import { Icon } from '../../icons/Icon';
+import { Text } from '../../primitives/Text';
+
+export type JoinScheduleRowProps = {
+  label: string;
+};
+
+export function JoinScheduleRow({ label }: JoinScheduleRowProps) {
+  return (
+    <View style={styles.row}>
+      <Icon name="calendar" size="sm" tone="tertiary" />
+      <Text variant="meta" tone="primary" numberOfLines={1} style={styles.text}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minWidth: 0,
+  },
+  text: {
+    flex: 1,
+  },
+});

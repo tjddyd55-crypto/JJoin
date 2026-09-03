@@ -218,6 +218,8 @@ export function ExploreBottomSheetBody(props: {
                   key={j.joinId}
                   venue={v.name}
                   startAt={j.startAt}
+                  scheduledEndAt={j.scheduledEndAt}
+                  joinStatus={j.status}
                   participantCount={j.currentParticipants}
                   plannedPlayerCount={j.maxParticipants}
                   host={j.hostNickname}

@@ -80,6 +80,31 @@ export const semanticColors = {
     info: palette.infoBlue,
     infoSoft: palette.infoSurface,
   },
+  join: {
+    status: {
+      open: palette.activeGreen,
+      openSurface: palette.selectedSurface,
+      urgent: palette.softOrange,
+      urgentSurface: palette.softOrangeSoft,
+      full: palette.mutedText,
+      fullSurface: palette.softSurface,
+      closed: palette.mutedText,
+      closedSurface: palette.softSurface,
+    },
+    dday: {
+      text: palette.deepNavy,
+      surface: palette.infoSurface,
+    },
+    venue: palette.secondaryText,
+    capacity: {
+      available: palette.selectedText,
+      lastSeat: palette.softOrange,
+      full: palette.mutedText,
+    },
+    surface: {
+      info: palette.infoSurface,
+    },
+  },
 } as const;
 
 /** Premium-only semantic tokens — do not use on general Home/Join/nav. */
