@@ -81,6 +81,24 @@ Previous Club Minimal / Black & Gold direction is preserved as:
 - Figma archive pages (do not delete historical frames)
 - Deprecated palette aliases (`gold500`, `neutral950`, …)
 
+## Visual Home & Join Card (2026-03)
+
+Figma page `19_MOBILE_PREVIEW_BRIGHT` frames:
+
+| Frame | Node ID | Purpose |
+|-------|---------|---------|
+| `HOME_CURRENT_TEXT_HEAVY` | `127:210` | Before — text-heavy list |
+| `HOME_TARGET_VISUAL` | `127:2` | Target home composition (390) |
+| `HOME_360_QA` | `127:50` | Width QA |
+| `HOME_390_QA` | `127:98` | Width QA |
+| `HOME_430_QA` | `127:146` | Width QA |
+| `JOIN_CARD_HOST_PHOTO` | `127:194` | Host profile representative image |
+| `JOIN_CARD_BRAND_FALLBACK` | `127:202` | BrandMark fallback |
+
+Join representative image policy: **host public profile → 쪼인존 symbol** (never venue/store photos).
+
+Shared components: `JoinHostAvatar`, `JoinCard`, `SectionHeader`, `RecommendationReasonTag`, `EmptyState`.
+
 ## Component Catalog
 
 Dev-only route: `/dev/design-system`
