@@ -93,10 +93,24 @@ export const typography = {
   },
   navLabel: {
     fontFamily: fontFamily.sansMedium,
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: '500' as const,
     letterSpacing: 0.2,
+  },
+  cardTitle: {
+    fontFamily: fontFamily.sansSemiBold,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '600' as const,
+    letterSpacing: 0,
+  },
+  quickMenuLabel: {
+    fontFamily: fontFamily.sansMedium,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '500' as const,
+    letterSpacing: 0,
   },
   /** @deprecated use sectionTitle */
   title: {

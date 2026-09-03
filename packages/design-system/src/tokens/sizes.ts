@@ -17,6 +17,8 @@ export const sizes = {
     sm: 32,
     md: 48,
     lg: 72,
+    joinHost: 56,
+    joinHostLg: 64,
   },
   appBar: 56,
   bottomNav: 64,

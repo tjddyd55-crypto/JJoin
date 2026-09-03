@@ -38,6 +38,11 @@ export { Card, type CardProps, type CardVariant, type CardPadding } from './comp
 export { Chip, type ChipProps, type ChipVariant } from './components/Chip';
 export { Badge, type BadgeProps, type BadgeVariant } from './components/Badge';
 export { BrandMark, type BrandMarkVariant, type BrandMarkTone } from './components/BrandMark';
+export { JoinHostAvatar, type JoinHostAvatarProps, type JoinHostAvatarSize } from './components/JoinHostAvatar';
+export { JoinCard, type JoinCardProps } from './components/JoinCard';
+export { RecommendationReasonTag, type RecommendationReasonTagProps } from './components/RecommendationReasonTag';
+export { SectionHeader, type SectionHeaderProps } from './components/SectionHeader';
+export { EmptyState, type EmptyStateProps } from './components/EmptyState';
 export { PremiumBadge } from './components/PremiumBadge';
 export { AppBar, type AppBarProps } from './components/AppBar';
 export {
