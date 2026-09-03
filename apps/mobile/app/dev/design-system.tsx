@@ -22,6 +22,9 @@ import {
   Divider,
   useTheme,
   clubMinimalTheme,
+  brightSocialSportsTheme,
+  BrandMark,
+  PremiumBadge,
 } from '@jjoin/design-system';
 
 function ColorSwatch({ label, color }: { label: string; color: string }) {
@@ -44,7 +47,7 @@ function CatalogBody() {
         Design System Catalog
       </Text>
       <Text variant="meta" tone="tertiary">
-        Club Minimal — dev only
+        Bright Social Sports — 쪼인존 · dev only
       </Text>
       <Spacer size="lg" />
 
@@ -53,6 +56,7 @@ function CatalogBody() {
         <ColorSwatch label="surface.card" color={theme.colors.surface.card} />
         <ColorSwatch label="action.primary" color={theme.colors.action.primary} />
         <ColorSwatch label="text.primary" color={theme.colors.text.primary} />
+        <ColorSwatch label="premium.gold" color={theme.premium.gold} />
       </Section>
 
       <Section title="Typography">

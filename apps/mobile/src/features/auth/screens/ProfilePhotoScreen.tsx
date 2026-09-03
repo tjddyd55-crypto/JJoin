@@ -75,7 +75,7 @@ export function ProfilePhotoScreen() {
           <UserAvatar uri={uri} name={me?.publicProfile?.nickname ?? 'J'} size="lg" />
         </View>
         <Text variant="bodyStrong" tone="primary">
-          {me?.publicProfile?.nickname ?? 'JJOINZONE'}
+          {me?.publicProfile?.nickname ?? '쪼인존'}
         </Text>
         <Text variant="caption" tone="secondary" style={styles.centerText}>
           {uri ? '선택한 이미지를 프로필로 저장합니다.' : t('auth.profilePhoto.empty')}

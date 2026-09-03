@@ -21,9 +21,9 @@ test('resolveAppVariant: only explicit development selects DEV', () => {
   assert.equal(resolveAppVariant('staging'), 'production');
 });
 
-test('production identity uses gold icons and com.jjoin.app', () => {
+test('production identity uses Bright Social Sports icons and com.jjoin.app', () => {
   const id = identityFor('production');
-  assert.equal(id.name, 'JJOINZONE');
+  assert.equal(id.name, '쪼인존');
   assert.equal(id.androidPackage, 'com.jjoin.app');
   assert.equal(iconFor('production'), PRODUCTION_APP_ICON);
   const adaptive = androidAdaptiveIconFor('production');
@@ -37,7 +37,7 @@ test('production identity uses gold icons and com.jjoin.app', () => {
 
 test('development identity uses Expo DEV icons and com.jjoin.app.dev', () => {
   const id = identityFor('development');
-  assert.equal(id.name, 'JJOINZONE DEV');
+  assert.equal(id.name, '쪼인존 DEV');
   assert.equal(id.androidPackage, 'com.jjoin.app.dev');
   assert.equal(iconFor('development'), DEVELOPMENT_APP_ICON);
   const adaptive = androidAdaptiveIconFor('development');

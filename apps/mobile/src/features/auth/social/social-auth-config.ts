@@ -28,7 +28,7 @@ export function naverLoginConfig() {
   return {
     consumerKey: trimEnv(process.env.EXPO_PUBLIC_NAVER_LOGIN_CLIENT_ID),
     consumerSecret: trimEnv(process.env.EXPO_PUBLIC_NAVER_LOGIN_CLIENT_SECRET),
-    appName: isDev ? 'JJOINZONE DEV' : 'JJOINZONE',
+    appName: isDev ? '쪼인존 DEV' : '쪼인존',
     serviceUrlScheme:
       trimEnv(process.env.EXPO_PUBLIC_NAVER_LOGIN_URL_SCHEME) || 'jjoinnaverlogin',
   };

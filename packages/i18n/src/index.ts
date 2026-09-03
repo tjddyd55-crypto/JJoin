@@ -1,7 +1,7 @@
 export type Locale = 'ko-KR' | 'en-US';
 
 const koKR = {
-  'app.name': 'JJOINZONE',
+  'app.name': '쪼인존',
   'nav.home': '홈',
   'nav.explore': '탐색',
   'nav.join': '조인',
@@ -23,7 +23,7 @@ const koKR = {
   'auth.login.unavailable.naver': '네이버 로그인을 사용할 수 없습니다. 앱을 업데이트하거나 잠시 후 다시 시도해 주세요.',
   'auth.login.unavailable.google': 'Google 로그인을 사용할 수 없습니다. 앱을 업데이트하거나 잠시 후 다시 시도해 주세요.',
   'auth.terms.title': '약관 동의',
-  'auth.terms.subtitle': 'JJOINZONE 시작 전 필요한 항목에 동의해 주세요.',
+  'auth.terms.subtitle': '쪼인존 시작 전 필요한 항목에 동의해 주세요.',
   'auth.terms.all': '전체 동의',
   'auth.terms.requiredGroup': '필수 동의',
   'auth.terms.optionalGroup': '선택 동의',
@@ -151,7 +151,7 @@ const koKR = {
 
 const enUS = {
   ...koKR,
-  'app.name': 'JJOINZONE',
+  'app.name': '쪼인존',
   'nav.home': 'Home',
   'nav.explore': 'Explore',
   'nav.join': 'Join',
@@ -171,7 +171,7 @@ const enUS = {
   'auth.login.unavailable.kakao': 'Kakao sign-in is unavailable. Update the app or try again later.',
   'auth.login.unavailable.naver': 'Naver sign-in is unavailable. Update the app or try again later.',
   'auth.login.unavailable.google': 'Google sign-in is unavailable. Update the app or try again later.',
-  'auth.terms.subtitle': 'Agree to the required items to start JJOINZONE.',
+  'auth.terms.subtitle': 'Agree to the required items to start 쪼인존.',
   'auth.gate.identityRequired': 'Identity verification is required for join activities.',
   'wallet.available': 'Available',
   'wallet.hold': 'Held',

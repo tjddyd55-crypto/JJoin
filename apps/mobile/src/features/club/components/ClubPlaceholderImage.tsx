@@ -7,7 +7,7 @@ type Props = {
   label?: string;
 };
 
-export function ClubPlaceholderImage({ uri, height = 160, label = 'JJOINZONE' }: Props) {
+export function ClubPlaceholderImage({ uri, height = 160, label = '쪼인존' }: Props) {
   const theme = useTheme();
 
   if (uri) {

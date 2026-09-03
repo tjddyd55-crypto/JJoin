@@ -2,13 +2,13 @@ import { useCallback, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
 import {
+  BrandMark,
   IconButton,
   ScrollScreenFrame,
   Spacer,
   Text,
   spacing,
 } from '@jjoin/design-system';
-import { t } from '@jjoin/i18n';
 import { useSession, getSecureSessionStore } from '../../../session/SessionContext';
 import { getApiClient } from '../../../lib/api';
 import { trackRecommendationClick } from '../../../lib/product-analytics';
@@ -21,6 +21,7 @@ import {
 } from '../components/HomeJoinSections';
 import { HomeClubSection } from '../components/HomeClubSection';
 import { useHomeData } from '../hooks/useHomeData';
+import { isInternalToolsEnabled } from '../../../lib/internal-tools';
 
 function joinDetailHref(joinId: string): Href {
   return { pathname: '/join/[joinId]', params: { joinId } } as Href;
@@ -58,9 +59,10 @@ export function HomeScreen() {
     <ScrollScreenFrame contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <View style={styles.headerText}>
-          <Text variant="bodyStrong" tone="primary">
-            {t('app.name')}
-          </Text>
+          <BrandMark
+            variant="compact"
+            showDevBadge={isInternalToolsEnabled()}
+          />
           <Text variant="caption" tone="tertiary">
             {regionLabel}
           </Text>

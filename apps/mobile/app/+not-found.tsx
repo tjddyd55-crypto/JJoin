@@ -1,11 +1,11 @@
 import { Link, Stack } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-/** Dark theme literals — no ThemeProvider/useSession (safe in expo-router outer slot). */
+/** Bright Social Sports literals — no ThemeProvider (safe in expo-router outer slot). */
 const COLORS = {
-  background: '#09090A',
-  text: '#F5F2EA',
-  accent: '#D4AF37',
+  background: '#F8F9F6',
+  text: '#17212B',
+  accent: '#66B83F',
 };
 
 /**

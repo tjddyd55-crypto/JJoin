@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, View, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
+  BrandMark,
   Text,
   ScreenFrame,
   StickyActionFrame,
@@ -86,9 +87,7 @@ export function LoginScreen() {
             ]}
             pointerEvents="none"
           />
-          <Text variant="display" style={{ color: theme.colors.action.primary }}>
-            {t('app.name')}
-          </Text>
+          <BrandMark variant="horizontal" />
           <Spacer size="sm" />
           <Text variant="sectionTitle" tone="primary">
             {t('auth.login.title')}

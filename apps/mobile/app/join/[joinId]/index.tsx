@@ -406,7 +406,7 @@ export default function JoinDetailScreen() {
       }
       const url = publicJoinShareUrl(slug);
       const message = `${detail.venue.name} 조인에 함께해요\n${url}`;
-      await Share.share({ message, url, title: 'JJOINZONE 조인 공유' });
+      await Share.share({ message, url, title: '쪼인존 조인 공유' });
     } catch {
       setError('공유에 실패했습니다.');
     } finally {

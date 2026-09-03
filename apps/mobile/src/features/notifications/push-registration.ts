@@ -67,7 +67,7 @@ export async function ensureAndroidNotificationChannel(): Promise<void> {
   const Notifications = await loadNotifications();
   if (!Notifications) return;
   await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
-    name: 'JJOINZONE 알림',
+    name: '쪼인존 알림',
     importance: Notifications.AndroidImportance.DEFAULT,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#0A6B56',

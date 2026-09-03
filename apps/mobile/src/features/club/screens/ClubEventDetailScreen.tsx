@@ -198,7 +198,7 @@ export function ClubEventDetailScreen() {
 
         {staff && event.remainingCapacity != null && event.remainingCapacity > 0 && !event.attendanceFinalized ? (
           <Button
-            label={`JJOINZONE에서 긴급 모집 (${event.remainingCapacity}자리 부족)`}
+            label={`쪼인존에서 긴급 모집 (${event.remainingCapacity}자리 부족)`}
             variant="secondary"
             size="sm"
             onPress={() =>
