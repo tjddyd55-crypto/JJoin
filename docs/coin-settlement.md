@@ -9,7 +9,18 @@
 
 두 개념을 UI·DB·원장에서 절대 혼동하지 않는다.
 
-> 모든 수치는 **POLICY_TBD**. Figma Mock만 사용 (예: 생성비 2, 1인 보상 20).
+> 기본 수치는 DEV 보존값(생성비 2)에서 시작하며, **역할별 생성비는 Admin `JoinCreationCoinPolicySettings`가 SSOT**다.
+> Participant reward는 이 설정과 별개다.
+
+### 역할별 조인 생성 코인 (Admin)
+
+| 사용자 유형 | 판정 (서버) | 우선순위 |
+|-------------|-------------|----------|
+| STORE_OWNER | StoreOwnership ACTIVE | 1 |
+| PREMIUM | PremiumMembership ACTIVE (`expiresAt` 미래) | 2 |
+| GENERAL | 그 외 | 3 |
+
+역할마다 `enabled` + `cost`(integer). OFF면 effective creation cost = 0 (저장된 cost는 복원용으로 유지).
 
 ---
 
@@ -42,8 +53,14 @@ USER 테이블의 단일 `coin_balance` 금지.
    각 REWARD_SETTLEMENT amount=20 status=HELD
 ```
 
-취소/환불 세부 정책은 TBD.  
-단, **생성비와 보상 HOLD는 별도 원장 type** 으로 남겨 환불 정책을 나중에 붙일 수 있게 한다.
+### 생성비 환불 SSOT
+
+- **Join Creation Cost(`ROOM_CREATION_FEE`)는 조인 생성 성공 시 확정 소모**한다.
+- 이후 조인 취소·마감이 있어도 **생성비는 환불하지 않는다**.
+- Participant Reward HOLD만 기존 정책대로 반환/정산한다.
+- Admin이 역할을 바꿔도 **이미 생성된 Join의 snapshot(`creator_user_type`, `creation_coin_enabled`, `room_creation_fee_amount`)은 불변**이다.
+
+단, **생성비와 보상 HOLD는 별도 원장 type** 으로 남겨 정책을 분리한다.
 
 ---
 

@@ -311,7 +311,8 @@ export default function CreateScreen() {
             조인 생성 완료
           </Text>
           <Text variant="body" tone="secondary">
-            방 생성 수수료와 참가 보상 보류가 Ledger에 기록되었습니다.
+            조인 생성비는 사용 처리되고, 참가보상은 예치(HOLD)로 기록되었습니다. 생성비는 취소·정산
+            시 자동 환불되지 않습니다.
           </Text>
           <Button
             label="조인 상세"
@@ -344,7 +345,7 @@ export default function CreateScreen() {
               label="코인 충전하기"
               variant="secondary"
               size="sm"
-              onPress={() => router.push('/my/wallet')}
+              onPress={() => router.push('/my/coin-charge')}
             />
           ) : null}
           <Button
@@ -407,6 +408,8 @@ export default function CreateScreen() {
           loading={previewLoading && !preview}
           error={previewError}
           shortfall={shortfall}
+          creatorUserTypeLabel={preview?.creatorUserTypeLabel}
+          creationCoinEnabled={preview?.creationCoinEnabled}
         />
 
         {error ? (

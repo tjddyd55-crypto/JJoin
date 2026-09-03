@@ -736,6 +736,10 @@ model Join {
   rewardPerParticipant  Decimal               @map("reward_per_participant") @db.Decimal(18, 4)
   coinAssetId           String                @map("coin_asset_id") @db.Uuid
   roomCreationFeeAmount Decimal               @map("room_creation_fee_amount") @db.Decimal(18, 4)
+  /// Snapshot: GENERAL | PREMIUM | STORE_OWNER at create time (STANDARD joins).
+  creatorUserType       String?               @map("creator_user_type")
+  /// Snapshot: whether creation fee policy was enabled at create time.
+  creationCoinEnabled   Boolean?              @map("creation_coin_enabled")
   rewardHoldTotalAmount Decimal               @map("reward_hold_total_amount") @db.Decimal(18, 4)
   costShareType         String?               @map("cost_share_type")
   countryCode           String                @default("KR") @map("country_code") @db.Char(2)
@@ -1822,6 +1826,22 @@ model PaymentProviderSettings {
   updatedAt           DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("payment_provider_settings")
+}
+
+/// Singleton admin settings for STANDARD join creation coin cost by user type.
+/// Separate from participant reward HOLD. Defaults preserve prior fee=2 behavior.
+model JoinCreationCoinPolicySettings {
+  id                 String   @id @default("default")
+  generalEnabled     Boolean  @default(true) @map("general_enabled")
+  generalCost        Int      @default(2) @map("general_cost")
+  premiumEnabled     Boolean  @default(true) @map("premium_enabled")
+  premiumCost        Int      @default(2) @map("premium_cost")
+  storeOwnerEnabled  Boolean  @default(true) @map("store_owner_enabled")
+  storeOwnerCost     Int      @default(2) @map("store_owner_cost")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("join_creation_coin_policy_settings")
 }
 
 model PremiumMembership {

@@ -14,6 +14,9 @@ export type CoinSummaryCardProps = {
   loading?: boolean;
   error?: string | null;
   shortfall?: string | null;
+  /** Korean role label from server (일반 회원 / 프리미엄 회원 / 업주). */
+  creatorUserTypeLabel?: string | null;
+  creationCoinEnabled?: boolean;
 };
 
 /** Displays server preview numbers only — does not compute coin math. */
@@ -28,6 +31,8 @@ export function CoinSummaryCard({
   loading,
   error,
   shortfall,
+  creatorUserTypeLabel,
+  creationCoinEnabled,
 }: CoinSummaryCardProps) {
   const theme = useTheme();
 
@@ -61,15 +66,29 @@ export function CoinSummaryCard({
     );
   }
 
+  const feeValue =
+    creationCoinEnabled === false || roomCreationFee === '0'
+      ? t('create.coin.feeFree')
+      : formatCoinWithLabel(roomCreationFee);
+
+  const roleHint = creatorUserTypeLabel
+    ? t('create.coin.roleBasis').replace('{role}', creatorUserTypeLabel)
+    : null;
+
   return (
     <Card variant="elevated" padding="md">
       <Text variant="sectionTitle" tone="primary">
         {t('create.reward.summaryTitle')}
       </Text>
+      {roleHint ? (
+        <Text variant="meta" tone="tertiary" style={styles.roleHint}>
+          {roleHint}
+        </Text>
+      ) : null}
       <View style={styles.rows}>
-        <SummaryRow label={t('create.coin.fee')} value={formatCoinWithLabel(roomCreationFee)} />
+        <SummaryRow label={t('create.coin.fee')} value={feeValue} />
         <SummaryRow
-          label={t('create.coin.reward')}
+          label={t('create.coin.rewardHold')}
           value={`${formatNumber(rewardPerParticipant)} × ${formatNumber(rewardEligibleSlots ?? 0)}`}
           suffix={formatCoinWithLabel(rewardHoldTotal)}
         />
@@ -87,7 +106,10 @@ export function CoinSummaryCard({
       </View>
       {shortfall ? (
         <Text variant="body" tone="error" style={styles.shortfall}>
-          {t('create.coin.insufficientAmount').replace('{amount}', formatNumber(shortfall))}
+          {t('create.coin.insufficientDetail')
+            .replace('{available}', formatNumber(walletAvailable))
+            .replace('{required}', formatNumber(totalRequiredCoin))
+            .replace('{shortfall}', formatNumber(shortfall))}
         </Text>
       ) : null}
     </Card>
@@ -135,4 +157,5 @@ const styles = StyleSheet.create({
   rows: { gap: 8, marginTop: 12 },
   valueCol: { alignItems: 'flex-end', gap: 2 },
   shortfall: { marginTop: 12 },
+  roleHint: { marginTop: 4 },
 });
