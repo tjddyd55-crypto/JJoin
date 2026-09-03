@@ -8,6 +8,7 @@ export type JoinVenueSummaryProps = {
   address?: string | null;
   distanceLabel?: string | null;
   onOpenMap?: () => void;
+  embedded?: boolean;
 };
 
 export function JoinVenueSummary({
@@ -15,17 +16,22 @@ export function JoinVenueSummary({
   address,
   distanceLabel,
   onOpenMap,
+  embedded = false,
 }: JoinVenueSummaryProps) {
   const theme = useTheme();
   return (
     <View
       style={[
         styles.card,
-        {
-          backgroundColor: theme.colors.surface.card,
-          borderColor: theme.colors.border.subtle,
-          borderRadius: theme.radius.lg,
-        },
+        embedded ? styles.embedded : null,
+        !embedded
+          ? {
+              backgroundColor: theme.colors.surface.card,
+              borderColor: theme.colors.border.subtle,
+              borderRadius: theme.radius.lg,
+              borderWidth: StyleSheet.hairlineWidth,
+            }
+          : null,
       ]}
     >
       <View style={styles.nameRow}>
@@ -74,7 +80,9 @@ const styles = StyleSheet.create({
   card: {
     gap: 10,
     padding: 14,
-    borderWidth: StyleSheet.hairlineWidth,
+  },
+  embedded: {
+    padding: 0,
   },
   nameRow: {
     flexDirection: 'row',

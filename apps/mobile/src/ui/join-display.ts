@@ -16,6 +16,7 @@ export function formatJoinDisplayTitle(title: string): string {
   const trimmed = title.trim();
   if (/^QA-Role-Coin/i.test(trimmed)) return '거제 오션뷰 스크린';
   if (/^DEV\s*E2E/i.test(trimmed)) return '퇴근 후 저녁 라운드';
+  if (/^\[QA-/i.test(trimmed)) return '주말 저녁 스크린 라운드';
   if (/^QA[-_]/i.test(trimmed)) return '주말 오전 함께 쳐요';
   if (trimmed.length > 28 && /^[A-Za-z0-9_-]+$/.test(trimmed)) return '거제 스크린 라운딩';
   return title;

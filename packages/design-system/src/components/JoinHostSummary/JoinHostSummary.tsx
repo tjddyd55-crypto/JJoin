@@ -10,6 +10,8 @@ export type JoinHostSummaryProps = {
   verified?: boolean;
   metaLine?: string | null;
   onPress?: () => void;
+  /** When true, renders as a row inside a parent section card (no outer border/shadow). */
+  embedded?: boolean;
 };
 
 export function JoinHostSummary({
@@ -17,21 +19,31 @@ export function JoinHostSummary({
   avatarUrl,
   metaLine,
   onPress,
+  embedded = false,
 }: JoinHostSummaryProps) {
   const theme = useTheme();
   const inner = (
     <View
       style={[
         styles.card,
-        {
-          backgroundColor: theme.colors.surface.card,
-          borderColor: theme.colors.border.subtle,
-          borderRadius: theme.radius.lg,
-        },
-        shadows.card,
+        embedded ? styles.embedded : null,
+        !embedded
+          ? {
+              backgroundColor: theme.colors.surface.card,
+              borderColor: theme.colors.border.subtle,
+              borderRadius: theme.radius.lg,
+              borderWidth: StyleSheet.hairlineWidth,
+            }
+          : null,
+        !embedded ? shadows.card : null,
       ]}
     >
-      <JoinHostAvatar profileImageUrl={avatarUrl} hostName={nickname} size="lg" />
+      <JoinHostAvatar
+        profileImageUrl={avatarUrl}
+        hostName={nickname}
+        size="lg"
+        showHostBadge
+      />
       <View style={styles.textCol}>
         <Text variant="sectionTitle" tone="primary" numberOfLines={1} style={styles.name}>
           {`${nickname} · 방장`}
@@ -61,8 +73,11 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    borderWidth: StyleSheet.hairlineWidth,
     minWidth: 0,
+  },
+  embedded: {
+    paddingHorizontal: 0,
+    paddingVertical: 0,
   },
   textCol: {
     flex: 1,

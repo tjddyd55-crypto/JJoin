@@ -65,6 +65,7 @@ export {
 export { JoinScheduleSummary, type JoinScheduleSummaryProps } from './components/JoinScheduleSummary';
 export { JoinSummaryTile, type JoinSummaryTileProps, type JoinSummaryTileVariant } from './components/JoinSummaryTile';
 export { JoinSummaryGrid, type JoinSummaryGridItem, type JoinSummaryGridProps } from './components/JoinSummaryGrid';
+export { JoinDetailSection, type JoinDetailSectionProps } from './components/JoinDetailSection';
 export { JoinVenueSummary, type JoinVenueSummaryProps } from './components/JoinVenueSummary';
 export { JoinCapacitySummary, type JoinCapacitySummaryProps } from './components/JoinCapacitySummary';
 export { RecommendationReasonTag, type RecommendationReasonTagProps } from './components/RecommendationReasonTag';

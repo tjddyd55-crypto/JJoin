@@ -8,6 +8,7 @@ import {
   formatJoinScheduleDetailDate,
   formatJoinRewardTileValue,
   resolveJoinDisplayTitle,
+  formatJoinDisplayTitle,
 } from './join-display';
 
 test('formatJoinScheduleListLabel uses today label', () => {
@@ -37,6 +38,14 @@ test('resolveJoinDisplayTitle prefers title over venue', () => {
   assert.equal(
     resolveJoinDisplayTitle('거제 오션스크린', '오늘 저녁 라운드'),
     '오늘 저녁 라운드',
+  );
+});
+
+test('formatJoinDisplayTitle maps bracket QA seed titles', () => {
+  (globalThis as { __DEV__?: boolean }).__DEV__ = true;
+  assert.equal(
+    formatJoinDisplayTitle('[QA-STORE-DASH-RECOR-RECOMMEND] weekly wed 19'),
+    '주말 저녁 스크린 라운드',
   );
 });
 
