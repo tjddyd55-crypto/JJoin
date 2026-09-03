@@ -6,7 +6,7 @@
 
 /** @typedef {'development' | 'production'} AppVariant */
 
-/** Development keeps legacy Expo default icons (side-by-side distinction). */
+/** Development keeps side-by-side distinction via DEV badge / teal legacy fill. */
 const DEVELOPMENT_APP_ICON = './assets/images/icon.png';
 const DEVELOPMENT_ADAPTIVE_FOREGROUND =
   './assets/images/android-icon-foreground.png';
@@ -14,8 +14,8 @@ const DEVELOPMENT_ADAPTIVE_BACKGROUND_IMAGE =
   './assets/images/android-icon-background.png';
 const DEVELOPMENT_ADAPTIVE_MONOCHROME =
   './assets/images/android-icon-monochrome.png';
-/** Legacy Expo adaptive fill (teal) — DEV only. */
-const DEVELOPMENT_ADAPTIVE_BACKGROUND_COLOR = '#0A6B56';
+/** DEV adaptive fill — Bright Lime (distinct from Production navy-safe pad). */
+const DEVELOPMENT_ADAPTIVE_BACKGROUND_COLOR = '#A7E65B';
 
 /**
  * Production launcher assets under assets/icons/.
@@ -25,7 +25,8 @@ const DEVELOPMENT_ADAPTIVE_BACKGROUND_COLOR = '#0A6B56';
 const PRODUCTION_APP_ICON = './assets/icons/jjoinzone-prod-icon.png';
 const PRODUCTION_ADAPTIVE_FOREGROUND =
   './assets/icons/jjoinzone-prod-foreground-safe.png';
-const PRODUCTION_ADAPTIVE_BACKGROUND_COLOR = '#09090A';
+/** Bright Social Sports icon plate */
+const PRODUCTION_ADAPTIVE_BACKGROUND_COLOR = '#A7E65B';
 
 /**
  * @param {string | undefined} [appVariant]
@@ -67,7 +68,7 @@ function androidAdaptiveIconFor(variant) {
 function identityFor(variant) {
   if (variant === 'development') {
     return {
-      name: 'JJOINZONE DEV',
+      name: '쪼인존 DEV',
       slug: 'jjoin',
       scheme: 'jjoindev',
       androidPackage: 'com.jjoin.app.dev',
@@ -75,7 +76,7 @@ function identityFor(variant) {
     };
   }
   return {
-    name: 'JJOINZONE',
+    name: '쪼인존',
     slug: 'jjoin',
     scheme: 'jjoin',
     androidPackage: 'com.jjoin.app',

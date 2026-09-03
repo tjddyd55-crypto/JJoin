@@ -113,7 +113,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       {
         image: './assets/images/splash-icon.png',
         resizeMode: 'contain',
-        backgroundColor: '#ffffff',
+        backgroundColor: '#F8F9F6',
       },
     ],
     [
