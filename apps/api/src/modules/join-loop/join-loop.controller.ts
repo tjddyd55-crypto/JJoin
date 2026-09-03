@@ -14,12 +14,14 @@ import type {
   CreateJoinInvitationsRequest,
   PostJoinChatMessageRequest,
   SetAttendanceIntentRequest,
+  UpsertPlayerReviewRequest,
 } from '@jjoin/types';
 import { CurrentUserId, MockAuthGuard } from '../../common/mock-auth.guard';
 import { UrgentVacancyService } from './urgent-vacancy.service';
 import { AttendanceIntentService } from './attendance-intent.service';
 import { JoinChatService } from './join-chat.service';
 import { JoinInvitationService } from './join-invitation.service';
+import { PlayerReviewService } from './player-review.service';
 
 @Controller('joins')
 export class JoinLoopController {
@@ -28,6 +30,7 @@ export class JoinLoopController {
     private readonly attendance: AttendanceIntentService,
     private readonly chat: JoinChatService,
     private readonly invitations: JoinInvitationService,
+    private readonly reviews: PlayerReviewService,
   ) {}
 
   /** Cron: purge chat messages/members after purgeAfter. Must be before :joinId routes. */
@@ -126,5 +129,21 @@ export class JoinLoopController {
     @CurrentUserId() userId: string,
   ) {
     return this.invitations.decline(joinId, invitationId, userId);
+  }
+
+  @Get(':joinId/review-targets')
+  @UseGuards(MockAuthGuard)
+  reviewTargets(@Param('joinId') joinId: string, @CurrentUserId() userId: string) {
+    return this.reviews.listReviewTargets(joinId, userId);
+  }
+
+  @Post(':joinId/reviews')
+  @UseGuards(MockAuthGuard)
+  upsertReview(
+    @Param('joinId') joinId: string,
+    @CurrentUserId() userId: string,
+    @Body() body: UpsertPlayerReviewRequest,
+  ) {
+    return this.reviews.upsertReview(joinId, userId, body ?? ({} as UpsertPlayerReviewRequest));
   }
 }

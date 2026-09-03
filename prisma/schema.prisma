@@ -245,6 +245,11 @@ enum JoinInvitationStatus {
   EXPIRED
 }
 
+enum PlayerReviewVisibility {
+  VISIBLE
+  HIDDEN
+}
+
 enum JoinAlertDateMode {
   TODAY
   THIS_WEEK
@@ -360,6 +365,8 @@ model User {
   clubEventAttendances     ClubEventAttendance[]
   payments                 Payment[]
   premiumMembership        PremiumMembership?
+  playerReviewsGiven       PlayerReview[]             @relation("PlayerReviewReviewer")
+  playerReviewsReceived    PlayerReview[]             @relation("PlayerReviewReviewee")
 
   @@map("users")
 }
@@ -772,6 +779,7 @@ model Join {
   bookmarks      JoinBookmark[]
   chatRoom       JoinChatRoom?
   invitations    JoinInvitation[]
+  playerReviews  PlayerReview[]
 
   @@index([venueId, startAt])
   @@index([status, startAt])
@@ -1085,6 +1093,30 @@ model JoinInvitation {
   @@index([inviteeUserId, status, createdAt(sort: Desc)])
   @@index([inviterUserId, createdAt(sort: Desc)])
   @@map("join_invitations")
+}
+
+/// Subjective ★1–5 + optional one-line comment after both parties COMPLETED a Join.
+/// Orthogonal to attendance reliability. One review per (join, reviewer, reviewee).
+model PlayerReview {
+  id             String                 @id @default(uuid()) @db.Uuid
+  joinId         String                 @map("join_id") @db.Uuid
+  reviewerUserId String                 @map("reviewer_user_id") @db.Uuid
+  revieweeUserId String                 @map("reviewee_user_id") @db.Uuid
+  rating         Int
+  comment        String?                @db.VarChar(100)
+  visibility     PlayerReviewVisibility @default(VISIBLE)
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  join     Join @relation(fields: [joinId], references: [id], onDelete: Cascade)
+  reviewer User @relation("PlayerReviewReviewer", fields: [reviewerUserId], references: [id], onDelete: Cascade)
+  reviewee User @relation("PlayerReviewReviewee", fields: [revieweeUserId], references: [id], onDelete: Cascade)
+
+  @@unique([joinId, reviewerUserId, revieweeUserId])
+  @@index([revieweeUserId, visibility, createdAt(sort: Desc)])
+  @@index([reviewerUserId, createdAt(sort: Desc)])
+  @@index([joinId])
+  @@map("player_reviews")
 }
 
 model RewardSettlement {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   AppText,
@@ -10,9 +10,10 @@ import {
   spacing,
 } from '@jjoin/design-system';
 import { t } from '@jjoin/i18n';
-import type { PublicUserProfileDto } from '@jjoin/types';
+import type { PlayerReviewPublicDto, PublicUserProfileDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { createExpoSecureSessionStore } from '../../../session/expo-secure-session-store';
+import { StarRatingDisplay } from '../../../ui/patterns/StarRating';
 
 const store = createExpoSecureSessionStore();
 
@@ -20,6 +21,7 @@ export function PublicProfileScreen() {
   const { userId } = useLocalSearchParams<{ userId: string }>();
   const router = useRouter();
   const [profile, setProfile] = useState<PublicUserProfileDto | null>(null);
+  const [reviews, setReviews] = useState<PlayerReviewPublicDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,8 +35,14 @@ export function PublicProfileScreen() {
       }
       try {
         const api = getApiClient(store);
-        const data = await api.getPublicProfile(userId);
-        if (alive) setProfile(data);
+        const [data, reviewRows] = await Promise.all([
+          api.getPublicProfile(userId),
+          api.listUserReviews(userId).catch(() => [] as PlayerReviewPublicDto[]),
+        ]);
+        if (alive) {
+          setProfile(data);
+          setReviews(reviewRows);
+        }
       } catch {
         if (alive) setError(t('common.error'));
       } finally {
@@ -64,6 +72,7 @@ export function PublicProfileScreen() {
   }
 
   const skill = profile.sportProfiles.find((s) => s.sportCode === 'SCREEN_GOLF');
+  const hasReviews = (profile.reviewCount ?? 0) > 0 && profile.averageRatingDisplay;
 
   return (
     <ScreenContainer>
@@ -75,6 +84,20 @@ export function PublicProfileScreen() {
             <AppText variant="subtitle">{profile.nickname}</AppText>
             {profile.verifiedBadge ? (
               <StatusBadge label={t('profile.verified')} tone="success" />
+            ) : null}
+            {hasReviews ? (
+              <AppText variant="body">
+                ★ {profile.averageRatingDisplay} · 후기 {profile.reviewCount}
+              </AppText>
+            ) : (
+              <AppText variant="body" color="textSecondary">
+                아직 받은 평가가 없습니다
+              </AppText>
+            )}
+            {profile.playedCountWithViewer != null && profile.playedCountWithViewer > 0 ? (
+              <AppText variant="caption" color="textSecondary">
+                함께 {profile.playedCountWithViewer}회 플레이
+              </AppText>
             ) : null}
           </Stack>
         </View>
@@ -108,19 +131,47 @@ export function PublicProfileScreen() {
             ? '기록 없음'
             : `${profile.attendanceRatePercent}%`}
         </AppText>
-        <AppText
-          variant="caption"
-          color="primary"
-          onPress={() => router.back()}
-          accessibilityRole="button"
-        >
-          ← Back
+
+        <AppText variant="label" color="textSecondary">
+          받은 한줄평
         </AppText>
+        {reviews.length === 0 ? (
+          <AppText variant="body" color="textSecondary">
+            아직 작성된 한줄평이 없습니다.
+          </AppText>
+        ) : (
+          <Stack gap="sm">
+            {reviews.map((review) => (
+              <View key={review.reviewId} style={styles.reviewCard}>
+                <StarRatingDisplay rating={review.rating} />
+                <AppText variant="body">"{review.comment}"</AppText>
+                <AppText variant="caption" color="textSecondary">
+                  {new Date(review.createdAt).toLocaleDateString('ko-KR', {
+                    timeZone: 'Asia/Seoul',
+                  })}
+                </AppText>
+              </View>
+            ))}
+          </Stack>
+        )}
+
+        <Pressable onPress={() => router.back()} accessibilityRole="button">
+          <AppText variant="caption" color="primary">
+            ← Back
+          </AppText>
+        </Pressable>
       </Stack>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  header: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    alignItems: 'center',
+  },
+  reviewCard: {
+    gap: spacing.xs,
+  },
 });

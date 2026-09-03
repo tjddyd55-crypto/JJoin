@@ -58,6 +58,8 @@ export default function CreateScreen() {
     clubEventId?: string;
     startsAt?: string;
     title?: string;
+    inviteeUserId?: string;
+    inviteeNickname?: string;
   }>();
   const routeVenueId =
     typeof params.venueId === 'string' && params.venueId.trim()
@@ -67,6 +69,21 @@ export default function CreateScreen() {
   const routeClubEventId = typeof params.clubEventId === 'string' ? params.clubEventId : undefined;
   const routeStartsAt = typeof params.startsAt === 'string' ? params.startsAt : undefined;
   const routeTitle = typeof params.title === 'string' ? params.title : undefined;
+  const routeInviteeUserId =
+    typeof params.inviteeUserId === 'string' && params.inviteeUserId.trim()
+      ? params.inviteeUserId.trim()
+      : undefined;
+  const routeInviteeNickname =
+    typeof params.inviteeNickname === 'string' && params.inviteeNickname.trim()
+      ? params.inviteeNickname.trim()
+      : undefined;
+  const [prefilledInvitees, setPrefilledInvitees] = useState<
+    Array<{ userId: string; nickname: string }>
+  >(() =>
+    routeInviteeUserId
+      ? [{ userId: routeInviteeUserId, nickname: routeInviteeNickname ?? '초대 대상' }]
+      : [],
+  );
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
 
   const [selectedVenue, setSelectedVenue] = useState<JoinCreateVenueSelection | null>(null);
@@ -266,9 +283,19 @@ export default function CreateScreen() {
         clubId: routeClubId,
         clubEventId: routeClubEventId,
       });
+      if (prefilledInvitees.length > 0) {
+        try {
+          await api.createJoinInvitations(detail.joinId, {
+            inviteeUserIds: prefilledInvitees.map((p) => p.userId),
+          });
+        } catch {
+          // Join already created — invitation failure is non-fatal for create UX.
+        }
+      }
       setDoneJoinId(detail.joinId);
       lastCompletedJoinIdRef.current = detail.joinId;
       clearJoinCreateDraft();
+      setPrefilledInvitees([]);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'create_failed';
       if (msg.startsWith('network_error')) setError('네트워크 오류 — API 연결을 확인하세요.');
@@ -301,6 +328,7 @@ export default function CreateScreen() {
     selectedVenue,
     shortfall,
     submitting,
+    prefilledInvitees,
   ]);
 
   if (doneJoinId) {
@@ -366,6 +394,26 @@ export default function CreateScreen() {
             ? `호스트: ${me.publicProfile.nickname}`
             : '로그인한 뒤 생성하세요'}
         </Text>
+
+        {prefilledInvitees.length > 0 ? (
+          <Stack gap="xs">
+            <Text variant="sectionTitle" tone="primary">
+              초대할 사람
+            </Text>
+            <View style={styles.row}>
+              {prefilledInvitees.map((person) => (
+                <Chip
+                  key={person.userId}
+                  label={`${person.nickname} ×`}
+                  selected
+                  onPress={() =>
+                    setPrefilledInvitees((prev) => prev.filter((p) => p.userId !== person.userId))
+                  }
+                />
+              ))}
+            </View>
+          </Stack>
+        ) : null}
 
         <JoinCreateVenueSection
           api={api}

@@ -1,6 +1,11 @@
 ﻿import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { CurrentUserId, MockAuthGuard } from '../../common/mock-auth.guard';
+import {
+  CurrentUserId,
+  MockAuthGuard,
+  OptionalMockAuthGuard,
+  OptionalUserId,
+} from '../../common/mock-auth.guard';
 import type { SportSkillLevel } from '@jjoin/types';
 
 @Controller()
@@ -73,8 +78,9 @@ export class UsersController {
     return this.service.getWalletSummary(userId);
   }
 
+  @UseGuards(OptionalMockAuthGuard)
   @Get('users/:id/public-profile')
-  publicProfile(@Param('id') id: string) {
-    return this.service.getPublicProfile(id);
+  publicProfile(@Param('id') id: string, @OptionalUserId() viewerId: string | null) {
+    return this.service.getPublicProfile(id, viewerId);
   }
 }

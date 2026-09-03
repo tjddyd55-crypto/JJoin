@@ -95,6 +95,11 @@ import {
   type CreateJoinInvitationsRequest,
   type JoinInvitationDto,
   type PlayedTogetherPersonDto,
+  type JoinReviewTargetDto,
+  type PlayerReputationDto,
+  type PlayerReviewDto,
+  type PlayerReviewPublicDto,
+  type UpsertPlayerReviewRequest,
   type ClubListResponse,
   type ClubDiscoverResponse,
   type ClubDetailDto,
@@ -313,8 +318,9 @@ export class ApiClient {
   }
 
   async getPublicProfile(userId: string): Promise<PublicUserProfileDto> {
+    // Optional auth: send token when present so server can compute playedCountWithViewer.
     const res = await request(`${this.config.baseUrl}/users/${userId}/public-profile`, {
-      headers: await this.headers(false),
+      headers: await this.headers(true),
     });
     return parseJson(res);
   }
@@ -1469,6 +1475,39 @@ export class ApiClient {
   async listPlayedTogether(): Promise<PlayedTogetherPersonDto[]> {
     const res = await request(`${this.config.baseUrl}/me/played-together`, {
       headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async listJoinReviewTargets(joinId: string): Promise<JoinReviewTargetDto[]> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/review-targets`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async upsertPlayerReview(
+    joinId: string,
+    body: UpsertPlayerReviewRequest,
+  ): Promise<PlayerReviewDto> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/reviews`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async getUserReputation(userId: string): Promise<PlayerReputationDto> {
+    const res = await request(`${this.config.baseUrl}/users/${userId}/reputation`, {
+      headers: await this.headers(false),
+    });
+    return parseJson(res);
+  }
+
+  async listUserReviews(userId: string): Promise<PlayerReviewPublicDto[]> {
+    const res = await request(`${this.config.baseUrl}/users/${userId}/reviews`, {
+      headers: await this.headers(false),
     });
     return parseJson(res);
   }
