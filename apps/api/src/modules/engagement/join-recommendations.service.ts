@@ -164,6 +164,7 @@ export class JoinRecommendationsService {
 
     const hostIds = [...new Set(candidateJoins.map((j) => j.hostUserId))];
     const reputationMap = await this.loadHostReputationBatch(hostIds);
+    const hostProfileMap = await this.loadHostProfileBatch(hostIds);
 
     const venueVisitCounts = new Map<string, number>();
     for (const row of pastCompleted) {
@@ -237,12 +238,15 @@ export class JoinRecommendationsService {
         label: RECOMMEND_REASON_LABEL_KO[code],
       }));
       const rep = reputationMap.get(join.hostUserId);
+      const hostProfile = hostProfileMap.get(join.hostUserId);
       const dto: RecommendedJoinDto = {
         joinId: r.joinId,
         venueName,
         startAt: join.startAt.toISOString(),
         seatsLeft,
         isUrgent: join.isUrgent === true,
+        hostNickname: hostProfile?.nickname ?? null,
+        hostAvatarUrl: hostProfile?.avatarUrl ?? null,
         reasonCode: r.reason,
         reasonLabel: RECOMMEND_REASON_LABEL_KO[r.reason],
         reasons,
@@ -288,6 +292,29 @@ export class JoinRecommendationsService {
         eventKey,
       });
     }
+  }
+
+  private async loadHostProfileBatch(
+    userIds: string[],
+  ): Promise<Map<string, { nickname: string; avatarUrl: string | null }>> {
+    const map = new Map<string, { nickname: string; avatarUrl: string | null }>();
+    if (userIds.length === 0) return map;
+
+    const profiles = await this.prisma.userProfile.findMany({
+      where: { userId: { in: userIds } },
+      select: {
+        userId: true,
+        nickname: true,
+        avatarAsset: { select: { storageKey: true } },
+      },
+    });
+    for (const p of profiles) {
+      map.set(p.userId, {
+        nickname: p.nickname,
+        avatarUrl: p.avatarAsset?.storageKey ?? null,
+      });
+    }
+    return map;
   }
 
   private async loadHostReputationBatch(

@@ -973,6 +973,7 @@ export type JoinListItemDto = {
   rewardPerParticipant: string;
   venueName: string;
   hostNickname: string;
+  hostAvatarUrl?: string | null;
   myRole: ParticipantRole | null;
   myParticipationStatus: ParticipationStatus | null;
   pendingApplicantCount: number;
@@ -1134,6 +1135,7 @@ export type DiscoverJoinCardDto = {
   availableSlots: number;
   rewardPerParticipant: string;
   hostNickname: string;
+  hostAvatarUrl?: string | null;
   isHost: boolean;
   isParticipant: boolean;
   canJoin: boolean;
@@ -1724,6 +1726,8 @@ export type RecommendedJoinDto = {
   startAt: string;
   seatsLeft: number;
   isUrgent: boolean;
+  hostNickname?: string | null;
+  hostAvatarUrl?: string | null;
   reasonCode: RecommendReasonCode;
   reasonLabel: string;
   /** Up to 2 explainable reasons (priority order). */

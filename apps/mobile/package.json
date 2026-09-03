@@ -17,7 +17,7 @@
     "config:prod": "cross-env APP_VARIANT=production expo config --type public",
     "web": "expo start --web",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import tsx --test src/features/join/attendance-intent-ui.test.ts src/config/app-variant-identity.test.ts src/features/join-create/model/join-create-footer-state.test.ts src/features/join-create/model/join-create-session.test.ts src/features/home/home-format.test.ts src/features/home/recommend-ui.test.ts src/shared/date/kst-date-format.test.ts src/shared/date/kst-time.test.ts src/shared/number/numeric-input.test.ts src/ui/stack-navigation.test.ts src/features/payment/payment-checkout-callback.test.ts src/features/reputation/player-reputation-display.test.ts",
+    "test": "node --import tsx --test src/features/join/attendance-intent-ui.test.ts src/config/app-variant-identity.test.ts src/features/join-create/model/join-create-footer-state.test.ts src/features/join-create/model/join-create-session.test.ts src/features/home/home-format.test.ts src/features/home/recommend-ui.test.ts src/features/explore/discovery/model/join-create-fab-visibility.test.ts src/shared/date/kst-date-format.test.ts src/shared/date/kst-time.test.ts src/shared/number/numeric-input.test.ts src/ui/stack-navigation.test.ts src/ui/join-card-map.test.ts src/features/payment/payment-checkout-callback.test.ts src/features/reputation/player-reputation-display.test.ts",
     "lint": "echo \"mobile lint placeholder\"",
     "eas-build-post-install": "pnpm --dir ../.. run build:mobile-deps"
   },

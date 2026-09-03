@@ -665,7 +665,7 @@ export class JoinsService {
         where: { hostUserId: userId },
         include: {
           venue: true,
-          host: { include: { profile: true } },
+          host: { include: { profile: { include: { avatarAsset: { select: { storageKey: true } } } } } },
           participants: true,
           chatRoom: true,
         },
@@ -677,7 +677,7 @@ export class JoinsService {
           join: {
             include: {
               venue: true,
-              host: { include: { profile: true } },
+              host: { include: { profile: { include: { avatarAsset: { select: { storageKey: true } } } } } },
               participants: true,
               chatRoom: true,
             },
@@ -1036,7 +1036,7 @@ export class JoinsService {
       },
       include: {
         venue: true,
-        host: { include: { profile: true } },
+        host: { include: { profile: { include: { avatarAsset: { select: { storageKey: true } } } } } },
       },
       orderBy: { startAt: 'asc' },
       take: 80,
@@ -1147,7 +1147,7 @@ export class JoinsService {
       },
       include: {
         venue: true,
-        host: { include: { profile: true } },
+        host: { include: { profile: { include: { avatarAsset: { select: { storageKey: true } } } } } },
       },
       orderBy: { startAt: 'asc' },
     });
@@ -1419,7 +1419,7 @@ export class JoinsService {
       roomCreationFeeAmount: Prisma.Decimal;
       rewardHoldTotalAmount: Prisma.Decimal;
       venue: { name: string };
-      host: { id?: string; profile: { nickname: string } | null };
+      host: { id?: string; profile: { nickname: string; avatarAsset?: { storageKey: string } | null } | null };
       participants: Array<{
         userId: string;
         role: string;
@@ -1480,6 +1480,7 @@ export class JoinsService {
       rewardPerParticipant: String(join.rewardPerParticipant),
       venueName: join.venue.name,
       hostNickname: join.host.profile?.nickname ?? '호스트',
+      hostAvatarUrl: join.host.profile?.avatarAsset?.storageKey ?? null,
       myRole: (mine?.role as ParticipantRole) ?? null,
       myParticipationStatus: (mine?.participationStatus as ParticipationStatus) ?? null,
       pendingApplicantCount: join.participants.filter((p) => p.participationStatus === 'APPLIED')

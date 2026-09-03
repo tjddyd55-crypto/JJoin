@@ -2,14 +2,14 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import {
-  Badge,
-  Card,
+  JoinCard,
   ScrollScreenFrame,
   Section,
   Spacer,
   Stack,
   Text,
   Row,
+  spacing,
 } from '@jjoin/design-system';
 import {
   resolveJoinDiscoveryBadge,
@@ -20,10 +20,10 @@ import type { JoinListItemDto, MyJoinsResponse } from '@jjoin/types';
 import { getApiClient } from '../../src/lib/api';
 import { getSecureSessionStore } from '../../src/session/SessionContext';
 import {
-  isStoreMatchingJoin,
   matchingDisplayStatusLabel,
 } from '../../src/features/store/matching-join-ui';
 import { reopenJoinHref } from '../../src/features/engagement/reopen-join';
+import { mapJoinListItemToJoinCardProps } from '../../src/ui/join-card-map';
 
 function joinDetailHref(joinId: string): Href {
   return { pathname: '/join/[joinId]', params: { joinId } } as Href;
@@ -44,66 +44,44 @@ function JoinRow({
   onReopen?: () => void;
   onChat?: () => void;
 }) {
-  const start = new Date(item.startAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
   const matchingLabel = matchingDisplayStatusLabel(item, item.myRole === 'HOST' ? 'host' : 'participant');
   const badge = matchingLabel
     ? { label: matchingLabel, kind: item.displayStatus === 'IN_PROGRESS' ? 'ongoing' : 'upcoming' }
     : resolveJoinDiscoveryBadge(item);
+  const cardProps = mapJoinListItemToJoinCardProps(item, onPress, {
+    statusBadge: badge.label,
+  });
+
   return (
-    <Card variant="interactive" padding="md" style={styles.joinCard} onPress={onPress}>
-      <Stack gap="xs">
-        <Row justify="space-between" align="center">
-          <Text variant="body" tone="primary" style={styles.title}>
-            {item.venueName}
-          </Text>
-          <Row gap="xs" align="center">
-            {item.isUrgent ? <Badge label="긴급" variant="warning" /> : null}
-            <Badge
-              label={badge.label}
-              variant={badge.kind === 'ongoing' ? 'gold' : 'neutral'}
-            />
-          </Row>
+    <View style={styles.joinCardWrap}>
+      <JoinCard {...cardProps} />
+      {onChat || onReopen ? (
+        <Row gap="md" align="center" style={styles.joinActions}>
+          {onChat ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={onChat}
+              style={styles.reopenBtn}
+            >
+              <Text variant="caption" tone="primary">
+                채팅
+              </Text>
+            </Pressable>
+          ) : null}
+          {onReopen ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={onReopen}
+              style={styles.reopenBtn}
+            >
+              <Text variant="caption" tone="primary">
+                다시 모집
+              </Text>
+            </Pressable>
+          ) : null}
         </Row>
-        <Text variant="caption" tone="secondary">
-          {start}
-        </Text>
-        <Text variant="caption" tone="tertiary">
-          {item.confirmedPlayerCount}/{item.plannedPlayerCount}
-          {isStoreMatchingJoin(item) && item.displaySubtitle
-            ? ` · ${item.displaySubtitle}`
-            : item.myParticipationStatus
-              ? ` · 나: ${item.myParticipationStatus}`
-              : ''}
-          {item.pendingApplicantCount > 0 ? ` · 신청 ${item.pendingApplicantCount}` : ''}
-        </Text>
-        {onChat || onReopen ? (
-          <Row gap="md" align="center">
-            {onChat ? (
-              <Pressable
-                accessibilityRole="button"
-                onPress={onChat}
-                style={styles.reopenBtn}
-              >
-                <Text variant="caption" tone="primary">
-                  채팅
-                </Text>
-              </Pressable>
-            ) : null}
-            {onReopen ? (
-              <Pressable
-                accessibilityRole="button"
-                onPress={onReopen}
-                style={styles.reopenBtn}
-              >
-                <Text variant="caption" tone="primary">
-                  다시 모집
-                </Text>
-              </Pressable>
-            ) : null}
-          </Row>
-        ) : null}
-      </Stack>
-    </Card>
+      ) : null}
+    </View>
   );
 }
 
@@ -289,12 +267,16 @@ export default function MyJoinsScreen() {
 }
 
 const styles = StyleSheet.create({
-  joinCard: {
-    marginBottom: 0,
+  joinCardWrap: {
+    gap: spacing.xs,
   },
-  title: { flex: 1, paddingRight: 8 },
+  joinActions: {
+    paddingHorizontal: spacing.xs,
+  },
   reopenBtn: {
     alignSelf: 'flex-start',
     paddingVertical: 4,
+    minHeight: 44,
+    justifyContent: 'center',
   },
 });

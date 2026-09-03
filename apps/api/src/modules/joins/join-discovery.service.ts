@@ -121,7 +121,12 @@ type DiscoveryJoinRow = {
       sigungu: string | null;
     } | null;
   };
-  host: { profile: { nickname: string } | null };
+  host: {
+    profile: {
+      nickname: string;
+      avatarAsset: { storageKey: string } | null;
+    } | null;
+  };
   participants: Array<{
     userId: string;
     role: string;
@@ -465,7 +470,16 @@ export class JoinDiscoveryService {
             golfFacility: { select: { id: true, sido: true, sigungu: true } },
           },
         },
-        host: { include: { profile: { select: { nickname: true } } } },
+        host: {
+          include: {
+            profile: {
+              select: {
+                nickname: true,
+                avatarAsset: { select: { storageKey: true } },
+              },
+            },
+          },
+        },
         participants: {
           select: {
             userId: true,
@@ -665,6 +679,7 @@ export class JoinDiscoveryService {
       availableSlots,
       rewardPerParticipant: String(row.rewardPerParticipant),
       hostNickname: row.host.profile?.nickname ?? '호스트',
+      hostAvatarUrl: row.host.profile?.avatarAsset?.storageKey ?? null,
       isHost,
       isParticipant,
       canJoin,
