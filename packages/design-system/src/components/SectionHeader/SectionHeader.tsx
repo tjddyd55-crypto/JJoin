@@ -10,7 +10,7 @@ export type SectionHeaderProps = {
 export function SectionHeader({ title, actionLabel, onActionPress }: SectionHeaderProps) {
   return (
     <View style={styles.row}>
-      <Text variant="sectionTitle" tone="primary" style={styles.title}>
+      <Text variant="screenTitle" tone="primary" style={styles.title}>
         {title}
       </Text>
       {actionLabel && onActionPress ? (

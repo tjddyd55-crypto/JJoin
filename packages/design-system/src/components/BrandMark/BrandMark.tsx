@@ -3,7 +3,7 @@ import Svg, { Path } from 'react-native-svg';
 import { Text } from '../../primitives/Text';
 import { useTheme } from '../../theme';
 
-export type BrandMarkVariant = 'horizontal' | 'compact' | 'symbol';
+export type BrandMarkVariant = 'horizontal' | 'compact' | 'compactHeader' | 'symbol';
 export type BrandMarkTone = 'default' | 'inverse' | 'onLime' | 'premium';
 
 type Props = {
@@ -73,7 +73,9 @@ export function BrandMark({
     );
   }
 
-  const size = variant === 'compact' ? 20 : 26;
+  const size =
+    variant === 'compactHeader' ? 18 : variant === 'compact' ? 20 : 26;
+  const monogramSize = variant === 'compactHeader' ? 18 : size + 2;
 
   return (
     <View
@@ -81,7 +83,7 @@ export function BrandMark({
       accessibilityRole="header"
       accessibilityLabel={showDevBadge ? '쪼인존 DEV' : '쪼인존'}
     >
-      <JjMonogram color={monogramColor} size={size + 2} />
+      <JjMonogram color={monogramColor} size={monogramSize} />
       <Text
         variant="sectionTitle"
         style={{
@@ -109,6 +111,7 @@ export function BrandMark({
         <View
           style={[
             styles.devBadge,
+            variant === 'compactHeader' ? styles.devBadgeCompact : null,
             {
               backgroundColor: theme.colors.surface.soft,
               borderColor: theme.colors.border.subtle,
@@ -141,5 +144,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderWidth: StyleSheet.hairlineWidth,
+  },
+  devBadgeCompact: {
+    paddingHorizontal: 4,
+    paddingVertical: 1,
   },
 });

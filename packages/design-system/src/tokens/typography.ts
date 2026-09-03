@@ -100,8 +100,8 @@ export const typography = {
   },
   cardTitle: {
     fontFamily: fontFamily.sansSemiBold,
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 17,
+    lineHeight: 23,
     fontWeight: '600' as const,
     letterSpacing: 0,
   },

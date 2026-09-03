@@ -13,7 +13,6 @@ export type JoinCardProps = {
   regionLabel?: string | null;
   distanceLabel?: string | null;
   participantLabel: string;
-  seatsLeft?: number;
   hostNickname?: string | null;
   hostAvatarUrl?: string | null;
   reasonTags?: string[];
@@ -29,7 +28,6 @@ export function JoinCard({
   regionLabel,
   distanceLabel,
   participantLabel,
-  seatsLeft,
   hostNickname,
   hostAvatarUrl,
   reasonTags,
@@ -49,7 +47,6 @@ export function JoinCard({
           backgroundColor: theme.colors.surface.card,
           borderColor: theme.colors.border.subtle,
           borderRadius: theme.radius.lg,
-          minHeight: theme.sizes.touchTarget + 48,
         },
         shadows.card,
       ]}
@@ -90,15 +87,8 @@ export function JoinCard({
           <Icon name="people" size="sm" tone="tertiary" />
           <Text variant="meta" tone="secondary" numberOfLines={1}>
             {participantLabel}
-            {seatsLeft != null && seatsLeft > 0 ? ` · ${seatsLeft}자리 남음` : ''}
           </Text>
         </View>
-
-        {hostNickname ? (
-          <Text variant="meta" tone="tertiary" numberOfLines={1}>
-            방장 {hostNickname}
-          </Text>
-        ) : null}
 
         {reasonTags && reasonTags.length > 0 ? (
           <View style={styles.tags}>
@@ -135,13 +125,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
-    padding: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     borderWidth: StyleSheet.hairlineWidth,
   },
   body: {
     flex: 1,
     minWidth: 0,
-    gap: 4,
+    gap: 3,
   },
   titleRow: {
     flexDirection: 'row',

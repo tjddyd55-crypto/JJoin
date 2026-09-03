@@ -60,7 +60,7 @@ export function HomeTodaysJoinSection({
 
 const styles = StyleSheet.create({
   stack: {
-    gap: spacing.sm,
+    gap: 10,
   },
   loading: {
     paddingVertical: spacing.md,

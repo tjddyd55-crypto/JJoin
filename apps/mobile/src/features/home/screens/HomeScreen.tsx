@@ -53,7 +53,10 @@ export function HomeScreen() {
     loadingToday || loadingRecommended || recommended.length > 0 || todayJoins.length > 0;
 
   return (
-    <ScrollScreenFrame contentContainerStyle={styles.content}>
+    <ScrollScreenFrame
+      contentContainerStyle={styles.content}
+      contentPaddingBottom={spacing.xl + 72}
+    >
       <HomeCompactHeader
         regionLabel={regionLabel}
         onPressNotifications={() => router.push('/my/notifications')}
@@ -100,7 +103,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
   },
   section: {
-    gap: spacing.sm,
-    marginTop: spacing.md,
+    gap: spacing.xs,
+    marginTop: spacing.sm,
   },
 });

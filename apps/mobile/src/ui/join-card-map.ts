@@ -31,6 +31,36 @@ export function formatJoinRegionLabel(
   return sigungu ?? regionLabel ?? '지역 미정';
 }
 
+/** DEV visual QA — does not alter API/DB titles in production. */
+export function formatJoinDisplayTitle(title: string): string {
+  if (!__DEV__) return title;
+  const trimmed = title.trim();
+  if (/^QA-Role-Coin/i.test(trimmed)) return '거제 오션뷰 스크린';
+  if (/^DEV\s*E2E/i.test(trimmed)) return '퇴근 후 저녁 라운드';
+  if (/^QA[-_]/i.test(trimmed)) return '주말 오전 함께 쳐요';
+  if (trimmed.length > 28 && /^[A-Za-z0-9_-]+$/.test(trimmed)) return '거제 스크린 라운딩';
+  return title;
+}
+
+export function formatJoinParticipantDisplay(options: {
+  current?: number;
+  max?: number;
+  seatsLeft?: number;
+}): string {
+  const { current, max, seatsLeft } = options;
+  const hasCount = current != null && max != null;
+  const countPart = hasCount ? `${current}/${max}명` : null;
+  const seatPart =
+    seatsLeft != null
+      ? seatsLeft <= 0
+        ? '마감'
+        : `${seatsLeft}자리 남음`
+      : null;
+
+  if (countPart && seatPart) return `${countPart} · ${seatPart}`;
+  return seatPart ?? countPart ?? '';
+}
+
 export function recommendShortReasonLabels(item: RecommendedJoinDto): string[] {
   const codes: RecommendReasonCode[] = item.reasons?.length
     ? item.reasons.map((r) => r.code)
@@ -43,14 +73,13 @@ export function mapRecommendedToJoinCardProps(
   onPress: () => void,
 ): JoinCardProps {
   return {
-    title: item.venueName,
+    title: formatJoinDisplayTitle(item.venueName),
     timeLabel: formatJoinListTime(item.startAt),
     distanceLabel:
       item.distanceMeters != null
         ? `${(item.distanceMeters / 1000).toFixed(1)}km`
         : null,
-    participantLabel: item.seatsLeft <= 0 ? '마감' : `${item.seatsLeft}자리 남음`,
-    seatsLeft: item.seatsLeft,
+    participantLabel: formatJoinParticipantDisplay({ seatsLeft: item.seatsLeft }),
     hostNickname: item.hostNickname,
     hostAvatarUrl: item.hostAvatarUrl,
     reasonTags: recommendShortReasonLabels(item),
@@ -70,12 +99,15 @@ export function mapDiscoverToJoinCardProps(
       : null;
 
   return {
-    title: item.venueName,
+    title: formatJoinDisplayTitle(item.venueName),
     timeLabel: formatJoinListTime(item.startAt),
     regionLabel: formatJoinRegionLabel(item.regionLabel, item.sigungu),
     distanceLabel,
-    participantLabel: `${item.currentParticipants}/${item.maxParticipants}명`,
-    seatsLeft: item.availableSlots,
+    participantLabel: formatJoinParticipantDisplay({
+      current: item.currentParticipants,
+      max: item.maxParticipants,
+      seatsLeft: item.availableSlots,
+    }),
     hostNickname: item.hostNickname,
     hostAvatarUrl: item.hostAvatarUrl,
     rewardLabel: formatSignedCoin(item.rewardPerParticipant),
@@ -90,10 +122,13 @@ export function mapJoinListItemToJoinCardProps(
   options?: { statusBadge?: string | null },
 ): JoinCardProps {
   return {
-    title: item.venueName,
+    title: formatJoinDisplayTitle(item.venueName),
     timeLabel: formatJoinListTime(item.startAt),
-    participantLabel: `${item.confirmedPlayerCount}/${item.plannedPlayerCount}명`,
-    seatsLeft: item.availableSlots,
+    participantLabel: formatJoinParticipantDisplay({
+      current: item.confirmedPlayerCount,
+      max: item.plannedPlayerCount,
+      seatsLeft: item.availableSlots,
+    }),
     hostNickname: item.hostNickname,
     hostAvatarUrl: item.hostAvatarUrl,
     rewardLabel: formatSignedCoin(item.rewardPerParticipant),

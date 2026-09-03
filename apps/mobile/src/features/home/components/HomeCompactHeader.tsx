@@ -19,9 +19,8 @@ export function HomeCompactHeader({
     <View style={styles.header}>
       <View style={styles.left}>
         <BrandMark
-          variant="compact"
+          variant="compactHeader"
           showDevBadge={isInternalToolsEnabled()}
-          style={styles.mark}
         />
         <Pressable
           onPress={onPressRegion}
@@ -37,7 +36,7 @@ export function HomeCompactHeader({
             },
           ]}
         >
-          <Text variant="meta" tone="secondary" numberOfLines={1}>
+          <Text variant="caption" tone="secondary" numberOfLines={1}>
             {regionLabel}
           </Text>
         </Pressable>
@@ -46,7 +45,7 @@ export function HomeCompactHeader({
         icon="notification"
         accessibilityLabel="알림"
         variant="ghost"
-        size="md"
+        size="sm"
         onPress={onPressNotifications}
       />
     </View>
@@ -58,22 +57,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 56,
+    minHeight: 48,
     marginBottom: spacing.xs,
   },
   left: {
     flex: 1,
-    gap: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     minWidth: 0,
   },
-  mark: {
-    maxHeight: 28,
-  },
   regionChip: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderWidth: StyleSheet.hairlineWidth,
-    maxWidth: '100%',
+    maxWidth: 120,
   },
 });

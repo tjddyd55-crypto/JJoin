@@ -1,14 +1,12 @@
-import { Image, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text, layoutSpacing, useTheme } from '@jjoin/design-system';
+import { GolfHeroIllustration } from './GolfHeroIllustration';
 
 type Props = {
   title?: string;
   subtitle?: string;
 };
 
-/**
- * Home hero — Navy brand plate with owned symbol watermark (no venue/external photos).
- */
 export function HomeHeroBanner({
   title = '오늘도 좋은 사람들과 라운딩 어때요?',
   subtitle = '나와 잘 맞는 조인을 찾아보세요',
@@ -25,15 +23,26 @@ export function HomeHeroBanner({
         },
       ]}
     >
-      <Image
-        source={require('../../../../assets/branding/jjoinzone-symbol-navy.png')}
-        style={styles.watermark}
-        resizeMode="contain"
-        accessibilityElementsHidden
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <GolfHeroIllustration
+          width={400}
+          height={170}
+          skyTop={theme.colors.map.accent}
+          skyBottom={theme.colors.state.active}
+          hillFar={theme.colors.state.selectedSurface}
+          hillNear={theme.colors.state.active}
+          fairway={theme.colors.brand.limeAccent}
+          ball={theme.colors.text.inverse}
+        />
+      </View>
+      <View
+        style={[
+          styles.overlay,
+          { backgroundColor: theme.colors.action.primary },
+        ]}
       />
-      <View style={styles.overlay} />
       <View style={styles.content}>
-        <Text variant="sectionTitle" tone="inverse" numberOfLines={2}>
+        <Text variant="screenTitle" tone="inverse" numberOfLines={2} style={styles.title}>
           {title}
         </Text>
         <Text variant="meta" tone="inverse" numberOfLines={1} style={styles.subtitle}>
@@ -46,30 +55,24 @@ export function HomeHeroBanner({
 
 const styles = StyleSheet.create({
   wrap: {
-    height: 148,
+    height: 160,
     overflow: 'hidden',
     position: 'relative',
-    marginHorizontal: 0,
-  },
-  watermark: {
-    position: 'absolute',
-    right: -12,
-    top: 12,
-    width: 120,
-    height: 120,
-    opacity: 0.12,
-    tintColor: '#FFFFFF',
   },
   overlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(23, 33, 43, 0.15)',
+    opacity: 0.62,
   },
   content: {
     flex: 1,
-    paddingHorizontal: layoutSpacing.screenHorizontal,
+    paddingHorizontal: layoutSpacing.screenHorizontalCompact,
     paddingVertical: 20,
     justifyContent: 'center',
     gap: 6,
+    maxWidth: '72%',
+  },
+  title: {
+    fontWeight: '700',
   },
   subtitle: {
     opacity: 0.92,

@@ -1,5 +1,6 @@
 import { JoinCard as DSJoinCard } from '@jjoin/design-system';
 import { formatCoinWithLabel } from '@jjoin/domain';
+import { formatJoinParticipantDisplay } from '../join-card-map';
 
 export type JoinCardProps = {
   sport?: string;
@@ -36,7 +37,10 @@ export function JoinCard({
       title={venue}
       timeLabel={startAt}
       distanceLabel={distance ?? null}
-      participantLabel={`${participantCount}/${plannedPlayerCount}명`}
+      participantLabel={formatJoinParticipantDisplay({
+        current: participantCount,
+        max: plannedPlayerCount,
+      })}
       hostNickname={host}
       hostAvatarUrl={hostAvatarUrl}
       rewardLabel={formatCoinWithLabel(rewardPerParticipant)}
