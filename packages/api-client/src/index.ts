@@ -318,8 +318,9 @@ export class ApiClient {
   }
 
   async getPublicProfile(userId: string): Promise<PublicUserProfileDto> {
+    // Optional auth: send token when present so server can compute playedCountWithViewer.
     const res = await request(`${this.config.baseUrl}/users/${userId}/public-profile`, {
-      headers: await this.headers(false),
+      headers: await this.headers(true),
     });
     return parseJson(res);
   }
