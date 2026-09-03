@@ -202,6 +202,7 @@ enum NotificationType {
   CLUB_JOIN_APPROVED
   CLUB_EVENT_CREATED
   CLUB_NOTICE
+  JOIN_RECOMMENDATION
 }
 
 /// Pre-game attendance intent — distinct from ParticipationStatus COMPLETED/NO_SHOW.

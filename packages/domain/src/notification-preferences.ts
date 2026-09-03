@@ -31,7 +31,8 @@ export type PushPreferenceNotificationType =
   | 'BOOKMARK_JOIN_CLOSING'
   | 'BOOKMARK_JOIN_SPOT_LEFT'
   | 'BOOKMARK_JOIN_UPDATED'
-  | 'BOOKMARK_JOIN_CANCELLED';
+  | 'BOOKMARK_JOIN_CANCELLED'
+  | 'JOIN_RECOMMENDATION';
 
 const PREFERENCE_FIELD: Record<PushPreferenceNotificationType, keyof NotificationPreferenceFields> =
   {
@@ -45,6 +46,7 @@ const PREFERENCE_FIELD: Record<PushPreferenceNotificationType, keyof Notificatio
     BOOKMARK_JOIN_SPOT_LEFT: 'bookmarkUpdatesEnabled',
     BOOKMARK_JOIN_UPDATED: 'bookmarkUpdatesEnabled',
     BOOKMARK_JOIN_CANCELLED: 'bookmarkUpdatesEnabled',
+    JOIN_RECOMMENDATION: 'joinAlertsEnabled',
   };
 
 /** Returns true when tray push should be attempted for this notification type. */

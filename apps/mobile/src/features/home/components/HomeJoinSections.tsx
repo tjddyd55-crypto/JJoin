@@ -120,40 +120,47 @@ export function HomeRecommendedList({ items, onPress }: RecommendedProps) {
   const theme = useTheme();
 
   if (!items.length) {
-    return (
-      <Text variant="caption" tone="tertiary" style={styles.empty}>
-        추천 조인이 없습니다.
-      </Text>
-    );
+    return null;
   }
 
   return (
     <View style={styles.stack}>
-      {items.map((item) => (
-        <Pressable
-          key={item.joinId}
-          accessibilityRole="button"
-          onPress={() => onPress(item.joinId)}
-          style={({ pressed }) => [
-            styles.recCard,
-            {
-              backgroundColor: theme.colors.surface.card,
-              borderColor: theme.colors.border.subtle,
-              opacity: pressed ? 0.92 : 1,
-            },
-          ]}
-        >
-          <Text variant="caption" tone="tertiary">
-            {item.reasonLabel}
-          </Text>
-          <Text variant="body" tone="primary" numberOfLines={1}>
-            {formatHomeJoinTime(item.startAt)} · {item.venueName}
-          </Text>
-          <Text variant="caption" tone="secondary">
-            {formatRemainingSeats(item.seatsLeft)}
-          </Text>
-        </Pressable>
-      ))}
+      {items.map((item) => {
+        const chips =
+          item.reasons?.length
+            ? item.reasons.slice(0, 2)
+            : [{ code: item.reasonCode, label: item.reasonLabel }];
+        return (
+          <Pressable
+            key={item.joinId}
+            accessibilityRole="button"
+            onPress={() => onPress(item.joinId)}
+            style={({ pressed }) => [
+              styles.recCard,
+              {
+                backgroundColor: theme.colors.surface.card,
+                borderColor: theme.colors.border.subtle,
+                opacity: pressed ? 0.92 : 1,
+              },
+            ]}
+          >
+            <View style={styles.reasonRow}>
+              {chips.map((chip) => (
+                <Badge key={chip.code} label={chip.label} variant="neutral" />
+              ))}
+            </View>
+            <Text variant="body" tone="primary" numberOfLines={1}>
+              {formatHomeJoinTime(item.startAt)} · {item.venueName}
+            </Text>
+            <Text variant="caption" tone="secondary">
+              {formatRemainingSeats(item.seatsLeft)}
+              {item.hostAverageRatingDisplay
+                ? ` · ★ ${item.hostAverageRatingDisplay}`
+                : ''}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -190,6 +197,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     gap: 4,
+  },
+  reasonRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
   },
   empty: {
     paddingVertical: spacing.xs,

@@ -118,5 +118,6 @@ test('recommendations prefer followed store over bare fallback', () => {
     now: new Date('2026-08-31T12:00:00+09:00'),
   });
   assert.equal(ranked[0]?.joinId, 'high');
-  assert.equal(ranked[0]?.reason, 'FOLLOWED_STORE');
+  assert.ok(ranked[0]!.signals.includes('FOLLOWED_STORE'));
+  assert.ok(ranked[0]!.score > (ranked[1]?.score ?? 0));
 });

@@ -1147,13 +1147,17 @@ export class ApiClient {
   async getRecommendedJoins(query?: {
     limit?: number;
     debug?: boolean;
+    lat?: number;
+    lng?: number;
   }): Promise<RecommendedJoinsResponse> {
     const params = new URLSearchParams();
     if (query?.limit != null) params.set('limit', String(query.limit));
     if (query?.debug) params.set('debug', '1');
+    if (query?.lat != null) params.set('lat', String(query.lat));
+    if (query?.lng != null) params.set('lng', String(query.lng));
     const qs = params.toString();
     const res = await request(
-      `${this.config.baseUrl}/me/recommended-joins${qs ? `?${qs}` : ''}`,
+      `${this.config.baseUrl}/joins/recommended${qs ? `?${qs}` : ''}`,
       { headers: await this.headers(true) },
     );
     return parseJson(res);

@@ -35,6 +35,6 @@ import { JoinRecommendationsService } from './join-recommendations.service';
     JoinEngagementNotifyService,
     JoinRecommendationsService,
   ],
-  exports: [JoinEngagementNotifyService],
+  exports: [JoinEngagementNotifyService, JoinRecommendationsService],
 })
 export class EngagementModule {}

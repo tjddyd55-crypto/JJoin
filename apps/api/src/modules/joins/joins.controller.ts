@@ -11,6 +11,7 @@ import type { CreateJoinRequest, JoinCoinPreviewRequest } from '@jjoin/types';
 import { JoinsService } from './joins.service';
 import { JoinDiscoveryService } from './join-discovery.service';
 import { MatchingJoinsService } from './matching-joins.service';
+import { JoinRecommendationsService } from '../engagement/join-recommendations.service';
 import { CurrentUserId, MockAuthGuard } from '../../common/mock-auth.guard';
 
 @Controller('joins')
@@ -19,11 +20,31 @@ export class JoinsController {
     private readonly service: JoinsService,
     private readonly discovery: JoinDiscoveryService,
     private readonly matchingJoins: MatchingJoinsService,
+    private readonly recommendations: JoinRecommendationsService,
   ) {}
 
   @Get('_meta')
   meta() {
     return this.service.ping();
+  }
+
+  /** Personalized recommendations — must be before `@Get(':joinId')`. */
+  @Get('recommended')
+  @UseGuards(MockAuthGuard)
+  recommended(
+    @CurrentUserId() userId: string,
+    @Query('limit') limitRaw?: string,
+    @Query('debug') debug?: string,
+    @Query('lat') lat?: string,
+    @Query('lng') lng?: string,
+  ) {
+    const limit = limitRaw ? Number(limitRaw) : 5;
+    return this.recommendations.listForUser(userId, {
+      limit: Number.isFinite(limit) ? limit : 5,
+      includeDebug: debug === '1',
+      lat: optionalNum(lat),
+      lng: optionalNum(lng),
+    });
   }
 
   @Post('coin-preview')

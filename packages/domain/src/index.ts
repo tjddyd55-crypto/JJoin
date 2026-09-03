@@ -484,10 +484,21 @@ export {
 } from './recurring-join-schedule';
 
 export {
+  RECOMMENDATION_WEIGHTS,
   RECOMMEND_REASON_LABEL_KO,
+  RECOMMEND_REASON_PRIORITY,
   RECOMMEND_SCORE,
+  almostFilledBonus,
+  buildRecommendationReasons,
+  closingSoonBonus,
+  haversineMeters,
+  hostRatingBonus,
   inferPreferredHours,
+  isGenderCompatibleJoin,
   isRecommendableJoin,
+  isStrongRecommendationAlertSignal,
+  nearbyDistanceBonus,
+  playedTogetherParticipantBonus,
   rankRecommendations,
   scoreRecommendation,
   type RecommendCandidate,

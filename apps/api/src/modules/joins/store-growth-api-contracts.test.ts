@@ -194,8 +194,9 @@ test('RecommendedJoinsResponse items carry reasonLabel from SSOT', () => {
       },
     ],
   };
-  assert.equal(response.items[0]!.reasonCode, 'FOLLOWED_STORE');
-  assert.equal(response.items[0]!.reasonLabel, '팔로우한 매장');
+  assert.ok(ranked[0]!.signals.includes('FOLLOWED_STORE'));
+  assert.equal(response.items[0]!.joinId, 'j1');
+  assert.ok(response.items[0]!.reasonLabel.length > 0);
 });
 
 test('RecurringJoinScheduleDto status union is closed', () => {
