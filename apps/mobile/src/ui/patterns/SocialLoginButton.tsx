@@ -1,6 +1,7 @@
 import { Image, Pressable, StyleSheet, ActivityIndicator, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Text, useTheme, opacity } from '@jjoin/design-system';
-import type { SocialProvider } from '@jjoin/types';
+import { SocialProvider } from '@jjoin/types';
+import { KakaoBrandMark } from './KakaoBrandMark';
 
 export type SocialLoginButtonProps = {
   provider: SocialProvider;
@@ -12,12 +13,11 @@ export type SocialLoginButtonProps = {
 
 const PROVIDER_BRAND: Record<
   SocialProvider,
-  { background: string; text: string; border?: string; logo: number }
+  { background: string; text: string; border?: string; logo?: number }
 > = {
   KAKAO: {
     background: '#FEE500',
     text: '#191600',
-    logo: require('../../../assets/branding/kakao.png'),
   },
   NAVER: {
     background: '#03C75A',
@@ -66,7 +66,15 @@ export function SocialLoginButton({
         <ActivityIndicator color={brand.text} />
       ) : (
         <View style={styles.content}>
-          <Image source={brand.logo} style={styles.logo} accessibilityIgnoresInvertColors />
+          {provider === SocialProvider.KAKAO ? (
+            <KakaoBrandMark size={24} />
+          ) : (
+            <Image
+              source={brand.logo!}
+              style={styles.logo}
+              accessibilityIgnoresInvertColors
+            />
+          )}
           <Text variant="button" style={{ color: brand.text }}>
             {label}
           </Text>

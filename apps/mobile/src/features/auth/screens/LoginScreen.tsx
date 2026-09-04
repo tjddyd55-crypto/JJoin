@@ -162,24 +162,26 @@ export function LoginScreen() {
       </View>
 
       <StickyActionFrame>
-        <SocialLoginButton
-          provider={SocialProvider.KAKAO}
-          label={t('auth.login.kakao')}
-          loading={loading === SocialProvider.KAKAO}
-          onPress={() => void handleProvider(SocialProvider.KAKAO)}
-        />
-        <SocialLoginButton
-          provider={SocialProvider.NAVER}
-          label={t('auth.login.naver')}
-          loading={loading === SocialProvider.NAVER}
-          onPress={() => void handleProvider(SocialProvider.NAVER)}
-        />
-        <SocialLoginButton
-          provider={SocialProvider.GOOGLE}
-          label={t('auth.login.google')}
-          loading={loading === SocialProvider.GOOGLE}
-          onPress={() => void handleProvider(SocialProvider.GOOGLE)}
-        />
+        <View style={[styles.socialButtons, { gap: theme.spacing.sm }]}>
+          <SocialLoginButton
+            provider={SocialProvider.KAKAO}
+            label={t('auth.login.kakao')}
+            loading={loading === SocialProvider.KAKAO}
+            onPress={() => void handleProvider(SocialProvider.KAKAO)}
+          />
+          <SocialLoginButton
+            provider={SocialProvider.NAVER}
+            label={t('auth.login.naver')}
+            loading={loading === SocialProvider.NAVER}
+            onPress={() => void handleProvider(SocialProvider.NAVER)}
+          />
+          <SocialLoginButton
+            provider={SocialProvider.GOOGLE}
+            label={t('auth.login.google')}
+            loading={loading === SocialProvider.GOOGLE}
+            onPress={() => void handleProvider(SocialProvider.GOOGLE)}
+          />
+        </View>
         <Text variant="caption" tone="tertiary" style={styles.legal}>
           계속하면 서비스 이용약관 및 개인정보 처리방침에 동의하게 됩니다.
         </Text>
@@ -237,6 +239,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 8,
+  },
+  socialButtons: {
+    alignSelf: 'stretch',
   },
   legal: { textAlign: 'center', marginTop: 4 },
 });
