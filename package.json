@@ -27,7 +27,8 @@
     "chat-purge": "pnpm exec tsx scripts/run-chat-purge.ts",
     "recurring-joins": "pnpm exec tsx scripts/run-recurring-joins.ts",
     "notification-delivery": "pnpm exec tsx scripts/run-notification-delivery.ts",
-    "attendance-reminders": "pnpm exec tsx scripts/run-attendance-reminders.ts"
+    "attendance-reminders": "pnpm exec tsx scripts/run-attendance-reminders.ts",
+    "payment:dev-smoke": "pnpm exec tsx scripts/payment-dev-smoke.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",
