@@ -45,6 +45,7 @@ export {
   type JoinCardVariant,
   type JoinCardStatusBadge,
 } from './components/JoinCard';
+export { JoinCardSkeleton } from './components/JoinCardSkeleton/JoinCardSkeleton';
 export { JoinDdayBadge, type JoinDdayBadgeProps } from './components/JoinDdayBadge';
 export {
   JoinStatusBadge,

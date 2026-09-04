@@ -16,6 +16,8 @@ COMPARE_DIR = ROOT / "artifacts" / "join-figma-alignment" / "compare"
 
 # Populated from Figma MCP get_screenshot (2026-09-04 session)
 FIGMA_ASSETS: dict[str, str] = {
+    "figma-join-list-bright-390.png": "https://www.figma.com/api/mcp/asset/99c27d10-b932-4888-b97c-ac82408ebe6d.png",
+    "figma-join-detail-bright-390.png": "https://www.figma.com/api/mcp/asset/6d5d249b-346b-41b7-acde-e5174e34cb94.png",
     "figma-join-list-360.png": "https://www.figma.com/api/mcp/asset/8f75c184-f7e7-4a49-9e94-1e29ef06ad13.png",
     "figma-join-list-390.png": "https://www.figma.com/api/mcp/asset/10ab5c68-6729-4611-b161-42d98ca81c8d.png",
     "figma-join-list-430.png": "https://www.figma.com/api/mcp/asset/a545277d-ead2-48b5-b2ec-d04ad1882e2c.png",
@@ -28,6 +30,8 @@ FIGMA_ASSETS: dict[str, str] = {
 }
 
 COMPARE_PAIRS: list[tuple[str, str, str]] = [
+    ("figma-join-list-bright-390.png", "final-join-list-real-data-390.png", "compare-join-list-real-data-390.png"),
+    ("figma-join-detail-bright-390.png", "final-join-detail-real-data-390.png", "compare-join-detail-real-data-390.png"),
     ("figma-join-list-360.png", "app-join-list-360.png", "compare-join-list-360.png"),
     ("figma-join-list-390.png", "app-join-list-390.png", "compare-join-list-390.png"),
     ("figma-join-list-430.png", "app-join-list-430.png", "compare-join-list-430.png"),

@@ -1,19 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AppState, Pressable, Share, StyleSheet, View } from 'react-native';
+import { AppState, BackHandler, Share, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Text,
   Badge,
   Button,
   Card,
-  Icon,
   Input,
-  Row,
   ScrollScreenFrame,
   Section,
   StickyActionFrame,
   Stack,
-  AppBar,
   useTheme,
   type BadgeVariant,
 } from '@jjoin/design-system';
@@ -214,6 +212,18 @@ export default function JoinDetailScreen() {
     });
     return () => sub.remove();
   }, [load]);
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (router.canGoBack()) {
+        router.back();
+        return true;
+      }
+      router.replace('/(tabs)/joins');
+      return true;
+    });
+    return () => sub.remove();
+  }, [router]);
 
   const isHost = detail?.host.id === me?.userId;
   const pending = detail?.participants.filter(
@@ -463,10 +473,11 @@ export default function JoinDetailScreen() {
 
   if (!detail) {
     return (
-      <ScrollScreenFrame>
-        <Text tone="secondary">{error ?? '불러오는 중…'}</Text>
-        <Button label="뒤로" variant="secondary" onPress={() => router.back()} />
-      </ScrollScreenFrame>
+      <SafeAreaView edges={['top']} style={styles.root}>
+        <ScrollScreenFrame contentContainerStyle={styles.loadingFrame}>
+          <Text tone="secondary">{error ?? '불러오는 중…'}</Text>
+        </ScrollScreenFrame>
+      </SafeAreaView>
     );
   }
 
@@ -528,50 +539,18 @@ export default function JoinDetailScreen() {
 
   return (
     <View style={styles.root}>
-      <AppBar
-        title="조인 상세"
-        onBack={() => router.back()}
-        rightActions={
-          <Row gap="sm" align="center">
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={detail.bookmarked ? '찜 해제' : '찜하기'}
-              onPress={() => void onToggleBookmark()}
-              hitSlop={8}
-              style={styles.iconHit}
-            >
-              <Text
-                variant="sectionTitle"
-                style={{
-                  color: detail.bookmarked
-                    ? theme.colors.action.primary
-                    : theme.colors.text.tertiary,
-                }}
-              >
-                {detail.bookmarked ? '♥' : '♡'}
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="공유"
-              onPress={() => void onShare()}
-              hitSlop={8}
-              style={styles.iconHit}
-            >
-              <Icon name="share" size="md" tone="secondary" />
-            </Pressable>
-          </Row>
-        }
-      />
       <ScrollScreenFrame
         style={styles.scroll}
         contentPaddingBottom={showStickyCta ? 120 : 40}
         padded={false}
       >
-        <View style={styles.scrollInner}>
+        <SafeAreaView edges={['top']} style={styles.scrollInner}>
         <JoinDetailPrimarySections
           detail={detail}
           matching={matching}
+          bookmarked={detail.bookmarked}
+          onToggleBookmark={() => void onToggleBookmark()}
+          onShare={() => void onShare()}
           onOpenHost={() => router.push(`/user/${detail.host.id}`)}
           onOpenChat={
             detail.chatAvailable
@@ -839,7 +818,7 @@ export default function JoinDetailScreen() {
             />
           </Section>
         ) : null}
-        </View>
+        </SafeAreaView>
       </ScrollScreenFrame>
 
       {showStickyCta ? (
@@ -864,12 +843,13 @@ export default function JoinDetailScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   scroll: { flex: 1 },
+  loadingFrame: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
   scrollInner: {
     paddingHorizontal: 16,
     gap: 16,
-  },
-  iconHit: {
-    padding: 4,
   },
   pendingRow: {
     flexDirection: 'row',

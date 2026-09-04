@@ -1,5 +1,6 @@
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import {
+  Icon,
   JoinDdayBadge,
   JoinDetailSection,
   JoinHostAvatar,
@@ -36,6 +37,9 @@ import {
 export type JoinDetailPrimarySectionsProps = {
   detail: JoinDetailDto;
   matching: boolean;
+  bookmarked?: boolean;
+  onToggleBookmark?: () => void;
+  onShare?: () => void;
   onOpenHost?: () => void;
   onOpenChat?: () => void;
   onInvite?: () => void;
@@ -129,6 +133,9 @@ function InlineLink({
 export function JoinDetailPrimarySections({
   detail,
   matching,
+  bookmarked = false,
+  onToggleBookmark,
+  onShare,
   onOpenHost,
   onOpenChat,
   onInvite,
@@ -167,13 +174,50 @@ export function JoinDetailPrimarySections({
   return (
     <View style={styles.root}>
       <View style={styles.header}>
-        <View style={styles.badgeRow}>
-          {dday ? <JoinDdayBadge label={dday.label} /> : null}
-          {statusBadges.map((badge) => (
-            <JoinStatusBadge key={badge.label} label={badge.label} tone={badge.tone} />
-          ))}
+        <View style={styles.summaryTopRow}>
+          <View style={styles.badgeRow}>
+            {dday ? <JoinDdayBadge label={dday.label} /> : null}
+            {statusBadges.map((badge) => (
+              <JoinStatusBadge key={badge.label} label={badge.label} tone={badge.tone} />
+            ))}
+          </View>
+          {(onToggleBookmark || onShare) ? (
+            <View style={styles.headerActions}>
+              {onToggleBookmark ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={bookmarked ? '찜 해제' : '찜하기'}
+                  onPress={onToggleBookmark}
+                  hitSlop={10}
+                  style={styles.headerActionHit}
+                >
+                  <Text
+                    variant="sectionTitle"
+                    style={{
+                      color: bookmarked
+                        ? theme.colors.action.primary
+                        : theme.colors.text.tertiary,
+                    }}
+                  >
+                    {bookmarked ? '♥' : '♡'}
+                  </Text>
+                </Pressable>
+              ) : null}
+              {onShare ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="공유"
+                  onPress={onShare}
+                  hitSlop={10}
+                  style={styles.headerActionHit}
+                >
+                  <Icon name="share" size="md" tone="secondary" />
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
         </View>
-        <Text variant="joinScreenTitle" tone="primary" numberOfLines={2} style={styles.title}>
+        <Text variant="joinScreenTitle" tone="primary" numberOfLines={2}>
           {displayTitle}
         </Text>
       </View>
@@ -293,21 +337,35 @@ export function JoinDetailPrimarySections({
 const styles = StyleSheet.create({
   root: {
     gap: 16,
-    paddingTop: 8,
   },
   header: {
-    gap: 8,
+    gap: 10,
+  },
+  summaryTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   badgeRow: {
+    flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
     alignItems: 'center',
+    minWidth: 0,
   },
-  title: {
-    fontSize: 22,
-    lineHeight: 28,
-    fontWeight: '700',
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexShrink: 0,
+  },
+  headerActionHit: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   divider: {
     height: StyleSheet.hairlineWidth,

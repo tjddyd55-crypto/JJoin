@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StyleSheet, View } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
 import { SessionProvider, useSession } from '../src/session/SessionContext';
 import { AuthAppState } from '@jjoin/types';
 import {
@@ -15,6 +16,9 @@ import { resolveOnboardingStep } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
 import { isInternalToolsEnabled } from '../src/lib/internal-tools';
 import { PushRegistrationHost } from '../src/features/notifications/PushRegistrationHost';
+import { useAppFonts } from '../src/bootstrap/useAppFonts';
+
+SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 if (__DEV__) {
   console.log('[BOOT 01] module _layout loaded');
@@ -150,6 +154,18 @@ function SplashBootstrapScreen() {
 }
 
 export default function RootLayout() {
+  const fontsLoaded = useAppFonts();
+
+  useEffect(() => {
+    if (fontsLoaded) {
+      void SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   if (__DEV__) {
     console.log('[BOOT 02] RootLayout render');
     console.log('[BOOT 03] Gesture root render');

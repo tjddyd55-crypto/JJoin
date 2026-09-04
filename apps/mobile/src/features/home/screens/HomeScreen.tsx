@@ -34,9 +34,12 @@ export function HomeScreen() {
     recommended,
     clubs,
     featuredClub,
-    loadingToday,
-    loadingRecommended,
+    initialLoading,
+    isRefreshing,
+    recommendError,
+    hasLoadedOnce,
     loadingClub,
+    reload,
   } = useHomeData(userId);
 
   const openJoin = useCallback(
@@ -48,9 +51,6 @@ export function HomeScreen() {
     },
     [api, router],
   );
-
-  const showJoinSection =
-    loadingToday || loadingRecommended || recommended.length > 0 || todayJoins.length > 0;
 
   return (
     <ScrollScreenFrame
@@ -68,22 +68,25 @@ export function HomeScreen() {
 
       <HomeQuickMenu />
 
-      {showJoinSection ? (
-        <View style={styles.section}>
-          <SectionHeader
-            title="오늘의 추천 조인"
-            titleVariant="joinSectionTitle"
-            actionLabel="더보기"
-            onActionPress={() => router.push('/(tabs)/joins')}
-          />
-          <HomeTodaysJoinSection
-            recommended={recommended}
-            todayFallback={todayJoins}
-            loading={loadingToday || loadingRecommended}
-            onPressJoin={openJoin}
-          />
-        </View>
-      ) : null}
+      <View style={styles.section}>
+        <SectionHeader
+          title="오늘의 추천 조인"
+          titleVariant="joinSectionTitle"
+          actionLabel="더보기"
+          onActionPress={() => router.push('/(tabs)/joins')}
+        />
+        <HomeTodaysJoinSection
+          recommended={recommended}
+          todayFallback={todayJoins}
+          initialLoading={initialLoading}
+          isRefreshing={isRefreshing}
+          error={recommendError}
+          hasLoadedOnce={hasLoadedOnce}
+          onPressJoin={openJoin}
+          onRetry={reload}
+          onBrowseAll={() => router.push('/(tabs)/joins')}
+        />
+      </View>
 
       <View style={styles.section}>
         <SectionHeader
@@ -106,5 +109,6 @@ const styles = StyleSheet.create({
   section: {
     gap: spacing.xs,
     marginTop: spacing.sm,
+    minHeight: 148,
   },
 });
