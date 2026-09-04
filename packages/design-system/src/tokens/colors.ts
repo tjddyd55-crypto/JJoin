@@ -105,6 +105,7 @@ export const semanticColors = {
     },
     surface: {
       info: palette.infoSurface,
+      success: palette.paleGreen,
     },
   },
 } as const;

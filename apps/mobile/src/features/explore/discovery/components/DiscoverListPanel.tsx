@@ -10,7 +10,6 @@ import {
 import { useRouter, type Href } from 'expo-router';
 import {
   Text,
-  Section,
   Spacer,
   Stack,
   spacing,
@@ -32,6 +31,13 @@ function joinDetailHref(joinId: string): Href {
   return { pathname: '/join/[joinId]', params: { joinId } } as Href;
 }
 
+type FilterChip = {
+  id: string;
+  label: string;
+  onPress: () => void;
+  selected: boolean;
+};
+
 type Props = {
   locationDenied: boolean;
   deviceLocation: { latitude: number; longitude: number } | null;
@@ -46,8 +52,6 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const requestSeq = useRef(0);
-  const selectedBorder = theme.colors.state.selectedBorder;
-  const selectedTextColor = theme.colors.state.selectedText;
 
   const load = useCallback(async () => {
     const seq = ++requestSeq.current;
@@ -113,60 +117,68 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
   }, [load]);
 
   const todayKey = localDayKey(new Date());
-  const upcomingTitle =
-    filter.date === todayKey ? '예정된 조인' : '선택한 날 조인';
+  const sectionTitle =
+    filter.date === todayKey ? '오늘 참여 가능한 조인' : '선택한 날 조인';
   const empty = !loading && !error && (data?.totalCount ?? 0) === 0;
   const listBottomPad = FAB_CLEARANCE;
+
+  const filterChips: FilterChip[] = [
+    {
+      id: 'ALL',
+      label: '전체',
+      selected: filter.joinability === 'ALL',
+      onPress: () => patchFilter({ joinability: 'ALL' }),
+    },
+    {
+      id: 'TIME',
+      label: '시간순',
+      selected: filter.sort === 'TIME',
+      onPress: () => patchFilter({ sort: 'TIME' }),
+    },
+    {
+      id: 'DISTANCE',
+      label: '거리순',
+      selected: filter.sort === 'DISTANCE',
+      onPress: () => patchFilter({ sort: 'DISTANCE' }),
+    },
+    {
+      id: 'MAP',
+      label: '지도에서 보기',
+      selected: false,
+      onPress: () => patchFilter({ view: 'MAP' }),
+    },
+  ];
 
   return (
     <View style={styles.root}>
       <View style={styles.filterRow}>
-        {(['ALL', 'JOINABLE'] as const).map((id) => {
-          const selected = filter.joinability === id;
-          return (
-            <Pressable
-              key={id}
-              onPress={() => patchFilter({ joinability: id })}
-              style={[
-                styles.filterChip,
-                {
-                  borderColor: selected ? selectedBorder : theme.colors.border.subtle,
-                  backgroundColor: selected ? theme.colors.state.selectedSurface : 'transparent',
-                },
-              ]}
+        {filterChips.map((chip) => (
+          <Pressable
+            key={chip.id}
+            onPress={chip.onPress}
+            accessibilityRole="button"
+            accessibilityState={{ selected: chip.selected }}
+            style={[
+              styles.filterChip,
+              chip.selected
+                ? {
+                    backgroundColor: theme.colors.action.primary,
+                    borderColor: theme.colors.action.primary,
+                  }
+                : {
+                    backgroundColor: theme.colors.surface.card,
+                    borderColor: theme.colors.border.subtle,
+                  },
+            ]}
+          >
+            <Text
+              variant="joinFilterChip"
+              tone={chip.selected ? 'onPrimary' : 'secondary'}
             >
-              <Text
-                variant="meta"
-                style={selected ? { color: selectedTextColor } : undefined}
-              >
-                {id === 'ALL' ? '전체' : '참가 가능'}
-              </Text>
-            </Pressable>
-          );
-        })}
-        {(['TIME', 'DISTANCE'] as const).map((id) => {
-          const selected = filter.sort === id;
-          return (
-            <Pressable
-              key={id}
-              onPress={() => patchFilter({ sort: id })}
-              style={[
-                styles.filterChip,
-                {
-                  borderColor: selected ? selectedBorder : theme.colors.border.subtle,
-                  backgroundColor: selected ? theme.colors.state.selectedSurface : 'transparent',
-                },
-              ]}
-            >
-              <Text
-                variant="meta"
-                style={selected ? { color: selectedTextColor } : undefined}
-              >
-                {id === 'TIME' ? '시간순' : '거리순'}
-              </Text>
-            </Pressable>
-          );
-        })}
+              {chip.label}
+            </Text>
+          </Pressable>
+        ))}
       </View>
 
       <ScrollView
@@ -177,13 +189,13 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
       >
         {loading && !data ? <ActivityIndicator color={theme.colors.action.primary} /> : null}
         {error ? (
-          <Text variant="meta" tone="tertiary">
+          <Text variant="joinMeta" tone="tertiary">
             {error}
           </Text>
         ) : null}
         {empty ? (
-          <Stack gap="sm">
-            <Text variant="body" tone="secondary">
+          <Stack gap="sm" style={styles.emptyBlock}>
+            <Text variant="joinMeta" tone="secondary">
               선택한 날짜로 지역에 조인이 없습니다.
             </Text>
             <View style={styles.emptyActions}>
@@ -202,35 +214,39 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
         ) : null}
 
         {(data?.ongoing.length ?? 0) > 0 ? (
-          <Section title="지금 진행 중">
-            <Stack gap="md">
+          <View style={styles.section}>
+            <Text variant="joinSectionTitle" tone="primary">
+              지금 진행 중
+            </Text>
+            <Stack gap="sm">
               {data!.ongoing.map((join) => (
                 <DiscoverJoinCard
                   key={join.joinId}
                   join={join}
                   onPress={() => router.push(joinDetailHref(join.joinId))}
-                  onJoinPress={() => router.push(joinDetailHref(join.joinId))}
                 />
               ))}
             </Stack>
-          </Section>
+          </View>
         ) : null}
 
         {(data?.upcoming.length ?? 0) > 0 ? (
           <>
-            <Spacer size="md" />
-            <Section title={upcomingTitle}>
-              <Stack gap="md">
+            <Spacer size="sm" />
+            <View style={styles.section}>
+              <Text variant="joinSectionTitle" tone="primary">
+                {sectionTitle}
+              </Text>
+              <Stack gap="sm">
                 {data!.upcoming.map((join) => (
                   <DiscoverJoinCard
                     key={join.joinId}
                     join={join}
                     onPress={() => router.push(joinDetailHref(join.joinId))}
-                    onJoinPress={() => router.push(joinDetailHref(join.joinId))}
                   />
                 ))}
               </Stack>
-            </Section>
+            </View>
           </>
         ) : null}
       </ScrollView>
@@ -243,19 +259,27 @@ const styles = StyleSheet.create({
   filterRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.xs,
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 36,
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.xs,
+    paddingBottom: spacing.sm,
   },
   filterChip: {
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 999,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   list: {
     paddingHorizontal: spacing.md,
-    gap: spacing.sm,
+    gap: 12,
+  },
+  section: {
+    gap: 10,
+  },
+  emptyBlock: {
+    paddingTop: 4,
   },
   emptyActions: {
     flexDirection: 'row',

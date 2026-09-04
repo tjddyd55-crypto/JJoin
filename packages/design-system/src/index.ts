@@ -66,7 +66,10 @@ export { JoinScheduleSummary, type JoinScheduleSummaryProps } from './components
 export { JoinSummaryTile, type JoinSummaryTileProps, type JoinSummaryTileVariant } from './components/JoinSummaryTile';
 export { JoinSummaryGrid, type JoinSummaryGridItem, type JoinSummaryGridProps } from './components/JoinSummaryGrid';
 export { JoinDetailSection, type JoinDetailSectionProps } from './components/JoinDetailSection';
-export { JoinMiniStatGrid, type JoinMiniStatGridProps, type JoinMiniStatTile } from './components/JoinMiniStatGrid';
+export { JoinMiniStatGrid, type JoinMiniStatGridProps, type JoinMiniStatTile, type JoinMiniStatSurface } from './components/JoinMiniStatGrid';
+export { JoinListTextTabs, type JoinListTextTabsProps, type JoinListTextTab } from './components/JoinListTextTabs';
+export { JoinDiscoveryAppBar, type JoinDiscoveryAppBarProps } from './components/JoinDiscoveryAppBar';
+export { JoinSeatsRemainingBanner, type JoinSeatsRemainingBannerProps, type JoinSeatsRemainingTone } from './components/JoinSeatsRemainingBanner';
 export { JoinVenueSummary, type JoinVenueSummaryProps } from './components/JoinVenueSummary';
 export { JoinCapacitySummary, type JoinCapacitySummaryProps } from './components/JoinCapacitySummary';
 export { RecommendationReasonTag, type RecommendationReasonTagProps } from './components/RecommendationReasonTag';

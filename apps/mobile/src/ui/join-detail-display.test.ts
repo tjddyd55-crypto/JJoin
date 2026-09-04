@@ -114,8 +114,8 @@ test('buildJoinRecruitmentStatTiles uses recruitment targets only', () => {
   assert.equal(tiles.find((t) => t.label === '총 모집')?.value, '4명');
   assert.equal(tiles.find((t) => t.label === '남성')?.value, '2명');
   assert.equal(tiles.find((t) => t.label === '여성')?.value, '2명');
-  assert.equal(tiles.find((t) => t.label === '최소')?.value, '2명');
-  assert.equal(tiles.some((t) => t.value.includes('/')), false);
+  assert.equal(tiles.find((t) => t.label === '최소 확정')?.value, '2명');
+  assert.equal(tiles.length, 4);
 });
 
 test('hasJoinBenefits is false for zero reward', () => {

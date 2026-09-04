@@ -2,6 +2,7 @@ import { View, StyleSheet } from 'react-native';
 import type { ReactNode } from 'react';
 import { Text } from '../primitives/Text';
 import { useTheme } from '../theme';
+import type { TypographyVariant } from '../tokens';
 
 export type SectionProps = {
   title?: string;
@@ -9,9 +10,17 @@ export type SectionProps = {
   action?: ReactNode;
   children: ReactNode;
   gap?: 'sm' | 'md' | 'lg';
+  titleVariant?: TypographyVariant;
 };
 
-export function Section({ title, subtitle, action, children, gap = 'md' }: SectionProps) {
+export function Section({
+  title,
+  subtitle,
+  action,
+  children,
+  gap = 'md',
+  titleVariant = 'sectionTitle',
+}: SectionProps) {
   const theme = useTheme();
   const innerGap = gap === 'sm' ? theme.spacing.sm : gap === 'lg' ? theme.spacing.lg : theme.spacing.md;
 
@@ -21,7 +30,7 @@ export function Section({ title, subtitle, action, children, gap = 'md' }: Secti
         <View style={styles.header}>
           <View style={styles.headerText}>
             {title ? (
-              <Text variant="sectionTitle" tone="primary">
+              <Text variant={titleVariant} tone="primary">
                 {title}
               </Text>
             ) : null}

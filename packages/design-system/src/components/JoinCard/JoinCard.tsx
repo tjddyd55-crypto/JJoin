@@ -99,10 +99,9 @@ export function JoinCard({
             ))}
           </View>
           <Text
-            variant="sectionTitle"
+            variant="joinCardTitle"
             tone="primary"
             numberOfLines={titleLines}
-            style={styles.title}
           >
             {title}
           </Text>
@@ -147,11 +146,11 @@ export function JoinCard({
 const styles = StyleSheet.create({
   card: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 16,
     borderWidth: StyleSheet.hairlineWidth,
   },
   cardCompact: {
-    paddingVertical: 10,
+    paddingVertical: 12,
   },
   mainRow: {
     flexDirection: 'row',
@@ -168,10 +167,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     alignItems: 'center',
-  },
-  title: {
-    fontSize: 18,
-    lineHeight: 24,
   },
   tags: {
     flexDirection: 'row',

@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
-import { Text, spacing, useTheme } from '@jjoin/design-system';
+import { spacing, useTheme, JoinDiscoveryAppBar, JoinListTextTabs } from '@jjoin/design-system';
+import { regionIdentityKey } from '@jjoin/domain';
 import { JoinDiscoveryProvider, useJoinDiscovery } from './JoinDiscoveryContext';
 import { DiscoverListPanel } from './components/DiscoverListPanel';
 import { DiscoveryFilterChrome } from './components/DiscoveryFilterChrome';
@@ -21,12 +22,18 @@ export function ExploreDiscoveryScreen() {
   );
 }
 
+function regionDisplayLabel(filter: ReturnType<typeof useJoinDiscovery>['filter']): string {
+  if (filter.region.mode === 'NEARBY') return '내 주변';
+  return filter.region.label?.trim() || filter.region.sigungu || '지역 선택';
+}
+
 function ExploreDiscoveryBody() {
   const theme = useTheme();
   const router = useRouter();
   const { filter, patchFilter } = useJoinDiscovery();
   const [deviceLocation, setDeviceLocation] = useState<MapCoordinate | null>(null);
   const [locationDenied, setLocationDenied] = useState(false);
+  const [regionPickerOpen, setRegionPickerOpen] = useState(false);
   const isMap = filter.view === 'MAP';
   const isRegion = filter.view === 'REGION';
   const isList = !isMap && !isRegion;
@@ -52,59 +59,36 @@ function ExploreDiscoveryBody() {
     })();
   }, []);
 
+  const listTabs = [
+    { id: 'LIST', label: '리스트' },
+    { id: 'REGION', label: '지역별' },
+  ];
+
   return (
     <SafeAreaView
       style={[styles.root, { backgroundColor: theme.colors.surface.base }]}
       edges={['top']}
     >
       {!isMap ? (
-        <View style={styles.viewSwitch}>
-          {(
-            [
-              { id: 'LIST' as const, label: '리스트' },
-              { id: 'REGION' as const, label: '지역별' },
-            ] as const
-          ).map((item) => {
-            const selected = filter.view === item.id;
-            return (
-              <Pressable
-                key={item.id}
-                onPress={() => patchFilter({ view: item.id })}
-                accessibilityRole="tab"
-                accessibilityState={{ selected }}
-                accessibilityLabel={item.label}
-                style={[
-                  styles.viewChip,
-                  {
-                    borderColor: selected ? theme.colors.state.selectedBorder : theme.colors.border.subtle,
-                    backgroundColor: selected
-                      ? theme.colors.state.selectedSurface
-                      : 'transparent',
-                  },
-                ]}
-              >
-                <Text
-                  variant="meta"
-                  tone={selected ? 'success' : 'secondary'}
-                >
-                  {item.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <>
+          <JoinDiscoveryAppBar
+            regionLabel={regionDisplayLabel(filter)}
+            onRegionPress={() => setRegionPickerOpen(true)}
+            onNotificationPress={() => router.push('/my/notifications')}
+          />
+          <JoinListTextTabs
+            tabs={listTabs}
+            activeId={isRegion ? 'REGION' : 'LIST'}
+            onChange={(id: string) => patchFilter({ view: id as 'LIST' | 'REGION' })}
+          />
+        </>
       ) : (
         <View style={styles.mapBackRow}>
-          <Pressable
-            onPress={() => patchFilter({ view: 'LIST' })}
-            accessibilityRole="button"
-            accessibilityLabel="리스트로 돌아가기"
-            hitSlop={8}
-          >
-            <Text variant="meta" tone="link">
-              {'\u2039'} 리스트
-            </Text>
-          </Pressable>
+          <JoinListTextTabs
+            tabs={[{ id: 'LIST', label: '리스트' }]}
+            activeId="LIST"
+            onChange={() => patchFilter({ view: 'LIST' })}
+          />
         </View>
       )}
 
@@ -132,6 +116,8 @@ function ExploreDiscoveryBody() {
           <DiscoveryFilterChrome
             locationDenied={locationDenied}
             deviceLocation={deviceLocation}
+            regionPickerOpen={regionPickerOpen}
+            onRegionPickerOpenChange={setRegionPickerOpen}
           />
           <DiscoverListPanel
             locationDenied={locationDenied}
@@ -146,24 +132,8 @@ function ExploreDiscoveryBody() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  viewSwitch: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.xs,
-  },
-  viewChip: {
-    flex: 1,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingVertical: spacing.sm,
-  },
   mapBackRow: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
+    paddingTop: spacing.xs,
   },
   mapHost: {
     flex: 1,

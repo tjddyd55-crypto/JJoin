@@ -7,6 +7,7 @@ import {
   JoinMiniStatGrid,
   JoinRequirementChips,
   JoinScheduleRow,
+  JoinSeatsRemainingBanner,
   JoinStatusBadge,
   JoinVenueSummary,
   Text,
@@ -150,16 +151,7 @@ export function JoinDetailPrimarySections({
   const recruitment = buildJoinRecruitmentBreakdown(detail);
   const recruitmentTiles = buildJoinRecruitmentStatTiles(detail);
   const participation = buildJoinParticipationSummary(detail);
-  const participationTiles = buildJoinParticipationStatTiles(detail).map((tile) => {
-    if (tile.label !== '남은 자리') return tile;
-    const seatsColor =
-      participation.seatsHighlightTone === 'lastSeat'
-        ? theme.colors.join.capacity.lastSeat
-        : participation.seatsHighlightTone === 'full'
-          ? theme.colors.text.tertiary
-          : theme.colors.join.capacity.available;
-    return { ...tile, valueColor: seatsColor };
-  });
+  const participationTiles = buildJoinParticipationStatTiles(detail);
   const displayParticipants = filterJoinDisplayParticipants(detail.participants);
   const requirements = requirementLabels(detail, matching);
   const benefitLines = buildJoinBenefitLines(detail);
@@ -181,7 +173,7 @@ export function JoinDetailPrimarySections({
             <JoinStatusBadge key={badge.label} label={badge.label} tone={badge.tone} />
           ))}
         </View>
-        <Text variant="screenTitle" tone="primary" numberOfLines={2} style={styles.title}>
+        <Text variant="joinScreenTitle" tone="primary" numberOfLines={2} style={styles.title}>
           {displayTitle}
         </Text>
       </View>
@@ -260,6 +252,10 @@ export function JoinDetailPrimarySections({
           {participation.headline}
         </Text>
         <JoinMiniStatGrid items={participationTiles} />
+        <JoinSeatsRemainingBanner
+          label={participation.seatsLeftLabel}
+          tone={participation.seatsHighlightTone}
+        />
 
         <SectionDivider />
 

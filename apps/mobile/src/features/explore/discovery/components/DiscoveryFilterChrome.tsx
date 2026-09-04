@@ -22,11 +22,15 @@ import { RegionPickerSheet } from './RegionPickerSheet';
 type Props = {
   locationDenied: boolean;
   deviceLocation: { latitude: number; longitude: number } | null;
+  regionPickerOpen?: boolean;
+  onRegionPickerOpenChange?: (open: boolean) => void;
 };
 
 export function DiscoveryFilterChrome({
   locationDenied,
   deviceLocation,
+  regionPickerOpen,
+  onRegionPickerOpenChange,
 }: Props) {
   const { filter, setDate, setRegion, shiftWeek } = useJoinDiscovery();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
@@ -90,6 +94,13 @@ export function DiscoveryFilterChrome({
   }, [loadPrefs]);
 
   useEffect(() => {
+    if (regionPickerOpen) {
+      setPickerOpen(true);
+      onRegionPickerOpenChange?.(false);
+    }
+  }, [regionPickerOpen, onRegionPickerOpenChange]);
+
+  useEffect(() => {
     const abort = new AbortController();
     void (async () => {
       try {
@@ -148,7 +159,10 @@ export function DiscoveryFilterChrome({
       />
       <RegionPickerSheet
         visible={pickerOpen}
-        onClose={() => setPickerOpen(false)}
+        onClose={() => {
+          setPickerOpen(false);
+          onRegionPickerOpenChange?.(false);
+        }}
         onSelect={(d: AdminDistrict) => {
           setRegion({
             mode: 'DISTRICT',

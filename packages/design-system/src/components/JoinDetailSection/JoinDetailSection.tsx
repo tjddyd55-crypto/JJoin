@@ -13,7 +13,7 @@ export function JoinDetailSection({ title, children, style, ...rest }: JoinDetai
 
   return (
     <View style={[styles.section, style]} {...rest}>
-      <Text variant="sectionTitle" tone="primary" style={styles.title}>
+      <Text variant="joinSectionTitle" tone="primary">
         {title}
       </Text>
       <View
@@ -35,11 +35,6 @@ export function JoinDetailSection({ title, children, style, ...rest }: JoinDetai
 const styles = StyleSheet.create({
   section: {
     gap: 8,
-  },
-  title: {
-    fontSize: 18,
-    lineHeight: 24,
-    fontWeight: '700',
   },
   card: {
     padding: 16,

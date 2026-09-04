@@ -35,6 +35,54 @@ export const typography = {
     fontWeight: '600' as const,
     letterSpacing: 0,
   },
+  /** Figma JOIN — screen title (조인) */
+  joinScreenTitle: {
+    fontFamily: fontFamily.sansBold,
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '700' as const,
+    letterSpacing: -0.2,
+  },
+  /** Figma JOIN — section headings (20/28 Bold) */
+  joinSectionTitle: {
+    fontFamily: fontFamily.sansBold,
+    fontSize: 20,
+    lineHeight: 28,
+    fontWeight: '700' as const,
+    letterSpacing: 0,
+  },
+  /** Figma JOIN — card title (18/24 Semibold) */
+  joinCardTitle: {
+    fontFamily: fontFamily.sansSemiBold,
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: '600' as const,
+    letterSpacing: 0,
+  },
+  /** Figma JOIN — meta rows (14/20) */
+  joinMeta: {
+    fontFamily: fontFamily.sans,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '400' as const,
+    letterSpacing: 0,
+  },
+  /** Figma JOIN — filter/tab chip (12/16 Semibold) */
+  joinFilterChip: {
+    fontFamily: fontFamily.sansSemiBold,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600' as const,
+    letterSpacing: 0,
+  },
+  /** Figma JOIN — text tab label (13/18 Semibold) */
+  joinTabLabel: {
+    fontFamily: fontFamily.sansSemiBold,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600' as const,
+    letterSpacing: 0,
+  },
   venueTitle: {
     fontFamily: fontFamily.sansSemiBold,
     fontSize: 17,

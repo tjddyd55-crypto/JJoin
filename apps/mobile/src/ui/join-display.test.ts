@@ -9,6 +9,7 @@ import {
   formatJoinRewardTileValue,
   resolveJoinDisplayTitle,
   formatJoinDisplayTitle,
+  buildJoinCardRewardLabel,
 } from './join-display';
 
 test('formatJoinScheduleListLabel uses today label', () => {
@@ -52,4 +53,12 @@ test('formatJoinDisplayTitle maps bracket QA seed titles', () => {
 test('formatJoinRewardTileValue prefixes plus for coin', () => {
   const label = formatJoinRewardTileValue('300');
   assert.ok(label?.startsWith('+'));
+});
+
+test('formatJoinRewardTileValue returns null for zero', () => {
+  assert.equal(formatJoinRewardTileValue('0'), null);
+});
+
+test('buildJoinCardRewardLabel returns null for zero', () => {
+  assert.equal(buildJoinCardRewardLabel('0'), null);
 });

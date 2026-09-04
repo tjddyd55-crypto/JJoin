@@ -123,7 +123,6 @@ export function RegionJoinListPanel({
             key={join.joinId}
             join={join}
             onPress={() => router.push(joinDetailHref(join.joinId))}
-            onJoinPress={() => router.push(joinDetailHref(join.joinId))}
           />
         ))
       )}

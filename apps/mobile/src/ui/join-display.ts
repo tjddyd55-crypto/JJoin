@@ -63,6 +63,8 @@ export function formatJoinCapacityTileValue(current: number, max: number): strin
 }
 
 export function formatJoinRewardTileValue(amount: string | number | null | undefined): string | null {
+  const n = Number(amount);
+  if (!Number.isFinite(n) || n <= 0) return null;
   const label = formatSignedCoin(amount);
   if (!label) return null;
   return label.startsWith('+') || label.startsWith('-') ? label : `+${label}`;
@@ -234,8 +236,9 @@ function mapExtraLabelTone(label: string): JoinStatusBadgeTone {
 }
 
 export function buildJoinCardRewardLabel(amount: string | number | null | undefined): string | null {
-  const label = formatSignedCoin(amount);
-  return label ?? null;
+  const n = Number(amount);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return formatSignedCoin(amount);
 }
 
 export type JoinCardMapperOptions = {

@@ -31,9 +31,36 @@ export function WeekStrip({
     return `이번 주 ${Number(first.date.slice(5, 7))}.${first.dayOfMonth} - ${Number(last.date.slice(5, 7))}.${last.dayOfMonth}`;
   }, [cells]);
 
+  const stripContent = (
+    <View style={styles.strip}>
+      {cells.map((cell) => (
+        <DayCell
+          key={cell.date}
+          cell={cell}
+          selected={cell.date === selectedDate}
+          count={dayCounts?.[cell.date] ?? 0}
+          compact={compact}
+          onPress={() => onSelectDate(cell.date)}
+        />
+      ))}
+    </View>
+  );
+
+  if (compact) {
+    return <View style={styles.wrapCompact}>{stripContent}</View>;
+  }
+
   return (
-    <View style={[styles.wrap, compact && styles.wrapCompact]}>
-      {!compact ? (
+    <View style={styles.outer}>
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: theme.colors.surface.card,
+            borderColor: theme.colors.border.subtle,
+          },
+        ]}
+      >
         <View style={styles.navRow}>
           <Pressable
             onPress={onPrevWeek}
@@ -42,11 +69,11 @@ export function WeekStrip({
             hitSlop={8}
             style={styles.navBtn}
           >
-            <Text variant="meta" tone="secondary">
+            <Text variant="joinFilterChip" tone="secondary">
               {'\u2039'}
             </Text>
           </Pressable>
-          <Text variant="meta" tone="tertiary">
+          <Text variant="joinFilterChip" tone="tertiary">
             {rangeLabel}
           </Text>
           <Pressable
@@ -56,23 +83,12 @@ export function WeekStrip({
             hitSlop={8}
             style={styles.navBtn}
           >
-            <Text variant="meta" tone="secondary">
+            <Text variant="joinFilterChip" tone="secondary">
               {'\u203A'}
             </Text>
           </Pressable>
         </View>
-      ) : null}
-      <View style={styles.strip}>
-        {cells.map((cell) => (
-          <DayCell
-            key={cell.date}
-            cell={cell}
-            selected={cell.date === selectedDate}
-            count={dayCounts?.[cell.date] ?? 0}
-            compact={compact}
-            onPress={() => onSelectDate(cell.date)}
-          />
-        ))}
+        {stripContent}
       </View>
     </View>
   );
@@ -120,8 +136,8 @@ function DayCell({
       style={styles.day}
     >
       <Text
-        variant="meta"
-        tone={selected ? 'success' : 'tertiary'}
+        variant="joinFilterChip"
+        tone={selected ? 'primary' : 'tertiary'}
         style={!selected && weekendColor ? { color: weekendColor } : undefined}
       >
         {cell.weekdayLabel}
@@ -131,37 +147,39 @@ function DayCell({
           compact ? styles.dayNumCompact : styles.dayNum,
           selected
             ? {
-                backgroundColor: theme.colors.state.selectedSurface,
-                borderRadius: theme.radius.md,
+                backgroundColor: theme.colors.join.surface.info,
+                borderRadius: 12,
               }
             : null,
         ]}
       >
         <Text
-          variant={compact ? 'meta' : 'body'}
-          tone={selected ? 'success' : 'primary'}
+          variant="joinTabLabel"
+          tone={selected ? 'primary' : 'secondary'}
           style={!selected && weekendColor ? { color: weekendColor } : undefined}
         >
           {cell.dayOfMonth}
         </Text>
       </View>
-      {!compact ? (
-        <Text variant="meta" tone="tertiary" style={{ fontSize: 10 }}>
-          {cell.isToday ? '오늘' : count > 0 ? String(count) : ' '}
-        </Text>
-      ) : null}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    gap: spacing.xs,
+  outer: {
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.xs,
     paddingBottom: spacing.xs,
   },
+  card: {
+    minHeight: 68,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 6,
+  },
   wrapCompact: {
+    paddingHorizontal: spacing.md,
     paddingTop: spacing.xs,
     paddingBottom: spacing.xs,
   },
@@ -173,6 +191,8 @@ const styles = StyleSheet.create({
   navBtn: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
+    minWidth: 32,
+    alignItems: 'center',
   },
   strip: {
     flexDirection: 'row',
@@ -181,12 +201,12 @@ const styles = StyleSheet.create({
   day: {
     flex: 1,
     alignItems: 'center',
-    gap: 2,
+    gap: 4,
     minWidth: 0,
   },
   dayNum: {
-    width: 32,
-    height: 32,
+    width: 38,
+    height: 50,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -146,7 +146,7 @@ export default function MyJoinsScreen() {
 
   return (
     <ScrollScreenFrame ref={scrollRef}>
-      <Text variant="screenTitle" tone="primary">
+      <Text variant="joinScreenTitle" tone="primary">
         {t('nav.myJoins')}
       </Text>
       {error ? (
@@ -161,16 +161,16 @@ export default function MyJoinsScreen() {
       <Spacer size="md" />
 
       <View onLayout={(e) => setHostedY(e.nativeEvent.layout.y)}>
-        <Section title="내가 만든 조인">
+        <Section title="내가 만든 조인" titleVariant="joinSectionTitle">
           {(data?.hosted ?? []).length === 0 ? (
             <Text variant="caption" tone="tertiary">
               없음
             </Text>
           ) : (
-            <Stack gap="md">
+            <Stack gap="sm">
               {hosted.active.length > 0 ? (
                 <Stack gap="xs">
-                  <Text variant="meta" tone="secondary">
+                  <Text variant="joinMeta" tone="secondary">
                     진행·예정
                   </Text>
                   {hosted.active.map((item) => (
@@ -189,7 +189,7 @@ export default function MyJoinsScreen() {
               ) : null}
               {hosted.past.length > 0 ? (
                 <Stack gap="xs">
-                  <Text variant="meta" tone="secondary">
+                  <Text variant="joinMeta" tone="secondary">
                     지난 조인
                   </Text>
                   {hosted.past.map((item) => (
@@ -213,16 +213,16 @@ export default function MyJoinsScreen() {
       </View>
 
       <View onLayout={(e) => setParticipatingY(e.nativeEvent.layout.y)}>
-        <Section title="내가 참가한 조인">
+        <Section title="내가 참가한 조인" titleVariant="joinSectionTitle">
           {(data?.participating ?? []).length === 0 ? (
             <Text variant="caption" tone="tertiary">
               없음
             </Text>
           ) : (
-            <Stack gap="md">
+            <Stack gap="sm">
               {participating.active.length > 0 ? (
                 <Stack gap="xs">
-                  <Text variant="meta" tone="secondary">
+                  <Text variant="joinMeta" tone="secondary">
                     진행·예정
                   </Text>
                   {participating.active.map((item) => (
@@ -241,7 +241,7 @@ export default function MyJoinsScreen() {
               ) : null}
               {participating.past.length > 0 ? (
                 <Stack gap="xs">
-                  <Text variant="meta" tone="secondary">
+                  <Text variant="joinMeta" tone="secondary">
                     지난 조인
                   </Text>
                   {participating.past.map((item) => (

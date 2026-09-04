@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Button, JoinCard as DSJoinCard, spacing } from '@jjoin/design-system';
+import { JoinCard as DSJoinCard } from '@jjoin/design-system';
 import type { DiscoverJoinCardDto } from '@jjoin/types';
 import {
   isStoreMatchingJoin,
@@ -14,7 +13,6 @@ import { splitJoinCapacityDisplay } from '../../../../ui/join-display';
 type Props = {
   join: DiscoverJoinCardDto;
   onPress: () => void;
-  onJoinPress?: () => void;
 };
 
 function statusLabel(join: DiscoverJoinCardDto): string {
@@ -26,7 +24,7 @@ function statusLabel(join: DiscoverJoinCardDto): string {
   return join.status === 'IN_PROGRESS' ? '진행 중' : '모집 중';
 }
 
-export function DiscoverJoinCard({ join, onPress, onJoinPress }: Props) {
+export function DiscoverJoinCard({ join, onPress }: Props) {
   const matching = isStoreMatchingJoin(join);
   const cardProps = mapDiscoverToJoinCardProps(join, onPress, {
     statusBadge: statusLabel(join),
@@ -56,18 +54,5 @@ export function DiscoverJoinCard({ join, onPress, onJoinPress }: Props) {
     cardProps.rewardLabel = rewardLabel ?? cardProps.rewardLabel;
   }
 
-  return (
-    <View style={styles.wrap}>
-      <DSJoinCard {...cardProps} />
-      {join.canJoin && join.ctaLabel && onJoinPress ? (
-        <Button label={join.ctaLabel} onPress={onJoinPress} />
-      ) : null}
-    </View>
-  );
+  return <DSJoinCard {...cardProps} />;
 }
-
-const styles = StyleSheet.create({
-  wrap: {
-    gap: spacing.sm,
-  },
-});
