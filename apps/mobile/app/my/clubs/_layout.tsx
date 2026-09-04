@@ -15,8 +15,8 @@ export default function ClubsLayout() {
         headerLeft: () => <StackHeaderBackButton navigation={navigation} />,
       })}
     >
-      <Stack.Screen name="index" options={{ title: '동호회' }} />
-      <Stack.Screen name="discover" options={{ title: '동호회 찾기' }} />
+      <Stack.Screen name="index" options={{ title: '내 동호회' }} />
+      <Stack.Screen name="discover" options={{ title: '동호회' }} />
       <Stack.Screen name="create" options={{ title: '동호회 만들기' }} />
       <Stack.Screen name="[clubId]" options={{ headerShown: false }} />
     </Stack>

@@ -1,124 +1,190 @@
 import { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { ClubPlaceholderImage } from '../components/ClubPlaceholderImage';
+import { RefreshControl, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import {
-  Button,
-  Card,
+  Chip,
+  ClubCard,
+  ClubCardSkeleton,
+  ClubEmptyState,
+  Input,
   ScrollScreenFrame,
   Stack,
   Text,
   spacing,
-  useTheme,
 } from '@jjoin/design-system';
-import {
-  clubActivityTypeLabel,
-  clubAgeGroupLabel,
-  formatAttendanceRateDisplay,
-  formatClubActivityRegionsCompact,
-} from '@jjoin/domain';
 import type { ClubDiscoverCardDto } from '@jjoin/types';
-import { getApiClient } from '../../../lib/api';
-import { getSecureSessionStore } from '../../../session/SessionContext';
 import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
+import { useClubDiscoverData } from '../hooks/useClubDiscoverData';
+import {
+  clubCoverFallbackTone,
+  filterClubsByQuery,
+  filterDiscoverClubs,
+  formatClubActivityLine,
+  formatClubCardMetaLine,
+  formatClubMembershipStatusLabel,
+  partitionDiscoverSections,
+  type ClubDiscoverFilter,
+} from '../model/club-display';
+
+const FILTERS: { id: ClubDiscoverFilter; label: string }[] = [
+  { id: 'all', label: '전체' },
+  { id: 'active', label: '활동 활발' },
+  { id: 'mine', label: '내 동호회' },
+];
 
 export function ClubDiscoverScreen() {
   const router = useRouter();
-  const theme = useTheme();
-  const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
-  const [items, setItems] = useState<ClubDiscoverCardDto[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [joiningId, setJoiningId] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await api.discoverClubs();
-      setItems(res.items);
-    } finally {
-      setLoading(false);
-    }
-  }, [api]);
+  const { items, loading, refreshing, error, reload, initialLoad } = useClubDiscoverData();
+  const [filter, setFilter] = useState<ClubDiscoverFilter>('all');
+  const [query, setQuery] = useState('');
 
   useFocusEffect(
     useCallback(() => {
-      void load();
-    }, [load]),
+      void initialLoad();
+    }, [initialLoad]),
   );
 
-  const onJoin = async (club: ClubDiscoverCardDto) => {
-    if (club.myStatus === 'ACTIVE') {
-      router.push(`/my/clubs/${club.id}` as Href);
-      return;
+  const filtered = useMemo(() => {
+    const byFilter = filterDiscoverClubs(items, filter);
+    return filterClubsByQuery(byFilter, query);
+  }, [filter, items, query]);
+
+  const sections = useMemo(() => {
+    if (filter !== 'all') {
+      return { active: [], recommended: filtered };
     }
-    setJoiningId(club.id);
-    try {
-      await api.joinClub(club.id);
-      await load();
-    } finally {
-      setJoiningId(null);
-    }
+    return partitionDiscoverSections(filtered);
+  }, [filter, filtered]);
+
+  const renderCard = (club: ClubDiscoverCardDto) => {
+    const membership = formatClubMembershipStatusLabel(club.myStatus);
+    return (
+      <ClubCard
+        key={club.id}
+        variant="discovery"
+        name={club.name}
+        intro={club.intro}
+        metaLine={formatClubCardMetaLine(club)}
+        activityLine={formatClubActivityLine(club)}
+        coverImageUrl={club.coverImageUrl}
+        fallbackTone={clubCoverFallbackTone(club.id)}
+        statusLabel={membership?.label ?? null}
+        statusTone={membership?.tone}
+        onPress={() => router.push(`/my/clubs/${club.id}` as Href)}
+      />
+    );
   };
 
+  const showSkeleton = loading && items.length === 0;
+
   return (
-    <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
-      <Stack gap="md">
-        {loading ? <Text tone="secondary">불러오는 중…</Text> : null}
-        {!loading && !items.length ? (
-          <Text tone="secondary">공개 동호회가 아직 없습니다.</Text>
-        ) : null}
-        {items.map((club) => (
-          <Card key={club.id} padding="md">
-            <Stack gap="sm">
-              <ClubPlaceholderImage uri={club.coverImageUrl} height={120} label={club.name.slice(0, 1)} />
-              <Text variant="bodyStrong">{club.name}</Text>
-              <Text variant="caption" tone="secondary">
-                {formatClubActivityRegionsCompact(club.activityRegions ?? [], { maxParts: 3 })} ·{' '}
-                {clubActivityTypeLabel(club.activityType)}
-              </Text>
-              {club.primaryAgeGroup ? (
-                <Text variant="caption" tone="tertiary">
-                  주요 연령대 {clubAgeGroupLabel(club.primaryAgeGroup)}
-                </Text>
-              ) : null}
-              <Text variant="caption" tone="secondary">
-                회원 {club.memberCount} · 올해 모임 {club.eventsThisYear} · 누적 참석{' '}
-                {club.totalAttended} · 평균 참석률{' '}
-                {formatAttendanceRateDisplay(club.averageAttendanceRate)}
-              </Text>
-              <View style={styles.actions}>
-                <Button
-                  label={
-                    club.myStatus === 'ACTIVE'
-                      ? '동호회 홈'
-                      : club.myStatus === 'PENDING'
-                        ? '승인 대기'
-                        : '가입 신청'
-                  }
-                  size="sm"
-                  variant={club.myStatus === 'ACTIVE' ? 'secondary' : 'primary'}
-                  loading={joiningId === club.id}
-                  disabled={club.myStatus === 'PENDING'}
-                  onPress={() => void onJoin(club)}
-                />
-              </View>
-            </Stack>
-          </Card>
-        ))}
+    <ScrollScreenFrame
+      edges={[...NESTED_SCREEN_EDGES]}
+      padded={false}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={() => void reload()} />
+      }
+    >
+      <Stack gap="sm" style={styles.header}>
+        <Input
+          value={query}
+          onChangeText={setQuery}
+          placeholder="동호회 이름·지역 검색"
+          returnKeyType="search"
+          accessibilityLabel="동호회 검색"
+        />
+        <View style={styles.filters}>
+          {FILTERS.map((item) => (
+            <Chip
+              key={item.id}
+              label={item.label}
+              selected={filter === item.id}
+              onPress={() => setFilter(item.id)}
+            />
+          ))}
+        </View>
       </Stack>
+
+      {error ? (
+        <View style={styles.sectionPad}>
+          <ClubEmptyState
+            title="불러오지 못했습니다"
+            description="네트워크 연결을 확인한 뒤 다시 시도해 주세요."
+            primaryAction={{ label: '다시 시도', onPress: () => void reload() }}
+          />
+        </View>
+      ) : null}
+
+      {showSkeleton ? (
+        <View>
+          {Array.from({ length: 4 }).map((_, index) => (
+            <ClubCardSkeleton key={index} />
+          ))}
+        </View>
+      ) : null}
+
+      {!showSkeleton && !error && !filtered.length ? (
+        <View style={styles.sectionPad}>
+          <ClubEmptyState
+            title={query ? '검색 결과가 없습니다' : '공개 동호회가 아직 없습니다'}
+            description={
+              query
+                ? '다른 키워드로 검색하거나 필터를 변경해 보세요.'
+                : '동호회를 만들거나 나중에 다시 확인해 주세요.'
+            }
+            primaryAction={
+              query
+                ? { label: '조건 변경', onPress: () => setQuery('') }
+                : {
+                    label: '동호회 만들기',
+                    onPress: () => router.push('/my/clubs/create' as Href),
+                  }
+            }
+          />
+        </View>
+      ) : null}
+
+      {!showSkeleton && sections.active.length > 0 ? (
+        <View style={styles.section}>
+          <Text variant="joinSectionTitle" style={styles.sectionTitle}>
+            활동이 활발한 동호회
+          </Text>
+          {sections.active.map(renderCard)}
+        </View>
+      ) : null}
+
+      {!showSkeleton && sections.recommended.length > 0 ? (
+        <View style={styles.section}>
+          <Text variant="joinSectionTitle" style={styles.sectionTitle}>
+            {filter === 'all' ? '추천 동호회' : '동호회'}
+          </Text>
+          {sections.recommended.map(renderCard)}
+        </View>
+      ) : null}
     </ScrollScreenFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  cover: {
-    width: '100%',
-    height: 120,
-    borderRadius: 12,
-    backgroundColor: '#1a1a1c',
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
-  actions: {
+  filters: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
+  },
+  section: {
+    marginTop: 8,
+  },
+  sectionPad: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  sectionTitle: {
+    paddingHorizontal: 16,
+    marginBottom: 4,
   },
 });

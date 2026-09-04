@@ -15,7 +15,7 @@ const ROW_1: QuickMenuItem[] = [
   { label: '조인 찾기', icon: 'search', href: '/(tabs)/joins' },
   { label: '조인 만들기', icon: 'create', href: '/(tabs)/create' },
   { label: '스크린', icon: 'golf', href: '/(tabs)/screen' },
-  { label: '동호회', icon: 'people', href: '/my/clubs' as Href },
+  { label: '동호회', icon: 'people', href: '/my/clubs/discover' as Href },
 ];
 
 const ROW_2: QuickMenuItem[] = [

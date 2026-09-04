@@ -1,36 +1,55 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Dimensions, Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Button,
   Card,
+  ClubCover,
+  ClubJoinPolicyBadge,
+  ClubSection,
   ScrollScreenFrame,
   Stack,
+  StickyActionFrame,
   Text,
+  stickyActionScrollPadding,
   spacing,
   useTheme,
 } from '@jjoin/design-system';
-import { clubActivityTypeLabel, formatClubActivityRegionsCompact, isClubStaff } from '@jjoin/domain';
 import {
-  ClubMembershipStatus,
+  clubActivityTypeLabel,
+  formatClubActivityRegionsCompact,
+  isClubStaff,
+} from '@jjoin/domain';
+import {
   ClubEventAttendanceResponse,
+  ClubJoinMode,
+  ClubMembershipStatus,
+  ClubVisibility,
   type ClubDetailDto,
   type ClubEventListItemDto,
 } from '@jjoin/types';
 import { ClubKpiGrid, ClubRecent30Row } from '../components/ClubKpiGrid';
-import { ClubPlaceholderImage } from '../components/ClubPlaceholderImage';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
 import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
+import { clubCoverFallbackTone } from '../model/club-display';
+import {
+  resolveClubDetailPrimaryCta,
+  shouldShowClubDetailStickyCta,
+} from '../model/club-detail-cta';
 
 export function ClubHomeScreen() {
   const { clubId } = useLocalSearchParams<{ clubId: string }>();
   const router = useRouter();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [detail, setDetail] = useState<ClubDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const heroWidth = Dimensions.get('window').width - 32;
 
   const load = useCallback(async () => {
     if (!clubId) return;
@@ -55,6 +74,37 @@ export function ClubHomeScreen() {
     ? isClubStaff({ role: detail.myRole, status: detail.myStatus ?? ClubMembershipStatus.ACTIVE })
     : false;
 
+  const primaryCta = detail
+    ? resolveClubDetailPrimaryCta({ detail, isStaff })
+    : null;
+  const showStickyCta = primaryCta
+    ? shouldShowClubDetailStickyCta(primaryCta.presentation)
+    : false;
+  const scrollBottomPadding = showStickyCta
+    ? stickyActionScrollPadding(insets.bottom)
+    : theme.layoutSpacing.sectionGap;
+
+  async function onPrimaryCtaPress() {
+    if (!clubId || !detail || !primaryCta || busy) return;
+    if (primaryCta.presentation === 'manage') {
+      router.push(`/my/clubs/${clubId}/edit` as Href);
+      return;
+    }
+    if (primaryCta.presentation === 'members') {
+      router.push(`/my/clubs/${clubId}/members` as Href);
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.joinClub(clubId);
+      await load();
+    } catch {
+      setError('가입 신청에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (loading) {
     return (
       <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
@@ -71,70 +121,104 @@ export function ClubHomeScreen() {
     );
   }
 
+  const regionLabel = formatClubActivityRegionsCompact(detail.activityRegions ?? [], {
+    maxParts: 3,
+  });
+
   return (
-    <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
-      <Stack gap="md">
-        <ClubPlaceholderImage uri={detail.coverImageUrl} height={180} label={detail.name.slice(0, 1)} />
-        <Stack gap="xs">
-          <Text variant="screenTitle">{detail.name}</Text>
-          <Text variant="caption" tone="secondary">
-            {formatClubActivityRegionsCompact(detail.activityRegions ?? [], { maxParts: 3 })} ·{' '}
-            {clubActivityTypeLabel(detail.activityType)}
-          </Text>
-          {detail.intro ? (
-            <Text variant="body" tone="secondary">
-              {detail.intro}
+    <View style={styles.root}>
+      <ScrollScreenFrame
+        edges={[...NESTED_SCREEN_EDGES]}
+        contentPaddingBottom={scrollBottomPadding}
+        padded={false}
+      >
+        <View style={styles.content}>
+          <ClubCover
+            uri={detail.coverImageUrl}
+            variant="hero"
+            heroWidth={heroWidth}
+            fallbackTone={clubCoverFallbackTone(detail.id)}
+            style={styles.hero}
+            imageStyle={styles.hero}
+          />
+
+          <Stack gap="xs">
+            <Text variant="screenTitle">{detail.name}</Text>
+            {detail.intro ? (
+              <Text variant="clubIntro" tone="secondary">
+                {detail.intro}
+              </Text>
+            ) : null}
+            <View style={styles.badgeRow}>
+              <ClubJoinPolicyBadge label={clubActivityTypeLabel(detail.activityType) ?? '동호회'} />
+              <ClubJoinPolicyBadge
+                label={detail.joinMode === ClubJoinMode.INSTANT ? '즉시 가입' : '승인 가입'}
+                tone={detail.joinMode === ClubJoinMode.INSTANT ? 'active' : 'neutral'}
+              />
+              <ClubJoinPolicyBadge
+                label={detail.visibility === ClubVisibility.PUBLIC ? '공개' : '비공개'}
+              />
+            </View>
+            <Text variant="clubMeta" tone="tertiary">
+              {regionLabel || detail.region} · 회원 {detail.memberCount}명
+              {detail.dashboard.recent30DayEvents > 0
+                ? ` · 최근 30일 모임 ${detail.dashboard.recent30DayEvents}회`
+                : ''}
             </Text>
-          ) : null}
-        </Stack>
+          </Stack>
 
-        <Card padding="md">
-          <ClubKpiGrid dashboard={detail.dashboard} />
-        </Card>
-        <ClubRecent30Row dashboard={detail.dashboard} />
+          <Card padding="md">
+            <ClubKpiGrid dashboard={detail.dashboard} />
+          </Card>
+          <ClubRecent30Row dashboard={detail.dashboard} />
 
-        <View style={styles.navRow}>
-          <NavChip label="모임" onPress={() => router.push(`/my/clubs/${clubId}/events` as Href)} />
-          <NavChip label="회원" onPress={() => router.push(`/my/clubs/${clubId}/members` as Href)} />
-          <NavChip label="회계" onPress={() => router.push(`/my/clubs/${clubId}/accounting` as Href)} />
-          <NavChip label="공지" onPress={() => router.push(`/my/clubs/${clubId}/notices` as Href)} />
-        </View>
-
-        {isStaff ? (
-          <View style={styles.staffActions}>
-            <Button
-              label="모임 만들기"
-              size="sm"
-              onPress={() => router.push(`/my/clubs/${clubId}/events/create` as Href)}
-            />
-            <Button
-              label="동호회 정보 수정"
-              size="sm"
-              variant="secondary"
-              onPress={() => router.push(`/my/clubs/${clubId}/edit` as Href)}
-            />
+          <View style={styles.navRow}>
+            <NavChip label="모임" onPress={() => router.push(`/my/clubs/${clubId}/events` as Href)} />
+            <NavChip label="회원" onPress={() => router.push(`/my/clubs/${clubId}/members` as Href)} />
+            <NavChip label="회계" onPress={() => router.push(`/my/clubs/${clubId}/accounting` as Href)} />
+            <NavChip label="공지" onPress={() => router.push(`/my/clubs/${clubId}/notices` as Href)} />
           </View>
-        ) : null}
 
-        <Text variant="sectionTitle">진행 중인 모임</Text>
-        {!detail.activeEvents.length ? (
-          <Text variant="caption" tone="tertiary">
-            진행 중인 모임이 없습니다.
-          </Text>
-        ) : (
-          detail.activeEvents.map((event) => (
-            <EventCard
-              key={event.id}
-              event={event}
-              clubId={clubId}
-              isStaff={isStaff}
-              onPress={() => router.push(`/my/clubs/${clubId}/events/${event.id}` as Href)}
-              onRespond={(response) => void respond(api, clubId, event.id, response, load)}
-            />
-          ))
-        )}
-      </Stack>
-    </ScrollScreenFrame>
+          {isStaff ? (
+            <View style={styles.staffActions}>
+              <Button
+                label="모임 만들기"
+                size="sm"
+                onPress={() => router.push(`/my/clubs/${clubId}/events/create` as Href)}
+              />
+            </View>
+          ) : null}
+
+          <ClubSection title="진행 중인 모임">
+            {!detail.activeEvents.length ? (
+              <Text variant="clubMeta" tone="tertiary">진행 중인 모임이 없습니다.</Text>
+            ) : (
+              detail.activeEvents.map((event) => (
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  isStaff={isStaff}
+                  onPress={() => router.push(`/my/clubs/${clubId}/events/${event.id}` as Href)}
+                  onRespond={(response) => void respond(api, clubId, event.id, response, load)}
+                />
+              ))
+            )}
+          </ClubSection>
+        </View>
+      </ScrollScreenFrame>
+
+      {showStickyCta && primaryCta ? (
+        <StickyActionFrame>
+          <Button
+            label={primaryCta.label}
+            disabled={primaryCta.disabled}
+            loading={busy}
+            size="lg"
+            onPress={() => void onPrimaryCtaPress()}
+          />
+        </StickyActionFrame>
+      ) : null}
+    </View>
   );
 }
 
@@ -149,13 +233,11 @@ function NavChip({ label, onPress }: { label: string; onPress: () => void }) {
 
 function EventCard({
   event,
-  clubId,
   isStaff,
   onPress,
   onRespond,
 }: {
   event: ClubEventListItemDto;
-  clubId: string;
   isStaff: boolean;
   onPress: () => void;
   onRespond: (response: ClubEventAttendanceResponse) => void;
@@ -197,11 +279,19 @@ async function respond(
 }
 
 const styles = StyleSheet.create({
-  cover: {
-    width: '100%',
-    height: 160,
-    borderRadius: 12,
-    backgroundColor: '#1a1a1c',
+  root: { flex: 1 },
+  content: {
+    paddingHorizontal: 16,
+    gap: 16,
+    paddingTop: 8,
+  },
+  hero: {
+    alignSelf: 'center',
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
   navRow: {
     flexDirection: 'row',
