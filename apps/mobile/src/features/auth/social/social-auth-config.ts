@@ -1,5 +1,6 @@
 import { SocialProvider } from '@jjoin/types';
-import { isDevelopmentVariant } from '../../../lib/app-variant';
+import { resolveAppVariant, isDevelopmentVariant } from '../../../lib/app-variant';
+import { naverLoginCallbackSchemeFor } from '../../../../app-variant-identity.cjs';
 
 /**
  * Expo/Metro inlines only *static* `process.env.EXPO_PUBLIC_*` access.
@@ -29,8 +30,7 @@ export function naverLoginPublicConfig() {
   return {
     clientId: trimEnv(process.env.EXPO_PUBLIC_NAVER_LOGIN_CLIENT_ID),
     appName: isDev ? '쪼인존 DEV' : '쪼인존',
-    serviceUrlScheme:
-      trimEnv(process.env.EXPO_PUBLIC_NAVER_LOGIN_URL_SCHEME) || 'jjoinnaverlogin',
+    serviceUrlScheme: naverLoginCallbackSchemeFor(resolveAppVariant()),
   };
 }
 

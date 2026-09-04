@@ -5,6 +5,7 @@ import {
   androidAdaptiveIconFor,
   iconFor,
   identityFor,
+  naverLoginCallbackSchemeFor,
   notificationIconFor,
   resolveAppVariant,
 } from './app-variant-identity.cjs';
@@ -93,8 +94,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ? process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY_DEV?.trim() || ''
       : process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY?.trim() || '';
   const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '';
-  const naverLoginScheme =
-    process.env.EXPO_PUBLIC_NAVER_LOGIN_URL_SCHEME?.trim() || 'jjoinnaverlogin';
+  const naverLoginScheme = naverLoginCallbackSchemeFor(variant);
   const appSchemes =
     naverLoginScheme === identity.scheme
       ? identity.scheme
