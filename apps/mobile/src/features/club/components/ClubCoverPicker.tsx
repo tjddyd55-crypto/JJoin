@@ -1,27 +1,32 @@
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { Button, Stack, Text } from '@jjoin/design-system';
+import { Dimensions, StyleSheet, View } from 'react-native';
+import { Button, ClubCover, Stack, Text } from '@jjoin/design-system';
 import { isInternalToolsEnabled } from '../../../lib/internal-tools';
-import { ClubPlaceholderImage } from './ClubPlaceholderImage';
 
 type Props = {
   coverImageUrl: string | null;
   uploading: boolean;
+  clubId?: string;
   onPick: (localUri: string) => void;
   onClear: () => void;
 };
 
-export function ClubCoverPicker({ coverImageUrl, uploading, onPick, onClear }: Props) {
-  const [error, setError] = useState<string | null>(null);
+export function ClubCoverPicker({ coverImageUrl, uploading, clubId, onPick, onClear }: Props) {
+  const heroWidth = Dimensions.get('window').width - 32;
+  const fallbackTone = clubId && clubId.length % 2 === 0 ? 'blue' : 'green';
 
   const pickSample = () => {
-    setError(null);
     onPick(`https://picsum.photos/seed/club-${Date.now()}/800/400`);
   };
 
   return (
     <Stack gap="sm">
-      <ClubPlaceholderImage uri={coverImageUrl} height={180} />
+      <ClubCover
+        uri={coverImageUrl}
+        variant="hero"
+        heroWidth={heroWidth}
+        fallbackTone={fallbackTone}
+        imageStyle={styles.hero}
+      />
       <View style={styles.actions}>
         {isInternalToolsEnabled() ? (
           <Button
@@ -32,20 +37,22 @@ export function ClubCoverPicker({ coverImageUrl, uploading, onPick, onClear }: P
             onPress={pickSample}
           />
         ) : (
-          <Text variant="caption" tone="tertiary">
-            대표사진은 선택 사항입니다. 없으면 기본 이미지가 표시됩니다.
+          <Text variant="clubMeta" tone="tertiary">
+            대표사진은 선택 사항입니다. 없으면 쪼인존 기본 커버가 표시됩니다.
           </Text>
         )}
         {coverImageUrl ? (
           <Button label="사진 제거" variant="secondary" size="sm" onPress={onClear} />
         ) : null}
       </View>
-      {error ? <Text tone="error">{error}</Text> : null}
     </Stack>
   );
 }
 
 const styles = StyleSheet.create({
+  hero: {
+    alignSelf: 'center',
+  },
   actions: {
     flexDirection: 'row',
     flexWrap: 'wrap',

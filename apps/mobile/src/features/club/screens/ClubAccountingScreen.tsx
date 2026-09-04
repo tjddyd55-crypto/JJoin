@@ -1,15 +1,15 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, TextInput, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
   Button,
   Card,
   Chip,
+  ClubEmptyState,
+  ClubSection,
   ScrollScreenFrame,
   Stack,
   Text,
-  spacing,
-  useTheme,
 } from '@jjoin/design-system';
 import {
   ClubAccountingCategory,
@@ -17,15 +17,21 @@ import {
   type ClubAccountingEntryDto,
   type ClubAccountingListResponse,
 } from '@jjoin/types';
+import { ClubFormField, ClubFormSection, CLUB_SECTION_GAP } from '../components/ClubFormSection';
+import { clubFormStyles, useClubInputStyle } from '../components/club-form-styles';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
 import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
 
 type AccountingPeriod = 'THIS_MONTH' | 'THIS_YEAR' | 'ALL';
 
+function formatAmount(amount: string, entryType: ClubAccountingEntryType) {
+  const prefix = entryType === ClubAccountingEntryType.INCOME ? '+' : '-';
+  return `${prefix}${amount}원`;
+}
+
 export function ClubAccountingScreen() {
   const { clubId } = useLocalSearchParams<{ clubId: string }>();
-  const theme = useTheme();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [period, setPeriod] = useState<AccountingPeriod>('THIS_YEAR');
   const [data, setData] = useState<ClubAccountingListResponse | null>(null);
@@ -34,6 +40,7 @@ export function ClubAccountingScreen() {
   const [editing, setEditing] = useState<ClubAccountingEntryDto | null>(null);
   const [editAmount, setEditAmount] = useState('');
   const [editMemo, setEditMemo] = useState('');
+  const inputStyle = useClubInputStyle();
 
   const load = useCallback(async () => {
     if (!clubId) return;
@@ -45,16 +52,6 @@ export function ClubAccountingScreen() {
       void load();
     }, [load]),
   );
-
-  const inputStyle = {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderColor: theme.colors.border.subtle,
-    color: theme.colors.text.primary,
-    backgroundColor: theme.colors.surface.card,
-  };
 
   const startEdit = (entry: ClubAccountingEntryDto) => {
     setEditing(entry);
@@ -85,8 +82,8 @@ export function ClubAccountingScreen() {
 
   return (
     <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
-      <Stack gap="md">
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+      <Stack gap="md" style={{ gap: CLUB_SECTION_GAP }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {(
             [
               ['THIS_MONTH', '이번 달'],
@@ -97,94 +94,120 @@ export function ClubAccountingScreen() {
             <Chip key={value} label={label} selected={period === value} onPress={() => setPeriod(value)} />
           ))}
         </View>
+
         {data ? (
           <Card padding="md">
             <Stack gap="xs">
-              <Text>현재 잔액 {data.summary.balance}원</Text>
-              <Text variant="caption" tone="secondary">
+              <Text variant="joinSectionTitle">현재 잔액</Text>
+              <Text variant="bodyStrong">{data.summary.balance}원</Text>
+              <Text variant="clubMeta" tone="tertiary">
                 올해 수입 {data.summary.incomeThisYear} · 지출 {data.summary.expenseThisYear}
               </Text>
             </Stack>
           </Card>
         ) : null}
 
-        <Text variant="sectionTitle">장부</Text>
-        {data?.items.map((entry) => (
-          <Card key={entry.id} padding="sm">
-            <Stack gap="xs">
-              <Text variant="body">
-                {entry.entryDate} · {entry.entryType === 'INCOME' ? '수입' : '지출'} · {entry.amount}
-              </Text>
-              {entry.memo ? (
-                <Text variant="caption" tone="secondary">
-                  {entry.memo}
+        <ClubSection title="수입·지출 내역">
+          {data?.items.map((entry) => (
+            <Card key={entry.id} padding="md">
+              <Stack gap="xs">
+                <Text variant="bodyStrong">
+                  {formatAmount(entry.amount, entry.entryType)}
                 </Text>
-              ) : null}
-              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                <Button label="수정" size="sm" variant="secondary" onPress={() => startEdit(entry)} />
-                <Button label="삭제" size="sm" variant="secondary" onPress={() => confirmDelete(entry.id)} />
-              </View>
-            </Stack>
-          </Card>
-        ))}
+                <Text variant="clubMeta" tone="secondary">
+                  {entry.entryDate} · {entry.entryType === ClubAccountingEntryType.INCOME ? '수입' : '지출'}
+                </Text>
+                {entry.memo ? (
+                  <Text variant="clubMeta" tone="tertiary">{entry.memo}</Text>
+                ) : null}
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Button label="수정" size="sm" variant="secondary" onPress={() => startEdit(entry)} />
+                  <Button label="삭제" size="sm" variant="danger" onPress={() => confirmDelete(entry.id)} />
+                </View>
+              </Stack>
+            </Card>
+          ))}
+          {data && data.items.length === 0 ? (
+            <ClubEmptyState title="내역이 없습니다" description="수입·지출을 등록해 보세요." />
+          ) : null}
+        </ClubSection>
 
         {editing ? (
-          <Card padding="md">
-            <Stack gap="sm">
-              <Text variant="sectionTitle">장부 수정</Text>
-              <TextInput value={editAmount} onChangeText={setEditAmount} keyboardType="number-pad" style={inputStyle} />
+          <ClubFormSection title="장부 수정">
+            <ClubFormField label="금액">
+              <TextInput
+                value={editAmount}
+                onChangeText={setEditAmount}
+                keyboardType="number-pad"
+                style={inputStyle}
+              />
+            </ClubFormField>
+            <ClubFormField label="메모">
               <TextInput value={editMemo} onChangeText={setEditMemo} placeholder="메모" style={inputStyle} />
+            </ClubFormField>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
               <Button label="저장" size="sm" onPress={() => void saveEdit()} />
               <Button label="취소" size="sm" variant="secondary" onPress={() => setEditing(null)} />
-            </Stack>
-          </Card>
+            </View>
+          </ClubFormSection>
         ) : null}
 
-        <Text variant="sectionTitle">수입 등록</Text>
-        <TextInput value={amount} onChangeText={setAmount} placeholder="금액" keyboardType="number-pad" style={inputStyle} />
-        <TextInput value={memo} onChangeText={setMemo} placeholder="메모" style={inputStyle} />
-        <Button
-          label="수입 추가"
-          size="sm"
-          onPress={() =>
-            void api
-              .createClubAccountingEntry(clubId!, {
-                entryType: ClubAccountingEntryType.INCOME,
-                category: ClubAccountingCategory.MEMBERSHIP_FEE,
-                amount,
-                entryDate: new Date().toISOString().slice(0, 10),
-                memo: memo || null,
-              })
-              .then(() => {
-                setAmount('');
-                setMemo('');
-                return load();
-              })
-          }
-        />
-        <Button
-          label="지출 추가"
-          size="sm"
-          variant="secondary"
-          onPress={() =>
-            void api
-              .createClubAccountingEntry(clubId!, {
-                entryType: ClubAccountingEntryType.EXPENSE,
-                category: ClubAccountingCategory.GAME_FEE,
-                amount,
-                entryDate: new Date().toISOString().slice(0, 10),
-                memo: memo || null,
-              })
-              .then(() => {
-                setAmount('');
-                setMemo('');
-                return load();
-              })
-          }
-        />
+        <ClubFormSection title="내역 등록">
+          <ClubFormField label="금액">
+            <TextInput
+              value={amount}
+              onChangeText={setAmount}
+              placeholder="금액"
+              keyboardType="number-pad"
+              style={inputStyle}
+            />
+          </ClubFormField>
+          <ClubFormField label="메모">
+            <TextInput value={memo} onChangeText={setMemo} placeholder="메모" style={inputStyle} />
+          </ClubFormField>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Button
+              label="수입 추가"
+              size="sm"
+              onPress={() =>
+                void api
+                  .createClubAccountingEntry(clubId!, {
+                    entryType: ClubAccountingEntryType.INCOME,
+                    category: ClubAccountingCategory.MEMBERSHIP_FEE,
+                    amount,
+                    entryDate: new Date().toISOString().slice(0, 10),
+                    memo: memo || null,
+                  })
+                  .then(() => {
+                    setAmount('');
+                    setMemo('');
+                    return load();
+                  })
+              }
+            />
+            <Button
+              label="지출 추가"
+              size="sm"
+              variant="secondary"
+              onPress={() =>
+                void api
+                  .createClubAccountingEntry(clubId!, {
+                    entryType: ClubAccountingEntryType.EXPENSE,
+                    category: ClubAccountingCategory.GAME_FEE,
+                    amount,
+                    entryDate: new Date().toISOString().slice(0, 10),
+                    memo: memo || null,
+                  })
+                  .then(() => {
+                    setAmount('');
+                    setMemo('');
+                    return load();
+                  })
+              }
+            />
+          </View>
+        </ClubFormSection>
       </Stack>
     </ScrollScreenFrame>
   );
 }
-
-const styles = StyleSheet.create({});
