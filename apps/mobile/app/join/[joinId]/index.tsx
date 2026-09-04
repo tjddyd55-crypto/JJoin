@@ -48,6 +48,7 @@ import { JoinDetailPrimarySections } from '../../../src/features/join/components
 import {
   joinDetailCtaButtonVariant,
   resolveJoinDetailPrimaryCta,
+  shouldShowJoinDetailStickyCta,
 } from '../../../src/features/join/join-detail-cta';
 
 function rewardStatusLabel(status: RewardStatus): string {
@@ -522,6 +523,7 @@ export default function JoinDetailScreen() {
     isHost,
     canLeave: canLeaveMatching,
   });
+  const showStickyCta = shouldShowJoinDetailStickyCta(primaryCta.presentation);
 
   return (
     <View style={styles.root}>
@@ -560,7 +562,11 @@ export default function JoinDetailScreen() {
           </Row>
         }
       />
-      <ScrollScreenFrame style={styles.scroll} contentPaddingBottom={120} padded={false}>
+      <ScrollScreenFrame
+        style={styles.scroll}
+        contentPaddingBottom={showStickyCta ? 120 : 40}
+        padded={false}
+      >
         <View style={styles.scrollInner}>
         <JoinDetailPrimarySections
           detail={detail}
@@ -835,18 +841,21 @@ export default function JoinDetailScreen() {
         </View>
       </ScrollScreenFrame>
 
-      <StickyActionFrame>
-        <Button
-          label={primaryCta.label}
-          variant={joinDetailCtaButtonVariant(primaryCta.presentation)}
-          disabled={primaryCta.disabled}
-          loading={busy}
-          onPress={() => {
-            if (primaryCta.presentation === 'apply') void onApply();
-            else if (primaryCta.presentation === 'leave') void onLeaveStoreJoin();
-          }}
-        />
-      </StickyActionFrame>
+      {showStickyCta ? (
+        <StickyActionFrame>
+          <Button
+            label={primaryCta.label}
+            variant={joinDetailCtaButtonVariant(primaryCta.presentation)}
+            disabled={primaryCta.disabled}
+            loading={busy}
+            size="lg"
+            onPress={() => {
+              if (primaryCta.presentation === 'apply') void onApply();
+              else if (primaryCta.presentation === 'leave') void onLeaveStoreJoin();
+            }}
+          />
+        </StickyActionFrame>
+      ) : null}
     </View>
   );
 }
@@ -856,7 +865,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollInner: {
     paddingHorizontal: 16,
-    gap: 18,
+    gap: 16,
   },
   iconHit: {
     padding: 4,

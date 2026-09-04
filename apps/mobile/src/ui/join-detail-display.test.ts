@@ -4,6 +4,7 @@ import { ParticipationStatus, ParticipantRole } from '@jjoin/types';
 import {
   buildJoinParticipationSummary,
   buildJoinRecruitmentBreakdown,
+  buildJoinRecruitmentStatTiles,
   filterJoinDisplayParticipants,
   hasJoinBenefits,
 } from './join-detail-display';
@@ -100,6 +101,21 @@ test('buildJoinParticipationSummary highlights last seat', () => {
   } as never);
   assert.equal(summary.seatsHighlightTone, 'lastSeat');
   assert.equal(summary.seatsLeftLabel, '1자리 남음');
+});
+
+test('buildJoinRecruitmentStatTiles uses recruitment targets only', () => {
+  const tiles = buildJoinRecruitmentStatTiles({
+    plannedPlayerCount: 4,
+    targetMaleCount: 2,
+    targetFemaleCount: 2,
+    minimumPlayers: 2,
+    recruitClosesAt: '2026-09-29T10:00:00.000Z',
+  } as never);
+  assert.equal(tiles.find((t) => t.label === '총 모집')?.value, '4명');
+  assert.equal(tiles.find((t) => t.label === '남성')?.value, '2명');
+  assert.equal(tiles.find((t) => t.label === '여성')?.value, '2명');
+  assert.equal(tiles.find((t) => t.label === '최소')?.value, '2명');
+  assert.equal(tiles.some((t) => t.value.includes('/')), false);
 });
 
 test('hasJoinBenefits is false for zero reward', () => {

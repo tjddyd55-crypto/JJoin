@@ -2,7 +2,6 @@ import { StyleSheet, View, type ViewProps } from 'react-native';
 import type { ReactNode } from 'react';
 import { Text } from '../../primitives/Text';
 import { useTheme } from '../../theme';
-import { shadows } from '../../tokens';
 
 export type JoinDetailSectionProps = ViewProps & {
   title: string;
@@ -25,7 +24,6 @@ export function JoinDetailSection({ title, children, style, ...rest }: JoinDetai
             borderColor: theme.colors.border.subtle,
             borderRadius: theme.radius.lg,
           },
-          shadows.card,
         ]}
       >
         {children}
@@ -36,16 +34,16 @@ export function JoinDetailSection({ title, children, style, ...rest }: JoinDetai
 
 const styles = StyleSheet.create({
   section: {
-    gap: 10,
+    gap: 8,
   },
   title: {
-    fontSize: 20,
-    lineHeight: 28,
+    fontSize: 18,
+    lineHeight: 24,
     fontWeight: '700',
   },
   card: {
     padding: 16,
-    gap: 12,
+    gap: 10,
     borderWidth: StyleSheet.hairlineWidth,
   },
 });

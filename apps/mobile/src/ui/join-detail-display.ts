@@ -50,6 +50,47 @@ export function formatParticipationStatusLabel(status: ParticipationStatus): str
   }
 }
 
+export type JoinStatTile = { label: string; value: string };
+
+export function buildJoinRecruitmentStatTiles(
+  detail: JoinDetailDto,
+  now = new Date(),
+): JoinStatTile[] {
+  const breakdown = buildJoinRecruitmentBreakdown(detail, now);
+  const tiles: JoinStatTile[] = [
+    { label: '총 모집', value: `${detail.plannedPlayerCount}명` },
+  ];
+  if (breakdown.maleTarget != null && breakdown.maleTarget > 0) {
+    tiles.push({ label: '남성', value: `${breakdown.maleTarget}명` });
+  }
+  if (breakdown.femaleTarget != null && breakdown.femaleTarget > 0) {
+    tiles.push({ label: '여성', value: `${breakdown.femaleTarget}명` });
+  }
+  if (breakdown.minimumPlayers != null && breakdown.minimumPlayers > 0) {
+    tiles.push({ label: '최소', value: `${breakdown.minimumPlayers}명` });
+  }
+  return tiles;
+}
+
+export function buildJoinParticipationStatTiles(detail: JoinDetailDto): JoinStatTile[] {
+  const summary = buildJoinParticipationSummary(detail);
+  const tiles: JoinStatTile[] = [];
+  if (summary.maleLine) {
+    tiles.push({
+      label: '남성',
+      value: summary.maleLine.replace('남성 ', ''),
+    });
+  }
+  if (summary.femaleLine) {
+    tiles.push({
+      label: '여성',
+      value: summary.femaleLine.replace('여성 ', ''),
+    });
+  }
+  tiles.push({ label: '남은 자리', value: summary.seatsLeftLabel });
+  return tiles;
+}
+
 export type JoinRecruitmentBreakdown = {
   totalLabel: string;
   maleTarget: number | null;

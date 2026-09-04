@@ -7,13 +7,20 @@ export type JoinDetailCtaPresentation =
   | 'full'
   | 'closed'
   | 'host'
-  | 'cancelled';
+  | 'cancelled'
+  | 'none';
 
 export type JoinDetailPrimaryCta = {
   label: string;
   disabled: boolean;
   presentation: JoinDetailCtaPresentation;
 };
+
+export function shouldShowJoinDetailStickyCta(
+  presentation: JoinDetailCtaPresentation,
+): boolean {
+  return presentation !== 'host' && presentation !== 'none';
+}
 
 export function resolveJoinDetailPrimaryCta(params: {
   detail: JoinDetailDto;
@@ -25,7 +32,7 @@ export function resolveJoinDetailPrimaryCta(params: {
   const now = params.now ?? new Date();
 
   if (isHost) {
-    return { label: '조인 관리', disabled: true, presentation: 'host' };
+    return { label: '방장', disabled: true, presentation: 'host' };
   }
 
   if (detail.status === JoinStatus.CANCELLED) {
@@ -69,7 +76,6 @@ export function joinDetailCtaButtonVariant(
 ): 'primary' | 'successSoft' | 'leave' | 'muted' {
   switch (presentation) {
     case 'apply':
-    case 'host':
       return 'primary';
     case 'joined':
       return 'successSoft';

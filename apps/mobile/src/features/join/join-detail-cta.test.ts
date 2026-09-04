@@ -4,6 +4,7 @@ import { JoinStatus, JoinMethod, type JoinDetailDto } from '@jjoin/types';
 import {
   joinDetailCtaButtonVariant,
   resolveJoinDetailPrimaryCta,
+  shouldShowJoinDetailStickyCta,
 } from './join-detail-cta';
 
 const baseDetail: JoinDetailDto = {
@@ -60,13 +61,12 @@ test('resolveJoinDetailPrimaryCta returns apply for open join', () => {
   assert.equal(joinDetailCtaButtonVariant(cta.presentation), 'primary');
 });
 
-test('resolveJoinDetailPrimaryCta returns host manage label', () => {
+test('resolveJoinDetailPrimaryCta hides sticky for host viewers', () => {
   const cta = resolveJoinDetailPrimaryCta({
     detail: baseDetail,
     isHost: true,
     canLeave: false,
   });
-  assert.equal(cta.label, '조인 관리');
-  assert.equal(cta.disabled, true);
   assert.equal(cta.presentation, 'host');
+  assert.equal(shouldShowJoinDetailStickyCta(cta.presentation), false);
 });

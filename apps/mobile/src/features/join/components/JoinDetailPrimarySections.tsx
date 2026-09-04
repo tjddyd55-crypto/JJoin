@@ -4,6 +4,7 @@ import {
   JoinDetailSection,
   JoinHostAvatar,
   JoinHostSummary,
+  JoinMiniStatGrid,
   JoinRequirementChips,
   JoinScheduleRow,
   JoinStatusBadge,
@@ -14,8 +15,10 @@ import {
 import type { JoinDetailDto, JoinParticipantDto } from '@jjoin/types';
 import {
   buildJoinBenefitLines,
+  buildJoinParticipationStatTiles,
   buildJoinParticipationSummary,
   buildJoinRecruitmentBreakdown,
+  buildJoinRecruitmentStatTiles,
   filterJoinDisplayParticipants,
   formatParticipantGenderLabel,
   formatParticipationStatusLabel,
@@ -145,7 +148,18 @@ export function JoinDetailPrimarySections({
     scheduledEndAt: detail.scheduledEndAt,
   });
   const recruitment = buildJoinRecruitmentBreakdown(detail);
+  const recruitmentTiles = buildJoinRecruitmentStatTiles(detail);
   const participation = buildJoinParticipationSummary(detail);
+  const participationTiles = buildJoinParticipationStatTiles(detail).map((tile) => {
+    if (tile.label !== '남은 자리') return tile;
+    const seatsColor =
+      participation.seatsHighlightTone === 'lastSeat'
+        ? theme.colors.join.capacity.lastSeat
+        : participation.seatsHighlightTone === 'full'
+          ? theme.colors.text.tertiary
+          : theme.colors.join.capacity.available;
+    return { ...tile, valueColor: seatsColor };
+  });
   const displayParticipants = filterJoinDisplayParticipants(detail.participants);
   const requirements = requirementLabels(detail, matching);
   const benefitLines = buildJoinBenefitLines(detail);
@@ -157,13 +171,6 @@ export function JoinDetailPrimarySections({
     const { latitude, longitude } = detail.venue;
     void Linking.openURL(`https://map.kakao.com/link/map/${latitude},${longitude}`);
   };
-
-  const seatsColor =
-    participation.seatsHighlightTone === 'lastSeat'
-      ? theme.colors.join.capacity.lastSeat
-      : participation.seatsHighlightTone === 'full'
-        ? theme.colors.text.tertiary
-        : theme.colors.join.capacity.available;
 
   return (
     <View style={styles.root}>
@@ -210,24 +217,10 @@ export function JoinDetailPrimarySections({
       </JoinDetailSection>
 
       <JoinDetailSection title="모집 정보">
-        <Text variant="bodyStrong" tone="primary">{recruitment.totalLabel}</Text>
-        <View style={styles.compositionGrid}>
-          {recruitment.maleTarget != null && recruitment.maleTarget > 0 ? (
-            <RecruitmentCompositionRow label="남성" value={`${recruitment.maleTarget}명`} />
-          ) : null}
-          {recruitment.femaleTarget != null && recruitment.femaleTarget > 0 ? (
-            <RecruitmentCompositionRow label="여성" value={`${recruitment.femaleTarget}명`} />
-          ) : null}
-          {recruitment.minimumPlayers != null && recruitment.minimumPlayers > 0 ? (
-            <RecruitmentCompositionRow
-              label="최소 확정"
-              value={`${recruitment.minimumPlayers}명`}
-            />
-          ) : null}
-          {recruitment.recruitCloseLabel ? (
-            <RecruitmentCompositionRow label="모집 마감" value={recruitment.recruitCloseLabel} />
-          ) : null}
-        </View>
+        <JoinMiniStatGrid items={recruitmentTiles} />
+        {recruitment.recruitCloseLabel ? (
+          <RecruitmentCompositionRow label="모집 마감" value={recruitment.recruitCloseLabel} />
+        ) : null}
 
         {requirements.length > 0 ? (
           <>
@@ -263,27 +256,10 @@ export function JoinDetailPrimarySections({
       </JoinDetailSection>
 
       <JoinDetailSection title="참가 현황">
-        <Text variant="bodyStrong" tone="primary">{participation.headline}</Text>
-        <View style={styles.compositionGrid}>
-          {participation.maleLine ? (
-            <RecruitmentCompositionRow label="남성" value={participation.maleLine.replace('남성 ', '')} />
-          ) : null}
-          {participation.femaleLine ? (
-            <RecruitmentCompositionRow
-              label="여성"
-              value={participation.femaleLine.replace('여성 ', '')}
-            />
-          ) : null}
-          <View style={styles.compositionRow}>
-            <Text variant="meta" tone="secondary">남은 자리</Text>
-            <Text
-              variant="meta"
-              style={[styles.compositionValue, { color: seatsColor, fontWeight: '600' }]}
-            >
-              {participation.seatsLeftLabel}
-            </Text>
-          </View>
-        </View>
+        <Text variant="bodyStrong" tone="primary" style={styles.participationHeadline}>
+          {participation.headline}
+        </Text>
+        <JoinMiniStatGrid items={participationTiles} />
 
         <SectionDivider />
 
@@ -320,10 +296,11 @@ export function JoinDetailPrimarySections({
 
 const styles = StyleSheet.create({
   root: {
-    gap: 18,
+    gap: 16,
+    paddingTop: 8,
   },
   header: {
-    gap: 10,
+    gap: 8,
   },
   badgeRow: {
     flexDirection: 'row',
@@ -339,6 +316,7 @@ const styles = StyleSheet.create({
   divider: {
     height: StyleSheet.hairlineWidth,
     alignSelf: 'stretch',
+    marginVertical: 12,
   },
   scheduleBlock: {
     gap: 8,
@@ -352,8 +330,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  compositionGrid: {
-    gap: 8,
+  participationHeadline: {
+    fontSize: 15,
+    lineHeight: 22,
   },
   compositionRow: {
     flexDirection: 'row',
