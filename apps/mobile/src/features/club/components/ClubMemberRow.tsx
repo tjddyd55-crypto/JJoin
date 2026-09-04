@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Card, ClubStatusBadge, JoinHostAvatar, Text } from '@jjoin/design-system';
+import { Card, ClubStatusBadge, ProfileAvatar, Text } from '@jjoin/design-system';
 import { ClubMembershipRole } from '@jjoin/types';
 
 type Props = {
@@ -29,7 +29,7 @@ export function ClubMemberRow({ nickname, role, meta, onPress, actions }: Props)
   const content = (
     <Card padding="md" variant={onPress ? 'interactive' : 'base'}>
       <View style={styles.row}>
-        <JoinHostAvatar profileImageUrl={null} hostName={nickname} size="sm" />
+        <ProfileAvatar imageUrl={null} name={nickname} size="sm" fallback="brand" />
         <View style={styles.content}>
           <View style={styles.titleRow}>
             <Text variant="bodyStrong" style={styles.name}>{nickname}</Text>

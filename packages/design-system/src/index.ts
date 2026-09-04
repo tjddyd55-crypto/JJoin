@@ -40,6 +40,13 @@ export { Badge, type BadgeProps, type BadgeVariant } from './components/Badge';
 export { BrandMark, type BrandMarkVariant, type BrandMarkTone } from './components/BrandMark';
 export { JoinHostAvatar, type JoinHostAvatarProps, type JoinHostAvatarSize } from './components/JoinHostAvatar';
 export {
+  ProfileAvatar,
+  resolveProfileAvatarPixel,
+  type ProfileAvatarFallback,
+  type ProfileAvatarProps,
+  type ProfileAvatarSize,
+} from './components/ProfileAvatar';
+export {
   JoinCard,
   type JoinCardProps,
   type JoinCardVariant,

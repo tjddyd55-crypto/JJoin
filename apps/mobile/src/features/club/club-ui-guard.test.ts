@@ -46,6 +46,12 @@ test('ClubCoverPicker uses shared ClubCover', () => {
   assert.doesNotMatch(source, /ClubPlaceholderImage/);
 });
 
+test('ClubMemberRow uses ProfileAvatar instead of JoinHostAvatar', () => {
+  const source = readFileSync(join(clubComponentsDir, 'ClubMemberRow.tsx'), 'utf8');
+  assert.match(source, /ProfileAvatar/);
+  assert.doesNotMatch(source, /JoinHostAvatar/);
+});
+
 test('connected club screens use Bright section components', () => {
   const expectations: Record<string, RegExp> = {
     'ClubMembersScreen.tsx': /ClubMemberRow/,

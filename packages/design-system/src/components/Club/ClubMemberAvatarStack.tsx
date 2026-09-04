@@ -1,5 +1,5 @@
 import { StyleSheet, View } from 'react-native';
-import { JoinHostAvatar } from '../JoinHostAvatar';
+import { ProfileAvatar } from '../ProfileAvatar';
 import { Text } from '../../primitives/Text';
 import { useTheme } from '../../theme';
 
@@ -35,10 +35,11 @@ export function ClubMemberAvatarStack({
             { borderColor: theme.colors.surface.card },
           ]}
         >
-          <JoinHostAvatar
-            profileImageUrl={member.avatarUrl}
-            hostName={member.nickname}
+          <ProfileAvatar
+            imageUrl={member.avatarUrl}
+            name={member.nickname}
             size="sm"
+            fallback="brand"
           />
         </View>
       ))}

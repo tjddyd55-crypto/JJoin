@@ -1,10 +1,9 @@
-import { useState } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from '../../primitives/Text';
-import { BrandMark } from '../BrandMark';
+import { ProfileAvatar, resolveProfileAvatarPixel, type ProfileAvatarFallback, type ProfileAvatarSize } from '../ProfileAvatar';
 import { useTheme } from '../../theme';
 
-export type JoinHostAvatarSize = 'sm' | 'md' | 'lg';
+export type JoinHostAvatarSize = ProfileAvatarSize;
 
 export type JoinHostAvatarProps = {
   profileImageUrl?: string | null;
@@ -12,7 +11,7 @@ export type JoinHostAvatarProps = {
   size?: JoinHostAvatarSize;
   showHostBadge?: boolean;
   /** Always brand logo when profile missing or load fails — never initials/silhouette. */
-  fallback?: 'brand';
+  fallback?: ProfileAvatarFallback;
 };
 
 export function JoinHostAvatar({
@@ -23,48 +22,17 @@ export function JoinHostAvatar({
   fallback = 'brand',
 }: JoinHostAvatarProps) {
   const theme = useTheme();
-  const pixel =
-    size === 'lg'
-      ? theme.sizes.avatar.joinHostLg
-      : size === 'sm'
-        ? 44
-        : theme.sizes.avatar.joinHost;
-  const radius = pixel / 2;
-  const [imageFailed, setImageFailed] = useState(false);
-  const showProfile = profileImageUrl && !imageFailed;
+  const pixel = resolveProfileAvatarPixel(size, theme.sizes.avatar);
 
   return (
     <View style={[styles.wrap, { width: pixel, height: pixel }]}>
-      <View
-        style={[
-          styles.plate,
-          {
-            width: pixel,
-            height: pixel,
-            borderRadius: radius,
-            backgroundColor: showProfile
-              ? theme.colors.surface.elevated
-              : theme.colors.state.selectedSurface,
-            borderColor: theme.colors.border.subtle,
-          },
-        ]}
-      >
-        {showProfile ? (
-          <Image
-            source={{ uri: profileImageUrl }}
-            style={{ width: pixel, height: pixel, borderRadius: radius }}
-            resizeMode="cover"
-            accessibilityLabel={hostName ? `${hostName} 프로필` : '방장 프로필'}
-            onError={() => setImageFailed(true)}
-          />
-        ) : fallback === 'brand' ? (
-          <BrandMark
-            variant="symbol"
-            tone="default"
-            style={{ transform: [{ scale: pixel < 50 ? 0.7 : 0.85 }] }}
-          />
-        ) : null}
-      </View>
+      <ProfileAvatar
+        imageUrl={profileImageUrl}
+        name={hostName}
+        size={size}
+        fallback={fallback}
+        accessibilityLabel={hostName ? `${hostName} 프로필` : '방장 프로필'}
+      />
       {showHostBadge ? (
         <View
           style={[
@@ -88,12 +56,6 @@ export function JoinHostAvatar({
 const styles = StyleSheet.create({
   wrap: {
     position: 'relative',
-  },
-  plate: {
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
   },
   badge: {
     position: 'absolute',
