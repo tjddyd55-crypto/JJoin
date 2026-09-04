@@ -6,10 +6,13 @@ Write-Host '== JJOINZONE mobile doctor ==' -ForegroundColor Cyan
 
 function Test-Metro {
   try {
-    $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8082/status' -TimeoutSec 5 -UseBasicParsing
-    $body = [System.Text.Encoding]::UTF8.GetString($r.Content)
+    $body = & curl.exe -s -m 10 http://127.0.0.1:8082/status
+    if ($LASTEXITCODE -ne 0 -or -not $body) {
+      Write-Host '[Metro] NOT RUNNING or /status timeout on :8082' -ForegroundColor Red
+      return $false
+    }
     Write-Host "[Metro] $body" -ForegroundColor Green
-    return $true
+    return $body -match 'packager-status:running'
   } catch {
     Write-Host '[Metro] NOT RUNNING or /status timeout on :8082' -ForegroundColor Red
     return $false
@@ -19,8 +22,8 @@ function Test-Metro {
 function Show-PortOwner {
   $line = netstat -ano | Select-String ':8082' | Select-String 'LISTENING' | Select-Object -First 1
   if ($line) {
-    $pid = ($line -split '\s+')[-1]
-    Write-Host "[Port 8082] LISTENING PID=$pid" -ForegroundColor Yellow
+    $listenPid = ($line -split '\s+')[-1]
+    Write-Host "[Port 8082] LISTENING PID=$listenPid" -ForegroundColor Yellow
   } else {
     Write-Host '[Port 8082] not listening' -ForegroundColor Yellow
   }

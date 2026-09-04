@@ -14,6 +14,7 @@ prisma/.env
 *.log
 artifacts/
 outputs/
+.tmp-window-dump*.xml
 apps/mobile/.tmp/
 # Expo prebuild outputs (do not ignore module native sources under modules/*/android)
 apps/mobile/android/

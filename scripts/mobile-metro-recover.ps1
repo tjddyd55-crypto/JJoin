@@ -4,9 +4,9 @@
 $ErrorActionPreference = 'Stop'
 $line = netstat -ano | Select-String ':8082' | Select-String 'LISTENING' | Select-Object -First 1
 if ($line) {
-  $pid = [int](($line -split '\s+')[-1])
-  Write-Host "Stopping Metro listener PID=$pid on :8082"
-  Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+  $listenPid = [int](($line -split '\s+')[-1])
+  Write-Host "Stopping Metro listener PID=$listenPid on :8082"
+  Stop-Process -Id $listenPid -Force -ErrorAction SilentlyContinue
   Start-Sleep -Seconds 2
 } else {
   Write-Host 'No listener on :8082'
