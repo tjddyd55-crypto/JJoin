@@ -9,7 +9,7 @@
 import { AuthService } from './auth.service';
 import { SocialAuthService } from '../../auth/social-auth.service';
 import { resolveSocialAuthMode } from '../../auth/social-auth-mode';
-import type { SocialSignInRequest, SocialExchangeRequest } from '@jjoin/types';
+import type { SocialSignInRequest, SocialExchangeRequest, NaverOAuthExchangeRequest } from '@jjoin/types';
 
 @Controller('auth')
 export class AuthController {
@@ -51,6 +51,19 @@ export class AuthController {
       throw new ForbiddenException('social_auth_disabled');
     }
     return this.socialAuth.exchange(body);
+  }
+
+  /**
+   * Naver OAuth authorization-code exchange — client secret stays on API only.
+   * Mobile completes browser/native redirect and sends code + redirectUri here.
+   */
+  @Post('social/naver/exchange-code')
+  naverExchangeCode(@Body() body: NaverOAuthExchangeRequest) {
+    const mode = resolveSocialAuthMode();
+    if (mode === 'disabled') {
+      throw new ForbiddenException('social_auth_disabled');
+    }
+    return this.socialAuth.exchangeNaverAuthorizationCode(body);
   }
 
   @Get('session')

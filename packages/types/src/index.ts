@@ -346,6 +346,13 @@ export type SocialExchangeRequest = {
   credential: string;
 };
 
+/** Naver authorization-code flow — exchanged server-side with client secret. */
+export type NaverOAuthExchangeRequest = {
+  code: string;
+  state: string;
+  redirectUri: string;
+};
+
 export type SocialSignInResponse = {
   session: AuthSessionDto;
   me: MeDto;

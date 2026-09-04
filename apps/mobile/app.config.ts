@@ -93,7 +93,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ? process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY_DEV?.trim() || ''
       : process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY?.trim() || '';
   const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '';
-  const naverUrlScheme = process.env.EXPO_PUBLIC_NAVER_LOGIN_URL_SCHEME ?? 'jjoinnaverlogin';
   const easProjectId =
     process.env.EXPO_PUBLIC_EAS_PROJECT_ID?.trim() || DEFAULT_EAS_PROJECT_ID;
   const googleServicesFromEnv = process.env.GOOGLE_SERVICES_JSON?.trim();
@@ -172,15 +171,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       '@react-native-google-signin/google-signin',
       {
         iosUrlScheme: googleWebClientId.split('.').reverse().join('.'),
-      },
-    ]);
-  }
-
-  if (process.env.EXPO_PUBLIC_NAVER_LOGIN_CLIENT_ID) {
-    plugins.push([
-      '@react-native-seoul/naver-login',
-      {
-        urlScheme: naverUrlScheme,
       },
     ]);
   }

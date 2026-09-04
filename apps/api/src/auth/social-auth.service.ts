@@ -7,6 +7,7 @@ import {
 import {
   MockAuthScenario,
   SocialProvider,
+  type NaverOAuthExchangeRequest,
   type SocialExchangeRequest,
   type SocialSignInResponse,
 } from '@jjoin/types';
@@ -20,6 +21,7 @@ import { mockUserStore } from '../mock/mock-user.store';
 import { KakaoSocialAuthProvider } from '../providers/social/kakao-social.provider';
 import { NaverSocialAuthProvider } from '../providers/social/naver-social.provider';
 import { GoogleSocialAuthProvider } from '../providers/social/google-social.provider';
+import { exchangeNaverAuthorizationCode } from '../providers/social/naver-oauth.client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserAccountService } from '../modules/users/user-account.service';
 import { WalletService } from '../modules/wallet/wallet.service';
@@ -123,5 +125,19 @@ export class SocialAuthService {
       me,
       nextStep: nextStep === 'HOME' ? 'HOME' : nextStep,
     };
+  }
+
+  async exchangeNaverAuthorizationCode(
+    body: NaverOAuthExchangeRequest,
+  ): Promise<SocialSignInResponse> {
+    const accessToken = await exchangeNaverAuthorizationCode({
+      code: body.code,
+      state: body.state,
+      redirectUri: body.redirectUri,
+    });
+    return this.exchange({
+      provider: SocialProvider.NAVER,
+      credential: accessToken,
+    });
   }
 }
