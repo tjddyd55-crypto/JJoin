@@ -20,6 +20,9 @@ export const sizes = {
     joinHost: 56,
     joinHostLg: 64,
   },
+  clubCover: {
+    list: 84,
+  },
   appBar: 56,
   bottomNav: 64,
   touchTarget: 44,

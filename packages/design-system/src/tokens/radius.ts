@@ -5,6 +5,7 @@ export const radius = {
   lg: 16,
   joinCard: 18,
   joinStat: 14,
+  clubCover: 15,
   xl: 20,
   sheet: 24,
   full: 999,

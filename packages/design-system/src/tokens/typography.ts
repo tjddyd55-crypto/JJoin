@@ -59,6 +59,38 @@ export const typography = {
     fontWeight: '700' as const,
     letterSpacing: -0.15,
   },
+  /** Club list/detail title — matches join card visual weight */
+  clubCardTitle: {
+    fontFamily: fontFamily.sansBold,
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: '700' as const,
+    letterSpacing: -0.15,
+  },
+  /** Club one-line intro */
+  clubIntro: {
+    fontFamily: fontFamily.sans,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '400' as const,
+    letterSpacing: 0,
+  },
+  /** Club meta row — category · region · members */
+  clubMeta: {
+    fontFamily: fontFamily.sans,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '400' as const,
+    letterSpacing: 0,
+  },
+  /** Club activity / status emphasis */
+  clubStatus: {
+    fontFamily: fontFamily.sansMedium,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '500' as const,
+    letterSpacing: 0,
+  },
   /** Figma JOIN — meta rows (14/20) */
   joinMeta: {
     fontFamily: fontFamily.sans,
