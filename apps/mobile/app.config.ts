@@ -93,6 +93,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ? process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY_DEV?.trim() || ''
       : process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY?.trim() || '';
   const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '';
+  const naverLoginScheme =
+    process.env.EXPO_PUBLIC_NAVER_LOGIN_URL_SCHEME?.trim() || 'jjoinnaverlogin';
+  const appSchemes =
+    naverLoginScheme === identity.scheme
+      ? identity.scheme
+      : [identity.scheme, naverLoginScheme];
   const easProjectId =
     process.env.EXPO_PUBLIC_EAS_PROJECT_ID?.trim() || DEFAULT_EAS_PROJECT_ID;
   const googleServicesFromEnv = process.env.GOOGLE_SERVICES_JSON?.trim();
@@ -186,7 +192,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     version: '0.0.6',
     orientation: 'portrait',
     icon: appIcon,
-    scheme: identity.scheme,
+    scheme: appSchemes,
     userInterfaceStyle: 'light',
     ios: {
       supportsTablet: true,
