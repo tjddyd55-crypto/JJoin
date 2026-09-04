@@ -5,7 +5,6 @@ import {
   androidAdaptiveIconFor,
   iconFor,
   identityFor,
-  naverLoginCallbackSchemeFor,
   notificationIconFor,
   resolveAppVariant,
 } from './app-variant-identity.cjs';
@@ -94,11 +93,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ? process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY_DEV?.trim() || ''
       : process.env.EXPO_PUBLIC_KAKAO_LOGIN_NATIVE_APP_KEY?.trim() || '';
   const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '';
-  const naverLoginScheme = naverLoginCallbackSchemeFor(variant);
-  const appSchemes =
-    naverLoginScheme === identity.scheme
-      ? identity.scheme
-      : [identity.scheme, naverLoginScheme];
+  const naverClientId = process.env.EXPO_PUBLIC_NAVER_LOGIN_CLIENT_ID?.trim() || '';
+  const naverClientSecret = process.env.EXPO_PUBLIC_NAVER_LOGIN_CLIENT_SECRET?.trim() || '';
   const easProjectId =
     process.env.EXPO_PUBLIC_EAS_PROJECT_ID?.trim() || DEFAULT_EAS_PROJECT_ID;
   const googleServicesFromEnv = process.env.GOOGLE_SERVICES_JSON?.trim();
@@ -181,6 +177,17 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ]);
   }
 
+  if (naverClientId && naverClientSecret) {
+    const naverIosUrlScheme =
+      process.env.EXPO_PUBLIC_NAVER_LOGIN_URL_SCHEME?.trim() || identity.scheme;
+    plugins.push([
+      '@react-native-seoul/naver-login',
+      {
+        urlScheme: naverIosUrlScheme,
+      },
+    ]);
+  }
+
   const appIcon = iconFor(variant);
   const adaptiveIcon = androidAdaptiveIconFor(variant);
 
@@ -192,7 +199,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     version: '0.0.6',
     orientation: 'portrait',
     icon: appIcon,
-    scheme: appSchemes,
+    scheme: identity.scheme,
     userInterfaceStyle: 'light',
     ios: {
       supportsTablet: true,
@@ -241,7 +248,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       kakaoMapNativeAppKeyConfigured: Boolean(kakaoMapNativeAppKey),
       kakaoLoginNativeAppKeyConfigured: Boolean(kakaoLoginNativeAppKey),
       googleLoginConfigured: Boolean(googleWebClientId),
-      naverLoginConfigured: Boolean(process.env.EXPO_PUBLIC_NAVER_LOGIN_CLIENT_ID),
+      naverLoginConfigured: Boolean(naverClientId && naverClientSecret),
       googleServicesConfigured: hasGoogleServices,
       eas: {
         projectId: easProjectId,

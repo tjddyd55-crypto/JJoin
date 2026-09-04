@@ -6,6 +6,7 @@ import { SocialProvider } from '@jjoin/types';
 import { isProviderConfigured } from './social-auth-config';
 import { SocialLoginUnavailableError } from './social-auth-errors';
 import { obtainKakaoAccessToken } from './providers/kakao-native-login';
+import { obtainNaverAccessToken } from './providers/naver-native-login';
 import { obtainGoogleIdToken } from './providers/google-native-login';
 
 export async function obtainSocialCredential(provider: SocialProvider): Promise<string> {
@@ -17,10 +18,7 @@ export async function obtainSocialCredential(provider: SocialProvider): Promise<
     case SocialProvider.KAKAO:
       return obtainKakaoAccessToken();
     case SocialProvider.NAVER:
-      throw new SocialLoginUnavailableError(
-        provider,
-        'naver_requires_server_code_exchange',
-      );
+      return obtainNaverAccessToken();
     case SocialProvider.GOOGLE:
       return obtainGoogleIdToken();
     default:

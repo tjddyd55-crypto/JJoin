@@ -11,7 +11,6 @@ import {
   iconFor,
   identityFor,
   notificationIconFor,
-  naverLoginCallbackSchemeFor,
   resolveAppVariant,
 } from '../../app-variant-identity.cjs';
 
@@ -57,14 +56,5 @@ test('notification plugin icons follow the same variant split', () => {
   assert.notEqual(
     notificationIconFor('production').icon,
     notificationIconFor('development').icon,
-  );
-});
-
-test('Naver callback scheme is split by app variant', () => {
-  assert.equal(naverLoginCallbackSchemeFor('production'), 'jjoinnaverlogin');
-  assert.equal(naverLoginCallbackSchemeFor('development'), 'jjoindevnaverlogin');
-  assert.notEqual(
-    naverLoginCallbackSchemeFor('production'),
-    naverLoginCallbackSchemeFor('development'),
   );
 });

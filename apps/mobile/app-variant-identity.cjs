@@ -6,22 +6,6 @@
 
 /** @typedef {'development' | 'production'} AppVariant */
 
-/** Naver OAuth callback URL schemes — must match Naver Developers console per variant. */
-const NAVER_LOGIN_CALLBACK_SCHEME = {
-  development: 'jjoindevnaverlogin',
-  production: 'jjoinnaverlogin',
-};
-
-/**
- * @param {AppVariant | string | undefined} [appVariant]
- * @returns {string}
- */
-function naverLoginCallbackSchemeFor(appVariant = process.env.APP_VARIANT) {
-  return resolveAppVariant(appVariant) === 'development'
-    ? NAVER_LOGIN_CALLBACK_SCHEME.development
-    : NAVER_LOGIN_CALLBACK_SCHEME.production;
-}
-
 /** Development keeps side-by-side distinction via DEV badge / teal legacy fill. */
 const DEVELOPMENT_APP_ICON = './assets/images/icon.png';
 const DEVELOPMENT_ADAPTIVE_FOREGROUND =
@@ -125,11 +109,9 @@ module.exports = {
   PRODUCTION_APP_ICON,
   PRODUCTION_ADAPTIVE_FOREGROUND,
   PRODUCTION_ADAPTIVE_BACKGROUND_COLOR,
-  NAVER_LOGIN_CALLBACK_SCHEME,
   resolveAppVariant,
   iconFor,
   androidAdaptiveIconFor,
   identityFor,
   notificationIconFor,
-  naverLoginCallbackSchemeFor,
 };

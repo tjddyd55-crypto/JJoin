@@ -15,7 +15,6 @@ import {
   type PendingActionIntent,
 } from '@jjoin/types';
 import { obtainSocialCredential } from '../features/auth/social/obtain-social-credential';
-import { obtainNaverAuthorizationCode } from '../features/auth/social/providers/naver-oauth-login';
 import { obtainKakaoAccessToken } from '../features/auth/social/providers/kakao-native-login';
 import { isMockSocialAuthFlowEnabled } from '../features/auth/social/social-auth-config';
 import {
@@ -121,9 +120,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
             provider,
             scenario: mockScenario,
           });
-        } else if (provider === SocialProvider.NAVER) {
-          const oauth = await obtainNaverAuthorizationCode();
-          res = await api.naverExchangeCode(oauth);
         } else {
           const credential = await obtainSocialCredential(provider);
           try {
