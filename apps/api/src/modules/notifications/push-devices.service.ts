@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -35,6 +36,11 @@ export class PushDevicesService {
     }
 
     const now = new Date();
+    const existing = await this.prisma.pushDevice.findUnique({ where: { pushToken } });
+    if (existing && existing.userId !== userId) {
+      throw new ForbiddenException('push_token_conflict');
+    }
+
     const row = await this.prisma.pushDevice.upsert({
       where: { pushToken },
       create: {
@@ -48,7 +54,6 @@ export class PushDevicesService {
         lastSeenAt: now,
       },
       update: {
-        userId,
         platform: platform as PushPlatform,
         deviceId: deviceId ?? null,
         appVariant,

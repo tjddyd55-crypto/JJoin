@@ -488,6 +488,17 @@ export class JoinsService {
     };
   }
 
+  async assertJoinHost(joinId: string, userId: string): Promise<void> {
+    const join = await this.prisma.join.findUnique({
+      where: { id: joinId },
+      select: { hostUserId: true },
+    });
+    if (!join) throw new NotFoundException('join_not_found');
+    if (join.hostUserId !== userId) {
+      throw new ForbiddenException('not_join_host');
+    }
+  }
+
   /** Assign opaque share slug after commit when missing. */
   async ensureShareSlug(joinId: string): Promise<string | null> {
     const existing = await this.prisma.join.findUnique({

@@ -12,6 +12,7 @@ import {
 import { NotificationsService } from './notifications.service';
 import { NotificationDeliveryService } from './notification-delivery.service';
 import { CurrentUserId, MockAuthGuard } from '../../common/mock-auth.guard';
+import { assertCronAuthorized } from '../../common/cron-secret';
 
 @Controller()
 export class NotificationsController {
@@ -31,11 +32,10 @@ export class NotificationsController {
    */
   @Post('notifications/deliver-pending')
   deliverPending(@Headers('x-notification-cron-secret') secret?: string) {
-    const expected =
-      process.env.NOTIFICATION_CRON_SECRET ?? process.env.SETTLEMENT_CRON_SECRET;
-    if (expected && secret !== expected) {
-      return { ok: false, error: 'cron_forbidden' };
-    }
+    assertCronAuthorized(secret, [
+      process.env.NOTIFICATION_CRON_SECRET,
+      process.env.SETTLEMENT_CRON_SECRET,
+    ]);
     return this.delivery.deliverPending(
       Number(process.env.NOTIFICATION_DELIVER_BATCH_SIZE ?? 50),
     );

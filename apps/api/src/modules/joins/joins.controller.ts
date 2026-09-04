@@ -174,7 +174,7 @@ export class JoinsController {
   @Post(':joinId/share-link')
   @UseGuards(MockAuthGuard)
   async shareLink(@Param('joinId') joinId: string, @CurrentUserId() userId: string) {
-    await this.service.getDetail(joinId, userId);
+    await this.service.assertJoinHost(joinId, userId);
     const shareSlug = await this.service.ensureShareSlug(joinId);
     return { shareSlug };
   }

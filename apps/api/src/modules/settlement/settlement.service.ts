@@ -658,10 +658,11 @@ export class SettlementService {
   }
 
   async runAutoPayCron(secret?: string) {
-    const expected = process.env.SETTLEMENT_CRON_SECRET;
-    if (expected) {
-      if (secret !== expected) throw new ForbiddenException('cron_forbidden');
-    } else if (!isSettlementQaAllowed()) {
+    const expected = process.env.SETTLEMENT_CRON_SECRET?.trim();
+    if (!expected) {
+      throw new ForbiddenException('cron_secret_not_configured');
+    }
+    if (secret !== expected) {
       throw new ForbiddenException('cron_forbidden');
     }
     return this.runAutoPayBatch();

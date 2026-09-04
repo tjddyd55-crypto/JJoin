@@ -204,6 +204,19 @@ export class ApiClient {
     return parseJson(res);
   }
 
+  async naverExchangeCode(body: {
+    code: string;
+    state: string;
+    redirectUri: string;
+  }): Promise<SocialSignInResponse> {
+    const res = await request(`${this.config.baseUrl}/auth/social/naver/exchange-code`, {
+      method: 'POST',
+      headers: await this.headers(false),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
   async getSession(): Promise<{ userId: string; me: MeDto }> {
     const res = await request(`${this.config.baseUrl}/auth/session`, {
       headers: await this.headers(true),

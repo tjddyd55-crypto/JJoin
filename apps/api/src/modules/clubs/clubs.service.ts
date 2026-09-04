@@ -487,7 +487,7 @@ export class ClubsService {
 
     let venueName = parsed.data.venueName;
     let venueAddress = parsed.data.venueAddress ?? null;
-    let venueId = parsed.data.venueId ?? null;
+    const venueId = parsed.data.venueId ?? null;
     let golfFacilityId = parsed.data.golfFacilityId ?? null;
 
     if (venueId) {

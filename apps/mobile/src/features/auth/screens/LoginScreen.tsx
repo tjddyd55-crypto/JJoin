@@ -16,7 +16,7 @@ import {
   messageForSocialLoginError,
   safeSocialLoginLog,
 } from '../social/social-login-user-message';
-import { useMockSocialAuthFlow } from '../social/social-auth-config';
+import { isMockSocialAuthFlowEnabled } from '../social/social-auth-config';
 import { SocialLoginButton } from '../../../ui/patterns/SocialLoginButton';
 import { isInternalToolsEnabled } from '../../../lib/internal-tools';
 
@@ -51,7 +51,7 @@ export function LoginScreen() {
   const theme = useTheme();
   const [loading, setLoading] = useState<SocialProvider | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
-  const mockSocialAuthEnabled = isInternalToolsEnabled() && useMockSocialAuthFlow();
+  const mockSocialAuthEnabled = isInternalToolsEnabled() && isMockSocialAuthFlowEnabled();
 
   async function handleProvider(provider: SocialProvider) {
     setLoading(provider);
