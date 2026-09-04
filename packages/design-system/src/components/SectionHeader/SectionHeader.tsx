@@ -1,16 +1,24 @@
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from '../../primitives/Text';
 
+import type { TypographyVariant } from '../../tokens';
+
 export type SectionHeaderProps = {
   title: string;
   actionLabel?: string;
   onActionPress?: () => void;
+  titleVariant?: TypographyVariant;
 };
 
-export function SectionHeader({ title, actionLabel, onActionPress }: SectionHeaderProps) {
+export function SectionHeader({
+  title,
+  actionLabel,
+  onActionPress,
+  titleVariant = 'screenTitle',
+}: SectionHeaderProps) {
   return (
     <View style={styles.row}>
-      <Text variant="screenTitle" tone="primary" style={styles.title}>
+      <Text variant={titleVariant} tone="primary" style={styles.title}>
         {title}
       </Text>
       {actionLabel && onActionPress ? (

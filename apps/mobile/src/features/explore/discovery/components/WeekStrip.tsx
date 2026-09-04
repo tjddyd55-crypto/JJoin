@@ -18,18 +18,12 @@ export function WeekStrip({
   selectedDate,
   dayCounts,
   onSelectDate,
-  onPrevWeek,
-  onNextWeek,
+  onPrevWeek: _onPrevWeek,
+  onNextWeek: _onNextWeek,
   compact = false,
 }: Props) {
   const theme = useTheme();
   const cells = useMemo(() => buildWeekStrip(weekAnchorDate), [weekAnchorDate]);
-  const rangeLabel = useMemo(() => {
-    if (cells.length === 0) return '이번 주';
-    const first = cells[0]!;
-    const last = cells[cells.length - 1]!;
-    return `이번 주 ${Number(first.date.slice(5, 7))}.${first.dayOfMonth} - ${Number(last.date.slice(5, 7))}.${last.dayOfMonth}`;
-  }, [cells]);
 
   const stripContent = (
     <View style={styles.strip}>
@@ -61,33 +55,6 @@ export function WeekStrip({
           },
         ]}
       >
-        <View style={styles.navRow}>
-          <Pressable
-            onPress={onPrevWeek}
-            accessibilityRole="button"
-            accessibilityLabel="이전 주"
-            hitSlop={8}
-            style={styles.navBtn}
-          >
-            <Text variant="joinFilterChip" tone="secondary">
-              {'\u2039'}
-            </Text>
-          </Pressable>
-          <Text variant="joinFilterChip" tone="tertiary">
-            {rangeLabel}
-          </Text>
-          <Pressable
-            onPress={onNextWeek}
-            accessibilityRole="button"
-            accessibilityLabel="다음 주"
-            hitSlop={8}
-            style={styles.navBtn}
-          >
-            <Text variant="joinFilterChip" tone="secondary">
-              {'\u203A'}
-            </Text>
-          </Pressable>
-        </View>
         {stripContent}
       </View>
     </View>
@@ -176,23 +143,12 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    gap: 6,
+    justifyContent: 'center',
   },
   wrapCompact: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.xs,
     paddingBottom: spacing.xs,
-  },
-  navRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  navBtn: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    minWidth: 32,
-    alignItems: 'center',
   },
   strip: {
     flexDirection: 'row',

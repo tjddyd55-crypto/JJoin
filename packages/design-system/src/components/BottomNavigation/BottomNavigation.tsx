@@ -39,6 +39,7 @@ export function BottomNavigation({ items }: BottomNavigationProps) {
           <Pressable
             key={item.key}
             accessibilityRole="tab"
+            accessibilityLabel={item.label}
             accessibilityState={{ selected: active }}
             onPress={item.onPress}
             style={styles.item}

@@ -141,12 +141,6 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
       selected: filter.sort === 'DISTANCE',
       onPress: () => patchFilter({ sort: 'DISTANCE' }),
     },
-    {
-      id: 'MAP',
-      label: '지도에서 보기',
-      selected: false,
-      onPress: () => patchFilter({ view: 'MAP' }),
-    },
   ];
 
   return (
@@ -179,6 +173,17 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
             </Text>
           </Pressable>
         ))}
+        <View style={styles.filterSpacer} />
+        <Pressable
+          onPress={() => patchFilter({ view: 'MAP' })}
+          accessibilityRole="button"
+          accessibilityLabel="지도에서 보기"
+          hitSlop={8}
+        >
+          <Text variant="joinFilterChip" style={{ color: theme.colors.join.dday.text }}>
+            지도에서 보기
+          </Text>
+        </Pressable>
       </View>
 
       <ScrollView
@@ -234,9 +239,14 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
           <>
             <Spacer size="sm" />
             <View style={styles.section}>
-              <Text variant="joinSectionTitle" tone="primary">
-                {sectionTitle}
-              </Text>
+              <View style={styles.sectionHeaderRow}>
+                <Text variant="joinSectionTitle" tone="primary">
+                  {sectionTitle}
+                </Text>
+                <Text variant="joinMeta" tone="secondary">
+                  {data!.totalCount}개
+                </Text>
+              </View>
               <Stack gap="sm">
                 {data!.upcoming.map((join) => (
                   <DiscoverJoinCard
@@ -270,6 +280,17 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
+  },
+  filterSpacer: {
+    flex: 1,
+    minWidth: 8,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 8,
+    minHeight: 28,
   },
   list: {
     paddingHorizontal: spacing.md,

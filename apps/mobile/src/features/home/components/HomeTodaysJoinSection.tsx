@@ -29,7 +29,7 @@ export function HomeTodaysJoinSection({
       );
     }
     return todayFallback.slice(0, 3).map((item) =>
-      mapDiscoverToJoinCardProps(item, () => onPressJoin(item.joinId)),
+      mapDiscoverToJoinCardProps(item, () => onPressJoin(item.joinId), { variant: 'compact' }),
     );
   }, [recommended, todayFallback, onPressJoin]);
 

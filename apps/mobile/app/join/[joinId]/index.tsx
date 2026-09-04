@@ -37,6 +37,7 @@ import {
   formatCoinWithLabel,
 } from '@jjoin/domain';
 import { isInternalToolsEnabled } from '../../../src/lib/internal-tools';
+import { isJoinDetailDevPanelEnabled } from '../../../src/lib/join-detail-dev-tools';
 import { publicJoinShareUrl } from '../../../src/lib/landing-url';
 import { reopenJoinHref } from '../../../src/features/engagement/reopen-join';
 import {
@@ -752,7 +753,7 @@ export default function JoinDetailScreen() {
           </Section>
         ) : null}
 
-        {isInternalToolsEnabled() && isHost && detail.settlement && !detail.settlement.settlementOpen ? (
+        {isInternalToolsEnabled() && isJoinDetailDevPanelEnabled() && isHost && detail.settlement && !detail.settlement.settlementOpen ? (
           <Section title="DEV QA">
             <View style={styles.issueRow}>
               <Button

@@ -72,6 +72,7 @@ export function HomeScreen() {
         <View style={styles.section}>
           <SectionHeader
             title="오늘의 추천 조인"
+            titleVariant="joinSectionTitle"
             actionLabel="더보기"
             onActionPress={() => router.push('/(tabs)/joins')}
           />
