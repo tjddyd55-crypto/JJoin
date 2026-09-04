@@ -95,6 +95,7 @@ export {
   useFormScroll,
   StickyActionFrame,
   Section,
+  stickyActionScrollPadding,
   type ScreenFrameProps,
   type ScrollScreenFrameProps,
   type FormScreenFrameProps,

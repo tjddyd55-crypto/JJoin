@@ -54,8 +54,11 @@ export function JoinStatusBadge({ label, tone = 'neutral' }: JoinStatusBadgeProp
 
 const styles = StyleSheet.create({
   badge: {
+    minHeight: 32,
     paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   label: {
     fontSize: 13,

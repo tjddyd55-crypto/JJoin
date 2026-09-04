@@ -349,6 +349,29 @@ function finalRealData390() {
   screenshot('final-my-joins-real-data-390.png', 2500);
 }
 
+function stickySafeArea390() {
+  ensureAppForeground();
+  reloadApp();
+
+  waitForContent(hasHomeJoinCards, 'home recommendation cards', 90_000);
+  const openedFromHome = tapTextInDump('[QA-CAPTURE-ILSAN]');
+  if (!openedFromHome) {
+    deepLink(`join/${QA_CAPTURE_OPEN_JOIN_ID}`);
+    execSync('powershell -Command "Start-Sleep -Seconds 3"', { stdio: 'inherit' });
+  }
+
+  waitForContent(
+    (xml) =>
+      xml.includes('참가 신청') ||
+      xml.includes('참가 취소') ||
+      xml.includes('모집 완료') ||
+      (xml.includes('기본 정보') && xml.includes('모집 정보')),
+    'join detail with sticky cta',
+    90_000,
+  );
+  screenshot('join-detail-sticky-safe-area-390.png', 2500);
+}
+
 function device390Screens() {
   ensureAppForeground();
   exitHarnessToTabs();
@@ -384,6 +407,10 @@ async function main() {
 
   if (mode === 'final390') {
     finalRealData390();
+  }
+
+  if (mode === 'sticky390') {
+    stickySafeArea390();
   }
 
   if (mode === 'all' || mode === 'harness') {

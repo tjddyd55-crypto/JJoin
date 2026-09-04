@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppState, BackHandler, Share, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Text,
   Badge,
@@ -12,6 +12,7 @@ import {
   Section,
   StickyActionFrame,
   Stack,
+  stickyActionScrollPadding,
   useTheme,
   type BadgeVariant,
 } from '@jjoin/design-system';
@@ -177,6 +178,7 @@ export default function JoinDetailScreen() {
   const { me, requestGatedAction } = useSession();
   const router = useRouter();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [detail, setDetail] = useState<JoinDetailDto | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -536,12 +538,15 @@ export default function JoinDetailScreen() {
     canLeave: canLeaveMatching,
   });
   const showStickyCta = shouldShowJoinDetailStickyCta(primaryCta.presentation);
+  const scrollBottomPadding = showStickyCta
+    ? stickyActionScrollPadding(insets.bottom)
+    : theme.layoutSpacing.sectionGap;
 
   return (
     <View style={styles.root}>
       <ScrollScreenFrame
         style={styles.scroll}
-        contentPaddingBottom={showStickyCta ? 120 : 40}
+        contentPaddingBottom={scrollBottomPadding}
         padded={false}
       >
         <SafeAreaView edges={['top']} style={styles.scrollInner}>

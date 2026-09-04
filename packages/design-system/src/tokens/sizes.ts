@@ -2,7 +2,7 @@ export const sizes = {
   button: {
     sm: 40,
     md: 48,
-    lg: 52,
+    lg: 56,
   },
   input: {
     md: 48,

@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
-    gap: 7,
+    gap: 8,
     minWidth: 0,
   },
   badgeRow: {

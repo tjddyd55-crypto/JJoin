@@ -1,14 +1,18 @@
 import { View, StyleSheet, type ViewProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
-import { Divider } from '../primitives/Divider';
+import {
+  STICKY_ACTION_HORIZONTAL_PADDING,
+  STICKY_ACTION_TOP_PADDING,
+  stickyActionBottomPadding,
+} from './stickyActionInsets';
 
 export type StickyActionFrameProps = ViewProps & {
+  /** @deprecated border is always shown; kept for API compatibility */
   showDivider?: boolean;
 };
 
 export function StickyActionFrame({
-  showDivider = true,
   style,
   children,
   ...rest
@@ -22,21 +26,22 @@ export function StickyActionFrame({
         styles.root,
         {
           backgroundColor: theme.colors.surface.base,
-          paddingHorizontal: theme.layoutSpacing.screenHorizontal,
-          paddingTop: theme.spacing.sm,
-          paddingBottom: Math.max(insets.bottom, theme.spacing.sm),
+          borderTopColor: theme.colors.border.subtle,
+          paddingHorizontal: STICKY_ACTION_HORIZONTAL_PADDING,
+          paddingTop: STICKY_ACTION_TOP_PADDING,
+          paddingBottom: stickyActionBottomPadding(insets.bottom),
         },
         style,
       ]}
       {...rest}
     >
-      {showDivider ? <Divider /> : null}
-      <View style={styles.content}>{children}</View>
+      {children}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { gap: 12 },
-  content: { gap: 12 },
+  root: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
 });

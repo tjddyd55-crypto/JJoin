@@ -51,13 +51,13 @@ export const typography = {
     fontWeight: '700' as const,
     letterSpacing: 0,
   },
-  /** Figma JOIN — card title (18/24 Semibold) */
+  /** JOIN card/detail title — IBM Plex Bold for Inter Semi Bold visual weight */
   joinCardTitle: {
-    fontFamily: fontFamily.sansSemiBold,
+    fontFamily: fontFamily.sansBold,
     fontSize: 18,
     lineHeight: 24,
-    fontWeight: '600' as const,
-    letterSpacing: 0,
+    fontWeight: '700' as const,
+    letterSpacing: -0.15,
   },
   /** Figma JOIN — meta rows (14/20) */
   joinMeta: {

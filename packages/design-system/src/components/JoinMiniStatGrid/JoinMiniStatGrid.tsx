@@ -67,14 +67,14 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 12,
   },
   tile: {
     flexGrow: 1,
     minWidth: 0,
-    height: 68,
+    minHeight: 72,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
     justifyContent: 'center',
     gap: 4,
   },

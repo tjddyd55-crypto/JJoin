@@ -27,7 +27,7 @@ test('layout spacing matches Figma handoff', () => {
 });
 
 test('primary CTA height token', () => {
-  assert.equal(sizes.button.lg, 52);
+  assert.equal(sizes.button.lg, 56);
 });
 
 test('icon registry includes bottom nav and phase 1B icons', () => {
