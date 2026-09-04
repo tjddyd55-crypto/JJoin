@@ -24,7 +24,7 @@ if (__DEV__) {
   console.log('[BOOT 01] module _layout loaded');
 }
 
-export { ErrorBoundary } from './RootErrorBoundary';
+export { ErrorBoundary } from '../src/ui/RootErrorBoundary';
 
 export const unstable_settings = {
   initialRouteName: '(tabs)',
@@ -163,7 +163,15 @@ export default function RootLayout() {
   }, [fontsLoaded]);
 
   if (!fontsLoaded) {
-    return null;
+    return (
+      <GestureHandlerRootView
+        style={[styles.root, { backgroundColor: clubMinimalTheme.colors.app.background }]}
+      >
+        <ThemeProvider theme={clubMinimalTheme}>
+          <SplashBootstrapScreen />
+        </ThemeProvider>
+      </GestureHandlerRootView>
+    );
   }
 
   if (__DEV__) {
