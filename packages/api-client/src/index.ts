@@ -135,6 +135,11 @@ import {
   type PaymentListResponse,
   type PaymentDetailDto,
   type PremiumStatusDto,
+  type PremiumPlanSettingsDto,
+  type InitPremiumSubscriptionRequest,
+  type InitPremiumSubscriptionResponse,
+  type ConfirmPremiumBillingRequest,
+  type ConfirmPremiumBillingResponse,
 } from '@jjoin/types';
 
 export type ApiClientConfig = {
@@ -1888,6 +1893,43 @@ export class ApiClient {
 
   async getPremiumStatus(): Promise<PremiumStatusDto> {
     const res = await request(`${this.config.baseUrl}/me/premium`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getPremiumPlans(): Promise<PremiumPlanSettingsDto> {
+    const res = await request(`${this.config.baseUrl}/premium/plans`, {
+      headers: await this.headers(false),
+    });
+    return parseJson(res);
+  }
+
+  async initPremiumSubscription(
+    body: InitPremiumSubscriptionRequest,
+  ): Promise<InitPremiumSubscriptionResponse> {
+    const res = await request(`${this.config.baseUrl}/premium/subscribe/init`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async confirmPremiumBilling(
+    body: ConfirmPremiumBillingRequest,
+  ): Promise<ConfirmPremiumBillingResponse> {
+    const res = await request(`${this.config.baseUrl}/premium/subscribe/confirm`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async cancelPremiumSubscription(): Promise<PremiumStatusDto> {
+    const res = await request(`${this.config.baseUrl}/premium/cancel`, {
+      method: 'POST',
       headers: await this.headers(true),
     });
     return parseJson(res);

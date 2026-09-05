@@ -40,8 +40,11 @@ export async function confirmPaymentFromCallback(
         premiumStatus: confirmed.premiumStatus
           ? {
               active: true,
+              plan: null,
               startedAt: confirmed.premiumStatus.startedAt,
               expiresAt: confirmed.premiumStatus.expiresAt,
+              nextBillingAt: null,
+              cancelAtPeriodEnd: false,
               remainingDays: null,
             }
           : undefined,

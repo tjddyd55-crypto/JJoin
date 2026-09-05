@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Badge,
@@ -10,7 +10,11 @@ import {
   Text,
 } from '@jjoin/design-system';
 import { formatNumber } from '@jjoin/domain';
-import { PaymentProductType, type PaymentProductDto, type PremiumStatusDto } from '@jjoin/types';
+import {
+  PremiumPlanCode,
+  type PremiumPlanSettingsDto,
+  type PremiumStatusDto,
+} from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
 import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
@@ -23,22 +27,30 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('ko-KR');
 }
 
+function planLabel(plan: PremiumPlanCode | null) {
+  if (plan === PremiumPlanCode.PREMIUM_YEARLY) return '연간 Premium';
+  if (plan === PremiumPlanCode.PREMIUM_MONTHLY) return '월간 Premium';
+  return 'Premium';
+}
+
 export function PremiumScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ paymentSuccess?: string; paymentError?: string }>();
   const { me, refreshMe } = useSession();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
-  const [product, setProduct] = useState<PaymentProductDto | null>(null);
+  const [plans, setPlans] = useState<PremiumPlanSettingsDto | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<PremiumPlanCode>(PremiumPlanCode.PREMIUM_MONTHLY);
   const [premium, setPremium] = useState<PremiumStatusDto | null>(me?.premiumStatus ?? null);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [successPremium, setSuccessPremium] = useState<PremiumStatusDto | null>(null);
 
   const load = useCallback(async () => {
-    const [items, status] = await Promise.all([
-      api.listPaymentProducts(PaymentProductType.PREMIUM_PASS),
+    const [planSettings, status] = await Promise.all([
+      api.getPremiumPlans(),
       api.getPremiumStatus(),
     ]);
-    setProduct(items[0] ?? null);
+    setPlans(planSettings);
     setPremium(status);
   }, [api]);
 
@@ -61,13 +73,40 @@ export function PremiumScreen() {
     }
   }, [api, params.paymentError, params.paymentSuccess, refreshMe]);
 
-  const onPurchase = () => {
-    if (!product) return;
+  const onSubscribe = async () => {
+    if (!plans) return;
+    setBusy(true);
     setError(null);
-    router.push({
-      pathname: '/my/payment-checkout',
-      params: { productId: product.id, returnTo: 'premium' },
-    });
+    try {
+      const init = await api.initPremiumSubscription({ plan: selectedPlan });
+      router.push({
+        pathname: '/my/payment-checkout',
+        params: {
+          billingAuthUrl: init.billingAuthUrl,
+          customerKey: init.customerKey,
+          plan: selectedPlan,
+          returnTo: 'premium-billing',
+        },
+      });
+    } catch {
+      setError('Premium 가입을 시작하지 못했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onCancelSubscription = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const status = await api.cancelPremiumSubscription();
+      setPremium(status);
+      await refreshMe();
+    } catch {
+      setError('구독 해지 예약에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (successPremium) {
@@ -75,16 +114,14 @@ export function PremiumScreen() {
       <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
         <Badge label="PREMIUM" variant="gold" />
         <Spacer size="sm" />
-        <Text variant="sectionTitle">프리미엄 가입이 완료되었습니다.</Text>
+        <Text variant="sectionTitle">Premium 가입이 완료되었습니다.</Text>
         <Spacer size="sm" />
         <Text variant="body" tone="secondary">
-          Premium 회원 혜택이 지금부터 적용됩니다.
+          {planLabel(successPremium.plan)} 혜택이 적용됩니다.
         </Text>
         <Spacer size="md" />
         <Card variant="elevated" padding="md">
-          <Text variant="meta" tone="secondary">
-            이용기간
-          </Text>
+          <Text variant="meta" tone="secondary">이용기간</Text>
           <Text variant="bodyStrong">
             {successPremium.startedAt ? formatDate(successPremium.startedAt) : '-'} ~{' '}
             {successPremium.expiresAt ? formatDate(successPremium.expiresAt) : '-'}
@@ -97,15 +134,17 @@ export function PremiumScreen() {
   }
 
   const active = premium?.active ?? false;
+  const monthlyPrice = plans?.monthlyPriceKrw ?? 0;
+  const yearlyPrice = plans?.yearlyPriceKrw ?? 0;
 
   return (
     <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       {active ? <Badge label="PREMIUM" variant="gold" /> : null}
       <Spacer size="sm" />
-      <Text variant="screenTitle">프리미엄 회원</Text>
+      <Text variant="screenTitle">Premium</Text>
       <Spacer size="xs" />
       <Text variant="body" tone="secondary">
-        조인을 더 자유롭게 만들어보세요.
+        {active ? 'Premium 이용 중' : '더 많은 혜택을 이용해보세요.'}
       </Text>
 
       <Spacer size="lg" />
@@ -113,73 +152,95 @@ export function PremiumScreen() {
         <Text variant="sectionTitle">Premium 혜택</Text>
         <Spacer size="sm" />
         <Text variant="body">✓ 조인방 생성 제한 해제</Text>
-        <Text variant="body">✓ 프리미엄 이용기간 동안 반복 생성 가능</Text>
-        <Text variant="body">✓ 향후 프리미엄 전용 혜택 제공</Text>
+        <Text variant="body">✓ 조인방 생성 비용 혜택 (정책에 따라 적용)</Text>
+        <Text variant="body">✓ Premium 배지</Text>
       </Card>
 
-      {active && premium?.expiresAt ? (
+      {active && premium ? (
         <>
           <Spacer size="md" />
           <Card variant="elevated" padding="md">
-            <Text variant="meta" tone="secondary">
-              현재 프리미엄 회원입니다.
-            </Text>
-            <Text variant="bodyStrong">{formatDate(premium.expiresAt)}까지</Text>
-            {premium.startedAt ? (
+            <Text variant="meta" tone="secondary">현재 플랜</Text>
+            <Text variant="bodyStrong">{planLabel(premium.plan)}</Text>
+            {premium.expiresAt ? (
               <Text variant="meta" tone="secondary">
-                이용기간 {formatDate(premium.startedAt)} ~ {formatDate(premium.expiresAt)}
+                {premium.cancelAtPeriodEnd ? '이용 종료일' : '다음 결제일'}{' '}
+                {formatDate(premium.nextBillingAt ?? premium.expiresAt)}
               </Text>
             ) : null}
+            {premium.cancelAtPeriodEnd ? (
+              <Text variant="meta" tone="secondary">해지 예약됨 · 기간 종료 시 만료</Text>
+            ) : null}
           </Card>
+          {!premium.cancelAtPeriodEnd ? (
+            <>
+              <Spacer size="md" />
+              <Button label="구독 해지 예약" variant="secondary" disabled={busy} onPress={() => void onCancelSubscription()} />
+            </>
+          ) : null}
         </>
-      ) : null}
-
-      {product ? (
+      ) : (
         <>
           <Spacer size="lg" />
-          <View style={styles.priceCard}>
-            <Text variant="sectionTitle">{product.name}</Text>
-            <Text variant="headline">{formatKrw(product.price)}</Text>
-          </View>
-          <Spacer size="md" />
-          <Card variant="base" padding="md">
-            <Text variant="bodyStrong">{product.name}</Text>
-            <Spacer size="xs" />
-            <Text variant="meta" tone="secondary">
-              결제 금액 {formatKrw(product.price)}
-            </Text>
-            <Text variant="meta" tone="secondary">
-              결제 완료 즉시 Premium 회원 혜택이 적용됩니다.
-            </Text>
-          </Card>
+          <Text variant="sectionTitle">플랜 선택</Text>
+          <Spacer size="sm" />
+          {plans?.monthlyEnabled ? (
+            <Pressable onPress={() => setSelectedPlan(PremiumPlanCode.PREMIUM_MONTHLY)}>
+              <Card
+                variant={selectedPlan === PremiumPlanCode.PREMIUM_MONTHLY ? 'elevated' : 'base'}
+                padding="md"
+                style={styles.planCard}
+              >
+                <View style={styles.planRow}>
+                  <Text variant="bodyStrong">월간 Premium</Text>
+                  <Text variant="body">{formatKrw(monthlyPrice)}</Text>
+                </View>
+              </Card>
+            </Pressable>
+          ) : null}
+          {plans?.yearlyEnabled ? (
+            <Pressable onPress={() => setSelectedPlan(PremiumPlanCode.PREMIUM_YEARLY)}>
+              <Card
+                variant={selectedPlan === PremiumPlanCode.PREMIUM_YEARLY ? 'elevated' : 'base'}
+                padding="md"
+                style={styles.planCard}
+              >
+                <View style={styles.planRow}>
+                  <Text variant="bodyStrong">연간 Premium</Text>
+                  <Text variant="body">{formatKrw(yearlyPrice)}</Text>
+                </View>
+                {plans.yearlySavingsPercent != null && plans.yearlySavingsPercent > 0 ? (
+                  <Text variant="meta" tone="secondary">
+                    월간 대비 {plans.yearlySavingsPercent}% 절약
+                  </Text>
+                ) : null}
+              </Card>
+            </Pressable>
+          ) : null}
+          <Spacer size="lg" />
+          <Button
+            label={
+              selectedPlan === PremiumPlanCode.PREMIUM_YEARLY
+                ? `${formatKrw(yearlyPrice)} 연간 Premium 시작`
+                : `${formatKrw(monthlyPrice)} 월간 Premium 시작`
+            }
+            disabled={!plans || busy}
+            onPress={() => void onSubscribe()}
+          />
         </>
-      ) : null}
+      )}
 
       {error ? (
         <>
           <Spacer size="sm" />
-          <Text variant="body" tone="error">
-            {error}
-          </Text>
+          <Text variant="body" tone="error">{error}</Text>
         </>
       ) : null}
-
-      <Spacer size="lg" />
-      <Button
-        label={
-          product
-            ? active
-              ? `${formatKrw(product.price)} 연장하기`
-              : `${formatKrw(product.price)} 프리미엄 시작하기`
-            : '상품 준비 중'
-        }
-        disabled={!product}
-        onPress={onPurchase}
-      />
     </ScrollScreenFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  priceCard: { gap: 4 },
+  planCard: { marginBottom: 8 },
+  planRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 });

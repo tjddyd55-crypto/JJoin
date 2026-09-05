@@ -26,10 +26,13 @@ import {
   type AdminPaymentListResponse,
   type AdminPaymentDetailDto,
   type PaymentProductDto,
-  type JoinCreationCoinPolicyDto,
-  type UpdateJoinCreationCoinPolicyRequest,
+  type JoinCreationPricingPolicyDto,
+  type JoinCreationPricingPreviewDto,
+  type UpdateJoinCreationPricingPolicyRequest,
+  type PremiumPlanSettingsDto,
+  type UpdatePremiumPlanSettingsRequest,
 } from '@jjoin/types';
-import { formatKoreanPhoneDisplay, formatNumber } from '@jjoin/domain';
+import { COIN_KRW_RATE, coinToKrw, formatKoreanPhoneDisplay, formatNumber } from '@jjoin/domain';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:3000';
 const TOKEN_KEY = 'jjoin_admin_token';
@@ -190,6 +193,9 @@ function Shell({ children }: { children: React.ReactNode }) {
         </Link>
         <Link to="/payments" className={paymentsActive ? 'nav-active' : undefined}>
           결제 내역
+        </Link>
+        <Link to="/premium-plans" className={loc.pathname.startsWith('/premium-plans') ? 'nav-active' : undefined}>
+          Premium 플랜
         </Link>
         <Link to="/join-coin-policy" className={joinCoinPolicyActive ? 'nav-active' : undefined}>
           조인 생성 코인
@@ -1465,71 +1471,38 @@ function parseCommaInt(raw: string): number | null {
 }
 
 function JoinCoinPolicyPage() {
-  type RoleKey = 'general' | 'premium' | 'storeOwner';
-  type RoleDraft = { enabled: boolean; costText: string };
+  type OverrideKey = 'ownerOverride' | 'premiumOverride';
+  type Draft = JoinCreationPricingPolicyDto;
 
-  const [draft, setDraft] = useState<Record<RoleKey, RoleDraft> | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [preview, setPreview] = useState<JoinCreationPricingPreviewDto | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    void api<JoinCreationCoinPolicyDto>('/admin/join-coin-policy').then((policy) => {
-      setDraft({
-        general: { enabled: policy.general.enabled, costText: formatNumber(policy.general.cost) },
-        premium: { enabled: policy.premium.enabled, costText: formatNumber(policy.premium.cost) },
-        storeOwner: {
-          enabled: policy.storeOwner.enabled,
-          costText: formatNumber(policy.storeOwner.cost),
-        },
-      });
+    void Promise.all([
+      api<JoinCreationPricingPolicyDto>('/admin/join-coin-policy'),
+      api<JoinCreationPricingPreviewDto>('/admin/join-coin-policy/preview'),
+    ]).then(([policy, previewData]) => {
+      setDraft(policy);
+      setPreview(previewData);
     });
   }, []);
 
-  function updateRole(key: RoleKey, patch: Partial<RoleDraft>) {
-    setDraft((prev) => (prev ? { ...prev, [key]: { ...prev[key], ...patch } } : prev));
-  }
-
-  function onCostChange(key: RoleKey, raw: string) {
-    const digits = raw.replace(/[^\d]/g, '');
-    if (digits === '') {
-      updateRole(key, { costText: '' });
-      return;
-    }
-    const n = Number(digits);
-    if (!Number.isFinite(n)) return;
-    updateRole(key, { costText: formatNumber(n) });
-  }
-
   async function save() {
     if (!draft) return;
-    const generalCost = parseCommaInt(draft.general.costText);
-    const premiumCost = parseCommaInt(draft.premium.costText);
-    const storeOwnerCost = parseCommaInt(draft.storeOwner.costText);
-    if (generalCost == null || premiumCost == null || storeOwnerCost == null) {
-      setMessage('금액은 0 이상의 정수여야 합니다.');
-      return;
-    }
     setBusy(true);
     setMessage(null);
     try {
-      const body: UpdateJoinCreationCoinPolicyRequest = {
-        general: { enabled: draft.general.enabled, cost: generalCost },
-        premium: { enabled: draft.premium.enabled, cost: premiumCost },
-        storeOwner: { enabled: draft.storeOwner.enabled, cost: storeOwnerCost },
-      };
-      const updated = await api<JoinCreationCoinPolicyDto>('/admin/join-coin-policy', {
+      const body: UpdateJoinCreationPricingPolicyRequest = draft;
+      const updated = await api<JoinCreationPricingPolicyDto>('/admin/join-coin-policy', {
         method: 'PUT',
         body: JSON.stringify(body),
       });
-      setDraft({
-        general: { enabled: updated.general.enabled, costText: formatNumber(updated.general.cost) },
-        premium: { enabled: updated.premium.enabled, costText: formatNumber(updated.premium.cost) },
-        storeOwner: {
-          enabled: updated.storeOwner.enabled,
-          costText: formatNumber(updated.storeOwner.cost),
-        },
-      });
-      setMessage('저장되었습니다. 변경된 금액은 새로 생성되는 조인부터 적용됩니다.');
+      const previewData = await api<JoinCreationPricingPreviewDto>('/admin/join-coin-policy/preview');
+      setDraft(updated);
+      setPreview(previewData);
+      setMessage('저장되었습니다. 새로 생성되는 조인부터 적용됩니다.');
     } catch (e) {
       setMessage(e instanceof Error ? e.message : '저장 실패');
     } finally {
@@ -1537,69 +1510,217 @@ function JoinCoinPolicyPage() {
     }
   }
 
-  const rows: Array<{ key: RoleKey; label: string }> = [
-    { key: 'general', label: '일반 사용자' },
-    { key: 'premium', label: '프리미엄 사용자' },
-    { key: 'storeOwner', label: '업주' },
-  ];
+  function overrideSelect(
+    key: OverrideKey,
+    value: Draft['ownerOverride'],
+    fixedKey: 'ownerFixedFeeCoinAmount' | 'premiumFixedFeeCoinAmount',
+  ) {
+    setDraft((prev) =>
+      prev
+        ? {
+            ...prev,
+            [key]: value,
+            ...(value !== 'FIXED_FEE' ? { [fixedKey]: 0 } : {}),
+          }
+        : prev,
+    );
+  }
+
+  if (!draft) return <p>불러오는 중…</p>;
 
   return (
     <div>
-      <h1>조인 생성 코인 설정</h1>
-      <p style={{ color: '#555', maxWidth: 640 }}>
-        사용자 유형별 조인 생성비(Coin)를 설정합니다. 참가 보상(HOLD)과는 별도입니다. OFF면 생성비는
-        0이며, 입력해 둔 금액은 다시 ON할 때 복원됩니다.
+      <h1>조인방 생성 정책</h1>
+      <p style={{ color: '#555', maxWidth: 720 }}>
+        기본 플랫폼 정책 + 업주/Premium 혜택입니다. 참가 보상 HOLD와 별도입니다.
+        (1 Coin = {COIN_KRW_RATE}원)
       </p>
-      <p style={{ color: '#888', fontSize: 13 }}>
-        변경된 금액은 새로 생성되는 조인부터 적용됩니다. 기존 조인 snapshot은 유지됩니다.
-      </p>
-      {!draft ? (
-        <p>불러오는 중…</p>
-      ) : (
-        <section className="card" style={{ padding: 16, marginBottom: 12, maxWidth: 560 }}>
-          {rows.map(({ key, label }) => {
-            const row = draft[key];
-            return (
-              <div
-                key={key}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  marginBottom: 12,
-                  flexWrap: 'wrap',
-                }}
-              >
-                <strong style={{ minWidth: 120 }}>{label}</strong>
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <input
-                    type="checkbox"
-                    checked={row.enabled}
-                    onChange={(e) => updateRole(key, { enabled: e.target.checked })}
-                  />
-                  {row.enabled ? 'ON' : 'OFF'}
-                </label>
-                <input
-                  inputMode="numeric"
-                  disabled={!row.enabled}
-                  value={row.costText}
-                  onChange={(e) => onCostChange(key, e.target.value)}
-                  style={{
-                    width: 140,
-                    opacity: row.enabled ? 1 : 0.5,
-                    background: row.enabled ? undefined : '#f3f3f3',
-                  }}
-                />
-                <span>Coin</span>
-              </div>
-            );
-          })}
-          <button disabled={busy} onClick={() => void save()}>
-            저장
-          </button>
-          {message ? <p style={{ marginTop: 12 }}>{message}</p> : null}
+      <section className="card" style={{ padding: 16, marginBottom: 12, maxWidth: 640 }}>
+        <h3>기본 회원</h3>
+        <label>
+          <input
+            type="radio"
+            checked={draft.baseMode === 'FREE'}
+            onChange={() => setDraft({ ...draft, baseMode: 'FREE', baseFeeCoinAmount: 0 })}
+          />
+          무료
+        </label>
+        <label style={{ marginLeft: 12 }}>
+          <input
+            type="radio"
+            checked={draft.baseMode === 'PAID'}
+            onChange={() => setDraft({ ...draft, baseMode: 'PAID', baseFeeCoinAmount: 30 })}
+          />
+          유료
+        </label>
+        {draft.baseMode === 'PAID' ? (
+          <div style={{ marginTop: 8 }}>
+            생성 비용
+            <input
+              inputMode="numeric"
+              value={draft.baseFeeCoinAmount}
+              onChange={(e) =>
+                setDraft({ ...draft, baseFeeCoinAmount: Number(e.target.value.replace(/\D/g, '') || 0) })
+              }
+              style={{ width: 100, marginLeft: 8 }}
+            />
+            Coin · 약 {coinToKrw(draft.baseFeeCoinAmount).toLocaleString('ko-KR')}원
+          </div>
+        ) : null}
+
+        <h3 style={{ marginTop: 20 }}>업주 혜택</h3>
+        {(['INHERIT', 'FREE', 'FIXED_FEE'] as const).map((mode) => (
+          <label key={mode} style={{ marginRight: 12 }}>
+            <input
+              type="radio"
+              checked={draft.ownerOverride === mode}
+              onChange={() => overrideSelect('ownerOverride', mode, 'ownerFixedFeeCoinAmount')}
+            />
+            {mode === 'INHERIT' ? '기본 정책' : mode === 'FREE' ? '무료' : '별도 금액'}
+          </label>
+        ))}
+        {draft.ownerOverride === 'FIXED_FEE' ? (
+          <input
+            inputMode="numeric"
+            value={draft.ownerFixedFeeCoinAmount}
+            onChange={(e) =>
+              setDraft({
+                ...draft,
+                ownerFixedFeeCoinAmount: Number(e.target.value.replace(/\D/g, '') || 0),
+              })
+            }
+            style={{ width: 100, marginLeft: 8 }}
+          />
+        ) : null}
+
+        <h3 style={{ marginTop: 20 }}>Premium 혜택</h3>
+        {(['INHERIT', 'FREE', 'FIXED_FEE'] as const).map((mode) => (
+          <label key={mode} style={{ marginRight: 12 }}>
+            <input
+              type="radio"
+              checked={draft.premiumOverride === mode}
+              onChange={() => overrideSelect('premiumOverride', mode, 'premiumFixedFeeCoinAmount')}
+            />
+            {mode === 'INHERIT' ? '기본 정책' : mode === 'FREE' ? '무료' : '별도 금액'}
+          </label>
+        ))}
+        {draft.premiumOverride === 'FIXED_FEE' ? (
+          <input
+            inputMode="numeric"
+            value={draft.premiumFixedFeeCoinAmount}
+            onChange={(e) =>
+              setDraft({
+                ...draft,
+                premiumFixedFeeCoinAmount: Number(e.target.value.replace(/\D/g, '') || 0),
+              })
+            }
+            style={{ width: 100, marginLeft: 8 }}
+          />
+        ) : null}
+
+        <div style={{ marginTop: 16 }}>
+          <button disabled={busy} onClick={() => void save()}>저장</button>
+        </div>
+        {message ? <p style={{ marginTop: 12 }}>{message}</p> : null}
+      </section>
+
+      {preview ? (
+        <section className="card" style={{ padding: 16, maxWidth: 640 }}>
+          <h3>현재 적용 예상</h3>
+          <p>기본 회원: {preview.general.feeCoinAmount} Coin / {preview.general.feeKrw.toLocaleString('ko-KR')}원</p>
+          <p>업주: {preview.owner.label}</p>
+          <p>Premium: {preview.premium.label}</p>
+          <p>Owner + Premium: {preview.ownerAndPremium.label}</p>
         </section>
-      )}
+      ) : null}
+    </div>
+  );
+}
+
+function PremiumPlansPage() {
+  const [draft, setDraft] = useState<PremiumPlanSettingsDto | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    void api<PremiumPlanSettingsDto>('/admin/premium-plans').then(setDraft);
+  }, []);
+
+  async function save() {
+    if (!draft) return;
+    setBusy(true);
+    try {
+      const body: UpdatePremiumPlanSettingsRequest = {
+        monthlyEnabled: draft.monthlyEnabled,
+        monthlyPriceKrw: draft.monthlyPriceKrw,
+        yearlyEnabled: draft.yearlyEnabled,
+        yearlyPriceKrw: draft.yearlyPriceKrw,
+      };
+      const updated = await api<PremiumPlanSettingsDto>('/admin/premium-plans', {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      });
+      setDraft(updated);
+      setMessage('저장되었습니다.');
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : '저장 실패');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!draft) return <p>불러오는 중…</p>;
+
+  return (
+    <div>
+      <h1>Premium 플랜 가격</h1>
+      <section className="card" style={{ padding: 16, maxWidth: 520 }}>
+        <label>
+          <input
+            type="checkbox"
+            checked={draft.monthlyEnabled}
+            onChange={(e) => setDraft({ ...draft, monthlyEnabled: e.target.checked })}
+          />
+          월간 Premium
+        </label>
+        <input
+          inputMode="numeric"
+          value={draft.monthlyPriceKrw}
+          onChange={(e) =>
+            setDraft({ ...draft, monthlyPriceKrw: Number(e.target.value.replace(/\D/g, '') || 0) })
+          }
+          style={{ width: 120, marginLeft: 8 }}
+        />
+        원
+        <div style={{ marginTop: 12 }}>
+          <label>
+            <input
+              type="checkbox"
+              checked={draft.yearlyEnabled}
+              onChange={(e) => setDraft({ ...draft, yearlyEnabled: e.target.checked })}
+            />
+            연간 Premium
+          </label>
+          <input
+            inputMode="numeric"
+            value={draft.yearlyPriceKrw}
+            onChange={(e) =>
+              setDraft({ ...draft, yearlyPriceKrw: Number(e.target.value.replace(/\D/g, '') || 0) })
+            }
+            style={{ width: 120, marginLeft: 8 }}
+          />
+          원
+          {draft.yearlySavingsPercent != null && draft.yearlySavingsPercent > 0 ? (
+            <span style={{ marginLeft: 8, color: '#666' }}>
+              (월간×12 대비 {draft.yearlySavingsPercent}% 절약)
+            </span>
+          ) : null}
+        </div>
+        <div style={{ marginTop: 16 }}>
+          <button disabled={busy} onClick={() => void save()}>저장</button>
+        </div>
+        {message ? <p style={{ marginTop: 12 }}>{message}</p> : null}
+      </section>
     </div>
   );
 }
@@ -1622,6 +1743,7 @@ export function App() {
         <Route path="/payment-settings" element={<PaymentSettingsPage />} />
         <Route path="/payments" element={<PaymentsAdminListPage />} />
         <Route path="/join-coin-policy" element={<JoinCoinPolicyPage />} />
+        <Route path="/premium-plans" element={<PremiumPlansPage />} />
       </Routes>
     </Shell>
   );

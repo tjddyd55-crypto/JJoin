@@ -1,3 +1,25 @@
+export type ParsedBillingAuthCallback = {
+  authKey: string;
+  customerKey: string;
+  failed: boolean;
+};
+
+export function parseBillingAuthCallbackUrl(url: string): ParsedBillingAuthCallback | null {
+  try {
+    const parsed = new URL(url);
+    const failed =
+      parsed.pathname.includes('fail') ||
+      parsed.searchParams.get('outcome') === 'fail' ||
+      parsed.searchParams.get('code');
+    const authKey = parsed.searchParams.get('authKey');
+    const customerKey = parsed.searchParams.get('customerKey');
+    if (!authKey || !customerKey) return null;
+    return { authKey, customerKey, failed: Boolean(failed) };
+  } catch {
+    return null;
+  }
+}
+
 export type ParsedPaymentCallback = {
   paymentKey: string;
   orderId: string;

@@ -7,7 +7,8 @@ import { Button, Spacer, Text, useTheme } from '@jjoin/design-system';
 import type { CreatePaymentOrderResponse } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
-import { parsePaymentCallbackUrl } from '../payment-checkout-callback';
+import { PremiumPlanCode } from '@jjoin/types';
+import { parseBillingAuthCallbackUrl, parsePaymentCallbackUrl } from '../payment-checkout-callback';
 import {
   classifyCheckoutNavigation,
   resolveExternalOpenUrl,
@@ -18,7 +19,10 @@ import { setCoinChargePaymentHandoff } from '../payment-return-handoff';
 
 type CheckoutPhase = 'creating_order' | 'loading_webview' | 'confirming' | 'load_error';
 
-type PaymentReturnRoute = 'coin-charge' | 'premium';
+type PaymentReturnRoute = 'coin-charge' | 'premium' | 'premium-billing';
+
+const BILLING_SUCCESS_PREFIX = 'jjoindev://payment/success';
+const BILLING_FAIL_PREFIX = 'jjoindev://payment/fail';
 
 function isWebViewReturnUrl(url: string): boolean {
   return url.includes('/payments/toss/webview-return');
@@ -46,14 +50,30 @@ export function PaymentCheckoutScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { refreshMe } = useSession();
-  const params = useLocalSearchParams<{ productId?: string; returnTo?: string }>();
+  const params = useLocalSearchParams<{
+    productId?: string;
+    returnTo?: string;
+    billingAuthUrl?: string;
+    customerKey?: string;
+    plan?: string;
+  }>();
   const productId = params.productId ?? '';
-  const returnTo = (params.returnTo === 'premium' ? 'premium' : 'coin-charge') as PaymentReturnRoute;
+  const returnTo = (
+    params.returnTo === 'premium'
+      ? 'premium'
+      : params.returnTo === 'premium-billing'
+        ? 'premium-billing'
+        : 'coin-charge'
+  ) as PaymentReturnRoute;
+  const billingAuthUrl = params.billingAuthUrl ?? '';
+  const billingCustomerKey = params.customerKey ?? '';
+  const billingPlan = (params.plan as PremiumPlanCode) ?? PremiumPlanCode.PREMIUM_MONTHLY;
 
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
 
   const [phase, setPhase] = useState<CheckoutPhase>('creating_order');
   const [order, setOrder] = useState<CreatePaymentOrderResponse | null>(null);
+  const [billingUrl, setBillingUrl] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const handledCallbackRef = useRef(false);
@@ -69,18 +89,16 @@ export function PaymentCheckoutScreen() {
     router.back();
   }, [api, router]);
 
-  const finishSuccess = useCallback(
-    async (result: Awaited<ReturnType<typeof confirmPaymentFromCallback>>) => {
-      if (!result.ok) return;
+  const finishCheckoutSuccess = useCallback(
+    async (coinCredited?: string) => {
       await refreshMe();
 
       if (returnTo === 'coin-charge') {
         const wallet = await api.getWallet();
         setCoinChargePaymentHandoff({
-          credited: result.data.coinCredited ?? '0',
+          credited: coinCredited ?? '0',
           balance: wallet.availableCoin,
         });
-        // back() keeps a single coin-charge instance so balance state can refresh on focus.
         router.back();
         return;
       }
@@ -93,8 +111,50 @@ export function PaymentCheckoutScreen() {
     [api, refreshMe, returnTo, router],
   );
 
+  const handleBillingCallbackUrl = useCallback(
+    async (url: string) => {
+      if (handledCallbackRef.current) return false;
+      if (!url.startsWith(BILLING_SUCCESS_PREFIX) && !url.startsWith(BILLING_FAIL_PREFIX)) {
+        return false;
+      }
+      handledCallbackRef.current = true;
+      setPhase('confirming');
+
+      if (url.startsWith(BILLING_FAIL_PREFIX)) {
+        router.replace({ pathname: '/my/premium', params: { paymentError: 'cancelled' } });
+        return true;
+      }
+
+      const callback = parseBillingAuthCallbackUrl(url);
+      if (!callback || callback.failed) {
+        setLoadError('카드 등록 정보를 확인하지 못했습니다.');
+        setPhase('load_error');
+        handledCallbackRef.current = false;
+        return true;
+      }
+
+      try {
+        await api.confirmPremiumBilling({
+          authKey: callback.authKey,
+          customerKey: billingCustomerKey || callback.customerKey,
+          plan: billingPlan,
+        });
+        await finishCheckoutSuccess();
+      } catch {
+        setLoadError('Premium 가입을 완료하지 못했습니다.');
+        setPhase('load_error');
+        handledCallbackRef.current = false;
+      }
+      return true;
+    },
+    [api, billingCustomerKey, billingPlan, finishCheckoutSuccess, router],
+  );
+
   const handleCallbackUrl = useCallback(
     async (url: string) => {
+      if (returnTo === 'premium-billing') {
+        return handleBillingCallbackUrl(url);
+      }
       const currentOrder = orderRef.current;
       if (!currentOrder || handledCallbackRef.current) return false;
 
@@ -137,10 +197,10 @@ export function PaymentCheckoutScreen() {
         return true;
       }
 
-      await finishSuccess(confirmed);
+      await finishCheckoutSuccess(confirmed.data.coinCredited);
       return true;
     },
-    [api, finishSuccess, returnTo, router],
+    [api, finishCheckoutSuccess, handleBillingCallbackUrl, returnTo, router],
   );
 
   const handleExternalNavigation = useCallback((url: string): boolean => {
@@ -168,6 +228,12 @@ export function PaymentCheckoutScreen() {
   const onShouldStartLoadWithRequest = useCallback(
     (request: ShouldStartLoadRequest) => {
       const url = request.url;
+      if (returnTo === 'premium-billing') {
+        if (url.startsWith(BILLING_SUCCESS_PREFIX) || url.startsWith(BILLING_FAIL_PREFIX)) {
+          void handleBillingCallbackUrl(url);
+          return false;
+        }
+      }
       const currentOrder = orderRef.current;
       if (currentOrder) {
         if (isWebViewReturnUrl(url) || isAppSchemeCallback(url, currentOrder)) {
@@ -211,6 +277,21 @@ export function PaymentCheckoutScreen() {
   );
 
   useEffect(() => {
+    if (returnTo === 'premium-billing') {
+      if (!billingAuthUrl) {
+        setLoadError('카드 등록 정보가 없습니다.');
+        setPhase('load_error');
+        return;
+      }
+      setBillingUrl(
+        billingAuthUrl.includes('?')
+          ? `${billingAuthUrl}&callback=webview`
+          : `${billingAuthUrl}?callback=webview`,
+      );
+      setPhase('loading_webview');
+      return;
+    }
+
     if (!productId) {
       setLoadError('결제 상품 정보가 없습니다.');
       setPhase('load_error');
@@ -241,7 +322,10 @@ export function PaymentCheckoutScreen() {
     return () => {
       cancelled = true;
     };
-  }, [api, productId]);
+  }, [api, billingAuthUrl, productId, returnTo]);
+
+  const webSourceUrl =
+    returnTo === 'premium-billing' ? billingUrl : order?.checkoutUrl ?? null;
 
   if (phase === 'creating_order' || phase === 'confirming') {
     return (
@@ -255,7 +339,7 @@ export function PaymentCheckoutScreen() {
     );
   }
 
-  if (phase === 'load_error' || !order) {
+  if (phase === 'load_error' || !webSourceUrl) {
     return (
       <View style={[styles.centered, styles.pad, { backgroundColor: theme.colors.app.background }]}>
         <Text variant="sectionTitle">결제를 진행할 수 없습니다</Text>
@@ -282,7 +366,7 @@ export function PaymentCheckoutScreen() {
   return (
     <View style={[styles.flex, { backgroundColor: theme.colors.app.background }]}>
       <WebView
-        source={{ uri: order.checkoutUrl }}
+        source={{ uri: webSourceUrl }}
         originWhitelist={[
           'https://*',
           'http://*',

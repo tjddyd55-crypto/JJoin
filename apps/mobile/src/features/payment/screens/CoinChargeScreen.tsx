@@ -9,7 +9,7 @@ import {
   Text,
   useTheme,
 } from '@jjoin/design-system';
-import { formatCoinWithLabel, formatNumber } from '@jjoin/domain';
+import { formatCoinWithLabel, formatNumber, coinToKrw } from '@jjoin/domain';
 import { PaymentProductType, type PaymentProductDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
@@ -165,7 +165,7 @@ export function CoinChargeScreen() {
             <View style={styles.productRow}>
               <Text variant="bodyStrong">{formatCoinWithLabel(product.coinAmount ?? '0')}</Text>
               <Text variant="body" tone="secondary">
-                {formatKrw(product.price)}
+                {formatKrw(product.price)} · 약 {coinToKrw(Number(product.coinAmount ?? 0)).toLocaleString('ko-KR')}원 상당
               </Text>
             </View>
           </Card>
