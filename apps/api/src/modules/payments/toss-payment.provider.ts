@@ -19,6 +19,27 @@ export type TossCancelInput = {
   cancelReason: string;
 };
 
+export type TossBillingIssueInput = {
+  authKey: string;
+  customerKey: string;
+};
+
+export type TossBillingIssueResult = {
+  billingKey: string;
+  customerKey: string;
+  cardCompany: string | null;
+  cardNumberMasked: string | null;
+  raw: Record<string, unknown>;
+};
+
+export type TossBillingChargeInput = {
+  billingKey: string;
+  customerKey: string;
+  orderId: string;
+  orderName: string;
+  amount: number;
+};
+
 @Injectable()
 export class TossPaymentProvider {
   private readonly logger = new Logger(TossPaymentProvider.name);
@@ -122,6 +143,88 @@ export class TossPaymentProvider {
       );
     }
     return raw;
+  }
+
+  async issueBillingKey(
+    secretKey: string,
+    input: TossBillingIssueInput,
+  ): Promise<TossBillingIssueResult> {
+    const res = await fetch('https://api.tosspayments.com/v1/billing/authorizations/issue', {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        authKey: input.authKey,
+        customerKey: input.customerKey,
+      }),
+    });
+    const rawText = await res.text();
+    let raw: Record<string, unknown>;
+    try {
+      raw = JSON.parse(rawText) as Record<string, unknown>;
+    } catch {
+      raw = { message: rawText.slice(0, 200) };
+    }
+    if (!res.ok) {
+      throw new TossPaymentError(
+        typeof raw.message === 'string' ? raw.message : 'toss_billing_issue_failed',
+        res.status,
+        raw,
+      );
+    }
+    const card = (raw.card ?? {}) as Record<string, unknown>;
+    return {
+      billingKey: String(raw.billingKey ?? ''),
+      customerKey: String(raw.customerKey ?? input.customerKey),
+      cardCompany: typeof card.company === 'string' ? card.company : null,
+      cardNumberMasked: typeof card.number === 'string' ? card.number : null,
+      raw,
+    };
+  }
+
+  async chargeBillingKey(
+    secretKey: string,
+    input: TossBillingChargeInput,
+  ): Promise<TossConfirmResult> {
+    const res = await fetch(
+      `https://api.tosspayments.com/v1/billing/${encodeURIComponent(input.billingKey)}`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          customerKey: input.customerKey,
+          amount: input.amount,
+          orderId: input.orderId,
+          orderName: input.orderName,
+        }),
+      },
+    );
+    const rawText = await res.text();
+    let raw: Record<string, unknown>;
+    try {
+      raw = JSON.parse(rawText) as Record<string, unknown>;
+    } catch {
+      raw = { message: rawText.slice(0, 200) };
+    }
+    if (!res.ok) {
+      throw new TossPaymentError(
+        typeof raw.message === 'string' ? raw.message : 'toss_billing_charge_failed',
+        res.status,
+        raw,
+      );
+    }
+    return {
+      paymentKey: String(raw.paymentKey ?? ''),
+      orderId: String(raw.orderId ?? input.orderId),
+      totalAmount: Number(raw.totalAmount ?? input.amount),
+      status: String(raw.status ?? 'DONE'),
+      raw,
+    };
   }
 }
 

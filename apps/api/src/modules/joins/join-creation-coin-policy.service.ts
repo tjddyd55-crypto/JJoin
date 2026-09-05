@@ -1,25 +1,51 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import {
-  DEFAULT_JOIN_CREATION_COIN_POLICY,
-  assertJoinCreationCoinPolicy,
+  DEFAULT_JOIN_CREATION_PRICING_POLICY,
+  assertJoinCreationPricingPolicy,
   joinCreatorUserTypeLabelKo,
-  resolveEffectiveCreationCost,
+  resolveEffectiveJoinCreationPolicy,
   resolveJoinCreatorUserType,
-  type JoinCreationCoinPolicy,
   type JoinCreationCostSnapshot,
+  type JoinCreationPricingPolicy,
 } from '@jjoin/domain';
 import type {
-  JoinCreationCoinPolicyDto,
+  EffectiveJoinCreationPolicyDto,
+  JoinCreationPricingPolicyDto,
+  JoinCreationPricingPreviewDto,
   MeJoinCoinPolicyDto,
-  UpdateJoinCreationCoinPolicyRequest,
+  UpdateJoinCreationPricingPolicyRequest,
 } from '@jjoin/types';
-import { updateJoinCreationCoinPolicySchema } from '@jjoin/validation';
+import { updateJoinCreationPricingPolicySchema } from '@jjoin/validation';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   CoinPolicyDisabledError,
   resolveCoinPolicyMode,
 } from '../../coin/dev-coin-policy';
 import { PremiumService } from '../payments/premium.service';
+
+function benefitLabelKo(
+  effective: EffectiveJoinCreationPolicyDto,
+): string | null {
+  if (effective.effectiveFeeCoinAmount === 0) {
+    if (effective.reason === 'OWNER_BENEFIT' || effective.reason === 'OWNER_PREMIUM_BEST') {
+      if (effective.owner.eligible && effective.owner.feeCoinAmount === 0) {
+        return '업주 혜택 · 조인방 생성 무료';
+      }
+    }
+    if (effective.reason === 'PREMIUM_BENEFIT') {
+      return 'Premium 혜택 · 조인방 생성 무료';
+    }
+    if (effective.base.mode === 'FREE') return null;
+    return '조인방 생성 무료';
+  }
+  if (effective.owner.eligible && effective.effectiveFeeCoinAmount < effective.base.feeCoinAmount) {
+    return '업주 혜택 적용';
+  }
+  if (effective.premium.eligible && effective.effectiveFeeCoinAmount < effective.base.feeCoinAmount) {
+    return 'Premium 혜택 적용';
+  }
+  return null;
+}
 
 @Injectable()
 export class JoinCreationCoinPolicyService {
@@ -28,35 +54,83 @@ export class JoinCreationCoinPolicyService {
     private readonly premium: PremiumService,
   ) {}
 
-  async getAdminPolicy(): Promise<JoinCreationCoinPolicyDto> {
+  async getAdminPolicy(): Promise<JoinCreationPricingPolicyDto> {
     const row = await this.ensureSettingsRow();
     return this.toDto(row);
   }
 
-  async updateAdminPolicy(raw: unknown): Promise<JoinCreationCoinPolicyDto> {
-    const parsed = updateJoinCreationCoinPolicySchema.safeParse(raw);
+  async getAdminPreview(): Promise<JoinCreationPricingPreviewDto> {
+    const policy = await this.loadPolicy();
+    const general = resolveEffectiveJoinCreationPolicy({
+      policy,
+      canCreate: true,
+      hasActiveStoreOwnership: false,
+      isPremiumActive: false,
+    });
+    const owner = resolveEffectiveJoinCreationPolicy({
+      policy,
+      canCreate: true,
+      hasActiveStoreOwnership: true,
+      isPremiumActive: false,
+    });
+    const premium = resolveEffectiveJoinCreationPolicy({
+      policy,
+      canCreate: true,
+      hasActiveStoreOwnership: false,
+      isPremiumActive: true,
+    });
+    const both = resolveEffectiveJoinCreationPolicy({
+      policy,
+      canCreate: true,
+      hasActiveStoreOwnership: true,
+      isPremiumActive: true,
+    });
+    return {
+      general: {
+        feeCoinAmount: general.effectiveFeeCoinAmount,
+        feeKrw: general.effectiveFeeKrw,
+      },
+      owner: {
+        feeCoinAmount: owner.effectiveFeeCoinAmount,
+        feeKrw: owner.effectiveFeeKrw,
+        label: owner.effectiveFeeCoinAmount === 0 ? '무료' : `${owner.effectiveFeeCoinAmount} Coin`,
+      },
+      premium: {
+        feeCoinAmount: premium.effectiveFeeCoinAmount,
+        feeKrw: premium.effectiveFeeKrw,
+        label: premium.effectiveFeeCoinAmount === 0 ? '무료' : `${premium.effectiveFeeCoinAmount} Coin`,
+      },
+      ownerAndPremium: {
+        feeCoinAmount: both.effectiveFeeCoinAmount,
+        feeKrw: both.effectiveFeeKrw,
+        label: both.effectiveFeeCoinAmount === 0 ? '무료' : `${both.effectiveFeeCoinAmount} Coin`,
+      },
+    };
+  }
+
+  async updateAdminPolicy(
+    raw: unknown,
+    actorUserId?: string,
+  ): Promise<JoinCreationPricingPolicyDto> {
+    const parsed = updateJoinCreationPricingPolicySchema.safeParse(raw);
     if (!parsed.success) {
-      throw new BadRequestException('invalid_join_creation_coin_policy');
+      throw new BadRequestException('invalid_join_creation_pricing_policy');
     }
-    const normalized = assertJoinCreationCoinPolicy(parsed.data as UpdateJoinCreationCoinPolicyRequest);
+    const normalized = assertJoinCreationPricingPolicy(
+      parsed.data as UpdateJoinCreationPricingPolicyRequest,
+    );
     const row = await this.prisma.joinCreationCoinPolicySettings.upsert({
       where: { id: 'default' },
       create: {
         id: 'default',
-        generalEnabled: normalized.general.enabled,
-        generalCost: normalized.general.cost,
-        premiumEnabled: normalized.premium.enabled,
-        premiumCost: normalized.premium.cost,
-        storeOwnerEnabled: normalized.storeOwner.enabled,
-        storeOwnerCost: normalized.storeOwner.cost,
+        ...this.policyToDbColumns(normalized),
+        pricingUpdatedAt: new Date(),
+        pricingUpdatedBy: actorUserId ?? null,
       },
       update: {
-        generalEnabled: normalized.general.enabled,
-        generalCost: normalized.general.cost,
-        premiumEnabled: normalized.premium.enabled,
-        premiumCost: normalized.premium.cost,
-        storeOwnerEnabled: normalized.storeOwner.enabled,
-        storeOwnerCost: normalized.storeOwner.cost,
+        ...this.policyToDbColumns(normalized),
+        pricingUpdatedAt: new Date(),
+        pricingUpdatedBy: actorUserId ?? null,
       },
     });
     return this.toDto(row);
@@ -65,13 +139,31 @@ export class JoinCreationCoinPolicyService {
   async getMyPolicy(userId: string): Promise<MeJoinCoinPolicyDto> {
     this.assertCoinAccountingAvailable();
     const snapshot = await this.resolveCreationCostForUser(userId);
+    const effective = await this.resolveEffectivePolicyForUser(userId);
     return {
       userType: snapshot.creatorUserType,
       userTypeLabel: joinCreatorUserTypeLabelKo(snapshot.creatorUserType),
       enabled: snapshot.creationCoinEnabled,
       cost: Number(snapshot.creationCoinCost),
       creationCoinCost: snapshot.creationCoinCost,
+      effectivePolicy: effective,
+      benefitLabel: benefitLabelKo(effective),
     };
+  }
+
+  async resolveEffectivePolicyForUser(userId: string): Promise<EffectiveJoinCreationPolicyDto> {
+    const [flags, policy, canCreate] = await Promise.all([
+      this.premium.resolveCreatorRoleFlags(userId),
+      this.loadPolicy(),
+      this.premium.canUserCreateJoin(userId),
+    ]);
+    const resolved = resolveEffectiveJoinCreationPolicy({
+      policy,
+      canCreate,
+      hasActiveStoreOwnership: flags.hasActiveStoreOwnership,
+      isPremiumActive: flags.isPremiumActive,
+    });
+    return resolved;
   }
 
   /**
@@ -85,11 +177,17 @@ export class JoinCreationCoinPolicyService {
       this.loadPolicy(),
     ]);
     const userType = resolveJoinCreatorUserType(flags);
-    const effective = resolveEffectiveCreationCost(policy, userType);
+    const effective = resolveEffectiveJoinCreationPolicy({
+      policy,
+      canCreate: true,
+      hasActiveStoreOwnership: flags.hasActiveStoreOwnership,
+      isPremiumActive: flags.isPremiumActive,
+    });
+    const fee = effective.effectiveFeeCoinAmount;
     return {
       creatorUserType: userType,
-      creationCoinEnabled: effective.enabled,
-      creationCoinCost: effective.costCoinAmount,
+      creationCoinEnabled: fee > 0,
+      creationCoinCost: String(fee),
     };
   }
 
@@ -99,43 +197,77 @@ export class JoinCreationCoinPolicyService {
     }
   }
 
-  private async loadPolicy(): Promise<JoinCreationCoinPolicy> {
+  private async loadPolicy(): Promise<JoinCreationPricingPolicy> {
     const row = await this.ensureSettingsRow();
+    return this.rowToPolicy(row);
+  }
+
+  private policyToDbColumns(policy: JoinCreationPricingPolicy) {
     return {
-      general: { enabled: row.generalEnabled, cost: row.generalCost },
-      premium: { enabled: row.premiumEnabled, cost: row.premiumCost },
-      storeOwner: { enabled: row.storeOwnerEnabled, cost: row.storeOwnerCost },
+      baseMode: policy.baseMode,
+      baseFeeCoinAmount: policy.baseFeeCoinAmount,
+      ownerOverride: policy.ownerOverride,
+      ownerFixedFeeCoinAmount: policy.ownerFixedFeeCoinAmount,
+      premiumOverride: policy.premiumOverride,
+      premiumFixedFeeCoinAmount: policy.premiumFixedFeeCoinAmount,
+      // Keep legacy columns in sync for observability
+      generalEnabled: policy.baseMode === 'PAID' && policy.baseFeeCoinAmount > 0,
+      generalCost: policy.baseFeeCoinAmount,
+      storeOwnerEnabled: policy.ownerOverride !== 'FREE' || policy.ownerFixedFeeCoinAmount > 0,
+      storeOwnerCost:
+        policy.ownerOverride === 'FIXED_FEE' ? policy.ownerFixedFeeCoinAmount : 0,
+      premiumEnabled: policy.premiumOverride !== 'INHERIT',
+      premiumCost:
+        policy.premiumOverride === 'FIXED_FEE' ? policy.premiumFixedFeeCoinAmount : 0,
     };
   }
 
+  private rowToPolicy(row: {
+    baseMode: string;
+    baseFeeCoinAmount: number;
+    ownerOverride: string;
+    ownerFixedFeeCoinAmount: number;
+    premiumOverride: string;
+    premiumFixedFeeCoinAmount: number;
+  }): JoinCreationPricingPolicy {
+    return assertJoinCreationPricingPolicy({
+      baseMode: row.baseMode === 'FREE' ? 'FREE' : 'PAID',
+      baseFeeCoinAmount: row.baseFeeCoinAmount,
+      ownerOverride: row.ownerOverride as JoinCreationPricingPolicy['ownerOverride'],
+      ownerFixedFeeCoinAmount: row.ownerFixedFeeCoinAmount,
+      premiumOverride: row.premiumOverride as JoinCreationPricingPolicy['premiumOverride'],
+      premiumFixedFeeCoinAmount: row.premiumFixedFeeCoinAmount,
+    });
+  }
+
   private async ensureSettingsRow() {
+    const defaults = DEFAULT_JOIN_CREATION_PRICING_POLICY;
     return this.prisma.joinCreationCoinPolicySettings.upsert({
       where: { id: 'default' },
       create: {
         id: 'default',
-        generalEnabled: DEFAULT_JOIN_CREATION_COIN_POLICY.general.enabled,
-        generalCost: DEFAULT_JOIN_CREATION_COIN_POLICY.general.cost,
-        premiumEnabled: DEFAULT_JOIN_CREATION_COIN_POLICY.premium.enabled,
-        premiumCost: DEFAULT_JOIN_CREATION_COIN_POLICY.premium.cost,
-        storeOwnerEnabled: DEFAULT_JOIN_CREATION_COIN_POLICY.storeOwner.enabled,
-        storeOwnerCost: DEFAULT_JOIN_CREATION_COIN_POLICY.storeOwner.cost,
+        ...this.policyToDbColumns(defaults),
       },
       update: {},
     });
   }
 
   private toDto(row: {
-    generalEnabled: boolean;
-    generalCost: number;
-    premiumEnabled: boolean;
-    premiumCost: number;
-    storeOwnerEnabled: boolean;
-    storeOwnerCost: number;
-  }): JoinCreationCoinPolicyDto {
+    baseMode: string;
+    baseFeeCoinAmount: number;
+    ownerOverride: string;
+    ownerFixedFeeCoinAmount: number;
+    premiumOverride: string;
+    premiumFixedFeeCoinAmount: number;
+  }): JoinCreationPricingPolicyDto {
+    const policy = this.rowToPolicy(row);
     return {
-      general: { enabled: row.generalEnabled, cost: row.generalCost },
-      premium: { enabled: row.premiumEnabled, cost: row.premiumCost },
-      storeOwner: { enabled: row.storeOwnerEnabled, cost: row.storeOwnerCost },
+      baseMode: policy.baseMode,
+      baseFeeCoinAmount: policy.baseFeeCoinAmount,
+      ownerOverride: policy.ownerOverride,
+      ownerFixedFeeCoinAmount: policy.ownerFixedFeeCoinAmount,
+      premiumOverride: policy.premiumOverride,
+      premiumFixedFeeCoinAmount: policy.premiumFixedFeeCoinAmount,
     };
   }
 }

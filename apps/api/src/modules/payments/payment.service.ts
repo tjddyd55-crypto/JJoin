@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import {
   maskSecretKey,
+  assertCoinProductPricing,
 } from '@jjoin/domain';
 import {
   CoinIssuanceType,
@@ -160,12 +161,30 @@ export class PaymentService {
     });
     if (!product || !product.active) throw new NotFoundException('payment_product_not_found');
 
+    if (product.type === PaymentProductType.COIN_CHARGE) {
+      const coinAmount = product.coinAmount ? Number(product.coinAmount) : 0;
+      try {
+        assertCoinProductPricing({ coinAmount, priceKrw: product.price });
+      } catch {
+        throw new BadRequestException('coin_product_price_mismatch');
+      }
+    }
+
     const settings = await this.loadProviderSettings();
     if (!settings.enabled || !settings.clientKey) {
-      throw new ServiceUnavailableException('payment_not_configured');
+      throw new ServiceUnavailableException({
+        code: 'payment_not_configured',
+        message: '결제가 설정되지 않았습니다.',
+      });
     }
-    if (!settings.secretKeyEncrypted) {
-      throw new ServiceUnavailableException('payment_secret_missing');
+    if (
+      settings.environment === PaymentEnvironment.LIVE &&
+      !settings.secretKeyEncrypted
+    ) {
+      throw new ServiceUnavailableException({
+        code: 'PAYMENT_LIVE_NOT_CONFIGURED',
+        message: 'LIVE 결제 설정이 완료되지 않았습니다.',
+      });
     }
 
     // Finalize abandoned READY rows before creating a new confirmable order.
@@ -862,6 +881,27 @@ export class PaymentService {
     const parsed = updatePaymentProductSchema.safeParse(raw);
     if (!parsed.success) throw new BadRequestException('invalid_payment_product');
     const data = parsed.data;
+    const existing = await this.prisma.paymentProduct.findUnique({ where: { id: productId } });
+    if (!existing) throw new NotFoundException('payment_product_not_found');
+
+    const nextPrice = data.price ?? existing.price;
+    const nextCoinAmount =
+      data.coinAmount !== undefined
+        ? data.coinAmount === null
+          ? null
+          : Number(data.coinAmount)
+        : existing.coinAmount
+          ? Number(existing.coinAmount)
+          : null;
+
+    if (existing.type === PaymentProductType.COIN_CHARGE && nextCoinAmount != null) {
+      try {
+        assertCoinProductPricing({ coinAmount: nextCoinAmount, priceKrw: nextPrice });
+      } catch {
+        throw new BadRequestException('coin_product_price_mismatch');
+      }
+    }
+
     const row = await this.prisma.paymentProduct.update({
       where: { id: productId },
       data: {
@@ -880,6 +920,60 @@ export class PaymentService {
       },
     });
     return mapProduct(row);
+  }
+
+  async loadProviderSettingsForInternal() {
+    return this.loadProviderSettings();
+  }
+
+  async getBillingAuthPageHtml(customerKey: string, plan: string): Promise<string> {
+    const settings = await this.loadProviderSettings();
+    if (!settings.clientKey) throw new ServiceUnavailableException('payment_not_configured');
+
+    const scheme = resolveMobilePaymentScheme();
+    const successUrl = `${scheme}://payment/success`;
+    const failUrl = `${scheme}://payment/fail`;
+
+    return `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Premium 카드 등록</title>
+  <script src="https://js.tosspayments.com/v2/standard"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 24px; background: #F8F9F6; color: #17212B; }
+    .card { max-width: 420px; margin: 0 auto; padding: 20px; border-radius: 12px; background: #FFFFFF; border: 1px solid #E5E8E3; }
+    button { width: 100%; padding: 14px; border: 0; border-radius: 10px; font-size: 16px; font-weight: 600;
+      background: #17212B; color: #FFFFFF; cursor: pointer; }
+    button:disabled { opacity: 0.5; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <strong>Premium 정기결제 카드 등록</strong>
+    <p>플랜: ${escapeHtml(plan)}</p>
+    <button id="billing-btn" type="button">카드 등록하기</button>
+  </div>
+  <script>
+    const tossPayments = TossPayments(${JSON.stringify(settings.clientKey)});
+    const billing = tossPayments.billing({ customerKey: ${JSON.stringify(customerKey)} });
+    document.getElementById('billing-btn').addEventListener('click', async () => {
+      try {
+        await billing.requestBillingAuth({
+          method: 'CARD',
+          successUrl: ${JSON.stringify(successUrl)},
+          failUrl: ${JSON.stringify(failUrl)},
+          customerEmail: 'user@jjoinzone.app',
+          card: { appScheme: ${JSON.stringify(`${scheme}://`)} },
+        });
+      } catch (e) {
+        alert(e && e.message ? e.message : '카드 등록을 시작하지 못했습니다.');
+      }
+    });
+  </script>
+</body>
+</html>`;
   }
 
   private async loadProviderSettings() {

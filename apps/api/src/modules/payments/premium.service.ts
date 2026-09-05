@@ -26,18 +26,33 @@ export class PremiumService {
     if (!row) {
       return {
         active: false,
+        plan: null,
         startedAt: null,
         expiresAt: null,
+        nextBillingAt: null,
+        cancelAtPeriodEnd: false,
         remainingDays: null,
       };
     }
     const active = isPremiumActive(row.expiresAt, now);
     return {
       active,
+      plan: (row.plan as PremiumStatusDto['plan']) ?? null,
       startedAt: row.startedAt.toISOString(),
       expiresAt: row.expiresAt.toISOString(),
+      nextBillingAt: row.nextBillingAt?.toISOString() ?? null,
+      cancelAtPeriodEnd: row.cancelAtPeriodEnd,
       remainingDays: premiumRemainingDays(row.expiresAt, now),
     };
+  }
+
+  async canUserCreateJoin(userId: string): Promise<boolean> {
+    try {
+      await this.assertCanCreateJoin(userId);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async assertCanCreateJoin(userId: string): Promise<void> {

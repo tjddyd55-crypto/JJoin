@@ -327,8 +327,11 @@ export class MockUserStore {
       },
       premiumStatus: {
         active: false,
+        plan: null,
         startedAt: null,
         expiresAt: null,
+        nextBillingAt: null,
+        cancelAtPeriodEnd: false,
         remainingDays: null,
       },
     };
