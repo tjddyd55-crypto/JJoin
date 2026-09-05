@@ -369,6 +369,12 @@ export class ClubsService {
         body: `${club.name}에 가입되었습니다.`,
         clubId,
       });
+    } else {
+      await this.notifyClubManagers(clubId, NotificationType.JOIN_APPLICATION_RECEIVED, {
+        title: '동호회 가입 신청',
+        body: `${club.name}에 새 가입 신청이 있습니다.`,
+        clubId,
+      });
     }
 
     return this.toMembershipDto(row, null);
@@ -420,6 +426,13 @@ export class ClubsService {
     await this.prisma.clubMembership.update({
       where: { id: row.id },
       data: { status: ClubMembershipStatus.REJECTED },
+    });
+
+    const club = await this.requireClub(clubId);
+    await this.notifyUser(row.userId, NotificationType.JOIN_UPDATED, {
+      title: '동호회 가입 거절',
+      body: `${club.name} 가입 신청이 거절되었습니다.`,
+      clubId,
     });
     return { ok: true };
   }
@@ -1498,6 +1511,24 @@ export class ClubsService {
       },
       eventKey: `club:${type}:${suffix}:${userId}`,
     });
+  }
+
+  private async notifyClubManagers(
+    clubId: string,
+    type: NotificationType,
+    payload: { title: string; body: string; clubId?: string; clubEventId?: string; noticeId?: string },
+  ) {
+    const managers = await this.prisma.clubMembership.findMany({
+      where: {
+        clubId,
+        status: ClubMembershipStatus.ACTIVE,
+        role: { in: [ClubMembershipRole.OWNER, ClubMembershipRole.MANAGER] },
+      },
+      select: { userId: true },
+    });
+    await Promise.all(
+      managers.map((m) => this.notifyUser(m.userId, type, { ...payload, clubId })),
+    );
   }
 
   private async notifyClubMembers(

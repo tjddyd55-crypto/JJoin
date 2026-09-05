@@ -725,6 +725,12 @@ export class JoinsService {
       if (join.hostUserId === userId) {
         throw new ForbiddenException('host_cannot_apply');
       }
+      if (join.clubId) {
+        const clubMember = await tx.clubMembership.findFirst({
+          where: { clubId: join.clubId, userId, status: 'ACTIVE' },
+        });
+        if (!clubMember) throw new ForbiddenException('club_member_required');
+      }
       if (join.status === 'CANCELLED' || join.status === 'COMPLETED') {
         throw new BadRequestException('join_not_joinable');
       }
@@ -808,6 +814,12 @@ export class JoinsService {
       }
       if (join.hostUserId === userId) {
         throw new ForbiddenException('host_cannot_apply');
+      }
+      if (join.clubId) {
+        const clubMember = await tx.clubMembership.findFirst({
+          where: { clubId: join.clubId, userId, status: 'ACTIVE' },
+        });
+        if (!clubMember) throw new ForbiddenException('club_member_required');
       }
       if (join.status === 'CANCELLED' || join.status === 'COMPLETED') {
         throw new BadRequestException('join_not_joinable');
