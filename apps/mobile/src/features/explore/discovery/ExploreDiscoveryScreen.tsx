@@ -12,6 +12,7 @@ import { MapDiscoveryChrome } from './components/MapDiscoveryChrome';
 import { JoinCreateFab } from './components/JoinCreateFab';
 import { ExploreMapScreen } from '../screens/ExploreMapScreen';
 import { RegionJoinExploreScreen } from '../region-explore/RegionJoinExploreScreen';
+import { useNotificationUnreadCount } from '../../notifications/useNotificationUnreadCount';
 import type { MapCoordinate } from '../model/map-types';
 
 export function ExploreDiscoveryScreen() {
@@ -37,6 +38,7 @@ function ExploreDiscoveryBody() {
   const isMap = filter.view === 'MAP';
   const isRegion = filter.view === 'REGION';
   const isList = !isMap && !isRegion;
+  const { unreadCount } = useNotificationUnreadCount();
 
   useEffect(() => {
     void (async () => {
@@ -73,6 +75,7 @@ function ExploreDiscoveryBody() {
         <>
           <JoinDiscoveryAppBar
             regionLabel={regionDisplayLabel(filter)}
+            unreadCount={unreadCount}
             onRegionPress={() => setRegionPickerOpen(true)}
             onNotificationPress={() => router.push('/my/notifications')}
           />

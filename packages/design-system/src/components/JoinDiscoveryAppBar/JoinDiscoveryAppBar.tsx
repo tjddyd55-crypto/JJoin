@@ -5,17 +5,25 @@ import { useTheme } from '../../theme';
 export type JoinDiscoveryAppBarProps = {
   title?: string;
   regionLabel: string;
+  unreadCount?: number;
   onRegionPress?: () => void;
   onNotificationPress?: () => void;
 };
 
+function formatUnreadBadge(count: number): string {
+  if (count <= 0) return '';
+  return count > 99 ? '99+' : String(count);
+}
+
 export function JoinDiscoveryAppBar({
   title = '조인',
   regionLabel,
+  unreadCount = 0,
   onRegionPress,
   onNotificationPress,
 }: JoinDiscoveryAppBarProps) {
   const theme = useTheme();
+  const badgeLabel = formatUnreadBadge(unreadCount);
 
   return (
     <View style={styles.bar}>
@@ -42,13 +50,28 @@ export function JoinDiscoveryAppBar({
         <Pressable
           onPress={onNotificationPress}
           accessibilityRole="button"
-          accessibilityLabel="알림"
+          accessibilityLabel={badgeLabel ? `알림, 읽지 않음 ${badgeLabel}개` : '알림'}
           hitSlop={8}
           style={styles.notifyBtn}
         >
           <Text variant="joinTabLabel" tone="secondary">
             알림
           </Text>
+          {badgeLabel ? (
+            <View
+              style={[
+                styles.unreadBadge,
+                {
+                  backgroundColor: theme.colors.status.error,
+                  borderColor: theme.colors.surface.base,
+                },
+              ]}
+            >
+              <Text variant="caption" tone="inverse" style={styles.unreadBadgeText}>
+                {badgeLabel}
+              </Text>
+            </View>
+          ) : null}
         </Pressable>
       </View>
     </View>
@@ -85,5 +108,23 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
     paddingHorizontal: 4,
+    position: 'relative',
+  },
+  unreadBadge: {
+    position: 'absolute',
+    top: 2,
+    right: -2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    paddingHorizontal: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unreadBadgeText: {
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '700',
   },
 });
