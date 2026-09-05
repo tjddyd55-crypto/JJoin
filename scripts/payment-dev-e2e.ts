@@ -112,12 +112,13 @@ async function loadProducts() {
   >('/payment-products');
   assert(products.status === 200, `products ${products.status}`);
   const byCode = Object.fromEntries(products.body.map((p) => [p.code, p]));
-  for (const code of ['COIN_10000', 'COIN_30000', 'COIN_50000', 'PREMIUM_30D']) {
+  for (const code of ['COIN_10', 'COIN_30', 'COIN_50', 'COIN_100', 'PREMIUM_30D']) {
     assert(byCode[code], `missing ${code}`);
   }
-  assert(byCode.COIN_10000!.price === 10000 && byCode.COIN_10000!.coinAmount === '10000', 'COIN_10000');
-  assert(byCode.COIN_30000!.price === 30000 && byCode.COIN_30000!.coinAmount === '30000', 'COIN_30000');
-  assert(byCode.COIN_50000!.price === 50000 && byCode.COIN_50000!.coinAmount === '50000', 'COIN_50000');
+  assert(byCode.COIN_10!.price === 1000 && byCode.COIN_10!.coinAmount === '10', 'COIN_10');
+  assert(byCode.COIN_30!.price === 3000 && byCode.COIN_30!.coinAmount === '30', 'COIN_30');
+  assert(byCode.COIN_50!.price === 5000 && byCode.COIN_50!.coinAmount === '50', 'COIN_50');
+  assert(byCode.COIN_100!.price === 10000 && byCode.COIN_100!.coinAmount === '100', 'COIN_100');
   assert(byCode.PREMIUM_30D!.price === 9900 && byCode.PREMIUM_30D!.premiumDays === 30, 'PREMIUM_30D');
   console.log('OK products', products.body.map((p) => p.code));
   return { items: products.body, byCode };
@@ -187,13 +188,13 @@ async function main() {
 
   if (mode === '--preflight') {
     const balanceBefore = await walletBalance(devA);
-    const guardOrder = await createOrder(devA, byCode.COIN_10000!.id);
+    const guardOrder = await createOrder(devA, byCode.COIN_10!.id);
 
     const tamperOrder = await j('/payments/orders', {
       method: 'POST',
       headers: devA,
       body: JSON.stringify({
-        productId: byCode.COIN_10000!.id,
+        productId: byCode.COIN_10!.id,
         amount: 1,
       }),
     });
@@ -215,7 +216,7 @@ async function main() {
     const balanceAfterTamper = await walletBalance(devA);
     assert(balanceAfterTamper === balanceBefore, 'tamper confirm no credit');
 
-    const order = await createOrder(devA, byCode.COIN_10000!.id);
+    const order = await createOrder(devA, byCode.COIN_10!.id);
     const balanceAfterOrder = await walletBalance(devA);
     assert(balanceAfterOrder === balanceBefore, 'balance unchanged before confirm');
 
@@ -246,7 +247,7 @@ async function main() {
     const row = adminRows.body.items.find((p) => p.orderId === orderId);
     assert(row, 'payment row for orderId');
     assert(row.status === 'PAID', 'PAID');
-    assert(row.amount === 10000, 'amount 10000');
+    assert(row.amount === 1000, 'amount 1000');
 
     const detail = await j<{ status: string; amount: number; orderId: string }>(`/payments/${row.id}`, {
       headers: devA,
@@ -256,12 +257,12 @@ async function main() {
     assert(detail.body.orderId === orderId, 'orderId match');
 
     const after = await walletBalance(devA);
-    assert(Number(after) === before + 10000, `balance +10000 (${before} -> ${after})`);
+    assert(Number(after) === before + 10, `balance +10 (${before} -> ${after})`);
 
     const dup = await confirm(devA, {
       paymentKey: 'pay_web_callback_dup_probe',
       orderId,
-      amount: 10000,
+      amount: 1000,
     });
     assert(dup.status === 200 || dup.status === 201, `dup confirm ${dup.status}`);
     assert(dup.body.payment.status === 'PAID', 'dup PAID');
@@ -280,12 +281,12 @@ async function main() {
     const other = await confirm(devB, {
       paymentKey: 'pay_web_callback_dup_probe',
       orderId,
-      amount: 10000,
+      amount: 1000,
     });
     assert(other.status === 403, `ownership ${other.status}`);
 
     const payments = await adminPayments(admin);
-    assert(payments.some((p) => p.status === 'PAID' && p.amount === 10000), 'admin sees PAID coin');
+    assert(payments.some((p) => p.status === 'PAID' && p.amount === 1000), 'admin sees PAID coin');
     console.log('OK coin verify after web callback', { orderId, before, after, afterDup, paymentId: row.id });
     return;
   }
@@ -293,14 +294,14 @@ async function main() {
   if (mode === '--confirm-coin') {
     const paymentKey = process.env.PAYMENT_KEY;
     const orderId = process.env.ORDER_ID;
-    const amount = Number(process.env.AMOUNT ?? '10000');
+    const amount = Number(process.env.AMOUNT ?? '1000');
     assert(paymentKey && orderId, 'Set PAYMENT_KEY and ORDER_ID');
 
     const before = await walletBalance(devA);
     const first = await confirm(devA, { paymentKey, orderId, amount });
     assert(first.status === 200 || first.status === 201, `confirm ${first.status} ${first.raw.slice(0, 200)}`);
     assert(first.body.payment.status === 'PAID', 'PAID');
-    assert(first.body.coinCredited === '10000', `coin credited ${first.body.coinCredited}`);
+    assert(first.body.coinCredited === '10', `coin credited ${first.body.coinCredited}`);
     const after = await walletBalance(devA);
     assert(Number(after) === Number(before) + 10000, `balance +10000 (${before} -> ${after})`);
 

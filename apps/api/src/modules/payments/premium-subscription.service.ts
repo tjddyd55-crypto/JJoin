@@ -28,6 +28,7 @@ import {
   encryptCredential,
 } from '../../common/credential-crypto';
 import { PrismaService } from '../../prisma/prisma.service';
+import { BillingNotificationService } from './billing-notification.service';
 import { PaymentService } from './payment.service';
 import { PremiumService } from './premium.service';
 import { TossPaymentProvider } from './toss-payment.provider';
@@ -57,6 +58,7 @@ export class PremiumSubscriptionService {
     private readonly premium: PremiumService,
     private readonly payments: PaymentService,
     private readonly toss: TossPaymentProvider,
+    private readonly billingNotifications: BillingNotificationService,
   ) {}
 
   async getPlanSettings(): Promise<PremiumPlanSettingsDto> {
@@ -226,10 +228,17 @@ export class PremiumSubscriptionService {
       where: { userId },
       data: { cancelAtPeriodEnd: true },
     });
-    return this.premium.getStatus(userId);
+    const status = await this.premium.getStatus(userId);
+    if (status.expiresAt) {
+      this.billingNotifications.notifyPremiumCancelScheduled({
+        userId,
+        expiresAt: status.expiresAt,
+      });
+    }
+    return status;
   }
 
-  async processDueRenewals(limit = 20): Promise<{ processed: number }> {
+  async processDueRenewals(limit = 20): Promise<{ processed: number; failed: number }> {
     const now = new Date();
     const due = await this.prisma.premiumMembership.findMany({
       where: {
@@ -242,8 +251,10 @@ export class PremiumSubscriptionService {
     });
 
     let processed = 0;
+    let failed = 0;
     for (const membership of due) {
       if (!membership.plan || !membership.billingAuthorization) continue;
+      const billingCycleKey = `${membership.id}:${membership.nextBillingAt?.toISOString() ?? 'unknown'}`;
       try {
         const planSettings = await this.getPlanSettings();
         const amount =
@@ -251,25 +262,39 @@ export class PremiumSubscriptionService {
             ? planSettings.yearlyPriceKrw
             : planSettings.monthlyPriceKrw;
         const providerSettings = await this.payments.loadProviderSettingsForInternal();
-        if (!providerSettings.secretKeyEncrypted) continue;
+        if (!providerSettings.secretKeyEncrypted) {
+          failed += 1;
+          continue;
+        }
         const secretKey = decryptCredential(providerSettings.secretKeyEncrypted);
         const billingKey = decryptCredential(membership.billingAuthorization.billingKeyEncrypted);
+        if (billingKey === 'pending') {
+          failed += 1;
+          continue;
+        }
         await this.chargeSubscription({
           userId: membership.userId,
           plan: membership.plan as PremiumPlanCode,
           amount,
           billingKey,
           secretKey,
-          idempotencyKey: `premium-renewal:${membership.id}:${membership.nextBillingAt?.toISOString()}`,
+          idempotencyKey: `premium-renewal:${billingCycleKey}`,
+          isRenewal: true,
+          billingCycleKey,
         });
         processed += 1;
       } catch (e) {
+        failed += 1;
+        this.billingNotifications.notifyPremiumRenewalFailed({
+          userId: membership.userId,
+          billingCycleKey,
+        });
         this.logger.warn(
           `PREMIUM_RENEWAL_FAILED userId=${membership.userId} reason=${String(e)}`,
         );
       }
     }
-    return { processed };
+    return { processed, failed };
   }
 
   private async chargeSubscription(input: {
@@ -279,6 +304,8 @@ export class PremiumSubscriptionService {
     billingKey: string;
     secretKey: string;
     idempotencyKey: string;
+    isRenewal?: boolean;
+    billingCycleKey?: string;
   }): Promise<PremiumStatusDto> {
     const existingPayment = await this.prisma.payment.findFirst({
       where: {
@@ -368,8 +395,50 @@ export class PremiumSubscriptionService {
       }
     });
 
+    const status = await this.premium.getStatus(input.userId);
+    if (input.isRenewal && input.billingCycleKey) {
+      const payment = await this.prisma.payment.findFirst({
+        where: {
+          userId: input.userId,
+          status: PaymentStatus.PAID,
+          providerPayload: {
+            path: ['idempotencyKey'],
+            equals: input.idempotencyKey,
+          },
+        },
+      });
+      if (payment && status.expiresAt) {
+        this.billingNotifications.notifyPremiumRenewalSucceeded({
+          userId: input.userId,
+          paymentId: payment.id,
+          plan: input.plan,
+          expiresAt: status.expiresAt,
+          billingCycleKey: input.billingCycleKey,
+        });
+      }
+    } else if (status.expiresAt) {
+      const payment = await this.prisma.payment.findFirst({
+        where: {
+          userId: input.userId,
+          status: PaymentStatus.PAID,
+          providerPayload: {
+            path: ['idempotencyKey'],
+            equals: input.idempotencyKey,
+          },
+        },
+      });
+      if (payment) {
+        this.billingNotifications.notifyPremiumActivated({
+          userId: input.userId,
+          paymentId: payment.id,
+          plan: input.plan,
+          expiresAt: status.expiresAt,
+        });
+      }
+    }
+
     this.logger.log(`PREMIUM_SUBSCRIPTION_CHARGED userId=${input.userId} plan=${input.plan}`);
-    return this.premium.getStatus(input.userId);
+    return status;
   }
 
   private async ensureSubscriptionProductId(

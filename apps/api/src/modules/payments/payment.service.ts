@@ -17,6 +17,7 @@ import {
   PaymentProviderKind,
   PaymentProductType,
   PaymentStatus,
+  PremiumPlanCode,
   type AdminPaymentDetailDto,
   type AdminPaymentListItemDto,
   type AdminPaymentProviderSettingsDto,
@@ -40,6 +41,7 @@ import {
 } from '../../common/credential-crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CoinLedgerService } from '../wallet/coin-ledger.service';
+import { BillingNotificationService } from './billing-notification.service';
 import { PremiumService } from './premium.service';
 import { TossPaymentError, TossPaymentProvider } from './toss-payment.provider';
 
@@ -130,6 +132,7 @@ export class PaymentService {
     private readonly ledger: CoinLedgerService,
     private readonly premium: PremiumService,
     private readonly toss: TossPaymentProvider,
+    private readonly billingNotifications: BillingNotificationService,
   ) {}
 
   async listActiveProducts(type?: PaymentProductType): Promise<PaymentProductDto[]> {
@@ -598,7 +601,7 @@ export class PaymentService {
     paymentId: string,
     input: { paymentKey: string; providerPayload: Record<string, unknown> },
   ) {
-    return this.prisma.$transaction(async (tx) => {
+    const fulfillment = await this.prisma.$transaction(async (tx) => {
       const payment = await tx.payment.findUnique({
         where: { id: paymentId },
         include: { product: true },
@@ -607,7 +610,13 @@ export class PaymentService {
 
       if (payment.status === PaymentStatus.PAID) {
         const detail = await this.mapPaymentDetail(payment);
-        return { payment: detail };
+        return {
+          payment: detail,
+          coinNewlyIssued: false,
+          premiumNewlyActivated: false,
+          userId: payment.userId,
+          paymentId: payment.id,
+        };
       }
 
       const approvedAt = new Date();
@@ -630,13 +639,21 @@ export class PaymentService {
           include: { product: true },
         });
         if (current?.status === PaymentStatus.PAID) {
-          return { payment: await this.mapPaymentDetail(current) };
+          return {
+            payment: await this.mapPaymentDetail(current),
+            coinNewlyIssued: false,
+            premiumNewlyActivated: false,
+            userId: current.userId,
+            paymentId: current.id,
+          };
         }
         throw new BadRequestException('payment_not_confirmable');
       }
 
       let coinCredited: string | undefined;
+      let coinNewlyIssued = false;
       let premiumStatus: { expiresAt: string; startedAt: string } | undefined;
+      let premiumNewlyActivated = false;
 
       if (payment.type === PaymentProductType.COIN_CHARGE) {
         const coinAmount = payment.product.coinAmount;
@@ -661,6 +678,7 @@ export class PaymentService {
           tx,
         );
         coinCredited = result.amount;
+        coinNewlyIssued = !result.alreadyExists;
         this.logger.log(
           `COIN_PURCHASE_CREDITED paymentId=${payment.id} amount=${coinCredited} alreadyExists=${result.alreadyExists}`,
         );
@@ -676,6 +694,7 @@ export class PaymentService {
           expiresAt: activation.expiresAt.toISOString(),
           startedAt: activation.startedAt.toISOString(),
         };
+        premiumNewlyActivated = !activation.extended;
         this.logger.log(
           activation.extended
             ? `PREMIUM_EXTENDED paymentId=${payment.id}`
@@ -691,8 +710,34 @@ export class PaymentService {
         payment: await this.mapPaymentDetail(updated!),
         premiumStatus,
         coinCredited,
+        coinNewlyIssued,
+        premiumNewlyActivated,
+        userId: payment.userId,
+        paymentId: payment.id,
       };
     });
+
+    if (fulfillment.coinNewlyIssued && fulfillment.coinCredited) {
+      this.billingNotifications.notifyCoinPurchaseCompleted({
+        userId: fulfillment.userId,
+        paymentId: fulfillment.paymentId,
+        coinAmount: fulfillment.coinCredited,
+      });
+    }
+    if (fulfillment.premiumNewlyActivated && fulfillment.premiumStatus) {
+      this.billingNotifications.notifyPremiumActivated({
+        userId: fulfillment.userId,
+        paymentId: fulfillment.paymentId,
+        plan: PremiumPlanCode.PREMIUM_MONTHLY,
+        expiresAt: fulfillment.premiumStatus.expiresAt,
+      });
+    }
+
+    return {
+      payment: fulfillment.payment,
+      premiumStatus: fulfillment.premiumStatus,
+      coinCredited: fulfillment.coinCredited,
+    };
   }
 
   private async markFailed(
