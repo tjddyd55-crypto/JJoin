@@ -11,7 +11,7 @@ import {
 import type { AppNotificationDto } from '@jjoin/types';
 import { getApiClient } from '../../src/lib/api';
 import { getSecureSessionStore } from '../../src/session/SessionContext';
-import { resolvePushRoute } from '../../src/features/notifications/push-routing';
+import { resolveNotificationRoute } from '../../src/features/notifications/push-routing';
 import { NESTED_SCREEN_EDGES } from '../../src/ui/nested-screen';
 
 export default function NotificationsScreen() {
@@ -45,9 +45,24 @@ export default function NotificationsScreen() {
     } catch {
       // still navigate
     }
-    const target = resolvePushRoute(item.data as unknown as Record<string, unknown>);
+    const target = resolveNotificationRoute({
+      type: item.type,
+      data: item.data as Record<string, unknown> | null,
+    });
     if (target.kind === 'join') {
       router.push(`/join/${target.joinId}`);
+      return;
+    }
+    if (target.kind === 'wallet' || target.kind === 'wallet-transactions') {
+      router.push('/my/wallet');
+      return;
+    }
+    if (target.kind === 'club') {
+      router.push(`/my/clubs/${target.clubId}`);
+      return;
+    }
+    if (target.kind === 'club-notice') {
+      router.push(`/my/clubs/${target.clubId}/notices`);
     }
   };
 
