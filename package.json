@@ -27,6 +27,7 @@
     "chat-purge": "pnpm exec tsx scripts/run-chat-purge.ts",
     "recurring-joins": "pnpm exec tsx scripts/run-recurring-joins.ts",
     "notification-delivery": "pnpm exec tsx scripts/run-notification-delivery.ts",
+    "premium-renewal": "pnpm exec tsx scripts/run-premium-renewal.ts",
     "attendance-reminders": "pnpm exec tsx scripts/run-attendance-reminders.ts",
     "payment:dev-smoke": "pnpm exec tsx scripts/payment-dev-smoke.ts"
   },

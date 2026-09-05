@@ -167,6 +167,26 @@ async function coinGuards(admin: Auth, devA: Auth, devB: Auth, productId: string
 }
 
 async function joinPricingCases(admin: Auth, devA: Auth) {
+  // CASE A: Base PAID 30, Owner FREE → owner preview fee 0
+  await setJoinPricing(admin, {
+    baseMode: 'PAID',
+    baseFeeCoinAmount: 30,
+    ownerOverride: 'FREE',
+    ownerFixedFeeCoinAmount: 0,
+    premiumOverride: 'INHERIT',
+    premiumFixedFeeCoinAmount: 0,
+  });
+  let preview = await j<{
+    general: { feeCoinAmount: number };
+    owner: { feeCoinAmount: number };
+    premium: { feeCoinAmount: number };
+    ownerAndPremium: { feeCoinAmount: number };
+  }>('/admin/join-coin-policy/preview', { headers: admin });
+  assert(preview.status === 200, 'preview A');
+  assert(preview.body.general.feeCoinAmount === 30, 'CASE A general 30');
+  assert(preview.body.owner.feeCoinAmount === 0, 'CASE A owner FREE');
+
+  // CASE B: Base PAID 30, Premium FIXED_FEE 10
   await setJoinPricing(admin, {
     baseMode: 'PAID',
     baseFeeCoinAmount: 30,
@@ -175,17 +195,79 @@ async function joinPricingCases(admin: Auth, devA: Auth) {
     premiumOverride: 'FIXED_FEE',
     premiumFixedFeeCoinAmount: 10,
   });
+  preview = await j('/admin/join-coin-policy/preview', { headers: admin });
+  assert(preview.body.premium.feeCoinAmount === 10, 'CASE B premium 10');
+
+  const premiumUser = await meJoinPolicy(devA);
+  // DEV_A without premium membership should still see base fee
+  assert(Number(premiumUser.creationCoinCost) === 30, 'CASE B general user fee 30');
+
+  // CASE C: Owner FIXED 10, Premium FREE → owner+premium best price 0
+  await setJoinPricing(admin, {
+    baseMode: 'PAID',
+    baseFeeCoinAmount: 30,
+    ownerOverride: 'FIXED_FEE',
+    ownerFixedFeeCoinAmount: 10,
+    premiumOverride: 'FREE',
+    premiumFixedFeeCoinAmount: 0,
+  });
+  preview = await j('/admin/join-coin-policy/preview', { headers: admin });
+  assert(preview.body.ownerAndPremium.feeCoinAmount === 0, 'CASE C owner+premium 0');
+
+  // CASE D: insufficient balance — join create must fail with zero wallet delta
+  await setJoinPricing(admin, {
+    baseMode: 'PAID',
+    baseFeeCoinAmount: 30,
+    ownerOverride: 'INHERIT',
+    ownerFixedFeeCoinAmount: 0,
+    premiumOverride: 'INHERIT',
+    premiumFixedFeeCoinAmount: 0,
+  });
+  const walletBefore = await walletBalance(devA);
+  const coinPreview = await j<{ canCreate: boolean; totalRequiredCoin: string }>('/joins/coin-preview', {
+    method: 'POST',
+    headers: devA,
+    body: JSON.stringify({ plannedPlayerCount: 4 }),
+  });
+  assert(coinPreview.status === 200, 'coin preview');
+  if (!coinPreview.body.canCreate) {
+    const fail = await j('/joins', {
+      method: 'POST',
+      headers: devA,
+      body: JSON.stringify({
+        sportCode: 'SCREEN_GOLF',
+        venue: {
+          provider: 'MOCK',
+          providerPlaceId: 'venue_sg_geoje',
+          name: 'SG골프 거제점',
+          address: '거제시',
+          regionLabel: '거제시',
+          latitude: 34.88,
+          longitude: 128.62,
+        },
+        startAt: new Date(Date.now() + 4 * 60 * 60_000).toISOString(),
+        plannedPlayerCount: 4,
+        joinMethod: 'APPROVAL',
+        title: 'billing e2e insufficient',
+        idempotencyKey: `billing-insufficient-${Date.now()}`,
+      }),
+    });
+    assert(fail.status >= 400, 'CASE D create rejected');
+    const walletAfter = await walletBalance(devA);
+    assert(walletAfter === walletBefore, 'CASE D wallet unchanged');
+    console.log('OK join pricing CASE D insufficient balance blocked');
+  } else {
+    console.log('SKIP join pricing CASE D (user has sufficient balance)');
+  }
 
   const readback = await j<PricingPolicy>('/admin/join-coin-policy', { headers: admin });
   assert(readback.body.baseFeeCoinAmount === 30, 'readback base 30');
-  assert(readback.body.ownerOverride === 'FREE', 'readback owner FREE');
-
-  const general = await meJoinPolicy(devA);
-  assert(Number(general.creationCoinCost) === 30, 'general fee 30');
 
   console.log('OK join pricing API', {
-    generalFee: general.creationCoinCost,
-    effective: general.effectivePolicy?.effectiveFeeCoinAmount,
+    caseAOwnerFee: 0,
+    caseBPremiumFee: 10,
+    caseCOwnerPremiumFee: 0,
+    generalFee: premiumUser.creationCoinCost,
   });
 }
 
