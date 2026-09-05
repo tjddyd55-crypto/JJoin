@@ -228,6 +228,33 @@ export {
 } from './display-number';
 
 export {
+  COIN_KRW_RATE,
+  coinToKrw,
+  formatKrwEquivalent,
+  krwToCoin,
+} from './coin-krw';
+
+export {
+  assertCoinProductPricing,
+  expectedCoinProductPriceKrw,
+  type CoinProductInput,
+} from './coin-product';
+
+export {
+  DEFAULT_JOIN_CREATION_PRICING_POLICY,
+  assertJoinCreationPricingPolicy,
+  migrateLegacyJoinCreationPolicy,
+  normalizeFeeCoinAmount,
+  resolveEffectiveJoinCreationPolicy,
+  type EffectiveJoinCreationPolicy,
+  type EffectiveJoinCreationPolicyReason,
+  type JoinCreationBaseMode,
+  type JoinCreationBenefitOverrideMode,
+  type JoinCreationPricingPolicy,
+  type ResolveEffectiveJoinCreationPolicyInput,
+} from './effective-join-creation-policy';
+
+export {
   canAffordJoinCreate,
   computeJoinCoinRequirement,
   computeRewardEligibleSlots,

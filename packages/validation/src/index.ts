@@ -471,11 +471,28 @@ export const updateAdminPaymentProviderSettingsSchema = z.object({
   secretKey: z.string().trim().max(200).nullable().optional(),
 });
 
+const joinCreationBenefitOverrideSchema = z.enum(['INHERIT', 'FREE', 'FIXED_FEE']);
+const joinCreationBaseModeSchema = z.enum(['FREE', 'PAID']);
+
+export const updateJoinCreationPricingPolicySchema = z.object({
+  baseMode: joinCreationBaseModeSchema,
+  baseFeeCoinAmount: z.number().int().min(0).max(1_000_000_000),
+  ownerOverride: joinCreationBenefitOverrideSchema,
+  ownerFixedFeeCoinAmount: z.number().int().min(0).max(1_000_000_000),
+  premiumOverride: joinCreationBenefitOverrideSchema,
+  premiumFixedFeeCoinAmount: z.number().int().min(0).max(1_000_000_000),
+});
+
+export type UpdateJoinCreationPricingPolicyInput = z.infer<
+  typeof updateJoinCreationPricingPolicySchema
+>;
+
 const joinCreationCoinRolePolicySchema = z.object({
   enabled: z.boolean(),
   cost: z.number().int().min(0).max(1_000_000_000),
 });
 
+/** @deprecated — use updateJoinCreationPricingPolicySchema */
 export const updateJoinCreationCoinPolicySchema = z.object({
   general: joinCreationCoinRolePolicySchema,
   premium: joinCreationCoinRolePolicySchema,
@@ -505,4 +522,21 @@ export const updatePaymentProductSchema = z.object({
   premiumDays: z.number().int().positive().nullable().optional(),
   active: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
+});
+
+export const updatePremiumPlanSettingsSchema = z.object({
+  monthlyEnabled: z.boolean().optional(),
+  monthlyPriceKrw: z.number().int().positive().optional(),
+  yearlyEnabled: z.boolean().optional(),
+  yearlyPriceKrw: z.number().int().positive().optional(),
+});
+
+export const initPremiumSubscriptionSchema = z.object({
+  plan: z.enum(['PREMIUM_MONTHLY', 'PREMIUM_YEARLY']),
+});
+
+export const confirmPremiumBillingSchema = z.object({
+  authKey: z.string().trim().min(1).max(500),
+  customerKey: z.string().trim().min(1).max(200),
+  plan: z.enum(['PREMIUM_MONTHLY', 'PREMIUM_YEARLY']),
 });

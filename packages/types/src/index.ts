@@ -314,13 +314,54 @@ export type JoinCreationCoinRolePolicyDto = {
   cost: number;
 };
 
+/** @deprecated Use JoinCreationPricingPolicyDto */
 export type JoinCreationCoinPolicyDto = {
   general: JoinCreationCoinRolePolicyDto;
   premium: JoinCreationCoinRolePolicyDto;
   storeOwner: JoinCreationCoinRolePolicyDto;
 };
 
+export type JoinCreationBenefitOverrideModeDto = 'INHERIT' | 'FREE' | 'FIXED_FEE';
+export type JoinCreationBaseModeDto = 'FREE' | 'PAID';
+
+export type JoinCreationPricingPolicyDto = {
+  baseMode: JoinCreationBaseModeDto;
+  baseFeeCoinAmount: number;
+  ownerOverride: JoinCreationBenefitOverrideModeDto;
+  ownerFixedFeeCoinAmount: number;
+  premiumOverride: JoinCreationBenefitOverrideModeDto;
+  premiumFixedFeeCoinAmount: number;
+};
+
+export type JoinCreationPricingPreviewDto = {
+  general: { feeCoinAmount: number; feeKrw: number };
+  owner: { feeCoinAmount: number; feeKrw: number; label: string };
+  premium: { feeCoinAmount: number; feeKrw: number; label: string };
+  ownerAndPremium: { feeCoinAmount: number; feeKrw: number; label: string };
+};
+
+export type UpdateJoinCreationPricingPolicyRequest = JoinCreationPricingPolicyDto;
+
+/** @deprecated */
 export type UpdateJoinCreationCoinPolicyRequest = JoinCreationCoinPolicyDto;
+
+export type EffectiveJoinCreationPolicyDto = {
+  canCreate: boolean;
+  base: { mode: JoinCreationBaseModeDto; feeCoinAmount: number };
+  owner: {
+    eligible: boolean;
+    mode: JoinCreationBenefitOverrideModeDto | null;
+    feeCoinAmount: number | null;
+  };
+  premium: {
+    eligible: boolean;
+    mode: JoinCreationBenefitOverrideModeDto | null;
+    feeCoinAmount: number | null;
+  };
+  effectiveFeeCoinAmount: number;
+  effectiveFeeKrw: number;
+  reason: string;
+};
 
 export type MeJoinCoinPolicyDto = {
   userType: JoinCreatorUserType;
@@ -329,6 +370,8 @@ export type MeJoinCoinPolicyDto = {
   cost: number;
   /** Effective coin amount string for create. */
   creationCoinCost: string;
+  effectivePolicy?: EffectiveJoinCreationPolicyDto;
+  benefitLabel?: string | null;
 };
 
 export type MeDto = {
@@ -2150,6 +2193,12 @@ export enum PaymentEnvironment {
 export enum PaymentProductType {
   COIN_CHARGE = 'COIN_CHARGE',
   PREMIUM_PASS = 'PREMIUM_PASS',
+  PREMIUM_SUBSCRIPTION = 'PREMIUM_SUBSCRIPTION',
+}
+
+export enum PremiumPlanCode {
+  PREMIUM_MONTHLY = 'PREMIUM_MONTHLY',
+  PREMIUM_YEARLY = 'PREMIUM_YEARLY',
 }
 
 export enum PaymentStatus {
@@ -2224,9 +2273,50 @@ export type PaymentDetailDto = PaymentListItemDto & {
 
 export type PremiumStatusDto = {
   active: boolean;
+  plan: PremiumPlanCode | null;
   startedAt: string | null;
   expiresAt: string | null;
+  nextBillingAt: string | null;
+  cancelAtPeriodEnd: boolean;
   remainingDays: number | null;
+};
+
+export type PremiumPlanSettingsDto = {
+  monthlyEnabled: boolean;
+  monthlyPriceKrw: number;
+  yearlyEnabled: boolean;
+  yearlyPriceKrw: number;
+  yearlySavingsPercent: number | null;
+};
+
+export type UpdatePremiumPlanSettingsRequest = {
+  monthlyEnabled?: boolean;
+  monthlyPriceKrw?: number;
+  yearlyEnabled?: boolean;
+  yearlyPriceKrw?: number;
+};
+
+export type InitPremiumSubscriptionRequest = {
+  plan: PremiumPlanCode;
+};
+
+export type InitPremiumSubscriptionResponse = {
+  customerKey: string;
+  clientKey: string;
+  billingAuthUrl: string;
+  plan: PremiumPlanCode;
+  amount: number;
+  orderName: string;
+};
+
+export type ConfirmPremiumBillingRequest = {
+  authKey: string;
+  customerKey: string;
+  plan: PremiumPlanCode;
+};
+
+export type ConfirmPremiumBillingResponse = {
+  premiumStatus: PremiumStatusDto;
 };
 
 export type AdminPaymentProviderSettingsDto = {
