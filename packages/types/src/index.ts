@@ -33,6 +33,10 @@ export enum MockAuthPersona {
   DEV_B = 'DEV_B',
   DEV_C = 'DEV_C',
   DEV_ADMIN = 'DEV_ADMIN',
+  /** Billing closeout: low balance (20 Coin), no active hosted joins. DEV/TEST only. */
+  DEV_BILLING_LOW = 'DEV_BILLING_LOW',
+  /** Billing closeout: funded wallet, no active hosted joins. DEV/TEST only. */
+  DEV_BILLING_RETRY = 'DEV_BILLING_RETRY',
 }
 
 export enum JoinMethod {

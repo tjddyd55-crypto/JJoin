@@ -69,3 +69,10 @@ export function resolveDefaultRewardPerParticipant(): string {
 export function resolveFundingTargetAvailable(): string {
   return DEV_TEST_COIN_POLICY.fundingTargetAvailable;
 }
+
+/** DEV persona-specific wallet funding target (TEST only). */
+export function resolveFundingTargetForPersona(personaLabel: string): string {
+  if (personaLabel === 'DEV_BILLING_LOW') return '20';
+  if (personaLabel === 'DEV_BILLING_RETRY') return '500';
+  return resolveFundingTargetAvailable();
+}

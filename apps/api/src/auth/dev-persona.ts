@@ -67,6 +67,24 @@ const PERSONAS: Record<MockAuthPersona, PersonaFixture> = {
     regionLabel: '거제',
     skillLevel: SportSkillLevel.INTERMEDIATE,
   },
+  [MockAuthPersona.DEV_BILLING_LOW]: {
+    persona: MockAuthPersona.DEV_BILLING_LOW,
+    providerSubject: 'dev-persona-billing-low',
+    nickname: '빌링저액',
+    gender: Gender.MALE,
+    ageBand: AgeBand.TWENTIES,
+    regionLabel: '거제',
+    skillLevel: SportSkillLevel.BEGINNER,
+  },
+  [MockAuthPersona.DEV_BILLING_RETRY]: {
+    persona: MockAuthPersona.DEV_BILLING_RETRY,
+    providerSubject: 'dev-persona-billing-retry',
+    nickname: '빌링재시도',
+    gender: Gender.FEMALE,
+    ageBand: AgeBand.TWENTIES,
+    regionLabel: '거제',
+    skillLevel: SportSkillLevel.BEGINNER,
+  },
 };
 
 /**

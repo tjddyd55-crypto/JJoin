@@ -14,7 +14,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ensureFoundation } from '../../foundation/ensure-foundation';
 import {
   isDevCoinFundingAllowed,
-  resolveFundingTargetAvailable,
+  resolveFundingTargetForPersona,
 } from '../../coin/dev-coin-policy';
 
 export type PrismaTx = Prisma.TransactionClient;
@@ -193,7 +193,7 @@ export class CoinLedgerService {
       throw new Error('dev_coin_funding_forbidden');
     }
     const { coinAsset } = await ensureFoundation(this.prisma);
-    const target = resolveFundingTargetAvailable();
+    const target = resolveFundingTargetForPersona(personaLabel);
 
     await this.prisma.$transaction(async (tx) => {
       const wallet = await this.getOrCreateWallet(userId, coinAsset.id, tx);
