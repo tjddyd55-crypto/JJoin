@@ -185,7 +185,6 @@ export class JoinsService {
 
   async create(hostUserId: string, raw: CreateJoinRequest): Promise<JoinDetailDto> {
     await this.accounts.assertIdentityVerified(hostUserId, 'CREATE_JOIN');
-    await this.premium.assertCanCreateJoin(hostUserId);
     const parsed = createJoinSchema.safeParse(raw);
     if (!parsed.success) {
       throw new BadRequestException('invalid_create_join');
@@ -217,6 +216,8 @@ export class JoinsService {
         return this.getDetail(existingHold.refId, hostUserId);
       }
     }
+
+    await this.premium.assertCanCreateJoin(hostUserId);
 
     const { sport, coinAsset } = await ensureFoundation(this.prisma);
     if (input.sportCode !== sport.code && input.sportCode !== SCREEN_GOLF_CODE) {

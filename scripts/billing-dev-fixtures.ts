@@ -14,7 +14,12 @@ function assertDevOnly() {
 
 export async function withBillingPrisma<T>(fn: (prisma: PrismaClient) => Promise<T>): Promise<T> {
   assertDevOnly();
-  const prisma = new PrismaClient();
+  const datasourceUrl = process.env.BILLING_FIXTURE_DATABASE_URL ?? process.env.DATABASE_URL;
+  const prisma = new PrismaClient(
+    datasourceUrl
+      ? { datasources: { db: { url: datasourceUrl } } }
+      : undefined,
+  );
   try {
     return await fn(prisma);
   } finally {

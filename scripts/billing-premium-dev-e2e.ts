@@ -395,7 +395,59 @@ async function joinPricingCaseD(admin: Auth, lowBalance: Auth) {
   console.log('BILLING_JOIN_PRICING_CASE_D_PASS', { walletBefore });
 }
 
+const ACTIVE_HOST_STATUSES = new Set(['OPEN', 'FULL', 'CONFIRMED', 'IN_PROGRESS']);
+
+async function cleanupBlockingHostedJoin(host: Auth) {
+  const mine = await j<{ hosted: Array<{ joinId: string; status: string }> }>('/joins/mine', {
+    headers: host,
+  });
+  assert(mine.status < 300, `joins/mine ${mine.status}`);
+  const blocking = mine.body.hosted?.find((row) => ACTIVE_HOST_STATUSES.has(row.status));
+  if (!blocking) return;
+
+  const detail = await j<{
+    participants: Array<{ participantId: string; role: string; participationStatus: string }>;
+  }>(`/joins/${blocking.joinId}`, { headers: host });
+  assert(detail.status < 300, `join detail ${detail.status}`);
+
+  const applied = detail.body.participants.find(
+    (p) => p.role !== 'HOST' && p.participationStatus === 'APPLIED',
+  );
+  if (applied) {
+    await j(`/joins/${blocking.joinId}/participants/${applied.participantId}/approve`, {
+      method: 'POST',
+      headers: host,
+    });
+  }
+
+  const refreshed = applied
+    ? await j<{
+        participants: Array<{ participantId: string; role: string; participationStatus: string }>;
+      }>(`/joins/${blocking.joinId}`, { headers: host })
+    : detail;
+  const nonHost = refreshed.body.participants.filter(
+    (p) => p.role !== 'HOST' && p.participationStatus !== 'APPLIED',
+  );
+
+  await j(`/joins/${blocking.joinId}/settlements/_qa/advance-clock`, {
+    method: 'POST',
+    headers: host,
+    body: JSON.stringify({ mode: 'open' }),
+  });
+
+  if (nonHost.length > 0) {
+    await j(`/joins/${blocking.joinId}/settlements/finalize`, {
+      method: 'POST',
+      headers: host,
+      body: JSON.stringify({
+        attendance: nonHost.map((p) => ({ participantId: p.participantId, attended: false })),
+      }),
+    });
+  }
+}
+
 async function joinCreationRetry(devA: Auth) {
+  await cleanupBlockingHostedJoin(devA);
   const idem = `billing-join-retry-${Date.now()}`;
   const body = joinCreateBody(idem, 8);
   const preview = await j<{ roomCreationFee: string; rewardHoldTotal: string; canCreate: boolean }>(
@@ -560,15 +612,8 @@ async function policyMatrix(admin: Auth) {
   console.log('BILLING_POLICY_MATRIX_PASS', { cases: cases.length });
 }
 
-async function permissionSeparation(admin: Auth, hostLimited: Auth, hostUserId: string) {
-  await withBillingPrisma(async (prisma) => {
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60_000);
-    await seedPremiumMembership(prisma, hostUserId, {
-      plan: 'PREMIUM_MONTHLY',
-      expiresAt,
-      nextBillingAt: expiresAt,
-    });
-  });
+async function permissionSeparation(admin: Auth, hostLimited: Auth) {
+  await cleanupBlockingHostedJoin(hostLimited);
 
   await setJoinPricing(admin, {
     baseMode: 'PAID',
@@ -580,7 +625,14 @@ async function permissionSeparation(admin: Auth, hostLimited: Auth, hostUserId: 
   });
 
   const policy = await meJoinPolicy(hostLimited);
-  assert(Number(policy.creationCoinCost) === 0, 'premium FREE fee 0');
+  assert(Number(policy.creationCoinCost) === 30, 'non-premium user keeps base fee');
+
+  const blocking = await j<{ joinId: string }>('/joins', {
+    method: 'POST',
+    headers: hostLimited,
+    body: JSON.stringify(joinCreateBody(`billing-perm-seed-${Date.now()}`, 24)),
+  });
+  assert(blocking.status < 300, `seed join ${blocking.status}`);
 
   const fail = await j('/joins', {
     method: 'POST',
@@ -588,7 +640,7 @@ async function permissionSeparation(admin: Auth, hostLimited: Auth, hostUserId: 
     body: JSON.stringify(joinCreateBody(`billing-perm-sep-${Date.now()}`, 12)),
   });
   assert(fail.status === 403, `permission separation ${fail.status}`);
-  assert(fail.raw.includes('JOIN_HOST_LIMIT'), 'JOIN_HOST_LIMIT despite free fee');
+  assert(fail.raw.includes('JOIN_HOST_LIMIT'), 'JOIN_HOST_LIMIT despite premium FREE policy');
   console.log('BILLING_PERMISSION_SEPARATION_PASS');
 }
 
@@ -694,7 +746,8 @@ async function main() {
     return;
   }
   if (mode === '--permission-separation') {
-    await permissionSeparation(admin, devA.auth, devA.userId);
+    const retry = await signIn(MockAuthPersona.DEV_BILLING_RETRY);
+    await permissionSeparation(admin, retry.auth);
     return;
   }
   if (mode === '--premium-cancel') {
