@@ -628,6 +628,15 @@ export default function JoinDetailScreen() {
           </Section>
         ) : null}
 
+        {isHost && detail.settlement?.settlementOpen && !matching ? (
+          <Section title="방장 운영">
+            <Button
+              label="참석·정산 관리"
+              onPress={() => router.push(`/join/${joinId}/host-ops`)}
+            />
+          </Section>
+        ) : null}
+
         {isHost && detail.settlement?.settlementOpen ? (
           <Section title="참가자 정산">
             {detail.settlement.settlements.map((row) => (

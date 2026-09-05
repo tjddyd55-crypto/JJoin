@@ -21,6 +21,7 @@ export default function JoinDetailLayout() {
         }}
       >
         <Stack.Screen name="index" options={{ title: '조인', headerShown: false }} />
+        <Stack.Screen name="host-ops" options={{ title: '참석·정산 관리' }} />
         <Stack.Screen name="chat" options={{ title: '조인 채팅' }} />
         <Stack.Screen name="invite" options={{ title: '참가자 초대' }} />
       </Stack>

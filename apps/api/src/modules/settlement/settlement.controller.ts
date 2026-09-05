@@ -1,5 +1,5 @@
 ﻿import { Body, Controller, Get, Headers, Param, Post, UseGuards } from '@nestjs/common';
-import type { SettlementIssueRequest } from '@jjoin/types';
+import type { SettlementIssueRequest, HostFinalizeAttendanceRequest } from '@jjoin/types';
 import { SettlementService } from './settlement.service';
 import { CurrentUserId, MockAuthGuard } from '../../common/mock-auth.guard';
 
@@ -38,6 +38,16 @@ export class SettlementController {
   @Post('joins/:joinId/settlements/pay-all')
   payAll(@Param('joinId') joinId: string, @CurrentUserId() hostUserId: string) {
     return this.service.payAllEligible(joinId, hostUserId);
+  }
+
+  @UseGuards(MockAuthGuard)
+  @Post('joins/:joinId/settlements/finalize')
+  finalize(
+    @Param('joinId') joinId: string,
+    @CurrentUserId() hostUserId: string,
+    @Body() body: HostFinalizeAttendanceRequest,
+  ) {
+    return this.service.finalizeHostAttendance(joinId, hostUserId, body);
   }
 
   @UseGuards(MockAuthGuard)

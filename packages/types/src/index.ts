@@ -1054,6 +1054,20 @@ export type StoreMatchingCompleteRequest = {
   attendance: Array<{ participantId: string; attended: boolean }>;
 };
 
+/** STANDARD join host batch attendance + settlement (same shape as store matching complete). */
+export type HostFinalizeAttendanceRequest = StoreMatchingCompleteRequest;
+
+export type HostFinalizeAttendanceResponse = {
+  ok: boolean;
+  attendedCount: number;
+  noShowCount: number;
+  results: Array<{
+    participantId: string;
+    ok: boolean;
+    rewardStatus?: string;
+  }>;
+};
+
 export type RejectStoreVerificationRequest = {
   rejectReason: string;
   adminNote?: string;

@@ -359,6 +359,28 @@ export {
 } from './attendance-reliability';
 
 export {
+  summarizeStandardHostSettlement,
+  type HostSettlementPreview,
+  type HostSettlementPreviewParticipant,
+} from './host-settlement-preview';
+
+export {
+  calculateParticipationTrust,
+  computeParticipationTrust,
+  PARTICIPATION_TRUST_LABEL_KO,
+  type ParticipationTrust,
+  type ParticipationTrustLabelId,
+  type ParticipationTrustMetrics,
+} from './participation-trust';
+
+export {
+  pickFinalizeRowsToProcess,
+  sortFinalizeAttendanceForProcessing,
+  type FinalizeAttendanceItem,
+  type FinalizeSettlementRow,
+} from './settlement-finalize';
+
+export {
   PLAYER_REVIEW_COMMENT_MAX_LENGTH,
   PLAYER_REVIEW_RATING_MAX,
   PLAYER_REVIEW_RATING_MIN,

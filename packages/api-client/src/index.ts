@@ -783,6 +783,18 @@ export class ApiClient {
     return parseJson(res);
   }
 
+  async finalizeHostAttendance(
+    joinId: string,
+    body: { attendance: Array<{ participantId: string; attended: boolean }> },
+  ): Promise<import('@jjoin/types').HostFinalizeAttendanceResponse> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/settlements/finalize`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
   async reportSettlementIssue(
     joinId: string,
     participantId: string,

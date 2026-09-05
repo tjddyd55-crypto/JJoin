@@ -11,6 +11,8 @@ import {
   RewardStatus,
   DisputeStatus,
   type JoinSettlementSummaryDto,
+  type HostFinalizeAttendanceRequest,
+  type HostFinalizeAttendanceResponse,
   type SettlementIssueRequest,
   type SettlementParticipantDto,
 } from '@jjoin/types';
@@ -25,6 +27,7 @@ import {
   settlementRefundIdempotencyKey,
   settlementRowIdempotencyKey,
   settlementTransferIdempotencyKey,
+  sortFinalizeAttendanceForProcessing,
   chatHideAfterFrom,
   chatPurgeAfterFrom,
 } from '@jjoin/domain';
@@ -36,6 +39,7 @@ import { DisputeService } from '../dispute/dispute.service';
 import { mockUserStore } from '../../mock/mock-user.store';
 import { NotificationEventService } from '../notifications/notification-event.service';
 import { NotificationType } from '@prisma/client';
+import { storeMatchingCompleteSchema } from '@jjoin/validation';
 
 const SETTLING_ELIGIBLE: JoinStatus[] = [
   JoinStatus.OPEN,
@@ -305,10 +309,6 @@ export class SettlementService {
       }
       const settlement = participant.settlement;
 
-      if (settlement.rewardStatus === 'PAID' || settlement.rewardStatus === 'AUTO_PAID') {
-        return settlement;
-      }
-
       if (mode === 'MANUAL') {
         if (
           !canHostPayReward({
@@ -330,85 +330,15 @@ export class SettlementService {
         return null;
       }
 
-      const amount = String(settlement.amount);
-      if (!isRewardTransferRequired(amount)) {
-        return this.finalizeZeroRewardSettlement(tx, {
-          settlement,
-          participant,
-          joinId,
-          mode,
-          now,
-        });
-      }
-
-      const hostWallet = await this.ledger.getOrCreateWallet(join.hostUserId, join.coinAssetId, tx);
-      const participantWallet = await this.ledger.getOrCreateWallet(
-        participant.userId,
-        join.coinAssetId,
-        tx,
-      );
-
-      const transferKey = settlementTransferIdempotencyKey(settlement.id);
-      const { participantTx } = await this.ledger.applyRewardTransfer(tx, {
-        hostWalletId: hostWallet.id,
-        participantWalletId: participantWallet.id,
-        participantUserId: participant.userId,
-        coinAssetId: join.coinAssetId,
-        amount,
-        settlementId: settlement.id,
-        joinId,
-        idempotencyKey: transferKey,
+      const paid = await this.executeRewardPayInTx(tx, {
+        join,
+        participant,
+        settlement,
+        mode,
+        now,
+        hostUserId: join.hostUserId,
       });
-
-      if (settlement.holdId) {
-        await this.ledger.refreshCoinHoldStatus(tx, settlement.holdId);
-      }
-
-      const nextRewardStatus = mode === 'AUTO' ? 'AUTO_PAID' : 'PAID';
-      const claimed = await tx.rewardSettlement.updateMany({
-        where: { id: settlement.id, rewardStatus: 'PENDING_CONFIRMATION' },
-        data: {
-          rewardStatus: nextRewardStatus,
-          paidAt: now,
-          paidTxId: participantTx.id,
-        },
-      });
-
-      if (claimed.count === 0) {
-        return tx.rewardSettlement.findUniqueOrThrow({ where: { id: settlement.id } });
-      }
-
-      await tx.joinParticipant.update({
-        where: { id: participant.id },
-        data: { participationStatus: 'COMPLETED' },
-      });
-
-      mockUserStore.syncWalletBalances(
-        join.hostUserId,
-        String(
-          (
-            await tx.wallet.findUniqueOrThrow({ where: { id: hostWallet.id } })
-          ).availableBalance,
-        ),
-        String(
-          (
-            await tx.wallet.findUniqueOrThrow({ where: { id: hostWallet.id } })
-          ).heldBalance,
-        ),
-      );
-      mockUserStore.syncWalletBalances(
-        participant.userId,
-        String(
-          (
-            await tx.wallet.findUniqueOrThrow({ where: { id: participantWallet.id } })
-          ).availableBalance,
-        ),
-        String(
-          (
-            await tx.wallet.findUniqueOrThrow({ where: { id: participantWallet.id } })
-          ).heldBalance,
-        ),
-      );
+      if (!paid) return null;
 
       await this.tryCompleteJoin(tx, joinId);
       return tx.rewardSettlement.findUniqueOrThrow({ where: { id: settlement.id } });
@@ -456,6 +386,177 @@ export class SettlementService {
       results.push(await this.payParticipant(joinId, s.participantId, hostUserId, 'MANUAL'));
     }
     return { count: results.filter((r) => r.ok).length, results };
+  }
+
+  /**
+   * STANDARD join — batch attendance marking + settlement in one host action.
+   * Single DB transaction: all payouts/refunds succeed or none persist.
+   * Per-row idempotency keys prevent duplicate ledger rows on retry after commit.
+   */
+  async finalizeHostAttendance(
+    joinId: string,
+    hostUserId: string,
+    raw: HostFinalizeAttendanceRequest,
+  ): Promise<HostFinalizeAttendanceResponse> {
+    const parsed = storeMatchingCompleteSchema.safeParse(raw);
+    if (!parsed.success) {
+      throw new BadRequestException('invalid_finalize_attendance');
+    }
+
+    const joinPreview = await this.prisma.join.findUnique({
+      where: { id: joinId },
+      include: { participants: true },
+    });
+    if (!joinPreview) throw new NotFoundException('join_not_found');
+    if (joinPreview.hostUserId !== hostUserId) {
+      throw new ForbiddenException('not_join_host');
+    }
+    if (joinPreview.joinKind === 'STORE_MATCHING') {
+      throw new BadRequestException('use_store_matching_complete');
+    }
+    if (joinPreview.status === 'CANCELLED') {
+      throw new BadRequestException('join_cancelled');
+    }
+
+    const roster = joinPreview.participants.filter((p) => p.role !== ParticipantRole.HOST);
+    const attendanceMap = new Map(
+      parsed.data.attendance.map((item) => [item.participantId, item.attended]),
+    );
+
+    for (const participant of roster) {
+      if (!attendanceMap.has(participant.id)) {
+        throw new BadRequestException({
+          code: 'ATTENDANCE_INCOMPLETE',
+          message: '모든 참가자 출석 정보가 필요합니다.',
+        });
+      }
+    }
+
+    for (const participantId of attendanceMap.keys()) {
+      if (!roster.some((p) => p.id === participantId)) {
+        throw new BadRequestException('invalid_participant');
+      }
+    }
+
+    const summary = await this.getJoinSettlements(joinId, hostUserId);
+    if (!summary.settlementOpen) {
+      throw new BadRequestException('settlement_not_open');
+    }
+
+    await this.refreshJoinSettlementState(joinId);
+    const now = this.clock.now();
+    const payNotifications: Array<{
+      userId: string;
+      settlementId: string;
+      rewardAmount: string;
+    }> = [];
+
+    const sorted = sortFinalizeAttendanceForProcessing(parsed.data.attendance);
+
+    const results = await this.prisma.$transaction(async (tx) => {
+      const join = await tx.join.findUnique({
+        where: { id: joinId },
+        include: {
+          participants: { include: { settlement: true } },
+          holds: true,
+        },
+      });
+      if (!join) throw new NotFoundException('join_not_found');
+      if (join.hostUserId !== hostUserId) {
+        throw new ForbiddenException('not_join_host');
+      }
+      if (!isSettlementWindowOpen(join.scheduledEndAt, now)) {
+        throw new BadRequestException('settlement_not_open');
+      }
+
+      const out: HostFinalizeAttendanceResponse['results'] = [];
+
+      for (const item of sorted) {
+        const participant = join.participants.find((p) => p.id === item.participantId);
+        if (!participant?.settlement) {
+          throw new NotFoundException('settlement_not_found');
+        }
+        const settlement = participant.settlement;
+
+        if (isTerminalRewardStatus(settlement.rewardStatus)) {
+          out.push({
+            participantId: item.participantId,
+            ok: true,
+            rewardStatus: settlement.rewardStatus,
+          });
+          continue;
+        }
+
+        if (item.attended) {
+          if (
+            !canHostPayReward({
+              now,
+              scheduledEndAt: join.scheduledEndAt,
+              rewardStatus: settlement.rewardStatus,
+              joinStatus: join.status,
+            })
+          ) {
+            throw new BadRequestException('settlement_not_payable');
+          }
+
+          const paid = await this.executeRewardPayInTx(tx, {
+            join,
+            participant,
+            settlement,
+            mode: 'MANUAL',
+            now,
+            hostUserId,
+          });
+          if (paid && paid.rewardStatus === 'PAID' && !paid.skipped) {
+            payNotifications.push({
+              userId: participant.userId,
+              settlementId: settlement.id,
+              rewardAmount: paid.amount,
+            });
+          }
+          out.push({
+            participantId: item.participantId,
+            ok: true,
+            rewardStatus: paid?.rewardStatus ?? settlement.rewardStatus,
+          });
+        } else {
+          const issued = await this.applyNoShow(tx, join, participant, settlement, now, {
+            deferJoinCompletion: true,
+          });
+          out.push({
+            participantId: item.participantId,
+            ok: true,
+            rewardStatus: issued.rewardStatus,
+          });
+        }
+      }
+
+      await this.tryCompleteJoin(tx, joinId);
+      return out;
+    });
+
+    for (const notice of payNotifications) {
+      await this.notifications.enqueueSafe({
+        userId: notice.userId,
+        type: NotificationType.REWARD_PAID,
+        title: '보상 지급',
+        body: '참가 보상이 지급되었습니다.',
+        data: {
+          type: NotificationType.REWARD_PAID,
+          joinId,
+          settlementId: notice.settlementId,
+          rewardAmount: notice.rewardAmount,
+        },
+        eventKey: `settlement:${notice.settlementId}:reward_paid`,
+      });
+    }
+
+    return {
+      ok: true,
+      attendedCount: parsed.data.attendance.filter((a) => a.attended).length,
+      noShowCount: parsed.data.attendance.filter((a) => !a.attended).length,
+      results,
+    };
   }
 
   async reportIssue(
@@ -555,6 +656,7 @@ export class SettlementService {
       rewardStatus: string;
     },
     now: Date,
+    options?: { deferJoinCompletion?: boolean },
   ) {
     if (settlement.rewardStatus === 'REFUNDED') {
       return { ok: true, rewardStatus: 'REFUNDED' };
@@ -589,7 +691,9 @@ export class SettlementService {
       },
     });
 
-    await this.tryCompleteJoin(tx, join.id);
+    if (!options?.deferJoinCompletion) {
+      await this.tryCompleteJoin(tx, join.id);
+    }
     return { ok: true, rewardStatus: 'REFUNDED' };
   }
 
@@ -977,6 +1081,7 @@ export class SettlementService {
       joinId: string;
       mode: 'MANUAL' | 'AUTO';
       now: Date;
+      deferJoinCompletion?: boolean;
     },
   ) {
     const nextRewardStatus = params.mode === 'AUTO' ? 'AUTO_PAID' : 'PAID';
@@ -998,8 +1103,126 @@ export class SettlementService {
       data: { participationStatus: 'COMPLETED' },
     });
 
-    await this.tryCompleteJoin(tx, params.joinId);
+    if (!params.deferJoinCompletion) {
+      await this.tryCompleteJoin(tx, params.joinId);
+    }
     return tx.rewardSettlement.findUniqueOrThrow({ where: { id: params.settlement.id } });
+  }
+
+  private async executeRewardPayInTx(
+    tx: Prisma.TransactionClient,
+    params: {
+      join: {
+        id: string;
+        hostUserId: string;
+        coinAssetId: string;
+        status: string;
+        scheduledEndAt: Date;
+      };
+      participant: { id: string; userId: string };
+      settlement: {
+        id: string;
+        amount: Prisma.Decimal;
+        holdId: string | null;
+        rewardStatus: string;
+        autoPayAt: Date;
+      };
+      mode: 'MANUAL' | 'AUTO';
+      now: Date;
+      hostUserId: string;
+    },
+  ): Promise<{ rewardStatus: string; amount: string; skipped?: boolean } | null> {
+    const { join, participant, settlement, mode, now } = params;
+
+    if (settlement.rewardStatus === 'PAID' || settlement.rewardStatus === 'AUTO_PAID') {
+      return {
+        rewardStatus: settlement.rewardStatus,
+        amount: String(settlement.amount),
+        skipped: true,
+      };
+    }
+
+    const amount = String(settlement.amount);
+    if (!isRewardTransferRequired(amount)) {
+      const closed = await this.finalizeZeroRewardSettlement(tx, {
+        settlement,
+        participant,
+        joinId: join.id,
+        mode,
+        now,
+        deferJoinCompletion: true,
+      });
+      return { rewardStatus: closed.rewardStatus, amount };
+    }
+
+    const hostWallet = await this.ledger.getOrCreateWallet(join.hostUserId, join.coinAssetId, tx);
+    const participantWallet = await this.ledger.getOrCreateWallet(
+      participant.userId,
+      join.coinAssetId,
+      tx,
+    );
+
+    const transferKey = settlementTransferIdempotencyKey(settlement.id);
+    const { participantTx } = await this.ledger.applyRewardTransfer(tx, {
+      hostWalletId: hostWallet.id,
+      participantWalletId: participantWallet.id,
+      participantUserId: participant.userId,
+      coinAssetId: join.coinAssetId,
+      amount,
+      settlementId: settlement.id,
+      joinId: join.id,
+      idempotencyKey: transferKey,
+    });
+
+    if (settlement.holdId) {
+      await this.ledger.refreshCoinHoldStatus(tx, settlement.holdId);
+    }
+
+    const nextRewardStatus = mode === 'AUTO' ? 'AUTO_PAID' : 'PAID';
+    const claimed = await tx.rewardSettlement.updateMany({
+      where: { id: settlement.id, rewardStatus: 'PENDING_CONFIRMATION' },
+      data: {
+        rewardStatus: nextRewardStatus,
+        paidAt: now,
+        paidTxId: participantTx.id,
+      },
+    });
+
+    if (claimed.count === 0) {
+      const current = await tx.rewardSettlement.findUniqueOrThrow({
+        where: { id: settlement.id },
+      });
+      return {
+        rewardStatus: current.rewardStatus,
+        amount,
+        skipped: isTerminalRewardStatus(current.rewardStatus),
+      };
+    }
+
+    await tx.joinParticipant.update({
+      where: { id: participant.id },
+      data: { participationStatus: 'COMPLETED' },
+    });
+
+    mockUserStore.syncWalletBalances(
+      join.hostUserId,
+      String(
+        (await tx.wallet.findUniqueOrThrow({ where: { id: hostWallet.id } })).availableBalance,
+      ),
+      String((await tx.wallet.findUniqueOrThrow({ where: { id: hostWallet.id } })).heldBalance),
+    );
+    mockUserStore.syncWalletBalances(
+      participant.userId,
+      String(
+        (await tx.wallet.findUniqueOrThrow({ where: { id: participantWallet.id } }))
+          .availableBalance,
+      ),
+      String(
+        (await tx.wallet.findUniqueOrThrow({ where: { id: participantWallet.id } })).heldBalance,
+      ),
+    );
+
+    return { rewardStatus: nextRewardStatus, amount };
   }
 
   private async tryCompleteJoin(tx: Prisma.TransactionClient, joinId: string) {
