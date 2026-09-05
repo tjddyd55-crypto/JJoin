@@ -64,8 +64,11 @@ function baseMe(overrides: Partial<MeDto> = {}): MeDto {
     },
     premiumStatus: {
       active: false,
+      plan: null,
       startedAt: null,
       expiresAt: null,
+      nextBillingAt: null,
+      cancelAtPeriodEnd: false,
       remainingDays: null,
     },
     ...overrides,
