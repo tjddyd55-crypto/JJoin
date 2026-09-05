@@ -366,6 +366,7 @@ model User {
   clubEventAttendances     ClubEventAttendance[]
   payments                 Payment[]
   premiumMembership        PremiumMembership?
+  premiumBillingAuthorization PremiumBillingAuthorization?
   playerReviewsGiven       PlayerReview[]             @relation("PlayerReviewReviewer")
   playerReviewsReceived    PlayerReview[]             @relation("PlayerReviewReviewee")
 
@@ -1783,6 +1784,23 @@ enum PaymentEnvironment {
 enum PaymentProductType {
   COIN_CHARGE
   PREMIUM_PASS
+  PREMIUM_SUBSCRIPTION
+}
+
+enum JoinCreationBaseMode {
+  FREE
+  PAID
+}
+
+enum JoinCreationBenefitOverrideMode {
+  INHERIT
+  FREE
+  FIXED_FEE
+}
+
+enum PremiumPlanCode {
+  PREMIUM_MONTHLY
+  PREMIUM_YEARLY
 }
 
 enum PaymentStatus {
@@ -1861,35 +1879,91 @@ model PaymentProviderSettings {
   @@map("payment_provider_settings")
 }
 
-/// Singleton admin settings for STANDARD join creation coin cost by user type.
-/// Separate from participant reward HOLD. Defaults preserve prior fee=2 behavior.
+/// Singleton admin settings for STANDARD join creation coin pricing.
+/// Base platform policy + Owner/Premium benefit overrides.
 model JoinCreationCoinPolicySettings {
-  id                 String   @id @default("default")
-  generalEnabled     Boolean  @default(true) @map("general_enabled")
-  generalCost        Int      @default(2) @map("general_cost")
-  premiumEnabled     Boolean  @default(true) @map("premium_enabled")
-  premiumCost        Int      @default(2) @map("premium_cost")
-  storeOwnerEnabled  Boolean  @default(true) @map("store_owner_enabled")
-  storeOwnerCost     Int      @default(2) @map("store_owner_cost")
-  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                        String                         @id @default("default")
+  /// Legacy per-role columns — kept for migration compatibility.
+  generalEnabled            Boolean                        @default(true) @map("general_enabled")
+  generalCost               Int                            @default(2) @map("general_cost")
+  premiumEnabled            Boolean                        @default(true) @map("premium_enabled")
+  premiumCost               Int                            @default(2) @map("premium_cost")
+  storeOwnerEnabled         Boolean                        @default(true) @map("store_owner_enabled")
+  storeOwnerCost            Int                            @default(2) @map("store_owner_cost")
+  baseMode                  JoinCreationBaseMode           @default(PAID) @map("base_mode")
+  baseFeeCoinAmount         Int                            @default(30) @map("base_fee_coin_amount")
+  ownerOverride             JoinCreationBenefitOverrideMode @default(FREE) @map("owner_override")
+  ownerFixedFeeCoinAmount   Int                            @default(0) @map("owner_fixed_fee_coin_amount")
+  premiumOverride           JoinCreationBenefitOverrideMode @default(INHERIT) @map("premium_override")
+  premiumFixedFeeCoinAmount Int                            @default(0) @map("premium_fixed_fee_coin_amount")
+  pricingUpdatedAt          DateTime?                      @map("pricing_updated_at") @db.Timestamptz(6)
+  pricingUpdatedBy          String?                        @map("pricing_updated_by") @db.Uuid
+  createdAt                 DateTime                       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime                       @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("join_creation_coin_policy_settings")
 }
 
-model PremiumMembership {
-  id              String                  @id @default(uuid()) @db.Uuid
-  userId          String                  @unique @map("user_id") @db.Uuid
-  status          PremiumMembershipStatus @default(ACTIVE)
-  startedAt       DateTime                @map("started_at") @db.Timestamptz(6)
-  expiresAt       DateTime                @map("expires_at") @db.Timestamptz(6)
-  lastPaymentId   String?                 @unique @map("last_payment_id") @db.Uuid
-  createdAt       DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+model PremiumPlanSettings {
+  id              String   @id @default("default")
+  monthlyEnabled  Boolean  @default(true) @map("monthly_enabled")
+  monthlyPriceKrw Int      @default(9900) @map("monthly_price_krw")
+  yearlyEnabled   Boolean  @default(true) @map("yearly_enabled")
+  yearlyPriceKrw  Int      @default(99000) @map("yearly_price_krw")
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy       String?  @map("updated_by") @db.Uuid
 
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  lastPayment Payment? @relation(fields: [lastPaymentId], references: [id], onDelete: SetNull)
+  @@map("premium_plan_settings")
+}
+
+model PremiumBillingAuthorization {
+  id                  String              @id @default(uuid()) @db.Uuid
+  userId              String              @unique @map("user_id") @db.Uuid
+  customerKey         String              @unique @map("customer_key")
+  billingKeyEncrypted String              @map("billing_key_encrypted")
+  provider            PaymentProviderKind @default(TOSS)
+  environment         PaymentEnvironment  @default(TEST)
+  cardCompany         String?             @map("card_company")
+  cardNumberMasked    String?             @map("card_number_masked")
+  createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  premiumMembership   PremiumMembership?
+
+  @@map("premium_billing_authorizations")
+}
+
+model PaymentWebhookEvent {
+  id          String              @id @default(uuid()) @db.Uuid
+  provider    PaymentProviderKind @default(TOSS)
+  eventKey    String              @unique @map("event_key")
+  eventType   String              @map("event_type")
+  payload     Json
+  processedAt DateTime            @default(now()) @map("processed_at") @db.Timestamptz(6)
+
+  @@map("payment_webhook_events")
+}
+
+model PremiumMembership {
+  id                     String                  @id @default(uuid()) @db.Uuid
+  userId                 String                  @unique @map("user_id") @db.Uuid
+  status                 PremiumMembershipStatus @default(ACTIVE)
+  plan                   PremiumPlanCode?
+  startedAt              DateTime                @map("started_at") @db.Timestamptz(6)
+  expiresAt              DateTime                @map("expires_at") @db.Timestamptz(6)
+  nextBillingAt          DateTime?               @map("next_billing_at") @db.Timestamptz(6)
+  cancelAtPeriodEnd      Boolean                 @default(false) @map("cancel_at_period_end")
+  lastPaymentId          String?                 @unique @map("last_payment_id") @db.Uuid
+  billingAuthorizationId String?                 @unique @map("billing_authorization_id") @db.Uuid
+  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user                 User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastPayment          Payment?                   @relation(fields: [lastPaymentId], references: [id], onDelete: SetNull)
+  billingAuthorization PremiumBillingAuthorization? @relation(fields: [billingAuthorizationId], references: [id], onDelete: SetNull)
 
   @@index([expiresAt])
+  @@index([nextBillingAt])
   @@map("premium_memberships")
 }
