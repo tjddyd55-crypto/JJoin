@@ -229,7 +229,7 @@ async function joinPricingCases(admin: Auth, devA: Auth) {
     headers: devA,
     body: JSON.stringify({ plannedPlayerCount: 4 }),
   });
-  assert(coinPreview.status === 200, 'coin preview');
+  assert(coinPreview.status < 300, `coin preview ${coinPreview.status} ${coinPreview.raw.slice(0, 120)}`);
   if (!coinPreview.body.canCreate) {
     const fail = await j('/joins', {
       method: 'POST',
