@@ -96,6 +96,9 @@ export function MyHomeScreen() {
           ) : null}
           <Row gap="sm" style={styles.statsRow}>
             <Badge label={`${t('profile.participationCount')} ${profile.participationCount}`} variant="neutral" />
+            {profile.participationTrustLabel ? (
+              <Badge label={profile.participationTrustLabel} variant="gold" />
+            ) : null}
             {profile.completedJoinCount != null || profile.noShowCount != null ? (
               <Badge
                 label={`참석 ${profile.completedJoinCount ?? 0} · 노쇼 ${profile.noShowCount ?? 0}`}

@@ -12,6 +12,7 @@ import { JoinChatService } from './join-chat.service';
 import { PlayedTogetherService } from './played-together.service';
 import { JoinInvitationService } from './join-invitation.service';
 import { PlayerReviewService } from './player-review.service';
+import { ParticipationTrustService } from './participation-trust.service';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { PlayerReviewService } from './player-review.service';
     PlayedTogetherService,
     JoinInvitationService,
     PlayerReviewService,
+    ParticipationTrustService,
   ],
   exports: [
     UrgentVacancyService,
@@ -36,6 +38,7 @@ import { PlayerReviewService } from './player-review.service';
     PlayedTogetherService,
     JoinInvitationService,
     PlayerReviewService,
+    ParticipationTrustService,
   ],
 })
 export class JoinLoopModule {}

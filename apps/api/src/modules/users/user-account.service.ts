@@ -12,7 +12,7 @@ import {
   type MeDto,
   type PublicUserProfileDto,
 } from '@jjoin/types';
-import { computeAttendanceReliability, computePlayerReputation } from '@jjoin/domain';
+import { calculateParticipationTrust, computeAttendanceReliability, computePlayerReputation } from '@jjoin/domain';
 import { profileEditSchema, profileSetupSchema, termsConsentSchema } from '@jjoin/validation';
 import { Prisma } from '@prisma/client';
 import { createHash, randomUUID } from 'node:crypto';
@@ -65,6 +65,7 @@ export class UserAccountService {
       where: { userId, participationStatus: { in: ['APPROVED', 'CONFIRMED', 'COMPLETED'] } },
     });
     const reliability = await this.loadAttendanceReliability(userId);
+    const trust = await this.loadParticipationTrust(userId);
     const reputation = await this.loadPlayerReputation(userId);
     const me = buildMeFromUser(user, participationCount);
     const walletSummary = await this.wallet.getSummary(userId);
@@ -79,12 +80,49 @@ export class UserAccountService {
             completedJoinCount: reliability.completedCount,
             noShowCount: reliability.noShowCount,
             attendanceRatePercent: reliability.attendanceRatePercent,
+            participationTrustLabel: trust.labelText,
             averageRating: reputation.averageRating,
             averageRatingDisplay: reputation.averageRatingDisplay,
             reviewCount: reputation.reviewCount,
           }
         : null,
     };
+  }
+
+  private async loadParticipationTrust(userId: string) {
+    const [reliability, cancelledCount, playedTogetherCount] = await Promise.all([
+      this.loadAttendanceReliability(userId),
+      this.prisma.joinParticipant.count({
+        where: { userId, participationStatus: 'CANCELLED' },
+      }),
+      this.countDistinctPlayedTogether(userId),
+    ]);
+    const participationCount =
+      reliability.completedCount + reliability.noShowCount + cancelledCount;
+    const trust = calculateParticipationTrust({
+      joinedCount: participationCount,
+      attendedCount: reliability.completedCount,
+      noShowCount: reliability.noShowCount,
+      cancelledCount,
+      playedTogetherCount,
+    });
+    return { ...trust, playedTogetherCount, cancelledCount, participationCount };
+  }
+
+  private async countDistinctPlayedTogether(userId: string): Promise<number> {
+    const rows = await this.prisma.$queryRaw<Array<{ c: bigint | number }>>`
+      SELECT COUNT(DISTINCT jp_other.user_id)::int AS c
+      FROM join_participants jp_me
+      INNER JOIN joins j ON j.id = jp_me.join_id
+      INNER JOIN join_participants jp_other
+        ON jp_other.join_id = jp_me.join_id
+       AND jp_other.user_id <> ${userId}::uuid
+      WHERE jp_me.user_id = ${userId}::uuid
+        AND j.status::text = 'COMPLETED'
+        AND jp_me.participation_status::text = 'COMPLETED'
+        AND jp_other.participation_status::text = 'COMPLETED'
+    `;
+    return Number(rows[0]?.c ?? 0);
   }
 
   private async loadAttendanceReliability(userId: string) {
@@ -321,6 +359,7 @@ export class UserAccountService {
       where: { userId, participationStatus: { in: ['APPROVED', 'CONFIRMED', 'COMPLETED'] } },
     });
     const reliability = await this.loadAttendanceReliability(userId);
+    const trust = await this.loadParticipationTrust(userId);
     const reputation = await this.loadPlayerReputation(userId);
     const profile = buildPublicProfileFromUser(user, participationCount);
     const playedCountWithViewer =
@@ -332,6 +371,7 @@ export class UserAccountService {
       completedJoinCount: reliability.completedCount,
       noShowCount: reliability.noShowCount,
       attendanceRatePercent: reliability.attendanceRatePercent,
+      participationTrustLabel: trust.labelText,
       averageRating: reputation.averageRating,
       averageRatingDisplay: reputation.averageRatingDisplay,
       reviewCount: reputation.reviewCount,

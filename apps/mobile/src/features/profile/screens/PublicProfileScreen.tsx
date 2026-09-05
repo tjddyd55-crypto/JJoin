@@ -112,6 +112,12 @@ export function PublicProfileScreen() {
         </AppText>
         <AppText variant="body">{skill?.skillLevel ?? '-'}</AppText>
         <AppText variant="label" color="textSecondary">
+          조인 활동
+        </AppText>
+        {profile.participationTrustLabel ? (
+          <AppText variant="bodyStrong">{profile.participationTrustLabel}</AppText>
+        ) : null}
+        <AppText variant="label" color="textSecondary">
           {t('profile.participationCount')}
         </AppText>
         <AppText variant="body">{String(profile.participationCount)}</AppText>
