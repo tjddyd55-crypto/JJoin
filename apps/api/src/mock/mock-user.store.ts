@@ -321,6 +321,7 @@ export class MockUserStore {
         assetCode: 'JJOIN',
         availableCoin: user.availableCoin,
         heldCoin: user.heldCoin,
+        pendingPayoutCoin: '0',
         totalCoin: String(Number(user.availableCoin) + Number(user.heldCoin)),
         recentTransactions: [],
       },

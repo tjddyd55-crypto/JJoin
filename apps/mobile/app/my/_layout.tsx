@@ -31,6 +31,7 @@ export default function MyLayout() {
         <Stack.Screen name="followed-stores" options={{ title: '팔로우한 매장' }} />
         <Stack.Screen name="played-together" options={{ title: '함께 친 사람' }} />
         <Stack.Screen name="wallet" options={{ title: '월렛' }} />
+        <Stack.Screen name="wallet-transactions" options={{ title: '코인 내역' }} />
         <Stack.Screen name="coin-charge" options={{ title: '코인 충전' }} />
         <Stack.Screen name="payment-checkout" options={{ title: '결제' }} />
         <Stack.Screen name="premium" options={{ title: '프리미엄 회원' }} />

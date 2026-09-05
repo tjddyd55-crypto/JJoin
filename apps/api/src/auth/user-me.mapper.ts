@@ -100,6 +100,7 @@ export function buildMeFromUser(
       assetCode: 'JJOIN',
       availableCoin: wallet ? String(wallet.availableBalance) : '0',
       heldCoin: wallet ? String(wallet.heldBalance) : '0',
+      pendingPayoutCoin: '0',
       totalCoin: wallet
         ? addCoinAmounts(String(wallet.availableBalance), String(wallet.heldBalance))
         : '0',

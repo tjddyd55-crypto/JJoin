@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 import { useCallback, useMemo, useState } from 'react';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import {
   Badge,
   Button,
@@ -73,6 +73,10 @@ export function WalletFoundationScreen() {
             label={`${t('wallet.hold')} ${formatCoinWithLabel(wallet?.heldCoin ?? '0')}`}
             variant="neutral"
           />
+          <Badge
+            label={`${t('wallet.pendingPayout')} ${formatCoinWithLabel(wallet?.pendingPayoutCoin ?? '0')}`}
+            variant="neutral"
+          />
         </View>
       </Card>
 
@@ -80,6 +84,12 @@ export function WalletFoundationScreen() {
       <Text variant="sectionTitle" tone="primary">
         거래내역
       </Text>
+      <Spacer size="sm" />
+      <Button
+        label={t('wallet.viewAllTx')}
+        variant="secondary"
+        onPress={() => router.push('/my/wallet-transactions' as Href)}
+      />
       <Spacer size="sm" />
       <Button
         label="코인 충전"

@@ -107,9 +107,11 @@ const koKR = {
   'my.account.linkingTbd': 'Account Linking · AUTH_POLICY_TBD',
   'wallet.available': '사용 가능',
   'wallet.hold': '보류 중',
+  'wallet.pendingPayout': '지급 예정',
   'wallet.total': '보유',
   'wallet.title': 'MY Wallet',
   'wallet.emptyTx': '거래내역이 없습니다.',
+  'wallet.viewAllTx': '전체 내역 보기',
   'wallet.foundationNote':
     '방 생성 수수료와 참가 보상은 별도 회계입니다. 원화 환산은 POLICY_TBD.',
   'create.coin.fee': '조인 생성비',
@@ -175,6 +177,7 @@ const enUS = {
   'auth.gate.identityRequired': 'Identity verification is required for join activities.',
   'wallet.available': 'Available',
   'wallet.hold': 'Held',
+  'wallet.pendingPayout': 'Pending payout',
   'wallet.total': 'Total',
   'create.coin.insufficient': 'Insufficient coin balance.',
 } as const;

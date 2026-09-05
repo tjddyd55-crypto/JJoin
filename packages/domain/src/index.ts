@@ -381,6 +381,12 @@ export {
 } from './settlement-finalize';
 
 export {
+  formatCoinTransactionLabelKo,
+  matchesWalletTransactionFilter,
+  type WalletTransactionFilter,
+} from './coin-transaction-labels';
+
+export {
   PLAYER_REVIEW_COMMENT_MAX_LENGTH,
   PLAYER_REVIEW_RATING_MAX,
   PLAYER_REVIEW_RATING_MIN,

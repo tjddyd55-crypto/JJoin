@@ -9,19 +9,19 @@ import {
   type WalletTransactionDto,
   type WalletTransactionsResponse,
 } from '@jjoin/types';
-import { addCoinAmounts } from '@jjoin/domain';
+import { addCoinAmounts, formatCoinTransactionLabelKo, zeroCoinAmount } from '@jjoin/domain';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ensureFoundation } from '../../foundation/ensure-foundation';
 import { CoinLedgerService } from './coin-ledger.service';
 
 const TX_LABELS: Record<string, string> = {
-  ROOM_CREATION_FEE: '방 생성 수수료',
-  JOIN_REWARD_HOLD: '참가 보상 보류',
-  JOIN_REWARD_RELEASE: '참가 보상 보류 해제',
-  JOIN_REWARD_TRANSFER: '참가 보상 지급',
-  JOIN_REWARD_REFUND: '참가 보상 환불',
-  ADMIN_ADJUSTMENT: '테스트 코인 조정',
-  COIN_ISSUANCE: 'Coin 발행',
+  ROOM_CREATION_FEE: formatCoinTransactionLabelKo('ROOM_CREATION_FEE'),
+  JOIN_REWARD_HOLD: formatCoinTransactionLabelKo('JOIN_REWARD_HOLD'),
+  JOIN_REWARD_RELEASE: formatCoinTransactionLabelKo('JOIN_REWARD_RELEASE'),
+  JOIN_REWARD_TRANSFER: formatCoinTransactionLabelKo('JOIN_REWARD_TRANSFER'),
+  JOIN_REWARD_REFUND: formatCoinTransactionLabelKo('JOIN_REWARD_REFUND'),
+  ADMIN_ADJUSTMENT: formatCoinTransactionLabelKo('ADMIN_ADJUSTMENT'),
+  COIN_ISSUANCE: formatCoinTransactionLabelKo('COIN_ISSUANCE'),
 };
 
 @Injectable()
@@ -52,14 +52,33 @@ export class WalletService {
 
     const availableCoin = String(wallet.availableBalance);
     const heldCoin = String(wallet.heldBalance);
+    const pendingPayoutCoin = await this.sumPendingParticipantPayout(userId);
 
     return {
       assetCode: coinAsset.code,
       availableCoin,
       heldCoin,
+      pendingPayoutCoin,
       totalCoin: addCoinAmounts(availableCoin, heldCoin),
       recentTransactions: recent.map((row) => this.toTxDto(row)),
     };
+  }
+
+  /** Sum of PENDING_CONFIRMATION participant rewards — host settlement not yet finalized. */
+  private async sumPendingParticipantPayout(userId: string): Promise<string> {
+    const rows = await this.prisma.rewardSettlement.findMany({
+      where: {
+        rewardStatus: 'PENDING_CONFIRMATION',
+        participant: {
+          userId,
+          role: 'PARTICIPANT',
+          participationStatus: { in: ['APPROVED', 'CONFIRMED', 'COMPLETED'] },
+        },
+      },
+      select: { amount: true },
+    });
+    if (rows.length === 0) return zeroCoinAmount();
+    return rows.reduce((sum, row) => addCoinAmounts(sum, String(row.amount)), zeroCoinAmount());
   }
 
   async listTransactions(

@@ -58,6 +58,7 @@ function baseMe(overrides: Partial<MeDto> = {}): MeDto {
       assetCode: 'JJOIN',
       availableCoin: '0',
       heldCoin: '0',
+      pendingPayoutCoin: '0',
       totalCoin: '0',
       recentTransactions: [],
     },

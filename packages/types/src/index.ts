@@ -223,6 +223,20 @@ export type PublicUserProfileDto = {
   reviewCount?: number;
   /** Viewer-relative played-together count; omitted on self profile. */
   playedCountWithViewer?: number | null;
+  /** Objective trust label from calculateParticipationTrust(). */
+  participationTrustLabel?: string | null;
+};
+
+export type ParticipationTrustDto = {
+  participationCount: number;
+  attendedCount: number;
+  noShowCount: number;
+  cancelledCount: number;
+  attendanceRate: number | null;
+  attendanceRatePercent: number | null;
+  playedTogetherCount: number;
+  trustLabel: string | null;
+  trustLabelId: string | null;
 };
 
 /** Never include real name, phone, CI/DI, raw birth date here. */
@@ -255,6 +269,11 @@ export type WalletSummaryDto = {
   assetCode: string;
   availableCoin: string;
   heldCoin: string;
+  /**
+   * Confirmed participant rewards awaiting host settlement (RewardSettlement PENDING_CONFIRMATION).
+   * Not speculative — only rows already created for the viewer as join participant.
+   */
+  pendingPayoutCoin: string;
   /** available + held (display only; not a separate ledger balance). */
   totalCoin: string;
   recentTransactions: WalletTransactionDto[];
