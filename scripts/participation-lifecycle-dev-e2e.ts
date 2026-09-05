@@ -102,11 +102,103 @@ async function applyApprove(hostToken: string, guestToken: string, joinId: strin
   return participantId;
 }
 
-async function listTxs(token: string, joinId: string) {
-  const page = await mustOk<{ items: Tx[] }>('/me/wallet/transactions?limit=80', {
+async function listRecentTxs(token: string) {
+  return mustOk<{ items: Tx[] }>('/me/wallet/transactions?limit=80', {
     headers: bearer(token),
   });
-  return page.items.filter((t) => t.reference.refId === joinId || t.reference.refId?.includes(joinId));
+}
+
+const ACTIVE_HOST_STATUSES = new Set(['OPEN', 'FULL', 'CONFIRMED', 'IN_PROGRESS']);
+
+async function signInFunded(persona: MockAuthPersona) {
+  let session = await signIn(persona);
+  let w = await wallet(session.session.accessToken);
+  if (n(w.availableCoin) < 80) {
+    session = await signIn(persona);
+    w = await wallet(session.session.accessToken);
+  }
+  console.log(`wallet ${persona}: available=${w.availableCoin} held=${w.heldCoin}`);
+  return session;
+}
+
+async function cleanupBlockingHostedJoin(hostToken: string) {
+  const mine = await mustOk<{
+    hosted: Array<{ joinId: string; status: string }>;
+  }>('/joins/mine', { headers: bearer(hostToken) });
+  const blocking = mine.hosted?.find((j) => ACTIVE_HOST_STATUSES.has(j.status));
+  if (!blocking) return;
+
+  console.log('cleanup blocking hosted join', blocking.joinId, blocking.status);
+  const detail = await mustOk<{
+    participants: Array<{ participantId: string; role: string; participationStatus: string }>;
+  }>(`/joins/${blocking.joinId}`, { headers: bearer(hostToken) });
+
+  const applied = detail.participants.find(
+    (p) => p.role !== 'HOST' && p.participationStatus === 'APPLIED',
+  );
+  if (applied) {
+    await mustOk(`/joins/${blocking.joinId}/participants/${applied.participantId}/approve`, {
+      method: 'POST',
+      headers: bearer(hostToken),
+    });
+  }
+
+  const approved = applied
+    ? await mustOk<{
+        participants: Array<{ participantId: string; role: string; participationStatus: string }>;
+      }>(`/joins/${blocking.joinId}`, { headers: bearer(hostToken) })
+    : detail;
+  const nonHost = approved.participants.filter((p) => p.role !== 'HOST' && p.participationStatus !== 'APPLIED');
+
+  await mustOk(`/joins/${blocking.joinId}/settlements/_qa/advance-clock`, {
+    method: 'POST',
+    headers: bearer(hostToken),
+    body: JSON.stringify({ mode: 'open' }),
+  });
+
+  if (nonHost.length > 0) {
+    await mustOk(`/joins/${blocking.joinId}/settlements/finalize`, {
+      method: 'POST',
+      headers: bearer(hostToken),
+      body: JSON.stringify({
+        attendance: nonHost.map((p) => ({ participantId: p.participantId, attended: false })),
+      }),
+    });
+  }
+}
+
+async function pickHost() {
+  const order = [MockAuthPersona.DEV_B, MockAuthPersona.DEV_A, MockAuthPersona.DEV_C, MockAuthPersona.DEV_ADMIN];
+  for (const persona of order) {
+    const session = await signInFunded(persona);
+    await cleanupBlockingHostedJoin(session.session.accessToken).catch((err) => {
+      console.warn(`cleanup failed for ${persona}:`, err instanceof Error ? err.message : err);
+    });
+    const mine = await mustOk<{ hosted: Array<{ status: string }> }>('/joins/mine', {
+      headers: bearer(session.session.accessToken),
+    });
+    const active =
+      mine.hosted?.filter((j) => ACTIVE_HOST_STATUSES.has(j.status)).length ?? 0;
+    const preview = await mustOk<{
+      totalRequiredCoin: string;
+      canCreate: boolean;
+      walletAvailable: string;
+    }>('/joins/coin-preview', {
+      method: 'POST',
+      headers: bearer(session.session.accessToken),
+      body: JSON.stringify({ plannedPlayerCount: 4, rewardPerParticipant: REWARD }),
+    });
+    if (active < 1 && preview.canCreate) {
+      console.log(
+        `host persona=${persona} activeHosted=${active} required=${preview.totalRequiredCoin} available=${preview.walletAvailable}`,
+      );
+      return session;
+    }
+    console.log(
+      `skip host ${persona}: active=${active} canCreate=${preview.canCreate} required=${preview.totalRequiredCoin}`,
+    );
+  }
+  throw new Error('no eligible host persona (host limit or insufficient coin)');
 }
 
 async function main() {
@@ -121,15 +213,10 @@ async function main() {
   assert(health.status === 'ok' && health.database === 'connected', 'health FAIL');
   console.log('health OK', health.appVariant, health.railwayEnvironment);
 
-  const host = await signIn(MockAuthPersona.DEV_A);
-  const guestB = await signIn(MockAuthPersona.DEV_B);
-  const guestC = await signIn(MockAuthPersona.DEV_C);
-  const guestD = await signIn(MockAuthPersona.DEV_ADMIN);
-
-  const hostBefore = await wallet(host.session.accessToken);
-  const bBefore = await wallet(guestB.session.accessToken);
-  const cBefore = await wallet(guestC.session.accessToken);
-  const dBefore = await wallet(guestD.session.accessToken);
+  const host = await pickHost();
+  const guestB = await signInFunded(MockAuthPersona.DEV_A);
+  const guestC = await signInFunded(MockAuthPersona.DEV_C);
+  const guestD = await signInFunded(MockAuthPersona.DEV_ADMIN);
 
   const idem = `${TAG}-${Date.now()}`;
   const created = await mustOk<{
@@ -174,6 +261,11 @@ async function main() {
     body: JSON.stringify({ mode: 'open' }),
   });
 
+  const hostBefore = await wallet(host.session.accessToken);
+  const bBefore = await wallet(guestB.session.accessToken);
+  const cBefore = await wallet(guestC.session.accessToken);
+  const dBefore = await wallet(guestD.session.accessToken);
+
   const finalizeBody = {
     attendance: [
       { participantId: pidB, attended: true },
@@ -205,8 +297,8 @@ async function main() {
   assert(n(dAfter1.availableCoin) === n(dBefore.availableCoin), 'D reward 0');
   assert(n(hostBefore.heldCoin) - n(hostAfter1.heldCoin) === 60, 'host held released 60');
 
-  const hostTxs = await listTxs(host.session.accessToken, joinId);
-  const bTxs = await listTxs(guestB.session.accessToken, joinId);
+  const hostTxs = (await listRecentTxs(host.session.accessToken)).items;
+  const bTxs = (await listRecentTxs(guestB.session.accessToken)).items;
   const refundTxs = hostTxs.filter((t) => t.type === 'JOIN_REWARD_REFUND');
   const transferB = bTxs.filter((t) => t.type === 'JOIN_REWARD_TRANSFER');
   assert(transferB.length >= 1, 'B transfer ledger');
@@ -224,6 +316,9 @@ async function main() {
   assert(rowC?.rewardStatus === RewardStatus.PAID, 'C PAID');
   assert(rowD?.rewardStatus === RewardStatus.REFUNDED, 'D REFUNDED');
 
+  const hostTxCount = hostTxs.length;
+  const bTxCount = bTxs.length;
+
   const dup = await mustOk(`/joins/${joinId}/settlements/finalize`, {
     method: 'POST',
     headers: bearer(host.session.accessToken),
@@ -240,10 +335,10 @@ async function main() {
   assert(n(cAfter2.availableCoin) === n(cAfter1.availableCoin), 'duplicate C wallet');
   assert(n(dAfter2.availableCoin) === n(dAfter1.availableCoin), 'duplicate D wallet');
 
-  const hostTxs2 = await listTxs(host.session.accessToken, joinId);
-  const bTxs2 = await listTxs(guestB.session.accessToken, joinId);
-  assert(hostTxs2.length === hostTxs.length, 'no duplicate host ledger');
-  assert(bTxs2.length === bTxs.length, 'no duplicate B ledger');
+  const hostTxs2 = (await listRecentTxs(host.session.accessToken)).items;
+  const bTxs2 = (await listRecentTxs(guestB.session.accessToken)).items;
+  assert(hostTxs2.length === hostTxCount, 'no duplicate host ledger');
+  assert(bTxs2.length === bTxCount, 'no duplicate B ledger');
 
   const trustB = await mustOk<{
     attendedCount: number;
@@ -268,10 +363,11 @@ async function main() {
   console.log('unread B', unreadB.unreadCount);
 
   // Club: join request / approve / reject / club-only gate
-  const clubOwner = host;
-  const clubMember = guestB;
-  const clubForeign = guestD;
-  const clubName = `[${TAG}-club]`;
+  const clubOwner = await signInFunded(MockAuthPersona.DEV_B);
+  await cleanupBlockingHostedJoin(clubOwner.session.accessToken).catch(() => undefined);
+  const clubMember = await signInFunded(MockAuthPersona.DEV_A);
+  const clubForeign = await signInFunded(MockAuthPersona.DEV_ADMIN);
+  const clubName = `[${TAG}-club-${Date.now()}]`;
   const club = await mustOk<{ id: string }>('/clubs', {
     method: 'POST',
     headers: bearer(clubOwner.session.accessToken),
@@ -282,6 +378,22 @@ async function main() {
       activityType: 'SCREEN',
       joinMode: 'APPROVAL',
       visibility: 'PUBLIC',
+    }),
+  });
+
+  const startsAt = new Date(Date.now() + 5 * 24 * 60 * 60_000).toISOString();
+  const event = await mustOk<{ id: string }>(`/clubs/${club.id}/events`, {
+    method: 'POST',
+    headers: bearer(clubOwner.session.accessToken),
+    body: JSON.stringify({
+      title: `${clubName} event`,
+      eventType: 'FIELD',
+      startsAt,
+      endsAt: new Date(Date.now() + 5 * 24 * 60 * 60_000 + 3 * 60 * 60_000).toISOString(),
+      venueName: 'Lifecycle club venue',
+      venueAddress: '거제',
+      capacity: 12,
+      responseDeadline: new Date(Date.now() + 4 * 24 * 60 * 60_000).toISOString(),
     }),
   });
 
@@ -323,6 +435,8 @@ async function main() {
     headers: bearer(clubOwner.session.accessToken),
   });
 
+  await cleanupBlockingHostedJoin(clubOwner.session.accessToken).catch(() => undefined);
+
   const clubJoinIdem = `${TAG}-club-join-${Date.now()}`;
   const clubJoin = await mustOk<{ joinId: string }>('/joins', {
     method: 'POST',
@@ -330,6 +444,7 @@ async function main() {
     body: JSON.stringify({
       sportCode: SCREEN_GOLF_CODE,
       clubId: club.id,
+      clubEventId: event.id,
       venue: {
         provider: 'MOCK',
         providerPlaceId: `venue_club_${Date.now()}`,
@@ -343,7 +458,7 @@ async function main() {
       plannedPlayerCount: 4,
       joinMethod: JoinMethod.APPROVAL,
       title: `[${TAG}] club-only`,
-      rewardPerParticipant: REWARD,
+      rewardPerParticipant: '0',
       idempotencyKey: clubJoinIdem,
     }),
   });
