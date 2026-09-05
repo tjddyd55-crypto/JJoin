@@ -31,6 +31,7 @@ export enum MockAuthScenario {
 export enum MockAuthPersona {
   DEV_A = 'DEV_A',
   DEV_B = 'DEV_B',
+  DEV_C = 'DEV_C',
   DEV_ADMIN = 'DEV_ADMIN',
 }
 

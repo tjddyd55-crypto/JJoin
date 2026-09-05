@@ -17,6 +17,7 @@ import { HomeQuickMenu } from '../components/HomeQuickMenu';
 import { HomeTodaysJoinSection } from '../components/HomeTodaysJoinSection';
 import { HomeClubSection } from '../components/HomeClubSection';
 import { useHomeData } from '../hooks/useHomeData';
+import { useNotificationUnreadCount } from '../../notifications/useNotificationUnreadCount';
 
 function joinDetailHref(joinId: string): Href {
   return { pathname: '/join/[joinId]', params: { joinId } } as Href;
@@ -28,6 +29,8 @@ export function HomeScreen() {
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const regionLabel = me?.publicProfile?.regionLabel ?? '내 주변';
   const userId = me?.userId;
+
+  const { unreadCount } = useNotificationUnreadCount();
 
   const {
     todayJoins,
@@ -59,6 +62,7 @@ export function HomeScreen() {
     >
       <HomeCompactHeader
         regionLabel={regionLabel}
+        unreadCount={unreadCount}
         onPressNotifications={() => router.push('/my/notifications')}
       />
 

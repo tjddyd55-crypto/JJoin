@@ -16,6 +16,8 @@ import type { PrismaService } from '../apps/api/src/prisma/prisma.service.ts';
 const PERSONA_SUBJECT: Record<MockAuthPersona, string> = {
   [MockAuthPersona.DEV_A]: 'dev-persona-a',
   [MockAuthPersona.DEV_B]: 'dev-persona-b',
+  [MockAuthPersona.DEV_C]: 'dev-persona-c',
+  [MockAuthPersona.DEV_ADMIN]: 'dev-persona-admin',
 };
 
 async function main() {
