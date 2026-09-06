@@ -19,6 +19,7 @@ import { PresenceService } from '../presence/presence.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UserAccountService } from '../users/user-account.service';
 import { loadMeFromDb, signInDevPersona } from '../../auth/dev-persona';
+import { resolveMockSignInProvider } from './auth-mock-signin';
 import { issueSessionToken, verifySessionToken } from '../../auth/session-token';
 
 @Injectable()
@@ -37,7 +38,10 @@ export class AuthService {
   }
 
   async mockSignIn(body: SocialSignInRequest) {
-    const provider = body.provider;
+    const provider = resolveMockSignInProvider(body);
+    if (!provider) {
+      throw new BadRequestException('provider_required');
+    }
     const adapter =
       provider === SocialProvider.KAKAO
         ? this.kakao
