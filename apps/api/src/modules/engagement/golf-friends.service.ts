@@ -1,9 +1,11 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { NotificationType } from '@prisma/client';
 import {
   GolfFriendRelationship,
   type GolfFriendCardDto,
@@ -12,6 +14,7 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { UserAccountService } from '../users/user-account.service';
 import { PresenceService } from '../presence/presence.service';
+import { NotificationEventService } from '../notifications/notification-event.service';
 
 @Injectable()
 export class GolfFriendsService {
@@ -19,6 +22,7 @@ export class GolfFriendsService {
     private readonly prisma: PrismaService,
     private readonly accounts: UserAccountService,
     private readonly presence: PresenceService,
+    private readonly notifications: NotificationEventService,
   ) {}
 
   async listRecommended(viewerId: string): Promise<GolfFriendsListResponse> {
@@ -87,7 +91,10 @@ export class GolfFriendsService {
     return this.toCards(viewerId, rows.map((r) => r.userId));
   }
 
-  async requestFriend(viewerId: string, targetUserId: string): Promise<{ relationship: GolfFriendRelationship }> {
+  async requestFriend(
+    viewerId: string,
+    targetUserId: string,
+  ): Promise<{ relationship: GolfFriendRelationship }> {
     if (viewerId === targetUserId) {
       throw new BadRequestException('cannot_friend_self');
     }
@@ -123,7 +130,105 @@ export class GolfFriendsService {
       throw err;
     }
 
+    const requesterNickname = await this.resolveNickname(viewerId);
+    await this.notifications.enqueueSafe({
+      userId: targetUserId,
+      type: NotificationType.FRIEND_REQUEST_RECEIVED,
+      title: '골프친구 요청',
+      body: `${requesterNickname}님이 골프친구를 요청했습니다.`,
+      data: {
+        type: NotificationType.FRIEND_REQUEST_RECEIVED,
+        userId: viewerId,
+      },
+      eventKey: `friendship:${viewerId}:${targetUserId}:requested`,
+    });
+
     return { relationship: GolfFriendRelationship.REQUESTED };
+  }
+
+  async acceptFriend(
+    viewerId: string,
+    targetUserId: string,
+  ): Promise<{ relationship: GolfFriendRelationship }> {
+    const row = await this.requirePendingBetween(viewerId, targetUserId);
+    if (row.addresseeId !== viewerId) {
+      throw new ForbiddenException('friend_accept_forbidden');
+    }
+
+    await this.prisma.userFriendship.update({
+      where: { id: row.id },
+      data: { status: 'ACCEPTED' },
+    });
+
+    const accepterNickname = await this.resolveNickname(viewerId);
+    await this.notifications.enqueueSafe({
+      userId: row.requesterId,
+      type: NotificationType.FRIEND_REQUEST_ACCEPTED,
+      title: '골프친구 수락',
+      body: `${accepterNickname}님이 골프친구 요청을 수락했습니다.`,
+      data: {
+        type: NotificationType.FRIEND_REQUEST_ACCEPTED,
+        userId: viewerId,
+      },
+      eventKey: `friendship:${row.requesterId}:${viewerId}:accepted`,
+    });
+
+    return { relationship: GolfFriendRelationship.FRIENDS };
+  }
+
+  async rejectFriend(
+    viewerId: string,
+    targetUserId: string,
+  ): Promise<{ relationship: GolfFriendRelationship }> {
+    const row = await this.requirePendingBetween(viewerId, targetUserId);
+    if (row.addresseeId !== viewerId) {
+      throw new ForbiddenException('friend_reject_forbidden');
+    }
+
+    await this.prisma.userFriendship.delete({ where: { id: row.id } });
+    return { relationship: GolfFriendRelationship.NONE };
+  }
+
+  async cancelFriendRequest(
+    viewerId: string,
+    targetUserId: string,
+  ): Promise<{ relationship: GolfFriendRelationship }> {
+    const row = await this.requirePendingBetween(viewerId, targetUserId);
+    if (row.requesterId !== viewerId) {
+      throw new ForbiddenException('friend_cancel_forbidden');
+    }
+
+    await this.prisma.userFriendship.delete({ where: { id: row.id } });
+    return { relationship: GolfFriendRelationship.NONE };
+  }
+
+  async unfriend(
+    viewerId: string,
+    targetUserId: string,
+  ): Promise<{ relationship: GolfFriendRelationship }> {
+    const row = await this.findBetween(viewerId, targetUserId);
+    if (!row || row.status !== 'ACCEPTED') {
+      throw new NotFoundException('friendship_not_found');
+    }
+
+    await this.prisma.userFriendship.delete({ where: { id: row.id } });
+    return { relationship: GolfFriendRelationship.NONE };
+  }
+
+  private async requirePendingBetween(viewerId: string, targetUserId: string) {
+    const row = await this.findBetween(viewerId, targetUserId);
+    if (!row || row.status !== 'PENDING') {
+      throw new NotFoundException('friend_request_not_found');
+    }
+    return row;
+  }
+
+  private async resolveNickname(userId: string): Promise<string> {
+    const profile = await this.prisma.userProfile.findUnique({
+      where: { userId },
+      select: { nickname: true },
+    });
+    return profile?.nickname ?? '회원';
   }
 
   private async toCards(viewerId: string, userIds: string[]): Promise<GolfFriendsListResponse> {

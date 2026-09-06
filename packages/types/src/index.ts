@@ -242,6 +242,12 @@ export enum GolfFriendRelationship {
   FRIENDS = 'FRIENDS',
 }
 
+export enum JoinPreferredGender {
+  ANY = 'ANY',
+  MALE = 'MALE',
+  FEMALE = 'FEMALE',
+}
+
 export type GolfFriendCardDto = {
   user: PublicUserProfileDto;
   relationship: GolfFriendRelationship;
@@ -730,6 +736,10 @@ export type CreateJoinRequest = {
   /** Club urgent recruitment link (staff only, validated server-side). */
   clubId?: string;
   clubEventId?: string;
+  /** Standard join member preference — soft condition (display only unless policy extended). */
+  preferredGender?: JoinPreferredGender | null;
+  minAge?: number | null;
+  maxAge?: number | null;
 };
 
 export type JoinCoinPreviewRequest = {
@@ -902,6 +912,9 @@ export type MatchingJoinExtras = {
   canConfirmAttendance?: boolean;
   remainingSlots?: number;
   ownerListPriority?: number;
+  preferredGender?: JoinPreferredGender | null;
+  minAge?: number | null;
+  maxAge?: number | null;
 };
 
 export type JoinDetailDto = {
@@ -950,6 +963,10 @@ export type JoinDetailDto = {
   waitlistCount?: number | null;
   /** Present when viewer is host or participant with settlement rows. */
   settlement?: JoinSettlementSummaryDto | null;
+  /** Standard join member preference — soft condition (display only unless policy extended). */
+  preferredGender?: JoinPreferredGender | null;
+  minAge?: number | null;
+  maxAge?: number | null;
 } & MatchingJoinExtras;
 
 export type ActivateUrgentVacancyRequest = {
@@ -1280,6 +1297,9 @@ export type DiscoverJoinCardDto = {
   canJoinState: 'JOINABLE' | 'FULL' | 'ALREADY_JOINED' | 'HOST' | 'UNAVAILABLE';
   ctaLabel: string | null;
   golfFacilityId: string | null;
+  preferredGender?: JoinPreferredGender | null;
+  minAge?: number | null;
+  maxAge?: number | null;
 } & MatchingJoinExtras;
 
 export type DiscoverJoinsResponse = {
@@ -1404,6 +1424,8 @@ export enum NotificationType {
   JOIN_RECOMMENDATION = 'JOIN_RECOMMENDATION',
   WAITLIST_OFFERED = 'WAITLIST_OFFERED',
   WAITLIST_PROMOTED = 'WAITLIST_PROMOTED',
+  FRIEND_REQUEST_RECEIVED = 'FRIEND_REQUEST_RECEIVED',
+  FRIEND_REQUEST_ACCEPTED = 'FRIEND_REQUEST_ACCEPTED',
 }
 
 export enum JoinAlertDateMode {

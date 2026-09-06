@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { CurrentUserId, MockAuthGuard } from '../../common/mock-auth.guard';
 import { GolfFriendsService } from './golf-friends.service';
 
@@ -39,5 +39,25 @@ export class GolfFriendsController {
   @Post(':userId/request')
   request(@CurrentUserId() userId: string, @Param('userId') targetUserId: string) {
     return this.service.requestFriend(userId, targetUserId);
+  }
+
+  @Post(':userId/accept')
+  accept(@CurrentUserId() userId: string, @Param('userId') targetUserId: string) {
+    return this.service.acceptFriend(userId, targetUserId);
+  }
+
+  @Post(':userId/reject')
+  reject(@CurrentUserId() userId: string, @Param('userId') targetUserId: string) {
+    return this.service.rejectFriend(userId, targetUserId);
+  }
+
+  @Delete(':userId/request')
+  cancelRequest(@CurrentUserId() userId: string, @Param('userId') targetUserId: string) {
+    return this.service.cancelFriendRequest(userId, targetUserId);
+  }
+
+  @Delete(':userId')
+  unfriend(@CurrentUserId() userId: string, @Param('userId') targetUserId: string) {
+    return this.service.unfriend(userId, targetUserId);
   }
 }

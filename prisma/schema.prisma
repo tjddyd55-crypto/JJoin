@@ -216,6 +216,8 @@ enum NotificationType {
   PREMIUM_CANCEL_SCHEDULED
   WAITLIST_OFFERED
   WAITLIST_PROMOTED
+  FRIEND_REQUEST_RECEIVED
+  FRIEND_REQUEST_ACCEPTED
 }
 
 /// Pre-game attendance intent — distinct from ParticipationStatus COMPLETED/NO_SHOW.
@@ -776,6 +778,9 @@ model Join {
   isUrgent              Boolean               @default(false) @map("is_urgent")
   urgentUntil           DateTime?             @map("urgent_until") @db.Timestamptz(6)
   urgentSeats           Int?                  @map("urgent_seats")
+  preferredGender       JoinPreferredGender?  @map("preferred_gender")
+  minAge                Int?                  @map("min_age")
+  maxAge                Int?                  @map("max_age")
   createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -867,6 +872,12 @@ model GolfFacilityFollow {
 enum UserFriendshipStatus {
   PENDING
   ACCEPTED
+}
+
+enum JoinPreferredGender {
+  ANY
+  MALE
+  FEMALE
 }
 
 /// User ↔ User golf friend request (MVP).
