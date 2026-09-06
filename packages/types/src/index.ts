@@ -235,6 +235,23 @@ export type PublicUserProfileDto = {
   participationTrustLabel?: string | null;
 };
 
+export enum GolfFriendRelationship {
+  NONE = 'NONE',
+  REQUESTED = 'REQUESTED',
+  RECEIVED = 'RECEIVED',
+  FRIENDS = 'FRIENDS',
+}
+
+export type GolfFriendCardDto = {
+  user: PublicUserProfileDto;
+  relationship: GolfFriendRelationship;
+  approxDistanceMeters?: number | null;
+};
+
+export type GolfFriendsListResponse = {
+  items: GolfFriendCardDto[];
+};
+
 export type ParticipationTrustDto = {
   participationCount: number;
   attendedCount: number;

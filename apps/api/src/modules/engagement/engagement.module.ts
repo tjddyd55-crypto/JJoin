@@ -15,9 +15,19 @@ import { FacilityWeeklyJoinsService } from './facility-weekly-joins.service';
 import { JoinEngagementNotifyService } from './join-engagement-notify.service';
 import { JoinRecommendationsController } from './join-recommendations.controller';
 import { JoinRecommendationsService } from './join-recommendations.service';
+import { GolfFriendsController } from './golf-friends.controller';
+import { GolfFriendsService } from './golf-friends.service';
+import { PresenceModule } from '../presence/presence.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
-  imports: [NotificationsModule, AnalyticsModule, forwardRef(() => JoinsModule)],
+  imports: [
+    NotificationsModule,
+    AnalyticsModule,
+    forwardRef(() => JoinsModule),
+    PresenceModule,
+    UsersModule,
+  ],
   controllers: [
     JoinAlertsController,
     JoinBookmarksController,
@@ -25,6 +35,7 @@ import { JoinRecommendationsService } from './join-recommendations.service';
     PublicJoinsController,
     FacilityWeeklyJoinsController,
     JoinRecommendationsController,
+    GolfFriendsController,
   ],
   providers: [
     JoinAlertsService,
@@ -34,6 +45,7 @@ import { JoinRecommendationsService } from './join-recommendations.service';
     FacilityWeeklyJoinsService,
     JoinEngagementNotifyService,
     JoinRecommendationsService,
+    GolfFriendsService,
   ],
   exports: [JoinEngagementNotifyService, JoinRecommendationsService],
 })

@@ -363,6 +363,8 @@ model User {
   joinAlertSubscriptions   JoinAlertSubscription[]
   joinBookmarks            JoinBookmark[]
   golfFacilityFollows      GolfFacilityFollow[]
+  friendshipsRequested     UserFriendship[]           @relation("FriendshipRequester")
+  friendshipsReceived      UserFriendship[]           @relation("FriendshipAddressee")
   storeOwnershipRequests   StoreOwnershipRequest[]    @relation("StoreOwnershipRequestApplicant")
   storeOwnerships          StoreOwnership[]
   storeRequestsReviewed    StoreOwnershipRequest[]    @relation("StoreOwnershipRequestReviewer")
@@ -860,6 +862,28 @@ model GolfFacilityFollow {
   @@index([userId, createdAt(sort: Desc)])
   @@index([golfFacilityId])
   @@map("golf_facility_follows")
+}
+
+enum UserFriendshipStatus {
+  PENDING
+  ACCEPTED
+}
+
+/// User ↔ User golf friend request (MVP).
+model UserFriendship {
+  id          String               @id @default(uuid()) @db.Uuid
+  requesterId String               @map("requester_id") @db.Uuid
+  addresseeId String               @map("addressee_id") @db.Uuid
+  status      UserFriendshipStatus @default(PENDING)
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  requester User @relation("FriendshipRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee User @relation("FriendshipAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+  @@index([addresseeId, status])
+  @@map("user_friendships")
 }
 
 /// Applicant request to verify ownership of a GolfFacility (store).

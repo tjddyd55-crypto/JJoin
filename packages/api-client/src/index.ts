@@ -25,6 +25,8 @@ import {
   type PrivateIdentityDto,
   type PrivatePresenceDto,
   type PublicUserProfileDto,
+  type GolfFriendsListResponse,
+  type GolfFriendRelationship,
   type SocialSignInRequest,
   type SocialSignInResponse,
   type SportSkillLevel,
@@ -338,6 +340,47 @@ export class ApiClient {
   async getPublicProfile(userId: string): Promise<PublicUserProfileDto> {
     // Optional auth: send token when present so server can compute playedCountWithViewer.
     const res = await request(`${this.config.baseUrl}/users/${userId}/public-profile`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getGolfFriendsRecommended(): Promise<GolfFriendsListResponse> {
+    const res = await request(`${this.config.baseUrl}/golf-friends/recommended`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getGolfFriendsPopular(): Promise<GolfFriendsListResponse> {
+    const res = await request(`${this.config.baseUrl}/golf-friends/popular`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getGolfFriendsNearby(latitude: number, longitude: number): Promise<GolfFriendsListResponse> {
+    const params = new URLSearchParams({
+      latitude: String(latitude),
+      longitude: String(longitude),
+    });
+    const res = await request(`${this.config.baseUrl}/golf-friends/nearby?${params}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async searchGolfFriends(query: string): Promise<GolfFriendsListResponse> {
+    const params = new URLSearchParams({ q: query });
+    const res = await request(`${this.config.baseUrl}/golf-friends/search?${params}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async requestGolfFriend(userId: string): Promise<{ relationship: GolfFriendRelationship }> {
+    const res = await request(`${this.config.baseUrl}/golf-friends/${userId}/request`, {
+      method: 'POST',
       headers: await this.headers(true),
     });
     return parseJson(res);
