@@ -74,6 +74,7 @@ test('OwnerStoreDashboardDto kpi carries re-participant + urgent extras', () => 
       confirmedCount: 0,
       pendingCount: 0,
       noShowCount: 0,
+      waitlistCount: 0,
     },
     settlementSummary: {
       pendingCount: 0,
