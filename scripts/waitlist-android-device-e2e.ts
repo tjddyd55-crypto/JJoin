@@ -19,7 +19,7 @@ const ADB =
   process.env.ADB_PATH ??
   `${process.env.LOCALAPPDATA ?? ''}\\Android\\Sdk\\platform-tools\\adb.exe`;
 const DEVICE = process.env.ADB_DEVICE ?? 'R3KL202KGHF';
-const PKG = process.env.ANDROID_PKG ?? 'com.jjoin.app';
+const PKG = process.env.ANDROID_PKG ?? 'com.jjoin.app.dev';
 const TAG = 'waitlist-device';
 const REWARD = '20';
 const ACTIVE_HOST_STATUSES = new Set(['OPEN', 'FULL', 'CONFIRMED', 'IN_PROGRESS']);
@@ -267,6 +267,18 @@ async function main() {
   const offerNotif = notifs.items?.find((n) => n.type === 'WAITLIST_OFFERED');
   if (!offerNotif) throw new Error('WAITLIST_OFFERED notification missing in center');
   console.log('notification center OK', offerNotif.title);
+
+  try {
+    const { execFileSync } = await import('node:child_process');
+    execFileSync(
+      'pnpm',
+      ['exec', 'railway', 'run', '--service', 'notification-delivery-cron', '--environment', 'development', '--', 'pnpm', 'notification-delivery'],
+      { encoding: 'utf8', cwd: process.cwd(), stdio: 'pipe' },
+    );
+    console.log('notification-delivery cron triggered');
+  } catch {
+    console.log('SKIP notification-delivery cron trigger (run manually if tray miss)');
+  }
 
   await waitTray(['자리가 났어요', 'WAITLIST_OFFERED'], 'WaitlistOffer');
 
