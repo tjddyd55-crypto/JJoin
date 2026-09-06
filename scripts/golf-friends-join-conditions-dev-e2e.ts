@@ -12,10 +12,12 @@ import {
   SocialProvider,
   type GolfFriendRelationship,
 } from '../packages/types/src/index.ts';
+import { localDayKey } from '../packages/domain/src/index.ts';
 
 const API_BASE = process.env.API_BASE ?? 'https://api-development-e387.up.railway.app';
 const TAG = 'gf-join-cond-e2e';
 const REWARD = '20';
+const ACTIVE_HOST_STATUSES = new Set(['OPEN', 'FULL', 'CONFIRMED', 'IN_PROGRESS']);
 
 type Auth = { Authorization: string; userId: string };
 
@@ -97,6 +99,51 @@ async function unreadCount(auth: Auth): Promise<number> {
   return res.unreadCount ?? 0;
 }
 
+async function cleanupBlockingHostedJoin(host: Auth) {
+  const mine = await mustOk<{
+    hosted: Array<{ joinId: string; status: string }>;
+  }>('/joins/mine', { headers: host });
+  const blocking = mine.hosted?.find((j) => ACTIVE_HOST_STATUSES.has(j.status));
+  if (!blocking) return;
+
+  console.log('cleanup blocking hosted join', blocking.joinId, blocking.status);
+  const detail = await mustOk<{
+    participants: Array<{ participantId: string; role: string; participationStatus: string }>;
+  }>(`/joins/${blocking.joinId}`, { headers: host });
+
+  const applied = detail.participants.find(
+    (p) => p.role !== 'HOST' && p.participationStatus === 'APPLIED',
+  );
+  if (applied) {
+    await mustOk(`/joins/${blocking.joinId}/participants/${applied.participantId}/approve`, {
+      method: 'POST',
+      headers: host,
+    });
+  }
+
+  await mustOk(`/joins/${blocking.joinId}/settlements/_qa/advance-clock`, {
+    method: 'POST',
+    headers: host,
+    body: JSON.stringify({ mode: 'open' }),
+  });
+
+  const approved = await mustOk<{
+    participants: Array<{ participantId: string; role: string; participationStatus: string }>;
+  }>(`/joins/${blocking.joinId}`, { headers: host });
+  const nonHost = approved.participants.filter(
+    (p) => p.role !== 'HOST' && !['APPLIED', 'CANCELLED'].includes(p.participationStatus),
+  );
+  if (nonHost.length > 0) {
+    await mustOk(`/joins/${blocking.joinId}/settlements/finalize`, {
+      method: 'POST',
+      headers: host,
+      body: JSON.stringify({
+        attendance: nonHost.map((p) => ({ participantId: p.participantId, attended: false })),
+      }),
+    });
+  }
+}
+
 async function pickHost(): Promise<Auth> {
   for (const persona of [
     MockAuthPersona.DEV_B,
@@ -105,6 +152,11 @@ async function pickHost(): Promise<Auth> {
     MockAuthPersona.DEV_ADMIN,
   ]) {
     const auth = await signIn(persona);
+    try {
+      await cleanupBlockingHostedJoin(auth);
+    } catch (err) {
+      console.warn(`cleanup failed for ${persona}:`, err instanceof Error ? err.message : err);
+    }
     const preview = await mustOk<{ canCreate: boolean }>('/joins/coin-preview', {
       method: 'POST',
       headers: auth,
@@ -222,6 +274,7 @@ async function main() {
   assert(created.minAge === 30 && created.maxAge === 45, 'create age range');
 
   const detail = await mustOk<{
+    startAt: string;
     preferredGender: JoinPreferredGender | null;
     minAge: number | null;
     maxAge: number | null;
@@ -229,11 +282,12 @@ async function main() {
   assert(detail.preferredGender === JoinPreferredGender.FEMALE, 'detail gender');
   assert(detail.minAge === 30 && detail.maxAge === 45, 'detail age');
 
-  const date = new Date(Date.now() + 6 * 60 * 60_000).toISOString().slice(0, 10);
+  const date = localDayKey(new Date(detail.startAt));
   const discover = await mustOk<{
+    ongoing: Array<{ joinId: string; preferredGender?: string | null; minAge?: number | null; maxAge?: number | null }>;
     upcoming: Array<{ joinId: string; preferredGender?: string | null; minAge?: number | null; maxAge?: number | null }>;
-  }>(`/joins/discover?date=${date}`, { headers: host });
-  const card = [...discover.upcoming].find((c) => c.joinId === created.joinId);
+  }>(`/joins/discover?date=${date}&lat=37.56&lng=126.97&regionMode=NEARBY&radiusMeters=100000&joinability=ALL`, { headers: devC });
+  const card = [...discover.ongoing, ...discover.upcoming].find((c) => c.joinId === created.joinId);
   assert(card, 'discover card present');
   assert(card?.preferredGender === JoinPreferredGender.FEMALE, 'discover gender');
   assert(card?.minAge === 30 && card?.maxAge === 45, 'discover age');
