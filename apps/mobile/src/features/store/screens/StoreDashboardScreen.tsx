@@ -208,6 +208,12 @@ export function StoreDashboardScreen() {
               {dashboard.participantSummary.pendingCount > 0 ? (
                 <MetricCard label="대기" value={String(dashboard.participantSummary.pendingCount)} />
               ) : null}
+              {dashboard.participantSummary.waitlistCount > 0 ? (
+                <MetricCard
+                  label="대기열"
+                  value={`${dashboard.participantSummary.waitlistCount}명`}
+                />
+              ) : null}
               <MetricCard label="노쇼" value={String(dashboard.participantSummary.noShowCount)} />
             </View>
           </Section>

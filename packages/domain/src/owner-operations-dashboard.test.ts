@@ -38,6 +38,17 @@ test('participant summary excludes cancelled and counts no-show', () => {
   assert.equal(summary.noShowCount, 1);
   assert.equal(summary.pendingCount, 1);
   assert.equal(summary.totalExpected, 4);
+  assert.equal(summary.waitlistCount, 0);
+});
+
+test('participant summary counts waitlist rows separately', () => {
+  const summary = buildOwnerParticipantSummary([
+    { joinId: 'a', participationStatus: 'WAITLISTED' },
+    { joinId: 'a', participationStatus: 'OFFERED' },
+    { joinId: 'b', participationStatus: 'APPROVED' },
+  ]);
+  assert.equal(summary.waitlistCount, 2);
+  assert.equal(summary.pendingCount, 1);
 });
 
 test('settlement summary aggregates reward statuses', () => {

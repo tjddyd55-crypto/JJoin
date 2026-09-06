@@ -40,6 +40,8 @@ export type OwnerParticipantSummary = {
   confirmedCount: number;
   pendingCount: number;
   noShowCount: number;
+  /** Active FIFO waitlist (WAITLISTED + OFFERED). */
+  waitlistCount: number;
 };
 
 export type OwnerSettlementSummary = {
@@ -95,10 +97,15 @@ export function buildOwnerParticipantSummary(
   let confirmedCount = 0;
   let pendingCount = 0;
   let noShowCount = 0;
+  let waitlistCount = 0;
 
   for (const row of participants) {
     if (row.participationStatus === 'NO_SHOW') {
       noShowCount += 1;
+      continue;
+    }
+    if (row.participationStatus === 'WAITLISTED' || row.participationStatus === 'OFFERED') {
+      waitlistCount += 1;
       continue;
     }
     if (CONFIRMED_PARTICIPANT.has(row.participationStatus)) confirmedCount += 1;
@@ -110,6 +117,7 @@ export function buildOwnerParticipantSummary(
     confirmedCount,
     pendingCount,
     noShowCount,
+    waitlistCount,
   };
 }
 
