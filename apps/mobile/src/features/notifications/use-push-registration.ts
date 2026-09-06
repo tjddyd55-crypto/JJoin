@@ -63,6 +63,10 @@ export function usePushRegistration() {
         const target = resolvePushRoute(data);
         if (target.kind === 'join') {
           router.push(`/join/${target.joinId}`);
+        } else if (target.kind === 'golf-friends') {
+          router.push('/my/golf-friends');
+        } else if (target.kind === 'user') {
+          router.push(`/user/${target.userId}`);
         } else if (target.kind === 'notifications') {
           router.push('/my/notifications');
         }

@@ -29,35 +29,78 @@ const TABS: Array<{ id: TabId; label: string }> = [
   { id: 'search', label: '회원검색' },
 ];
 
-function relationshipLabel(rel: GolfFriendRelationship): string {
-  switch (rel) {
-    case GolfFriendRelationship.FRIENDS:
-      return '친구';
-    case GolfFriendRelationship.REQUESTED:
-      return '요청됨';
-    case GolfFriendRelationship.RECEIVED:
-      return '받은 요청';
-    default:
-      return '친구요청';
-  }
-}
+type FriendAction = 'request' | 'accept' | 'reject' | 'cancel' | 'unfriend';
 
 function GolfFriendCardItem({
   item,
   onPressProfile,
-  onRequest,
-  requesting,
+  onAction,
+  acting,
 }: {
   item: GolfFriendCardDto;
   onPressProfile: () => void;
-  onRequest: () => void;
-  requesting: boolean;
+  onAction: (action: FriendAction) => void;
+  acting: boolean;
 }) {
   const theme = useTheme();
   const sport = item.user.sportProfiles[0];
-  const canRequest =
-    item.relationship === GolfFriendRelationship.NONE ||
-    item.relationship === GolfFriendRelationship.RECEIVED;
+
+  const renderActions = () => {
+    switch (item.relationship) {
+      case GolfFriendRelationship.FRIENDS:
+        return (
+          <Button
+            label="친구"
+            size="sm"
+            variant="secondary"
+            disabled={acting}
+            onPress={() => onAction('unfriend')}
+          />
+        );
+      case GolfFriendRelationship.REQUESTED:
+        return (
+          <Button
+            label="요청 취소"
+            size="sm"
+            variant="secondary"
+            disabled={acting}
+            loading={acting}
+            onPress={() => onAction('cancel')}
+          />
+        );
+      case GolfFriendRelationship.RECEIVED:
+        return (
+          <View style={styles.dualActions}>
+            <Button
+              label="수락"
+              size="sm"
+              variant="primary"
+              disabled={acting}
+              loading={acting}
+              onPress={() => onAction('accept')}
+            />
+            <Button
+              label="거절"
+              size="sm"
+              variant="secondary"
+              disabled={acting}
+              onPress={() => onAction('reject')}
+            />
+          </View>
+        );
+      default:
+        return (
+          <Button
+            label="친구요청"
+            size="sm"
+            variant="primary"
+            disabled={acting}
+            loading={acting}
+            onPress={() => onAction('request')}
+          />
+        );
+    }
+  };
 
   return (
     <Pressable
@@ -98,18 +141,10 @@ function GolfFriendCardItem({
         accessibilityRole="button"
         onPress={(e) => {
           e.stopPropagation?.();
-          onRequest();
         }}
         style={styles.requestHit}
       >
-        <Button
-          label={relationshipLabel(item.relationship)}
-          size="sm"
-          variant={canRequest ? 'primary' : 'secondary'}
-          disabled={!canRequest || requesting}
-          loading={requesting}
-          onPress={onRequest}
-        />
+        {renderActions()}
       </Pressable>
     </Pressable>
   );
@@ -124,7 +159,7 @@ export function GolfFriendsScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [requestingId, setRequestingId] = useState<string | null>(null);
+  const [actingId, setActingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -166,21 +201,38 @@ export function GolfFriendsScreen() {
     void load();
   }, [load, tab]);
 
-  const onRequest = async (userId: string) => {
-    setRequestingId(userId);
+  const patchRelationship = (userId: string, relationship: GolfFriendRelationship) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.user.id === userId ? { ...item, relationship } : item,
+      ),
+    );
+  };
+
+  const onAction = async (userId: string, action: FriendAction) => {
+    setActingId(userId);
+    setError(null);
     try {
-      const { relationship } = await api.requestGolfFriend(userId);
-      setItems((prev) =>
-        prev.map((item) =>
-          item.user.id === userId ? { ...item, relationship } : item,
-        ),
-      );
+      let result: { relationship: GolfFriendRelationship };
+      if (action === 'request') result = await api.requestGolfFriend(userId);
+      else if (action === 'accept') result = await api.acceptGolfFriend(userId);
+      else if (action === 'reject') result = await api.rejectGolfFriend(userId);
+      else if (action === 'cancel') result = await api.cancelGolfFriendRequest(userId);
+      else result = await api.unfriendGolfFriend(userId);
+      patchRelationship(userId, result.relationship);
     } catch {
-      setError('친구 요청에 실패했습니다.');
+      setError('요청을 처리하지 못했습니다.');
     } finally {
-      setRequestingId(null);
+      setActingId(null);
     }
   };
+
+  const emptyMessage =
+    tab === 'search'
+      ? '검색어를 입력하세요.'
+      : tab === 'nearby'
+        ? '근처에 표시할 회원이 없어요'
+        : '표시할 회원이 없습니다.';
 
   return (
     <ScrollScreenFrame>
@@ -241,7 +293,7 @@ export function GolfFriendsScreen() {
         ListEmptyComponent={
           !loading ? (
             <Text variant="meta" tone="tertiary" style={styles.empty}>
-              {tab === 'search' ? '검색어를 입력하세요.' : '표시할 회원이 없습니다.'}
+              {emptyMessage}
             </Text>
           ) : null
         }
@@ -249,8 +301,8 @@ export function GolfFriendsScreen() {
           <GolfFriendCardItem
             item={item}
             onPressProfile={() => router.push(`/user/${item.user.id}`)}
-            onRequest={() => void onRequest(item.user.id)}
-            requesting={requestingId === item.user.id}
+            onAction={(action) => void onAction(item.user.id, action)}
+            acting={actingId === item.user.id}
           />
         )}
       />
@@ -291,4 +343,5 @@ const styles = StyleSheet.create({
   },
   cardBody: { flex: 1, gap: 2, minWidth: 0 },
   requestHit: { flexShrink: 0 },
+  dualActions: { flexDirection: 'row', gap: 6 },
 });

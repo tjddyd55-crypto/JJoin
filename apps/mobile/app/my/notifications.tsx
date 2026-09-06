@@ -63,6 +63,14 @@ export default function NotificationsScreen() {
     }
     if (target.kind === 'club-notice') {
       router.push(`/my/clubs/${target.clubId}/notices`);
+      return;
+    }
+    if (target.kind === 'golf-friends') {
+      router.push('/my/golf-friends');
+      return;
+    }
+    if (target.kind === 'user') {
+      router.push(`/user/${target.userId}`);
     }
   };
 

@@ -386,6 +386,38 @@ export class ApiClient {
     return parseJson(res);
   }
 
+  async acceptGolfFriend(userId: string): Promise<{ relationship: GolfFriendRelationship }> {
+    const res = await request(`${this.config.baseUrl}/golf-friends/${userId}/accept`, {
+      method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async rejectGolfFriend(userId: string): Promise<{ relationship: GolfFriendRelationship }> {
+    const res = await request(`${this.config.baseUrl}/golf-friends/${userId}/reject`, {
+      method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async cancelGolfFriendRequest(userId: string): Promise<{ relationship: GolfFriendRelationship }> {
+    const res = await request(`${this.config.baseUrl}/golf-friends/${userId}/request`, {
+      method: 'DELETE',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async unfriendGolfFriend(userId: string): Promise<{ relationship: GolfFriendRelationship }> {
+    const res = await request(`${this.config.baseUrl}/golf-friends/${userId}`, {
+      method: 'DELETE',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
   async getWalletSummary(): Promise<WalletSummaryDto> {
     const res = await request(`${this.config.baseUrl}/me/wallet/summary`, {
       headers: await this.headers(true),

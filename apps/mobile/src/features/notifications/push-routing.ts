@@ -6,6 +6,8 @@ export type PushRouteTarget =
   | { kind: 'wallet-transactions' }
   | { kind: 'club'; clubId: string }
   | { kind: 'club-notice'; clubId: string; noticeId?: string }
+  | { kind: 'golf-friends' }
+  | { kind: 'user'; userId: string }
   | { kind: 'notifications' }
   | { kind: 'none' };
 
@@ -16,6 +18,13 @@ export function resolvePushRoute(data: Record<string, unknown> | undefined): Pus
   if (!data) return { kind: 'none' };
 
   const type = typeof data.type === 'string' ? data.type : '';
+  if (type === 'FRIEND_REQUEST_RECEIVED' || type === 'FRIEND_REQUEST_ACCEPTED') {
+    const userId = typeof data.userId === 'string' ? data.userId : undefined;
+    if (userId && UUID_RE.test(userId)) {
+      return { kind: 'user', userId };
+    }
+    return { kind: 'golf-friends' };
+  }
   if (
     type === 'REWARD_PAID' ||
     type === 'REWARD_AUTO_PAID' ||

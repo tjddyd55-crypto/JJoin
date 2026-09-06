@@ -17,6 +17,7 @@ import {
 import type { JoinDetailDto, JoinParticipantDto } from '@jjoin/types';
 import {
   buildJoinBenefitLines,
+  buildJoinMemberPreferenceLabels,
   buildJoinParticipationStatTiles,
   buildJoinParticipationSummary,
   buildJoinRecruitmentBreakdown,
@@ -24,6 +25,7 @@ import {
   formatParticipantGenderLabel,
   formatParticipationStatusLabel,
   hasJoinBenefits,
+  hasJoinMemberPreferenceLabels,
 } from '../../../ui/join-detail-display';
 import {
   formatJoinScheduleDetailDate,
@@ -191,6 +193,7 @@ export function JoinDetailPrimarySections({
   const requirements = requirementLabels(detail, matching);
   const benefitLines = buildJoinBenefitLines(detail);
   const showBenefits = hasJoinBenefits(detail);
+  const memberPreferenceLabels = buildJoinMemberPreferenceLabels(detail);
   const hasRecruitmentTargets =
     (recruitment.maleTarget ?? 0) > 0 ||
     (recruitment.femaleTarget ?? 0) > 0 ||
@@ -203,7 +206,7 @@ export function JoinDetailPrimarySections({
     void Linking.openURL(`https://map.kakao.com/link/map/${latitude},${longitude}`);
   };
 
-  const conditionLabels = [...requirements];
+  const conditionLabels = [...requirements, ...memberPreferenceLabels];
   if (hasRecruitmentTargets) {
     if ((recruitment.maleTarget ?? 0) > 0) {
       conditionLabels.push(`남성 ${recruitment.maleTarget}명`);

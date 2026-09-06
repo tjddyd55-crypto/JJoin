@@ -8,7 +8,7 @@ export type JoinCreateStepId =
 export const JOIN_CREATE_STEPS: Array<{ id: JoinCreateStepId; label: string }> = [
   { id: 'venue', label: '장소·일정' },
   { id: 'capacity', label: '인원·비용' },
-  { id: 'members', label: '모집 조건' },
+  { id: 'members', label: '원하는 멤버' },
   { id: 'options', label: '옵션' },
   { id: 'confirm', label: '확인' },
 ];

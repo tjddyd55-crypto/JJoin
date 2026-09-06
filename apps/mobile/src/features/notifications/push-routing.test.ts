@@ -28,3 +28,23 @@ test('club notice routes to club notices', () => {
     },
   );
 });
+
+test('friend request routes to user profile when userId present', () => {
+  assert.deepEqual(
+    resolveNotificationRoute({
+      type: 'FRIEND_REQUEST_RECEIVED',
+      data: { userId: '44444444-4444-4444-8444-444444444444' },
+    }),
+    { kind: 'user', userId: '44444444-4444-4444-8444-444444444444' },
+  );
+});
+
+test('friend accepted falls back to golf friends list', () => {
+  assert.deepEqual(
+    resolveNotificationRoute({
+      type: 'FRIEND_REQUEST_ACCEPTED',
+      data: {},
+    }),
+    { kind: 'golf-friends' },
+  );
+});

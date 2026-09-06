@@ -29,6 +29,12 @@ import { JoinCreateVenueSection } from '../../src/features/join-create/component
 import { JoinCreateStepHeader, JoinCreateSummaryRow } from '../../src/features/join-create/components/JoinCreateStepHeader';
 import { JoinCreatePricingSummary } from '../../src/features/join-create/components/JoinCreatePricingSummary';
 import {
+  JoinCreateMemberPreferencesSection,
+  defaultJoinMemberPreferences,
+  memberPreferencesPayload,
+  memberPreferencesSummaryLabel,
+} from '../../src/features/join-create/components/JoinCreateMemberPreferencesSection';
+import {
   clearJoinCreateDraft,
   peekJoinCreateDraft,
   saveJoinCreateDraft,
@@ -126,6 +132,8 @@ export default function CreateScreen() {
     ),
   );
   const [description, setDescription] = useState('');
+  const [joinMethod, setJoinMethod] = useState<JoinMethod>(JoinMethod.APPROVAL);
+  const [memberPrefs, setMemberPrefs] = useState(defaultJoinMemberPreferences);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [doneJoinId, setDoneJoinId] = useState<string | null>(null);
@@ -159,6 +167,8 @@ export default function CreateScreen() {
       ),
     );
     setDescription('');
+    setJoinMethod(JoinMethod.APPROVAL);
+    setMemberPrefs(defaultJoinMemberPreferences());
     setSubmitting(false);
     setError(null);
     clearJoinCreateDraft();
@@ -323,13 +333,14 @@ export default function CreateScreen() {
         venueId: selectedVenue.venueId,
         startAt: startAtIso,
         plannedPlayerCount: players,
-        joinMethod: JoinMethod.APPROVAL,
+        joinMethod,
         title: routeTitle ?? `${selectedVenue.name} 스크린골프`,
         description: description.trim() || null,
         rewardPerParticipant,
         idempotencyKey: newIdempotencyKey(),
         clubId: routeClubId,
         clubEventId: routeClubEventId,
+        ...memberPreferencesPayload(memberPrefs),
       });
       if (prefilledInvitees.length > 0) {
         try {
@@ -366,6 +377,8 @@ export default function CreateScreen() {
     api,
     canCreate,
     description,
+    joinMethod,
+    memberPrefs,
     players,
     prefilledInvitees,
     requestGatedAction,
@@ -527,8 +540,27 @@ export default function CreateScreen() {
         ) : null}
 
         {step === 'members' ? (
+          <JoinCreateMemberPreferencesSection value={memberPrefs} onChange={setMemberPrefs} />
+        ) : null}
+
+        {step === 'options' ? (
           <>
-            <Text variant="body" tone="secondary">승인 후 참가 방식으로 모집합니다.</Text>
+            <Text variant="sectionTitle" tone="primary">승인 방식</Text>
+            <View style={styles.row}>
+              <Chip
+                label="승인 후 참가"
+                selected={joinMethod === JoinMethod.APPROVAL}
+                onPress={() => setJoinMethod(JoinMethod.APPROVAL)}
+              />
+              <Chip
+                label="참가 즉시 확정"
+                selected={joinMethod === JoinMethod.OPEN}
+                onPress={() => setJoinMethod(JoinMethod.OPEN)}
+              />
+            </View>
+            <Text variant="sectionTitle" tone="primary" style={styles.optionsTitle}>
+              무료 초대
+            </Text>
             {prefilledInvitees.length > 0 ? (
               <View style={styles.row}>
                 {prefilledInvitees.map((person) => (
@@ -548,22 +580,29 @@ export default function CreateScreen() {
           </>
         ) : null}
 
-        {step === 'options' ? (
-          <Input
-            label="추가 안내 (선택)"
-            value={description}
-            onChangeText={setDescription}
-            placeholder="참가자에게 전달할 메모"
-            multiline
-          />
-        ) : null}
-
         {step === 'confirm' ? (
           <>
+            <Input
+              label="추가 안내 (선택)"
+              value={description}
+              onChangeText={setDescription}
+              placeholder="참가자에게 전달할 메모"
+              multiline
+            />
             <Card variant="elevated" padding="md">
               <JoinCreateSummaryRow label="장소" value={selectedVenue ? venueSelectionLabel(selectedVenue) : '—'} />
               <JoinCreateSummaryRow label="일정" value={scheduleSummary} />
               <JoinCreateSummaryRow label="인원" value={`${players}명`} />
+              <JoinCreateSummaryRow
+                label="원하는 멤버"
+                value={memberPreferencesSummaryLabel(memberPrefs)}
+                onPress={() => setStep('members')}
+              />
+              <JoinCreateSummaryRow
+                label="승인 방식"
+                value={joinMethod === JoinMethod.OPEN ? '참가 즉시 확정' : '승인 후 참가'}
+                onPress={() => setStep('options')}
+              />
               <JoinCreateSummaryRow
                 label="참가보상"
                 value={Number(rewardPerParticipant) > 0 ? `${rewardPerParticipant} 코인` : '없음'}
@@ -597,6 +636,7 @@ export default function CreateScreen() {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  optionsTitle: { marginTop: 8 },
   footerHelper: { textAlign: 'center' },
   footerRow: { flexDirection: 'row', gap: 8 },
   footerBtn: { flex: 1 },

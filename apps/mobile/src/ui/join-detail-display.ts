@@ -1,5 +1,6 @@
 import { formatMatchingDeadlineHint } from '@jjoin/domain';
 import {
+  JoinPreferredGender,
   ParticipationStatus,
   type JoinDetailDto,
   type JoinParticipantDto,
@@ -170,4 +171,24 @@ export function buildJoinBenefitLines(detail: JoinDetailDto): string[] {
 
 export function hasJoinBenefits(detail: JoinDetailDto): boolean {
   return buildJoinBenefitLines(detail).length > 0;
+}
+
+export function buildJoinMemberPreferenceLabels(detail: JoinDetailDto): string[] {
+  const labels: string[] = [];
+  if (detail.preferredGender === JoinPreferredGender.MALE) labels.push('남성');
+  else if (detail.preferredGender === JoinPreferredGender.FEMALE) labels.push('여성');
+
+  if (detail.minAge != null && detail.maxAge != null) {
+    labels.push(`${detail.minAge}세~${detail.maxAge}세`);
+  } else if (detail.minAge != null) {
+    labels.push(`${detail.minAge}세 이상`);
+  } else if (detail.maxAge != null) {
+    labels.push(`${detail.maxAge}세 이하`);
+  }
+
+  return labels;
+}
+
+export function hasJoinMemberPreferenceLabels(detail: JoinDetailDto): boolean {
+  return buildJoinMemberPreferenceLabels(detail).length > 0;
 }
