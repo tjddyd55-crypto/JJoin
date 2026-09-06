@@ -85,6 +85,12 @@ enum ParticipationStatus {
   LEFT_EARLY
   CANCELLED
   DISPUTED
+  /// FIFO waitlist — not an active roster seat.
+  WAITLISTED
+  /// Time-limited seat reservation pending user acceptance.
+  OFFERED
+  /// Waitlist offer expired without acceptance — not attendance NO_SHOW.
+  WAITLIST_EXPIRED
 }
 
 enum ParticipantRole {
@@ -208,6 +214,8 @@ enum NotificationType {
   PREMIUM_RENEWAL_SUCCEEDED
   PREMIUM_RENEWAL_FAILED
   PREMIUM_CANCEL_SCHEDULED
+  WAITLIST_OFFERED
+  WAITLIST_PROMOTED
 }
 
 /// Pre-game attendance intent — distinct from ParticipationStatus COMPLETED/NO_SHOW.
@@ -1018,6 +1026,8 @@ model JoinParticipant {
   approvedAt          DateTime?           @map("approved_at") @db.Timestamptz(6)
   confirmedAt         DateTime?           @map("confirmed_at") @db.Timestamptz(6)
   cancelledAt         DateTime?           @map("cancelled_at") @db.Timestamptz(6)
+  offeredAt           DateTime?           @map("offered_at") @db.Timestamptz(6)
+  offerExpiresAt      DateTime?           @map("offer_expires_at") @db.Timestamptz(6)
 
   join       Join              @relation(fields: [joinId], references: [id], onDelete: Cascade)
   user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1028,6 +1038,7 @@ model JoinParticipant {
   @@unique([joinId, userId])
   @@index([userId])
   @@index([joinId, attendanceIntent])
+  @@index([joinId, participationStatus, appliedAt])
   @@map("join_participants")
 }
 

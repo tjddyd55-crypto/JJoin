@@ -326,6 +326,33 @@ export {
 } from './store-matching';
 
 export {
+  WAITLIST_OFFER_TTL_MINUTES,
+  WAITLIST_ACTIVE_STATUSES,
+  WAITLIST_TERMINAL_STATUSES,
+  buildGenderSlotSnapshot,
+  canAcceptWaitlistOffer,
+  canDirectJoinGenderSlot,
+  canDirectJoinGeneralCapacity,
+  canJoinWaitlistForGender,
+  canJoinWaitlistGeneral,
+  computeEffectiveCapacity,
+  computeWaitlistOfferExpiresAt,
+  computeWaitlistPosition,
+  countActiveWaitlistOffers,
+  countAvailablePromotionSlots,
+  countConfirmedRosterParticipants,
+  isBlockingWaitlistReapplyStatus,
+  isJoinWaitlistJoinable,
+  isWaitlistActiveStatus,
+  isWaitlistOfferActive,
+  selectNextWaitlistOffers,
+  type EffectiveCapacitySnapshot,
+  type GenderSlotSnapshot,
+  type WaitlistActiveStatus,
+  type WaitlistParticipantRow,
+} from './join-waitlist';
+
+export {
   REWARD_QUICK_ADD_DENOMINATIONS,
   addRewardQuickIncrement,
   computeCoinShortfall,

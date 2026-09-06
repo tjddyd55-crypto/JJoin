@@ -128,6 +128,9 @@ export enum ParticipationStatus {
   LEFT_EARLY = 'LEFT_EARLY',
   CANCELLED = 'CANCELLED',
   DISPUTED = 'DISPUTED',
+  WAITLISTED = 'WAITLISTED',
+  OFFERED = 'OFFERED',
+  WAITLIST_EXPIRED = 'WAITLIST_EXPIRED',
 }
 
 export enum RewardStatus {
@@ -729,6 +732,10 @@ export type JoinParticipantDto = {
   verifiedBadge: boolean;
   appliedAt: string;
   approvedAt: string | null;
+  offeredAt?: string | null;
+  offerExpiresAt?: string | null;
+  /** Viewer FIFO position when WAITLISTED (server-computed). */
+  waitlistPosition?: number | null;
   /** Present for STORE_MATCHING attendance/settlement preview. */
   gender?: 'MALE' | 'FEMALE' | 'UNSPECIFIED' | 'OTHER' | null;
   /** Objective attendance stats (COMPLETED / NO_SHOW). */
@@ -920,6 +927,10 @@ export type JoinDetailDto = {
   host: PublicUserProfileDto;
   myParticipation: JoinParticipantDto | null;
   participants: JoinParticipantDto[];
+  /** True when join is full but waitlist signup is allowed (server SSOT). */
+  waitlistAvailable?: boolean;
+  /** Host-only: active waitlist size (WAITLISTED + OFFERED). */
+  waitlistCount?: number | null;
   /** Present when viewer is host or participant with settlement rows. */
   settlement?: JoinSettlementSummaryDto | null;
 } & MatchingJoinExtras;
@@ -960,6 +971,24 @@ export type JoinChatMessagesResponse = {
 
 export type PostJoinChatMessageRequest = {
   body: string;
+};
+
+/** Host-only waitlist roster entry. */
+export type JoinWaitlistEntryDto = {
+  participantId: string;
+  userId: string;
+  nickname: string;
+  participationStatus: ParticipationStatus;
+  waitlistPosition: number;
+  appliedAt: string;
+  offeredAt: string | null;
+  offerExpiresAt: string | null;
+  gender?: 'MALE' | 'FEMALE' | 'UNSPECIFIED' | 'OTHER' | null;
+};
+
+export type JoinWaitlistResponse = {
+  items: JoinWaitlistEntryDto[];
+  total: number;
 };
 
 export type CreateJoinInvitationsRequest = {
@@ -1356,6 +1385,8 @@ export enum NotificationType {
   CLUB_EVENT_CREATED = 'CLUB_EVENT_CREATED',
   CLUB_NOTICE = 'CLUB_NOTICE',
   JOIN_RECOMMENDATION = 'JOIN_RECOMMENDATION',
+  WAITLIST_OFFERED = 'WAITLIST_OFFERED',
+  WAITLIST_PROMOTED = 'WAITLIST_PROMOTED',
 }
 
 export enum JoinAlertDateMode {
@@ -1729,6 +1760,7 @@ export type OwnerStoreDashboardDto = {
     confirmedCount: number;
     pendingCount: number;
     noShowCount: number;
+    waitlistCount: number;
   };
   settlementSummary: {
     pendingCount: number;
