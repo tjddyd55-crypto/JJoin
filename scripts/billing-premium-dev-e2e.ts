@@ -457,16 +457,16 @@ async function joinCreationRetry(devA: Auth) {
   assert(preview.status < 300, `preview ${preview.status}`);
   assert(preview.body.canCreate, 'preview canCreate');
 
-  const walletBefore = await walletBalance(devA);
   const created = await j<{ joinId: string; roomCreationFeeAmount: string; rewardHoldTotalAmount: string }>(
     '/joins',
     { method: 'POST', headers: devA, body: JSON.stringify(body) },
   );
   assert(created.status < 300, `create ${created.status}`);
+  const walletAfterCreate = await walletBalance(devA);
   const dup = await j<{ joinId: string }>('/joins', { method: 'POST', headers: devA, body: JSON.stringify(body) });
   assert(dup.status < 300 && dup.body.joinId === created.body.joinId, 'idempotent join');
 
-  assert(await walletBalance(devA) === walletBefore, 'wallet unchanged on dup');
+  assert(await walletBalance(devA) === walletAfterCreate, 'wallet unchanged on dup');
   const txs = await j<{ items: Array<{ type: string; reference: { refId: string | null } }> }>(
     '/me/wallet/transactions?limit=30',
     { headers: devA },
