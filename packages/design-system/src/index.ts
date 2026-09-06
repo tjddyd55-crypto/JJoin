@@ -99,6 +99,7 @@ export { JoinScheduleSummary, type JoinScheduleSummaryProps } from './components
 export { JoinSummaryTile, type JoinSummaryTileProps, type JoinSummaryTileVariant } from './components/JoinSummaryTile';
 export { JoinSummaryGrid, type JoinSummaryGridItem, type JoinSummaryGridProps } from './components/JoinSummaryGrid';
 export { JoinDetailSection, type JoinDetailSectionProps } from './components/JoinDetailSection';
+export { JoinDetailCard, type JoinDetailCardProps } from './components/JoinDetailCard';
 export { JoinMiniStatGrid, type JoinMiniStatGridProps, type JoinMiniStatTile, type JoinMiniStatSurface } from './components/JoinMiniStatGrid';
 export { JoinListTextTabs, type JoinListTextTabsProps, type JoinListTextTab } from './components/JoinListTextTabs';
 export { JoinDiscoveryAppBar, type JoinDiscoveryAppBarProps } from './components/JoinDiscoveryAppBar';

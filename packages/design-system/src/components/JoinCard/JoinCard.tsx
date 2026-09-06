@@ -58,7 +58,7 @@ export function JoinCard({
 }: JoinCardProps) {
   const theme = useTheme();
   const isCompact = variant === 'compact' || variant === 'preview';
-  const titleLines = variant === 'management' || variant === 'default' ? 2 : 1;
+  const titleLines = 1;
 
   const badges: JoinCardStatusBadge[] = [...(statusBadges ?? [])];
   if (isUrgent && !badges.some((b) => b.label.includes('긴급'))) {

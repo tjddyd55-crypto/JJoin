@@ -4,7 +4,8 @@ import { Text } from '../../primitives/Text';
 import { useTheme } from '../../theme';
 
 export type JoinDetailSectionProps = ViewProps & {
-  title: string;
+  /** Omit for card-only blocks without a large section heading. */
+  title?: string;
   children: ReactNode;
 };
 
@@ -13,9 +14,11 @@ export function JoinDetailSection({ title, children, style, ...rest }: JoinDetai
 
   return (
     <View style={[styles.section, style]} {...rest}>
-      <Text variant="joinSectionTitle" tone="primary">
-        {title}
-      </Text>
+      {title ? (
+        <Text variant="joinSectionTitle" tone="primary">
+          {title}
+        </Text>
+      ) : null}
       <View
         style={[
           styles.card,
