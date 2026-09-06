@@ -280,16 +280,23 @@ export class JoinWaitlistService {
         : this.toCapacityRows(projectedParticipants);
 
       if (useGender) {
-        const gender = (mine.user.profile?.gender ?? null) as MatchingGender | null;
-        if (
-          !gender ||
-          !canDirectJoinGenderSlot({
-            applicantGender: gender,
-            targetMaleCount: join.targetMaleCount ?? 0,
-            targetFemaleCount: join.targetFemaleCount ?? 0,
-            participants: rosterRows,
-          })
-        ) {
+        if (mine.participationStatus !== 'OFFERED') {
+          const gender = (mine.user.profile?.gender ?? null) as MatchingGender | null;
+          if (
+            !gender ||
+            !canDirectJoinGenderSlot({
+              applicantGender: gender,
+              targetMaleCount: join.targetMaleCount ?? 0,
+              targetFemaleCount: join.targetFemaleCount ?? 0,
+              participants: rosterRows,
+            })
+          ) {
+            throw new ConflictException('seat_no_longer_available');
+          }
+        }
+      } else if (mine.participationStatus === 'OFFERED') {
+        const afterOccupied = countOccupiedJoinSlots(this.toCapacityRows(projectedParticipants));
+        if (afterOccupied > join.plannedPlayerCount) {
           throw new ConflictException('seat_no_longer_available');
         }
       } else if (
