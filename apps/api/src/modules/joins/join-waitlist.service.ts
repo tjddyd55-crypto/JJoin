@@ -507,6 +507,11 @@ export class JoinWaitlistService {
   /** SSOT — offer next waitlisted users after seat release or offer expiry/cancel. */
   async processWaitlistForJoin(joinId: string): Promise<string[]> {
     const offeredUserIds: string[] = [];
+    const pendingOfferNotifications: Array<{
+      userId: string;
+      participantId: string;
+      offeredAt: Date;
+    }> = [];
     const now = new Date();
 
     await this.prisma.$transaction(async (tx) => {
@@ -573,20 +578,28 @@ export class JoinWaitlistService {
         });
         if (updated.count === 1) {
           offeredUserIds.push(candidate.userId);
-          await this.notifications.enqueueSafe({
+          pendingOfferNotifications.push({
             userId: candidate.userId,
-            type: NotificationType.WAITLIST_OFFERED,
-            title: '자리가 났어요',
-            body: `${WAITLIST_OFFER_TTL_MINUTES}분 안에 참가를 확정해 주세요.`,
-            data: {
-              type: NotificationType.WAITLIST_OFFERED,
-              joinId,
-            },
-            eventKey: `join:${joinId}:waitlist-offer:${candidate.participantId}:${offeredAt.getTime()}`,
+            participantId: candidate.participantId,
+            offeredAt,
           });
         }
       }
     });
+
+    for (const pending of pendingOfferNotifications) {
+      await this.notifications.enqueueSafe({
+        userId: pending.userId,
+        type: NotificationType.WAITLIST_OFFERED,
+        title: '자리가 났어요',
+        body: `${WAITLIST_OFFER_TTL_MINUTES}분 안에 참가를 확정해 주세요.`,
+        data: {
+          type: NotificationType.WAITLIST_OFFERED,
+          joinId,
+        },
+        eventKey: `join:${joinId}:waitlist-offer:${pending.participantId}:${pending.offeredAt.getTime()}`,
+      });
+    }
 
     return offeredUserIds;
   }

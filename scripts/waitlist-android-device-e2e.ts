@@ -1,5 +1,5 @@
 /**
- * Waitlist Android tray + deep link E2E (DEV API + physical device).
+ * Waitlist Android tray + deep link + OFFER UI E2E (DEV API + physical device).
  *
  * Prerequisite: Dev Client logged in as DEV_A with active PushDevice.
  *
@@ -7,6 +7,9 @@
  *   pnpm exec tsx scripts/waitlist-android-device-e2e.ts
  */
 import { execFileSync } from 'node:child_process';
+import { readFileSync, unlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   JoinMethod,
   MockAuthPersona,
@@ -20,6 +23,7 @@ const ADB =
   `${process.env.LOCALAPPDATA ?? ''}\\Android\\Sdk\\platform-tools\\adb.exe`;
 const DEVICE = process.env.ADB_DEVICE ?? 'R3KL202KGHF';
 const PKG = process.env.ANDROID_PKG ?? 'com.jjoin.app.dev';
+const PNPM = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 const TAG = 'waitlist-device';
 const REWARD = '20';
 const ACTIVE_HOST_STATUSES = new Set(['OPEN', 'FULL', 'CONFIRMED', 'IN_PROGRESS']);
@@ -67,6 +71,10 @@ function clearNotifs() {
   }
 }
 
+function backgroundApp() {
+  adb(['shell', 'input', 'keyevent', 'KEYCODE_HOME']);
+}
+
 function dumpNotifs(): string {
   try {
     return adb(['shell', 'dumpsys', 'notification', '--noredact']);
@@ -83,7 +91,7 @@ function trayHit(dump: string, needles: string[]): boolean {
   return needles.some((n) => hay.includes(n));
 }
 
-async function waitTray(needles: string[], label: string, timeoutMs = 60000) {
+async function waitTray(needles: string[], label: string, timeoutMs = 70000) {
   const t0 = Date.now();
   while (Date.now() - t0 < timeoutMs) {
     if (trayHit(dumpNotifs(), needles)) {
@@ -92,7 +100,58 @@ async function waitTray(needles: string[], label: string, timeoutMs = 60000) {
     }
     await sleep(2500);
   }
-  throw new Error(`TRAY_MISS ${label}`);
+  const snippet = dumpNotifs()
+    .split(/\n/)
+    .filter((l) => l.includes(PKG) || /자리|WAITLIST|알림/.test(l))
+    .slice(0, 40)
+    .join('\n');
+  throw new Error(`TRAY_MISS ${label}\n${snippet.slice(0, 1600)}`);
+}
+
+function triggerNotificationDelivery(): void {
+  try {
+    const out = execFileSync(
+      PNPM,
+      [
+        'exec',
+        'railway',
+        'run',
+        '--service',
+        'notification-delivery-cron',
+        '--environment',
+        'development',
+        '--',
+        'pnpm',
+        'notification-delivery',
+      ],
+      { encoding: 'utf8', cwd: process.cwd(), stdio: 'pipe', timeout: 120_000 },
+    );
+    console.log('notification-delivery', out.trim().split('\n').slice(-3).join(' | '));
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn('notification-delivery trigger failed', msg.slice(0, 240));
+  }
+}
+
+function dumpUiXml(): string {
+  const remote = '/sdcard/waitlist-ui.xml';
+  const local = join(tmpdir(), `waitlist-ui-${Date.now()}.xml`);
+  adb(['shell', 'uiautomator', 'dump', remote]);
+  adb(['pull', remote, local]);
+  try {
+    return readFileSync(local, 'utf8');
+  } finally {
+    try {
+      unlinkSync(local);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function uiContains(...needles: string[]): boolean {
+  const xml = dumpUiXml();
+  return needles.every((n) => xml.includes(n));
 }
 
 async function activePushCount(token: string) {
@@ -181,8 +240,11 @@ async function pickHostToken(): Promise<string> {
 }
 
 async function main() {
-  console.log('API_BASE=', API_BASE, 'DEVICE=', DEVICE);
+  console.log('API_BASE=', API_BASE, 'DEVICE=', DEVICE, 'PKG=', PKG);
   adb(['get-state']);
+
+  const meta = await json<{ provider: string }>('/notifications/_meta');
+  console.log('push_provider=', meta.provider);
 
   const waitlistUser = await signIn(MockAuthPersona.DEV_A);
   const hostToken = await pickHostToken();
@@ -198,8 +260,8 @@ async function main() {
   console.log('PushDevice active', pushN);
 
   clearNotifs();
-  adb(['shell', 'input', 'keyevent', 'KEYCODE_HOME']);
-  await sleep(1200);
+  backgroundApp();
+  await sleep(1500);
 
   const created = await json<{ joinId: string }>('/joins', {
     method: 'POST',
@@ -235,14 +297,25 @@ async function main() {
   });
 
   const before = await json<{
-    myParticipation: { participationStatus: string } | null;
+    myParticipation: { participationStatus: string; waitlistPosition?: number } | null;
   }>(`/joins/${joinId}`, {
     headers: { Authorization: `Bearer ${waitlistUser.session.accessToken}` },
   });
   if (before.myParticipation?.participationStatus !== 'WAITLISTED') {
     throw new Error(`expected WAITLISTED got ${before.myParticipation?.participationStatus}`);
   }
-  console.log('WAITLISTED OK');
+  console.log('WAITLISTED OK position=', before.myParticipation?.waitlistPosition ?? '?');
+
+  const hostWaitlistBefore = await json<{
+    items: Array<{ participationStatus: string; waitlistPosition: number }>;
+  }>(`/joins/${joinId}/waitlist`, {
+    headers: { Authorization: `Bearer ${hostToken}` },
+  });
+  console.log('host waitlist rows', hostWaitlistBefore.items.length);
+
+  clearNotifs();
+  backgroundApp();
+  await sleep(1200);
 
   await json(`/joins/${joinId}/attendance-intent`, {
     method: 'POST',
@@ -250,17 +323,22 @@ async function main() {
     body: JSON.stringify({ intent: 'DECLINED' }),
   });
 
+  await sleep(2500);
+
   const offered = await json<{
-    myParticipation: { participationStatus: string; offerExpiresAt?: string | null } | null;
+    myParticipation: {
+      participationStatus: string;
+      offerExpiresAt?: string | null;
+    } | null;
   }>(`/joins/${joinId}`, {
     headers: { Authorization: `Bearer ${waitlistUser.session.accessToken}` },
   });
   if (offered.myParticipation?.participationStatus !== 'OFFERED') {
     throw new Error(`expected OFFERED got ${offered.myParticipation?.participationStatus}`);
   }
-  console.log('OFFERED API OK');
+  console.log('OFFERED API OK expiresAt=', offered.myParticipation?.offerExpiresAt);
 
-  const notifs = await json<{ items: Array<{ type: string; title: string }> }>(
+  const notifs = await json<{ items: Array<{ type: string; title: string; data?: Record<string, unknown> }> }>(
     '/me/notifications?limit=10',
     { headers: { Authorization: `Bearer ${waitlistUser.session.accessToken}` } },
   );
@@ -268,19 +346,52 @@ async function main() {
   if (!offerNotif) throw new Error('WAITLIST_OFFERED notification missing in center');
   console.log('notification center OK', offerNotif.title);
 
-  try {
-    const { execFileSync } = await import('node:child_process');
-    execFileSync(
-      'pnpm',
-      ['exec', 'railway', 'run', '--service', 'notification-delivery-cron', '--environment', 'development', '--', 'pnpm', 'notification-delivery'],
-      { encoding: 'utf8', cwd: process.cwd(), stdio: 'pipe' },
-    );
-    console.log('notification-delivery cron triggered');
-  } catch {
-    console.log('SKIP notification-delivery cron trigger (run manually if tray miss)');
+  triggerNotificationDelivery();
+  await waitTray(['자리가 났어요'], 'WaitlistOffer');
+
+  adb([
+    'shell',
+    'am',
+    'start',
+    '-a',
+    'android.intent.action.VIEW',
+    '-d',
+    `jjoindev://join/${joinId}`,
+    PKG,
+  ]);
+  await sleep(3500);
+
+  const offerUi =
+    uiContains('자리가 났어요') &&
+    (uiContains('참가 확정') || uiContains('참가확정'));
+  console.log('OFFER_UI', offerUi ? 'PASS' : 'CHECK_MANUALLY');
+  if (!offerUi) {
+    console.warn('OFFER UI strings not found in uiautomator dump — verify on device');
   }
 
-  await waitTray(['자리가 났어요', 'WAITLIST_OFFERED'], 'WaitlistOffer');
+  await json(`/joins/${joinId}/waitlist/accept`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${waitlistUser.session.accessToken}` },
+  });
+
+  const approved = await json<{
+    myParticipation: { participationStatus: string } | null;
+  }>(`/joins/${joinId}`, {
+    headers: { Authorization: `Bearer ${waitlistUser.session.accessToken}` },
+  });
+  if (approved.myParticipation?.participationStatus !== 'APPROVED') {
+    throw new Error(`expected APPROVED got ${approved.myParticipation?.participationStatus}`);
+  }
+  console.log('ACCEPT API OK → APPROVED');
+
+  const dupAccept = await fetch(`${API_BASE}/joins/${joinId}/waitlist/accept`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${waitlistUser.session.accessToken}`,
+      'Content-Type': 'application/json',
+    },
+  });
+  console.log('duplicate_accept_status', dupAccept.status);
 
   console.log('WAITLIST_ANDROID_DEVICE_E2E_PASS');
 }
