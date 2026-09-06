@@ -64,6 +64,17 @@ export function countConfirmedRosterParticipants(
   ).length;
 }
 
+/** Occupied join slots — HOST + APPROVED/CONFIRMED + active OFFERED reservations. */
+export function countOccupiedJoinSlots(
+  participants: Array<{ role: string; participationStatus: string }>,
+): number {
+  const confirmedRoster = participants.filter(
+    (p) =>
+      p.participationStatus === 'APPROVED' || p.participationStatus === 'CONFIRMED',
+  ).length;
+  return confirmedRoster + countActiveWaitlistOffers(participants);
+}
+
 export function countActiveWaitlistOffers(
   participants: Array<{ participationStatus: string }>,
 ): number {
@@ -83,7 +94,7 @@ export function computeEffectiveCapacity(params: {
 }): EffectiveCapacitySnapshot {
   const confirmedCount = countConfirmedRosterParticipants(params.participants);
   const reservedOfferCount = countActiveWaitlistOffers(params.participants);
-  const totalOccupied = confirmedCount + reservedOfferCount;
+  const totalOccupied = countOccupiedJoinSlots(params.participants);
   const remainingGeneralSlots = Math.max(0, params.plannedPlayerCount - totalOccupied);
   return {
     confirmedCount,

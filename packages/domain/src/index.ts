@@ -341,6 +341,7 @@ export {
   countActiveWaitlistOffers,
   countAvailablePromotionSlots,
   countConfirmedRosterParticipants,
+  countOccupiedJoinSlots,
   isBlockingWaitlistReapplyStatus,
   isJoinWaitlistJoinable,
   isWaitlistActiveStatus,

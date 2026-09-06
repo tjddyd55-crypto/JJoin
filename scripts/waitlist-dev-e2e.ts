@@ -9,6 +9,7 @@ import { JoinMethod, MockAuthPersona, SCREEN_GOLF_CODE, SocialProvider } from '.
 const API_BASE = process.env.API_BASE ?? 'https://api-development-e387.up.railway.app';
 const TAG = 'waitlist-e2e';
 const REWARD = '20';
+const ACTIVE_HOST_STATUSES = new Set(['OPEN', 'FULL', 'CONFIRMED', 'IN_PROGRESS']);
 
 type Auth = { Authorization: string; userId: string };
 
@@ -50,6 +51,90 @@ async function mustOk<T>(path: string, init?: RequestInit): Promise<T> {
   return body;
 }
 
+async function cleanupBlockingHostedJoin(host: Auth) {
+  const mine = await mustOk<{
+    hosted: Array<{ joinId: string; status: string }>;
+  }>('/joins/mine', { headers: host });
+  const blocking = mine.hosted?.find((j) => ACTIVE_HOST_STATUSES.has(j.status));
+  if (!blocking) return;
+
+  console.log('cleanup blocking hosted join', blocking.joinId, blocking.status);
+  const detail = await mustOk<{
+    participants: Array<{ participantId: string; role: string; participationStatus: string }>;
+  }>(`/joins/${blocking.joinId}`, { headers: host });
+
+  const applied = detail.participants.find(
+    (p) => p.role !== 'HOST' && p.participationStatus === 'APPLIED',
+  );
+  if (applied) {
+    await mustOk(`/joins/${blocking.joinId}/participants/${applied.participantId}/approve`, {
+      method: 'POST',
+      headers: host,
+    });
+  }
+
+  const approved = applied
+    ? await mustOk<{
+        participants: Array<{ participantId: string; role: string; participationStatus: string }>;
+      }>(`/joins/${blocking.joinId}`, { headers: host })
+    : detail;
+  const nonHost = approved.participants.filter(
+    (p) => p.role !== 'HOST' && p.participationStatus !== 'APPLIED',
+  );
+
+  await mustOk(`/joins/${blocking.joinId}/settlements/_qa/advance-clock`, {
+    method: 'POST',
+    headers: host,
+    body: JSON.stringify({ mode: 'open' }),
+  });
+
+  if (nonHost.length > 0) {
+    await mustOk(`/joins/${blocking.joinId}/settlements/finalize`, {
+      method: 'POST',
+      headers: host,
+      body: JSON.stringify({
+        attendance: nonHost.map((p) => ({ participantId: p.participantId, attended: false })),
+      }),
+    });
+  }
+}
+
+async function pickHost(): Promise<Auth> {
+  for (const persona of [
+    MockAuthPersona.DEV_B,
+    MockAuthPersona.DEV_A,
+    MockAuthPersona.DEV_C,
+    MockAuthPersona.DEV_ADMIN,
+  ]) {
+    const auth = await signIn(persona);
+    try {
+      await cleanupBlockingHostedJoin(auth);
+    } catch (err) {
+      console.warn(`cleanup failed for ${persona}:`, err instanceof Error ? err.message : err);
+    }
+    const mine = await mustOk<{ hosted: Array<{ status: string }> }>('/joins/mine', {
+      headers: auth,
+    });
+    const active =
+      mine.hosted?.filter((j) => ACTIVE_HOST_STATUSES.has(j.status)).length ?? 0;
+    const preview = await mustOk<{
+      canCreate: boolean;
+      totalRequiredCoin: string;
+      walletAvailable: string;
+    }>('/joins/coin-preview', {
+      method: 'POST',
+      headers: auth,
+      body: JSON.stringify({ plannedPlayerCount: 3, rewardPerParticipant: REWARD }),
+    });
+    if (active < 1 && preview.canCreate) {
+      console.log(`host persona=${persona} activeHosted=${active}`);
+      return auth;
+    }
+    console.log(`skip host ${persona}: active=${active} canCreate=${preview.canCreate}`);
+  }
+  throw new Error('no eligible host persona');
+}
+
 async function applyApprove(host: Auth, guest: Auth, joinId: string) {
   await mustOk(`/joins/${joinId}/apply`, { method: 'POST', headers: guest });
   const detail = await mustOk<{
@@ -70,7 +155,7 @@ async function main() {
   const health = await mustOk<{ status: string; database: string; appVariant?: string }>('/health');
   console.log('health OK', health.appVariant);
 
-  const host = await signIn(MockAuthPersona.DEV_B);
+  const host = await pickHost();
   const p1 = await signIn(MockAuthPersona.DEV_A);
   const p2 = await signIn(MockAuthPersona.DEV_C);
   const wl = await signIn(MockAuthPersona.DEV_ADMIN);
@@ -90,15 +175,22 @@ async function main() {
         longitude: 128.62,
       },
       startAt: new Date(Date.now() + 4 * 60 * 60_000).toISOString(),
-      plannedPlayerCount: 2,
+      plannedPlayerCount: 3,
       joinMethod: JoinMethod.APPROVAL,
-      title: `[${TAG}] capacity 2`,
+      title: `[${TAG}] capacity 3 (host+2 guests)`,
       rewardPerParticipant: REWARD,
       idempotencyKey: `${TAG}-${Date.now()}`,
     }),
   });
   const joinId = created.joinId;
-  console.log('join', joinId);
+  console.log('join', joinId, 'planned', created.plannedPlayerCount);
+
+  const afterCreate = await mustOk<{ status: string; confirmedPlayerCount: number }>(
+    `/joins/${joinId}`,
+    { headers: host },
+  );
+  console.log('after create', afterCreate.status, afterCreate.confirmedPlayerCount);
+  assert(afterCreate.status === 'OPEN', `expected OPEN got ${afterCreate.status}`);
 
   await applyApprove(host, p1, joinId);
   await applyApprove(host, p2, joinId);
@@ -109,7 +201,7 @@ async function main() {
     confirmedPlayerCount: number;
     availableSlots: number;
   }>(`/joins/${joinId}`, { headers: wl });
-  assert(full.confirmedPlayerCount >= 2, 'join should be full');
+  assert(full.confirmedPlayerCount >= 3, 'join should be full');
   assert(full.waitlistAvailable === true, 'waitlistAvailable expected true');
   console.log('full join OK', full.status, full.availableSlots);
 
@@ -157,7 +249,7 @@ async function main() {
     confirmedPlayerCount: number;
   }>(`/joins/${joinId}`, { headers: wl });
   assert(promoted.myParticipation?.participationStatus === 'APPROVED', 'APPROVED after accept');
-  assert(promoted.confirmedPlayerCount <= 2, 'capacity invariant');
+  assert(promoted.confirmedPlayerCount <= 3, 'capacity invariant');
   console.log('accept -> APPROVED OK', promoted.confirmedPlayerCount);
 
   const dupAccept = await j(`/joins/${joinId}/waitlist/accept`, { method: 'POST', headers: wl });

@@ -22,12 +22,13 @@ import {
   computeWaitlistOfferExpiresAt,
   computeWaitlistPosition,
   countAvailablePromotionSlots,
-  countConfirmedRosterParticipants,
+  countOccupiedJoinSlots,
   isBlockingWaitlistReapplyStatus,
   isJoinWaitlistJoinable,
   isWaitlistActiveStatus,
   nextJoinStatusAfterRoster,
   selectNextWaitlistOffers,
+  computeConfirmedPlayerCount,
   type MatchingGender,
   type WaitlistParticipantRow,
   estimateEndAt,
@@ -114,6 +115,7 @@ export class JoinWaitlistService {
       }
 
       const rosterParticipants = this.toRosterRows(join.participants);
+      const capacityRows = this.toCapacityRows(join.participants);
       const canDirect = useGender
         ? canDirectJoinGenderSlot({
             applicantGender: applicantGender!,
@@ -123,7 +125,7 @@ export class JoinWaitlistService {
           })
         : canDirectJoinGeneralCapacity({
             plannedPlayerCount: join.plannedPlayerCount,
-            participants: rosterParticipants,
+            participants: capacityRows,
           });
 
       if (canDirect) {
@@ -143,7 +145,7 @@ export class JoinWaitlistService {
           })
         : canJoinWaitlistGeneral({
             plannedPlayerCount: join.plannedPlayerCount,
-            participants: rosterParticipants,
+            participants: capacityRows,
           });
 
       if (!waitlistAllowed) {
@@ -270,8 +272,12 @@ export class JoinWaitlistService {
         join.joinKind === 'STORE_MATCHING' &&
         ((join.targetMaleCount ?? 0) > 0 || (join.targetFemaleCount ?? 0) > 0);
 
-      const others = join.participants.filter((p) => p.id !== mine.id);
-      const rosterRows = this.toRosterRows(others);
+      const projectedParticipants = join.participants.map((p) =>
+        p.id === mine.id ? { ...p, participationStatus: 'APPROVED' } : p,
+      );
+      const rosterRows = useGender
+        ? this.toRosterRows(projectedParticipants)
+        : this.toCapacityRows(projectedParticipants);
 
       if (useGender) {
         const gender = (mine.user.profile?.gender ?? null) as MatchingGender | null;
@@ -368,12 +374,8 @@ export class JoinWaitlistService {
           });
         }
       } else {
-        const confirmed = countConfirmedRosterParticipants(
-          others
-            .map((p) => ({ role: p.role, participationStatus: p.participationStatus }))
-            .concat([{ role: 'PARTICIPANT', participationStatus: 'APPROVED' }]),
-        );
-        if (confirmed > join.plannedPlayerCount) {
+        const occupied = countOccupiedJoinSlots(this.toCapacityRows(projectedParticipants));
+        if (occupied > join.plannedPlayerCount) {
           throw new ConflictException('seat_no_longer_available');
         }
 
@@ -394,6 +396,10 @@ export class JoinWaitlistService {
         if (promoted.count !== 1) {
           throw new ConflictException('seat_no_longer_available');
         }
+
+        const confirmed = computeConfirmedPlayerCount(
+          projectedParticipants.map((p) => p.participationStatus),
+        );
 
         const scheduledEndAt = estimateEndAt({
           startAt: join.startAt,
@@ -521,7 +527,9 @@ export class JoinWaitlistService {
           gender: (p.user.profile?.gender ?? null) as MatchingGender | null,
         }));
 
-      const rosterRows = this.toRosterRows(join.participants);
+      const rosterRows = useGender
+        ? this.toRosterRows(join.participants)
+        : this.toCapacityRows(join.participants);
       const maxOffers = countAvailablePromotionSlots({
         plannedPlayerCount: join.plannedPlayerCount,
         participants: rosterRows,
@@ -643,7 +651,7 @@ export class JoinWaitlistService {
     isHost: boolean,
   ): { waitlistAvailable: boolean; waitlistCount: number | null } {
     const now = new Date();
-    const rosterRows = this.toRosterRows(join.participants);
+    const rosterRows = this.toCapacityRows(join.participants);
     const joinable = isJoinWaitlistJoinable({
       status: join.status,
       recruitClosesAt: join.recruitClosesAt,
@@ -728,6 +736,16 @@ export class JoinWaitlistService {
     });
     if (!join) throw new NotFoundException('join_not_found');
     return join;
+  }
+
+  private toCapacityRows(
+    participants: JoinWithParticipants['participants'],
+  ): Array<{ role: string; participationStatus: string; gender?: MatchingGender | null }> {
+    return participants.map((p) => ({
+      role: p.role,
+      participationStatus: p.participationStatus,
+      gender: (p.user.profile?.gender ?? null) as MatchingGender | null,
+    }));
   }
 
   private toRosterRows(

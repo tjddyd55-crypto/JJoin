@@ -11,6 +11,22 @@ import {
   WAITLIST_OFFER_TTL_MINUTES,
 } from './join-waitlist';
 
+test('host-inclusive planned count marks full when roster is full', () => {
+  const participants = [
+    { role: 'HOST', participationStatus: 'APPROVED' },
+    { role: 'PARTICIPANT', participationStatus: 'APPROVED' },
+    { role: 'PARTICIPANT', participationStatus: 'APPROVED' },
+  ];
+  assert.equal(
+    canDirectJoinGeneralCapacity({ plannedPlayerCount: 3, participants }),
+    false,
+  );
+  assert.equal(
+    computeEffectiveCapacity({ plannedPlayerCount: 3, participants }).remainingGeneralSlots,
+    0,
+  );
+});
+
 test('effective capacity includes OFFERED reservations', () => {
   const snap = computeEffectiveCapacity({
     plannedPlayerCount: 4,
