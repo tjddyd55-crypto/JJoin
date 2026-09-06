@@ -591,6 +591,32 @@ export class JoinWaitlistService {
     return offeredUserIds;
   }
 
+  /** DEV/mock QA — set OFFERED participant offerExpiresAt to the past (worker E2E). */
+  async qaExpireWaitlistOffer(
+    joinId: string,
+    actorUserId: string,
+    targetUserId?: string,
+  ): Promise<{ ok: true; participantId: string }> {
+    const join = await this.loadJoin(this.prisma, joinId);
+    const targetId = targetUserId ?? actorUserId;
+    const target = join.participants.find((p) => p.userId === targetId);
+    if (!target) throw new NotFoundException('waitlist_not_found');
+    if (target.participationStatus !== 'OFFERED') {
+      throw new BadRequestException('no_active_offer');
+    }
+    const isHost = join.hostUserId === actorUserId;
+    if (!isHost && actorUserId !== targetId) {
+      throw new ForbiddenException('forbidden');
+    }
+
+    const expiredAt = new Date(Date.now() - 60_000);
+    await this.prisma.joinParticipant.update({
+      where: { id: target.id },
+      data: { offerExpiresAt: expiredAt },
+    });
+    return { ok: true, participantId: target.id };
+  }
+
   async processExpiredOffers(limit = 50): Promise<{
     expiredCount: number;
     promotedJoinIds: string[];

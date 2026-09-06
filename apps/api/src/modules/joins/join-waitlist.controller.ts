@@ -1,6 +1,8 @@
 import {
+  Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Headers,
   Param,
@@ -11,6 +13,7 @@ import {
 import { JoinWaitlistService } from './join-waitlist.service';
 import { CurrentUserId, MockAuthGuard } from '../../common/mock-auth.guard';
 import { extractCronSecret, matchesCronSecret } from '../../common/cron-secret';
+import { isSettlementQaAllowed } from '../../settlement/settlement-clock';
 
 @Controller('joins')
 export class JoinWaitlistController {
@@ -38,6 +41,20 @@ export class JoinWaitlistController {
   @UseGuards(MockAuthGuard)
   list(@Param('joinId') joinId: string, @CurrentUserId() userId: string) {
     return this.waitlist.listForHost(joinId, userId);
+  }
+
+  /** DEV/mock QA — backdate offer expiry for waitlist worker E2E. */
+  @Post(':joinId/waitlist/_qa/expire-offer')
+  @UseGuards(MockAuthGuard)
+  qaExpireOffer(
+    @Param('joinId') joinId: string,
+    @CurrentUserId() userId: string,
+    @Body() body: { userId?: string },
+  ) {
+    if (!isSettlementQaAllowed()) {
+      throw new ForbiddenException('qa_waitlist_forbidden');
+    }
+    return this.waitlist.qaExpireWaitlistOffer(joinId, userId, body?.userId);
   }
 
   /** Railway cron — expire stale waitlist offers and promote next in FIFO. */

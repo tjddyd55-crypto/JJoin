@@ -28,7 +28,9 @@ import {
   storeMatchingOwnerListPriority,
   buildStoreMatchingSecondaryLabel,
   canConfirmMatchingAttendance,
+  canDirectJoinGeneralCapacity,
   computeMatchingRemainingSlots,
+  isJoinWaitlistJoinable,
   sundayOfWeek,
 } from '@jjoin/domain';
 import {
@@ -646,14 +648,39 @@ export class JoinDiscoveryService {
       row.joinKind === 'STORE_MATCHING' &&
       row.recruitClosesAt != null &&
       row.recruitClosesAt.getTime() <= now.getTime();
-    const canJoin = canJoinResult.canJoin && !matchingClosed;
-    const canJoinState = matchingClosed ? 'UNAVAILABLE' : canJoinResult.state;
-    const ctaLabel =
+
+    const capacityRows = row.participants.map((p) => ({
+      role: p.role,
+      participationStatus: p.participationStatus,
+    }));
+    const waitlistEligible =
+      !isHost &&
+      !isParticipant &&
+      !matchingClosed &&
+      isJoinWaitlistJoinable({
+        status: row.status,
+        recruitClosesAt: row.recruitClosesAt,
+        now,
+      }) &&
+      !canDirectJoinGeneralCapacity({
+        plannedPlayerCount: row.plannedPlayerCount,
+        participants: capacityRows,
+      });
+
+    let canJoin = canJoinResult.canJoin && !matchingClosed;
+    let canJoinState = matchingClosed ? 'UNAVAILABLE' : canJoinResult.state;
+    let ctaLabel =
       canJoin && row.joinKind === 'STORE_MATCHING'
         ? '참가 신청'
         : canJoin
           ? canJoinResult.ctaLabel
           : null;
+
+    if (!canJoin && waitlistEligible) {
+      canJoin = true;
+      canJoinState = 'FULL';
+      ctaLabel = '대기 신청';
+    }
 
     const gf = row.venue.golfFacility;
     const availableSlots = Math.max(

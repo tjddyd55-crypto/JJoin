@@ -47,6 +47,7 @@ Workers must not use `railway.json` healthcheck — they run `start → work →
 | Service | Schedule (UTC) | Role |
 |---------|----------------|------|
 | `matching-deadline-cron` | `*/5 * * * *` | Join matching deadline |
+| `waitlist-offer-cron` | `*/5 * * * *` | Waitlist OFFER expiry + FIFO promotion |
 | `settlement-cron` | `*/10 * * * *` | Settlement / autopay batch |
 | `premium-renewal-cron` | `*/15 * * * *` | Premium subscription renewal billing |
 | `chat-purge-cron` | `0 * * * *` | Ephemeral join-chat purge (messages/members only; Join history kept) |
