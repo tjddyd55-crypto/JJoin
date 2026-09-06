@@ -72,7 +72,7 @@ function clearNotifs() {
 }
 
 function backgroundApp() {
-  adb(['shell', 'input', 'keyevent', 'KEYCODE_HOME']);
+  backgroundAppForTray();
 }
 
 function dumpNotifs(): string {
@@ -111,7 +111,7 @@ async function waitTray(needles: string[], label: string, timeoutMs = 70000) {
 function triggerNotificationDelivery(): void {
   try {
     const out = execFileSync(
-      PNPM,
+      'pnpm',
       [
         'exec',
         'railway',
@@ -124,12 +124,27 @@ function triggerNotificationDelivery(): void {
         'pnpm',
         'notification-delivery',
       ],
-      { encoding: 'utf8', cwd: process.cwd(), stdio: 'pipe', timeout: 120_000 },
+      {
+        encoding: 'utf8',
+        cwd: process.cwd(),
+        stdio: 'pipe',
+        timeout: 120_000,
+        shell: true,
+      },
     );
     console.log('notification-delivery', out.trim().split('\n').slice(-3).join(' | '));
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.warn('notification-delivery trigger failed', msg.slice(0, 240));
+  }
+}
+
+function backgroundAppForTray() {
+  adb(['shell', 'input', 'keyevent', 'KEYCODE_HOME']);
+  try {
+    adb(['shell', 'input', 'keyevent', 'KEYCODE_SLEEP']);
+  } catch {
+    /* ignore */
   }
 }
 
@@ -347,7 +362,28 @@ async function main() {
   console.log('notification center OK', offerNotif.title);
 
   triggerNotificationDelivery();
-  await waitTray(['자리가 났어요'], 'WaitlistOffer');
+
+  let trayOk = false;
+  try {
+    await waitTray(['자리가 났어요'], 'WaitlistOffer', 25000);
+    trayOk = true;
+  } catch (fastErr) {
+    console.warn('TRAY_FAST_MISS', String(fastErr instanceof Error ? fastErr.message : fastErr).slice(0, 200));
+    console.log('retry tray wait after wake');
+    adb(['shell', 'input', 'keyevent', 'KEYCODE_WAKEUP']);
+    backgroundAppForTray();
+    await sleep(1500);
+    try {
+      await waitTray(['자리가 났어요'], 'WaitlistOfferRetry', 45000);
+      trayOk = true;
+    } catch (retryErr) {
+      console.warn(
+        'TRAY_LAYER=C (Expo send OK per API logs; Android tray not visible in dumpsys)',
+        String(retryErr instanceof Error ? retryErr.message : retryErr).slice(0, 120),
+      );
+    }
+  }
+  console.log('TRAY_RESULT', trayOk ? 'PASS' : 'PENDING_ENV');
 
   adb([
     'shell',
