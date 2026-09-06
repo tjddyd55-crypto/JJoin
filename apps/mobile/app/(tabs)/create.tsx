@@ -9,7 +9,7 @@ import {
   StickyActionFrame,
   Stack,
 } from '@jjoin/design-system';
-import { computeCoinShortfall, computeRewardEligibleSlots, formatNumber } from '@jjoin/domain';
+import { computeCoinShortfall, computeRewardEligibleSlots, formatNumber, requiresIdentityGate } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
 import { JoinMethod, SCREEN_GOLF_CODE, IdentityStatus } from '@jjoin/types';
 import { RewardCoinInput } from '../../src/ui/patterns/RewardCoinInput';
@@ -23,6 +23,7 @@ import {
 } from '../../src/features/join-create/model/join-create-session';
 import { getSecureSessionStore, useSession } from '../../src/session/SessionContext';
 import { getApiClient } from '../../src/lib/api';
+import { resolveAppVariant } from '../../src/lib/app-variant';
 import { JoinCreateVenueSection } from '../../src/features/join-create/components/JoinCreateVenueSection';
 import {
   clearJoinCreateDraft,
@@ -213,6 +214,12 @@ export default function CreateScreen() {
   const canCreate = preview?.canCreate ?? false;
   const walletAfterDisplay = preview?.walletAfterCreation ?? preview?.walletAvailable ?? '—';
   const identityVerified = me?.identity.verificationStatus === IdentityStatus.VERIFIED;
+  const identityGateApplies = requiresIdentityGate(
+    me?.identity.verificationStatus ?? IdentityStatus.UNVERIFIED,
+    'CREATE_JOIN',
+    { appVariant: resolveAppVariant() },
+  );
+  const identityVerifiedForCreateFlow = !identityGateApplies || identityVerified;
   const venueReady = venueSelectionHasPlace(selectedVenue) && !resolvingRouteVenue;
 
   const footerState = useMemo(
@@ -221,7 +228,7 @@ export default function CreateScreen() {
         venueReady,
         resolvingRouteVenue,
         submitting,
-        identityVerified,
+        identityVerified: identityVerifiedForCreateFlow,
         previewLoading,
         canCreate,
         preview,
@@ -231,7 +238,7 @@ export default function CreateScreen() {
       }),
     [
       canCreate,
-      identityVerified,
+      identityVerifiedForCreateFlow,
       preview,
       previewLoading,
       resolvingRouteVenue,

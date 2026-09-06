@@ -9,6 +9,7 @@ import {
   type UpsertPresenceRequest,
 } from '@jjoin/types';
 import { mapGenderDisplay } from '@jjoin/domain';
+import { canBypassIdentityVerification } from '../../config/identity-verification';
 import { PrismaService } from '../../prisma/prisma.service';
 import { getPresencePrivacySecret, presenceConfig } from './presence.config';
 import {
@@ -59,10 +60,12 @@ export class PresenceService {
       select: { identityStatus: true },
     });
     if (!user || user.identityStatus !== 'VERIFIED') {
-      throw new BadRequestException({
-        code: 'IDENTITY_REQUIRED',
-        message: '조인 활동을 위해 본인확인이 필요합니다.',
-      });
+      if (!canBypassIdentityVerification()) {
+        throw new BadRequestException({
+          code: 'IDENTITY_REQUIRED',
+          message: '조인 활동을 위해 본인확인이 필요합니다.',
+        });
+      }
     }
     this.assertCoordinate(body.latitude, body.longitude);
     if (body.accuracyMeters != null && !(body.accuracyMeters >= 0)) {

@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 import {
   AuthAppState,
+  IdentityStatus,
   MockAuthPersona,
   MockAuthScenario,
   SocialProvider,
@@ -21,8 +22,9 @@ import {
   SocialLoginCancelledError,
   SocialLoginUnavailableError,
 } from '../features/auth/social/social-auth-errors';
-import { pendingActionRoute, resolveAuthAppState } from '@jjoin/domain';
+import { pendingActionRoute, requiresIdentityGate, resolveAuthAppState } from '@jjoin/domain';
 import { getApiClient } from '../lib/api';
+import { resolveAppVariant } from '../lib/app-variant';
 import { isInternalToolsEnabled } from '../lib/internal-tools';
 import { createExpoSecureSessionStore } from './expo-secure-session-store';
 import {
@@ -253,8 +255,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const requestGatedAction = useCallback(
     (intent: PendingActionIntent) => {
-      const identity = me?.identity.verificationStatus;
-      if (identity === 'VERIFIED') {
+      const identity = me?.identity.verificationStatus ?? IdentityStatus.UNVERIFIED;
+      if (!requiresIdentityGate(identity, intent.type, { appVariant: resolveAppVariant() })) {
         return { allowed: true as const };
       }
       setPendingAction(intent);

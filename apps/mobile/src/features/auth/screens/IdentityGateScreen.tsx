@@ -10,8 +10,10 @@ import {
   useTheme,
 } from '@jjoin/design-system';
 import { t } from '@jjoin/i18n';
+import { isIdentityVerificationBypassEnabled } from '@jjoin/domain';
 import { useRouter } from 'expo-router';
 import { IdentityStatus } from '@jjoin/types';
+import { resolveAppVariant } from '../../../lib/app-variant';
 import { useSession } from '../../../session/SessionContext';
 
 export function IdentityGateScreen() {
@@ -19,6 +21,13 @@ export function IdentityGateScreen() {
   const router = useRouter();
   const theme = useTheme();
   const verified = me?.identity.verificationStatus === IdentityStatus.VERIFIED;
+  const bypassActive = isIdentityVerificationBypassEnabled(resolveAppVariant());
+
+  useEffect(() => {
+    if (bypassActive) {
+      router.replace('/(tabs)');
+    }
+  }, [bypassActive, router]);
 
   useEffect(() => {
     if (!verified) return;
@@ -26,7 +35,7 @@ export function IdentityGateScreen() {
     router.replace(path as never);
   }, [verified, completeGateAndReturn, router]);
 
-  if (verified) {
+  if (bypassActive || verified) {
     return (
       <ScreenFrame>
         <View style={styles.loadingState}>

@@ -13,6 +13,7 @@ import {
   type PublicUserProfileDto,
 } from '@jjoin/types';
 import { calculateParticipationTrust, computeAttendanceReliability, computePlayerReputation } from '@jjoin/domain';
+import { canBypassIdentityVerification } from '../../config/identity-verification';
 import { profileEditSchema, profileSetupSchema, termsConsentSchema } from '@jjoin/validation';
 import { Prisma } from '@prisma/client';
 import { createHash, randomUUID } from 'node:crypto';
@@ -380,6 +381,8 @@ export class UserAccountService {
   }
 
   async assertIdentityVerified(userId: string, action: string): Promise<void> {
+    if (canBypassIdentityVerification()) return;
+
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { identityStatus: true },

@@ -5,7 +5,6 @@
 import {
   AuthAppState,
   IdentityStatus,
-  type GatedActionType,
   type MeDto,
   type PendingActionIntent,
 } from '@jjoin/types';
@@ -148,14 +147,6 @@ export type SocialSignInNextStep =
   | 'PROFILE_SETUP'
   | 'PROFILE_PHOTO'
   | 'LOCATION';
-
-export function requiresIdentityGate(
-  identityStatus: IdentityStatus,
-  action: GatedActionType,
-): boolean {
-  void action;
-  return identityStatus !== IdentityStatus.VERIFIED;
-}
 
 export function pendingActionRoute(intent: PendingActionIntent): string {
   switch (intent.type) {
@@ -668,6 +659,12 @@ export {
   normalizeAppVariant,
   type AppVariantName,
 } from './app-variant';
+
+export {
+  assertIdentityVerificationBypassAllowed,
+  isIdentityVerificationBypassEnabled,
+  requiresIdentityGate,
+} from './identity-verification';
 
 export {
   ACTIVE_CLUB_EVENT_STATUSES,

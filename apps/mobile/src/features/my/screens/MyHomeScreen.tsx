@@ -16,10 +16,11 @@ import {
   useTheme,
 } from '@jjoin/design-system';
 import { t } from '@jjoin/i18n';
-import { formatCoinAmount } from '@jjoin/domain';
+import { formatCoinAmount, isIdentityVerificationBypassEnabled } from '@jjoin/domain';
 import { StoreOwnershipStatus } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { isInternalToolsEnabled } from '../../../lib/internal-tools';
+import { resolveAppVariant } from '../../../lib/app-variant';
 import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
 import { legalDocumentRoute } from '../../auth/legal';
 
@@ -325,6 +326,11 @@ export function MyHomeScreen() {
 
       {isInternalToolsEnabled() ? (
         <Section title="Internal tools" subtitle="APP_VARIANT=development only">
+          {isIdentityVerificationBypassEnabled(resolveAppVariant()) ? (
+            <Text variant="caption" tone="secondary" style={{ marginBottom: 8 }}>
+              DEV: 본인인증 우회 중
+            </Text>
+          ) : null}
           <Button
             label="QA: 4인 Join 상세"
             variant="secondary"

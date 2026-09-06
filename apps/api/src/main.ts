@@ -1,7 +1,10 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { validateIdentityVerificationBypassOnBoot } from './config/identity-verification';
 
 async function bootstrap() {
+  validateIdentityVerificationBypassOnBoot();
+
   const app = await NestFactory.create(AppModule);
 
   const corsOrigins = (process.env.CORS_ORIGINS ?? '')
