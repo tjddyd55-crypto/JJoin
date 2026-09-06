@@ -45,8 +45,10 @@ import {
   canSetAttendanceIntent,
 } from '../../../src/features/join/attendance-intent-ui';
 import { JoinDetailPrimarySections } from '../../../src/features/join/components/JoinDetailPrimarySections';
+import type { JoinWaitlistResponse } from '@jjoin/types';
 import {
   joinDetailCtaButtonVariant,
+  joinDetailSecondaryCtaLabel,
   resolveJoinDetailPrimaryCta,
   shouldShowJoinDetailStickyCta,
 } from '../../../src/features/join/join-detail-cta';
@@ -181,6 +183,7 @@ export default function JoinDetailScreen() {
   const insets = useSafeAreaInsets();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [detail, setDetail] = useState<JoinDetailDto | null>(null);
+  const [hostWaitlist, setHostWaitlist] = useState<JoinWaitlistResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [statement, setStatement] = useState('');
   const [busy, setBusy] = useState(false);
@@ -207,6 +210,18 @@ export default function JoinDetailScreen() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!joinId || !detail || detail.host.id !== me?.userId) {
+      setHostWaitlist(null);
+      return;
+    }
+    if ((detail.waitlistCount ?? 0) <= 0) {
+      setHostWaitlist(null);
+      return;
+    }
+    void api.getJoinWaitlist(joinId).then(setHostWaitlist).catch(() => setHostWaitlist(null));
+  }, [api, detail, joinId, me?.userId]);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
@@ -302,6 +317,7 @@ export default function JoinDetailScreen() {
     try {
       const next = await api.applyJoin(joinId);
       setDetail(next);
+      setError(null);
     } catch (e) {
       const msg = e instanceof Error ? e.message : '';
       if (msg.includes('409') || msg.includes('already')) setError('이미 신청했습니다.');
@@ -309,6 +325,70 @@ export default function JoinDetailScreen() {
       else if (msg.includes('GENDER_REQUIRED') || msg.includes('성별')) {
         setError('참가하려면 프로필에서 성별을 설정해주세요.');
       } else setError('참가 신청에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onJoinWaitlist() {
+    if (!joinId || busy) return;
+    const gate = requestGatedAction({ type: 'APPLY_JOIN', joinId });
+    if (!gate.allowed) {
+      router.push('/auth/gate');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await api.joinWaitlist(joinId);
+      setDetail(next);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      if (msg.includes('GENDER_REQUIRED') || msg.includes('성별')) {
+        setError('대기 신청하려면 프로필에서 성별을 설정해주세요.');
+      } else if (msg.includes('already')) {
+        setError('이미 대기 중입니다.');
+      } else {
+        setError('대기 신청에 실패했습니다.');
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onCancelWaitlist() {
+    if (!joinId || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await api.cancelWaitlist(joinId);
+      setDetail(next);
+    } catch {
+      setError('대기 취소에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onAcceptWaitlistOffer() {
+    if (!joinId || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await api.acceptWaitlistOffer(joinId);
+      setDetail(next);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      if (msg.includes('offer_expired') || msg.includes('만료')) {
+        setError('참가 가능 시간이 만료되었습니다.');
+      } else if (msg.includes('seat_no_longer_available')) {
+        setError('이미 다른 참가자가 자리를 채웠습니다.');
+      } else if (msg.includes('join_closed') || msg.includes('deadline')) {
+        setError('현재 조인이 마감되었습니다.');
+      } else {
+        setError('참가 확정에 실패했습니다.');
+      }
+      await load();
     } finally {
       setBusy(false);
     }
@@ -538,6 +618,7 @@ export default function JoinDetailScreen() {
     canLeave: canLeaveMatching,
   });
   const showStickyCta = shouldShowJoinDetailStickyCta(primaryCta.presentation);
+  const secondaryCtaLabel = joinDetailSecondaryCtaLabel(primaryCta.presentation);
   const scrollBottomPadding = showStickyCta
     ? stickyActionScrollPadding(insets.bottom)
     : theme.layoutSpacing.sectionGap;
@@ -585,6 +666,22 @@ export default function JoinDetailScreen() {
               : undefined
           }
         />
+
+        {isHost && hostWaitlist && hostWaitlist.total > 0 ? (
+          <Section title={`대기 ${hostWaitlist.total}명`}>
+            {hostWaitlist.items.map((row) => (
+              <Card key={row.participantId} variant="base" padding="md">
+                <Text variant="bodyStrong" tone="primary">
+                  {row.waitlistPosition > 0 ? `${row.waitlistPosition}. ` : ''}
+                  {row.nickname}
+                </Text>
+                {row.participationStatus === ParticipationStatus.OFFERED ? (
+                  <Text variant="caption" tone="secondary">참가 응답 대기 중</Text>
+                ) : null}
+              </Card>
+            ))}
+          </Section>
+        ) : null}
 
         {mySettlement ? (
           <Section title="내 정산">
@@ -837,17 +934,34 @@ export default function JoinDetailScreen() {
 
       {showStickyCta ? (
         <StickyActionFrame>
-          <Button
-            label={primaryCta.label}
-            variant={joinDetailCtaButtonVariant(primaryCta.presentation)}
-            disabled={primaryCta.disabled}
-            loading={busy}
-            size="lg"
-            onPress={() => {
-              if (primaryCta.presentation === 'apply') void onApply();
-              else if (primaryCta.presentation === 'leave') void onLeaveStoreJoin();
-            }}
-          />
+          <Stack gap="sm">
+            <Button
+              label={
+                primaryCta.presentation === 'waitlist_offer'
+                  ? '참가 확정'
+                  : primaryCta.label
+              }
+              variant={joinDetailCtaButtonVariant(primaryCta.presentation)}
+              disabled={primaryCta.disabled}
+              loading={busy}
+              size="lg"
+              onPress={() => {
+                if (primaryCta.presentation === 'apply') void onApply();
+                else if (primaryCta.presentation === 'waitlist') void onJoinWaitlist();
+                else if (primaryCta.presentation === 'waitlist_offer') void onAcceptWaitlistOffer();
+                else if (primaryCta.presentation === 'leave') void onLeaveStoreJoin();
+              }}
+            />
+            {secondaryCtaLabel ? (
+              <Button
+                label={secondaryCtaLabel}
+                variant="secondary"
+                loading={busy}
+                size="lg"
+                onPress={() => void onCancelWaitlist()}
+              />
+            ) : null}
+          </Stack>
         </StickyActionFrame>
       ) : null}
     </View>

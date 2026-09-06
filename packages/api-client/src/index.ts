@@ -743,6 +743,37 @@ export class ApiClient {
     return parseJson(res);
   }
 
+  async joinWaitlist(joinId: string): Promise<JoinDetailDto> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/waitlist`, {
+      method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async cancelWaitlist(joinId: string): Promise<JoinDetailDto> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/waitlist`, {
+      method: 'DELETE',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async acceptWaitlistOffer(joinId: string): Promise<JoinDetailDto> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/waitlist/accept`, {
+      method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getJoinWaitlist(joinId: string): Promise<import('@jjoin/types').JoinWaitlistResponse> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/waitlist`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
   async approveParticipant(joinId: string, participantId: string): Promise<JoinDetailDto> {
     const res = await request(
       `${this.config.baseUrl}/joins/${joinId}/participants/${participantId}/approve`,

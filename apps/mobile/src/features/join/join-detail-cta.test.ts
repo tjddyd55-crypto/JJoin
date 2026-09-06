@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { JoinStatus, JoinMethod, type JoinDetailDto } from '@jjoin/types';
+import { JoinStatus, JoinMethod, ParticipationStatus, ParticipantRole, type JoinDetailDto } from '@jjoin/types';
 import {
   joinDetailCtaButtonVariant,
   resolveJoinDetailPrimaryCta,
@@ -69,4 +69,66 @@ test('resolveJoinDetailPrimaryCta hides sticky for host viewers', () => {
   });
   assert.equal(cta.presentation, 'host');
   assert.equal(shouldShowJoinDetailStickyCta(cta.presentation), false);
+});
+
+test('waitlist available shows 대기 신청', () => {
+  const cta = resolveJoinDetailPrimaryCta({
+    detail: {
+      ...baseDetail,
+      status: JoinStatus.FULL,
+      availableSlots: 0,
+      waitlistAvailable: true,
+    },
+    isHost: false,
+    canLeave: false,
+  });
+  assert.equal(cta.presentation, 'waitlist');
+  assert.equal(cta.label, '대기 신청');
+});
+
+test('WAITLISTED shows position', () => {
+  const cta = resolveJoinDetailPrimaryCta({
+    detail: {
+      ...baseDetail,
+      myParticipation: {
+        participantId: 'p1',
+        userId: 'u1',
+        role: ParticipantRole.PARTICIPANT,
+        participationStatus: ParticipationStatus.WAITLISTED,
+        nickname: '나',
+        verifiedBadge: false,
+        appliedAt: '2026-01-01T00:00:00Z',
+        approvedAt: null,
+        waitlistPosition: 2,
+      },
+    },
+    isHost: false,
+    canLeave: false,
+  });
+  assert.equal(cta.presentation, 'waitlisted');
+  assert.equal(cta.label, '대기 2번');
+});
+
+test('OFFERED shows accept CTA', () => {
+  const cta = resolveJoinDetailPrimaryCta({
+    detail: {
+      ...baseDetail,
+      myParticipation: {
+        participantId: 'p1',
+        userId: 'u1',
+        role: ParticipantRole.PARTICIPANT,
+        participationStatus: ParticipationStatus.OFFERED,
+        nickname: '나',
+        verifiedBadge: false,
+        appliedAt: '2026-01-01T00:00:00Z',
+        approvedAt: null,
+        offerExpiresAt: '2026-12-01T10:30:00.000Z',
+      },
+    },
+    isHost: false,
+    canLeave: false,
+    now: new Date('2026-12-01T10:05:00.000Z'),
+  });
+  assert.equal(cta.presentation, 'waitlist_offer');
+  assert.match(cta.label, /자리가 났어요/);
 });
