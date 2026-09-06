@@ -19,7 +19,7 @@ import type {
   RecommendedJoinsResponse,
   RecurringJoinScheduleDto,
 } from '@jjoin/types';
-import { JoinStatus, MatchingRewardTarget } from '@jjoin/types';
+import { JoinStatus, MatchingRewardTarget, StoreOwnershipStatus } from '@jjoin/types';
 import {
   createRecurringJoinScheduleSchema,
   createStoreMatchingJoinSchema,
@@ -57,10 +57,66 @@ test('OwnerStoreDashboardDto kpi carries re-participant + urgent extras', () => 
   const dto: OwnerStoreDashboardDto = {
     ownershipId: 'own-1',
     facilityName: '테스트매장',
+    ownershipStatus: StoreOwnershipStatus.ACTIVE,
+    todayDateKey: '2026-09-06',
     period: 'all',
     kpi: {
       ...kpi,
     },
+    todaySummary: {
+      scheduledCount: 0,
+      recruitingCount: 0,
+      settlementPendingCount: 0,
+      completedCount: 0,
+    },
+    participantSummary: {
+      totalExpected: 0,
+      confirmedCount: 0,
+      pendingCount: 0,
+      noShowCount: 0,
+    },
+    settlementSummary: {
+      pendingCount: 0,
+      payoutDueCoin: '0',
+      holdCoin: '0',
+      paidTodayCoin: '0',
+    },
+    coinSummary: {
+      availableCoin: '0',
+      heldCoin: '0',
+      todayRewardPaidCoin: '0',
+      joinCreationFeeCoin: 0,
+      joinCreationBenefitLabel: '업주 혜택 · 조인방 생성 무료',
+    },
+    joinPricing: {
+      canCreate: true,
+      base: { mode: 'PAID', feeCoinAmount: 30 },
+      owner: { eligible: true, mode: 'FREE', feeCoinAmount: 0 },
+      premium: { eligible: false, mode: null, feeCoinAmount: null },
+      effectiveFeeCoinAmount: 0,
+      effectiveFeeKrw: 0,
+      reason: 'OWNER_BENEFIT',
+    },
+    todayJoins: [],
+    periodStats: {
+      last7Days: {
+        createdJoinCount: 0,
+        completedJoinCount: 0,
+        participantCount: 0,
+        attendedCount: 0,
+        noShowCount: 0,
+        fillRatePercent: null,
+      },
+      last30Days: {
+        createdJoinCount: 0,
+        completedJoinCount: 0,
+        participantCount: 0,
+        attendedCount: 0,
+        noShowCount: 0,
+        fillRatePercent: null,
+      },
+    },
+    recentNotifications: [],
     recentJoins: [
       {
         joinId: 'j2',

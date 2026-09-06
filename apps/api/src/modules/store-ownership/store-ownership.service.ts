@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -21,16 +22,27 @@ import {
 } from '@jjoin/types';
 import {
   buildOwnerDashboardKpi,
+  buildOwnerParticipantSummary,
+  buildOwnerPeriodStats,
+  buildOwnerSettlementSummary,
+  buildOwnerTodaySummary,
   computeStoreOwnershipKpi,
   filterJoinsByKpiPeriod,
   formatKoreanPhoneDisplay,
+  isJoinOnKstDate,
   isStoreKpiSucceededStatus,
+  kstDateKey,
+  kstDayBoundsUtc,
+  ownerJoinNeedsSettlement,
+  ownerJoinRecruitLabel,
+  sortOwnerTodayJoins,
   type StoreKpiPeriod,
 } from '@jjoin/domain';
 import { createStoreOwnershipRequestSchema } from '@jjoin/validation';
 import { PrismaService } from '../../prisma/prisma.service';
 import { GolfFacilitiesService } from '../golf-facilities/golf-facilities.service';
 import { CoinLedgerService } from '../wallet/coin-ledger.service';
+import { JoinCreationCoinPolicyService } from '../joins/join-creation-coin-policy.service';
 import { ensureFoundation } from '../../foundation/ensure-foundation';
 
 @Injectable()
@@ -39,6 +51,7 @@ export class StoreOwnershipService {
     private readonly prisma: PrismaService,
     private readonly golfFacilities: GolfFacilitiesService,
     private readonly ledger: CoinLedgerService,
+    private readonly joinCreationCoinPolicy: JoinCreationCoinPolicyService,
   ) {}
 
   async createRequest(
@@ -160,8 +173,8 @@ export class StoreOwnershipService {
     ownershipId: string,
     period: OwnerDashboardPeriod = 'month',
   ): Promise<OwnerStoreDashboardDto> {
-    const ownership = await this.prisma.storeOwnership.findFirst({
-      where: { id: ownershipId, userId },
+    const ownership = await this.prisma.storeOwnership.findUnique({
+      where: { id: ownershipId },
       include: { golfFacility: { select: { id: true, displayName: true } } },
     });
     if (!ownership) {
@@ -170,57 +183,155 @@ export class StoreOwnershipService {
         message: '매장 소유권을 찾을 수 없습니다.',
       });
     }
+    if (ownership.userId !== userId) {
+      throw new ForbiddenException({
+        code: 'STORE_ACCESS_DENIED',
+        message: '이 매장 운영 대시보드에 접근할 수 없습니다.',
+      });
+    }
+    if (ownership.status !== StoreOwnershipStatus.ACTIVE) {
+      throw new ForbiddenException({
+        code: 'STORE_OWNERSHIP_INACTIVE',
+        message: '승인된 매장만 운영 대시보드를 이용할 수 있습니다.',
+      });
+    }
 
-    const [joins, followerCount] = await Promise.all([
-      this.prisma.join.findMany({
-        where: {
-          storeOwnershipId: ownership.id,
-          joinKind: 'STORE_MATCHING',
-        },
-        select: {
-          id: true,
-          status: true,
-          startAt: true,
-          plannedPlayerCount: true,
-          confirmedPlayerCount: true,
-          isUrgent: true,
-          participants: {
-            where: { participationStatus: 'COMPLETED' },
-            select: {
-              joinId: true,
-              userId: true,
-              participationStatus: true,
+    const todayKey = kstDateKey(new Date());
+    const { start: todayStart, end: todayEnd } = kstDayBoundsUtc(todayKey);
+    const foundation = await ensureFoundation(this.prisma);
+
+    const [joins, followerCount, settlements, notifications, joinPricing] =
+      await Promise.all([
+        this.prisma.join.findMany({
+          where: {
+            storeOwnershipId: ownership.id,
+            joinKind: 'STORE_MATCHING',
+          },
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            startAt: true,
+            plannedPlayerCount: true,
+            confirmedPlayerCount: true,
+            isUrgent: true,
+            participants: {
+              where: {
+                role: 'PARTICIPANT',
+                participationStatus: {
+                  notIn: ['CANCELLED'],
+                },
+              },
+              select: {
+                joinId: true,
+                userId: true,
+                participationStatus: true,
+              },
             },
           },
-        },
-        orderBy: { startAt: 'desc' },
-      }),
-      this.prisma.golfFacilityFollow.count({
-        where: { golfFacilityId: ownership.golfFacilityId },
-      }),
-    ]);
+          orderBy: { startAt: 'desc' },
+        }),
+        this.prisma.golfFacilityFollow.count({
+          where: { golfFacilityId: ownership.golfFacilityId },
+        }),
+        this.prisma.rewardSettlement.findMany({
+          where: {
+            participant: {
+              join: {
+                storeOwnershipId: ownership.id,
+                joinKind: 'STORE_MATCHING',
+              },
+            },
+          },
+          select: {
+            joinId: true,
+            amount: true,
+            rewardStatus: true,
+            paidAt: true,
+          },
+        }),
+        this.prisma.appNotification.findMany({
+          where: { userId },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        }),
+        this.joinCreationCoinPolicy.resolveEffectivePolicyForUser(userId),
+      ]);
+
+    const wallet = await this.ledger.getOrCreateWallet(userId, foundation.coinAsset.id);
+
+    const joinRows = joins.map((j) => ({
+      id: j.id,
+      title: j.title,
+      status: j.status,
+      startAt: j.startAt,
+      plannedPlayerCount: j.plannedPlayerCount ?? 0,
+      confirmedPlayerCount: j.confirmedPlayerCount ?? 0,
+      isUrgent: j.isUrgent,
+    }));
+
+    const todayJoinsRaw = joinRows.filter((j) => isJoinOnKstDate(j, todayKey));
+    const todayParticipants = joins
+      .filter((j) => isJoinOnKstDate(j, todayKey))
+      .flatMap((j) =>
+        j.participants.map((p) => ({
+          joinId: p.joinId,
+          participationStatus: p.participationStatus,
+        })),
+      );
 
     const attendedRows = joins.flatMap((j) =>
-      j.participants.map((p) => ({
-        joinId: p.joinId,
-        userId: p.userId,
-        participationStatus: p.participationStatus,
-      })),
+      j.participants
+        .filter((p) => p.participationStatus === 'COMPLETED')
+        .map((p) => ({
+          joinId: p.joinId,
+          userId: p.userId,
+          participationStatus: p.participationStatus,
+        })),
     );
 
     const kpi = buildOwnerDashboardKpi({
-      joins: joins.map((j) => ({
-        id: j.id,
-        status: j.status,
-        startAt: j.startAt,
-        confirmedPlayerCount: j.confirmedPlayerCount ?? 0,
-        plannedPlayerCount: j.plannedPlayerCount ?? 0,
-        isUrgent: j.isUrgent,
-      })),
+      joins: joinRows,
       attendedRows,
       followerCount,
       period,
     });
+
+    const settlingJoinIds = new Set(
+      joinRows.filter((j) => j.status === 'SETTLING').map((j) => j.id),
+    );
+
+    const settlementRows = settlements.map((s) => ({
+      joinId: s.joinId,
+      amount: Number(s.amount),
+      rewardStatus: s.rewardStatus,
+      paidAt: s.paidAt,
+    }));
+
+    const participantRows = joins.flatMap((j) =>
+      j.participants.map((p) => ({
+        joinId: p.joinId,
+        participationStatus: p.participationStatus,
+      })),
+    );
+
+    const benefitLabel =
+      joinPricing.effectiveFeeCoinAmount === 0
+        ? joinPricing.reason === 'PREMIUM_BENEFIT'
+          ? 'Premium 혜택 · 조인방 생성 무료'
+          : joinPricing.reason === 'OWNER_BENEFIT' ||
+              joinPricing.reason === 'OWNER_PREMIUM_BEST'
+            ? '업주 혜택 · 조인방 생성 무료'
+            : '조인방 생성 무료'
+        : joinPricing.owner.eligible &&
+            joinPricing.effectiveFeeCoinAmount < joinPricing.base.feeCoinAmount
+          ? '업주 혜택 적용'
+          : joinPricing.premium.eligible &&
+              joinPricing.effectiveFeeCoinAmount < joinPricing.base.feeCoinAmount
+            ? 'Premium 혜택 적용'
+            : null;
+
+    const sortedTodayJoins = sortOwnerTodayJoins(todayJoinsRaw);
 
     const recentJoins = joins.slice(0, 8).map((j) => ({
       joinId: j.id,
@@ -235,8 +346,62 @@ export class StoreOwnershipService {
     return {
       ownershipId: ownership.id,
       facilityName: ownership.golfFacility.displayName,
+      ownershipStatus: ownership.status as StoreOwnershipStatus,
+      todayDateKey: todayKey,
       period,
       kpi,
+      todaySummary: buildOwnerTodaySummary(todayJoinsRaw),
+      participantSummary: buildOwnerParticipantSummary(todayParticipants),
+      settlementSummary: buildOwnerSettlementSummary(
+        settlementRows,
+        settlingJoinIds,
+        todayStart,
+        todayEnd,
+      ),
+      coinSummary: {
+        availableCoin: String(wallet.availableBalance),
+        heldCoin: String(wallet.heldBalance),
+        todayRewardPaidCoin: buildOwnerSettlementSummary(
+          settlementRows,
+          settlingJoinIds,
+          todayStart,
+          todayEnd,
+        ).paidTodayCoin,
+        joinCreationFeeCoin: joinPricing.effectiveFeeCoinAmount,
+        joinCreationBenefitLabel: benefitLabel,
+      },
+      joinPricing,
+      todayJoins: sortedTodayJoins.map((j) => ({
+        joinId: j.id,
+        title: j.title ?? null,
+        startAt: new Date(j.startAt).toISOString(),
+        status: j.status as OwnerStoreDashboardDto['todayJoins'][number]['status'],
+        plannedPlayerCount: j.plannedPlayerCount ?? 0,
+        confirmedPlayerCount: j.confirmedPlayerCount ?? 0,
+        recruitLabel: ownerJoinRecruitLabel(j.status),
+        needsSettlement: ownerJoinNeedsSettlement(j.status),
+        isUrgent: j.isUrgent === true,
+      })),
+      periodStats: {
+        last7Days: buildOwnerPeriodStats({
+          joins: joinRows,
+          participants: participantRows,
+          periodDays: 7,
+        }),
+        last30Days: buildOwnerPeriodStats({
+          joins: joinRows,
+          participants: participantRows,
+          periodDays: 30,
+        }),
+      },
+      recentNotifications: notifications.map((n) => ({
+        id: n.id,
+        type: n.type,
+        title: n.title,
+        body: n.body,
+        createdAt: n.createdAt.toISOString(),
+        readAt: n.readAt?.toISOString() ?? null,
+      })),
       recentJoins,
     };
   }
