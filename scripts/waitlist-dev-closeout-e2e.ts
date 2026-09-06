@@ -300,9 +300,9 @@ async function testTwoSeatPromotion() {
   const host = await pickHost();
   const p1 = await signIn(MockAuthPersona.DEV_A);
   const p2 = await signIn(MockAuthPersona.DEV_C);
-  const p3 = await signIn(MockAuthPersona.DEV_BILLING_RETRY);
+  const p3 = await signIn(MockAuthPersona.DEV_BILLING_LOW);
   const wlA = await signIn(MockAuthPersona.DEV_ADMIN);
-  const wlB = await signIn(MockAuthPersona.DEV_BILLING_LOW);
+  const wlB = await signIn(MockAuthPersona.DEV_BILLING_RETRY);
 
   const { joinId } = await createJoin(host, 4);
   await applyApprove(host, p1, joinId);
