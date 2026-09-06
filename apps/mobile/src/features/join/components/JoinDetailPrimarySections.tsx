@@ -2,7 +2,7 @@ import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import {
   Icon,
   JoinDdayBadge,
-  JoinDetailSection,
+  JoinDetailCard,
   JoinHostAvatar,
   JoinHostSummary,
   JoinMiniStatGrid,
@@ -20,7 +20,6 @@ import {
   buildJoinParticipationStatTiles,
   buildJoinParticipationSummary,
   buildJoinRecruitmentBreakdown,
-  buildJoinRecruitmentStatTiles,
   filterJoinDisplayParticipants,
   formatParticipantGenderLabel,
   formatParticipationStatusLabel,
@@ -77,15 +76,6 @@ function SectionDivider() {
   );
 }
 
-function RecruitmentCompositionRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.compositionRow}>
-      <Text variant="meta" tone="secondary">{label}</Text>
-      <Text variant="meta" tone="primary" style={styles.compositionValue}>{value}</Text>
-    </View>
-  );
-}
-
 function JoinParticipantRow({ participant }: { participant: JoinParticipantDto }) {
   const gender = formatParticipantGenderLabel(participant.gender);
   const statusLabel = formatParticipationStatusLabel(participant.participationStatus);
@@ -130,6 +120,44 @@ function InlineLink({
   );
 }
 
+function buildScheduleStatTiles(detail: JoinDetailDto) {
+  const recruitment = buildJoinRecruitmentBreakdown(detail);
+  const tiles = [
+    { label: '날짜', value: formatJoinScheduleDetailDate(detail.startAt), surface: 'info' as const },
+    {
+      label: '시간',
+      value: `${formatJoinScheduleDetailTime(detail.startAt)}~${formatJoinScheduleDetailTime(detail.scheduledEndAt)}`,
+      surface: 'info' as const,
+    },
+    {
+      label: '모집',
+      value: `${detail.plannedPlayerCount}명`,
+      surface: 'info' as const,
+    },
+    {
+      label: '참가',
+      value: `${detail.confirmedPlayerCount}명`,
+      surface: 'success' as const,
+    },
+  ];
+  const reward = Number(detail.rewardPerParticipant);
+  if (Number.isFinite(reward) && reward > 0) {
+    tiles.push({
+      label: '보상',
+      value: `${reward} 코인`,
+      surface: 'success' as const,
+    });
+  }
+  if (recruitment.recruitCloseLabel) {
+    tiles.push({
+      label: '마감',
+      value: recruitment.recruitCloseLabel,
+      surface: 'info' as const,
+    });
+  }
+  return tiles;
+}
+
 export function JoinDetailPrimarySections({
   detail,
   matching,
@@ -156,13 +184,17 @@ export function JoinDetailPrimarySections({
     scheduledEndAt: detail.scheduledEndAt,
   });
   const recruitment = buildJoinRecruitmentBreakdown(detail);
-  const recruitmentTiles = buildJoinRecruitmentStatTiles(detail);
   const participation = buildJoinParticipationSummary(detail);
   const participationTiles = buildJoinParticipationStatTiles(detail);
+  const scheduleTiles = buildScheduleStatTiles(detail);
   const displayParticipants = filterJoinDisplayParticipants(detail.participants);
   const requirements = requirementLabels(detail, matching);
   const benefitLines = buildJoinBenefitLines(detail);
   const showBenefits = hasJoinBenefits(detail);
+  const hasRecruitmentTargets =
+    (recruitment.maleTarget ?? 0) > 0 ||
+    (recruitment.femaleTarget ?? 0) > 0 ||
+    (recruitment.minimumPlayers ?? 0) > 0;
 
   const distanceLabel = detail.venue.regionLabel?.trim() || null;
 
@@ -170,6 +202,19 @@ export function JoinDetailPrimarySections({
     const { latitude, longitude } = detail.venue;
     void Linking.openURL(`https://map.kakao.com/link/map/${latitude},${longitude}`);
   };
+
+  const conditionLabels = [...requirements];
+  if (hasRecruitmentTargets) {
+    if ((recruitment.maleTarget ?? 0) > 0) {
+      conditionLabels.push(`남성 ${recruitment.maleTarget}명`);
+    }
+    if ((recruitment.femaleTarget ?? 0) > 0) {
+      conditionLabels.push(`여성 ${recruitment.femaleTarget}명`);
+    }
+    if ((recruitment.minimumPlayers ?? 0) > 0) {
+      conditionLabels.push(`최소 ${recruitment.minimumPlayers}명`);
+    }
+  }
 
   return (
     <View style={styles.root}>
@@ -222,7 +267,7 @@ export function JoinDetailPrimarySections({
         </Text>
       </View>
 
-      <JoinDetailSection title="기본 정보">
+      <JoinDetailCard>
         <JoinHostSummary
           nickname={detail.host.nickname}
           avatarUrl={detail.host.avatarUrl}
@@ -238,70 +283,55 @@ export function JoinDetailPrimarySections({
           onOpenMap={openMap}
           embedded
         />
-        <SectionDivider />
-        <View style={styles.scheduleBlock}>
-          <JoinScheduleRow label={formatJoinScheduleDetailDate(detail.startAt)} />
-          <View style={styles.scheduleTimes}>
-            <Text variant="meta" tone="secondary" style={styles.scheduleTimeLabel}>
-              시작 {formatJoinScheduleDetailTime(detail.startAt)}
-            </Text>
-            <Text variant="meta" tone="secondary" style={styles.scheduleTimeLabel}>
-              종료 {formatJoinScheduleDetailTime(detail.scheduledEndAt)}
-            </Text>
-          </View>
-        </View>
-      </JoinDetailSection>
+      </JoinDetailCard>
 
-      <JoinDetailSection title="모집 정보">
-        <JoinMiniStatGrid items={recruitmentTiles} />
-        {recruitment.recruitCloseLabel ? (
-          <RecruitmentCompositionRow label="모집 마감" value={recruitment.recruitCloseLabel} />
-        ) : null}
-
-        {requirements.length > 0 ? (
-          <>
-            <SectionDivider />
-            <Text variant="caption" tone="secondary" style={styles.subLabel}>참가 조건</Text>
-            <JoinRequirementChips labels={requirements} />
-          </>
-        ) : null}
-
-        <SectionDivider />
-        <Text variant="caption" tone="secondary" style={styles.subLabel}>혜택 및 보상</Text>
-        {showBenefits ? (
-          <View style={styles.benefitList}>
-            {benefitLines.map((line) => (
-              <Text key={line} variant="body" tone="primary" style={styles.benefitLine}>
-                {line}
-              </Text>
-            ))}
-          </View>
-        ) : (
-          <Text variant="meta" tone="tertiary">별도 참가 혜택 없음</Text>
-        )}
-
-        {detail.description?.trim() ? (
-          <>
-            <SectionDivider />
-            <Text variant="caption" tone="secondary" style={styles.subLabel}>조인 소개</Text>
-            <Text variant="body" tone="primary" style={styles.introBody}>
-              {detail.description.trim()}
-            </Text>
-          </>
-        ) : null}
-      </JoinDetailSection>
-
-      <JoinDetailSection title="참가 현황">
-        <Text variant="bodyStrong" tone="primary" style={styles.participationHeadline}>
-          {participation.headline}
-        </Text>
-        <JoinMiniStatGrid items={participationTiles} />
+      <JoinDetailCard>
+        <JoinMiniStatGrid items={scheduleTiles} />
         <JoinSeatsRemainingBanner
           label={participation.seatsLeftLabel}
           tone={participation.seatsHighlightTone}
         />
+      </JoinDetailCard>
 
-        <SectionDivider />
+      {(conditionLabels.length > 0 || showBenefits) ? (
+        <JoinDetailCard>
+          {conditionLabels.length > 0 ? (
+            <JoinRequirementChips labels={conditionLabels} />
+          ) : null}
+          {showBenefits ? (
+            <View style={styles.benefitList}>
+              {benefitLines.map((line) => (
+                <Text key={line} variant="body" tone="primary" style={styles.benefitLine}>
+                  {line}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+        </JoinDetailCard>
+      ) : null}
+
+      {detail.description?.trim() ? (
+        <JoinDetailCard>
+          <Text variant="caption" tone="secondary" style={styles.eyebrow}>
+            추가 안내
+          </Text>
+          <Text variant="body" tone="primary" style={styles.introBody}>
+            {detail.description.trim()}
+          </Text>
+        </JoinDetailCard>
+      ) : null}
+
+      <JoinDetailCard>
+        <View style={styles.participantHeader}>
+          <Text variant="bodyStrong" tone="primary">
+            참가자 {detail.confirmedPlayerCount}/{detail.plannedPlayerCount}
+          </Text>
+          {participationTiles.length > 0 ? (
+            <Text variant="caption" tone="secondary">
+              {[participation.maleLine, participation.femaleLine].filter(Boolean).join(' · ')}
+            </Text>
+          ) : null}
+        </View>
 
         {displayParticipants.length > 0 ? (
           <View style={styles.participantList}>
@@ -312,7 +342,6 @@ export function JoinDetailPrimarySections({
         ) : (
           <View style={styles.emptyParticipants}>
             <Text variant="meta" tone="secondary">아직 참가자가 없습니다.</Text>
-            <Text variant="caption" tone="tertiary">첫 번째 참가자가 되어보세요.</Text>
           </View>
         )}
 
@@ -329,17 +358,18 @@ export function JoinDetailPrimarySections({
             ) : null}
           </View>
         ) : null}
-      </JoinDetailSection>
+      </JoinDetailCard>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
-    gap: 16,
+    gap: 12,
   },
   header: {
     gap: 10,
+    marginBottom: 4,
   },
   summaryTopRow: {
     flexDirection: 'row',
@@ -370,36 +400,8 @@ const styles = StyleSheet.create({
   divider: {
     height: StyleSheet.hairlineWidth,
     alignSelf: 'stretch',
-    marginVertical: 12,
   },
-  scheduleBlock: {
-    gap: 8,
-  },
-  scheduleTimes: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  scheduleTimeLabel: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  participationHeadline: {
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  compositionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    minHeight: 22,
-  },
-  compositionValue: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  subLabel: {
+  eyebrow: {
     fontSize: 13,
     lineHeight: 18,
     marginBottom: 4,
@@ -414,6 +416,9 @@ const styles = StyleSheet.create({
   introBody: {
     fontSize: 15,
     lineHeight: 22,
+  },
+  participantHeader: {
+    gap: 4,
   },
   participantList: {
     gap: 10,

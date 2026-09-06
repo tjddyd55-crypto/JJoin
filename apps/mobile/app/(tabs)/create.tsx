@@ -8,12 +8,13 @@ import {
   FormScreenFrame,
   StickyActionFrame,
   Stack,
+  Input,
+  Card,
 } from '@jjoin/design-system';
 import { computeCoinShortfall, computeRewardEligibleSlots, formatNumber, requiresIdentityGate } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
 import { JoinMethod, SCREEN_GOLF_CODE, IdentityStatus } from '@jjoin/types';
 import { RewardCoinInput } from '../../src/ui/patterns/RewardCoinInput';
-import { CoinSummaryCard } from '../../src/ui/patterns/CoinSummaryCard';
 import { useJoinCoinPreview } from '../../src/features/create/useJoinCoinPreview';
 import { resolveJoinCreateFooterState } from '../../src/features/join-create/model/join-create-footer-state';
 import {
@@ -25,6 +26,8 @@ import { getSecureSessionStore, useSession } from '../../src/session/SessionCont
 import { getApiClient } from '../../src/lib/api';
 import { resolveAppVariant } from '../../src/lib/app-variant';
 import { JoinCreateVenueSection } from '../../src/features/join-create/components/JoinCreateVenueSection';
+import { JoinCreateStepHeader, JoinCreateSummaryRow } from '../../src/features/join-create/components/JoinCreateStepHeader';
+import { JoinCreatePricingSummary } from '../../src/features/join-create/components/JoinCreatePricingSummary';
 import {
   clearJoinCreateDraft,
   peekJoinCreateDraft,
@@ -34,12 +37,27 @@ import {
   type JoinCreateVenueSelection,
   venueSelectionFromVenueDto,
   venueSelectionHasPlace,
+  venueSelectionLabel,
 } from '../../src/features/join-create/model/join-create-venue';
+import {
+  JOIN_CREATE_STEPS,
+  type JoinCreateStepId,
+  canAdvanceJoinCreateStep,
+  joinCreateStepIndex,
+} from '../../src/features/join-create/model/join-create-steps';
+import { KstDatePickerField } from '../../src/shared/date/KstDatePickerField';
+import { KstTimePickerField } from '../../src/shared/date/KstTimePickerField';
+import { composeKstIso, splitKstDateTime } from '../../src/features/store/matching-join-ui';
+import {
+  formatJoinScheduleDetailDate,
+  formatJoinScheduleDetailTime,
+} from '../../src/ui/join-display';
 
-function defaultStartAtIso() {
+function defaultStartParts() {
   const d = new Date(Date.now() + 2 * 60 * 60_000);
   d.setMinutes(0, 0, 0);
-  return d.toISOString();
+  const iso = d.toISOString();
+  return splitKstDateTime(iso);
 }
 
 function newIdempotencyKey() {
@@ -78,6 +96,12 @@ export default function CreateScreen() {
     typeof params.inviteeNickname === 'string' && params.inviteeNickname.trim()
       ? params.inviteeNickname.trim()
       : undefined;
+
+  const defaultParts = useMemo(() => {
+    if (routeStartsAt) return splitKstDateTime(routeStartsAt);
+    return defaultStartParts();
+  }, [routeStartsAt]);
+
   const [prefilledInvitees, setPrefilledInvitees] = useState<
     Array<{ userId: string; nickname: string }>
   >(() =>
@@ -87,7 +111,10 @@ export default function CreateScreen() {
   );
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
 
+  const [step, setStep] = useState<JoinCreateStepId>('venue');
   const [selectedVenue, setSelectedVenue] = useState<JoinCreateVenueSelection | null>(null);
+  const [gameDate, setGameDate] = useState(defaultParts.dateYmd);
+  const [startTime, setStartTime] = useState(defaultParts.timeHm);
   const [players, setPlayers] = useState(() =>
     resolveJoinCreatePlayersFromParams(
       typeof params.players === 'string' ? params.players : undefined,
@@ -98,17 +125,27 @@ export default function CreateScreen() {
       typeof params.rewardPerParticipant === 'string' ? params.rewardPerParticipant : undefined,
     ),
   );
+  const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [doneJoinId, setDoneJoinId] = useState<string | null>(null);
   const [resolvingRouteVenue, setResolvingRouteVenue] = useState(false);
-  /** Set on successful create; cleared when a new Create session starts. */
   const lastCompletedJoinIdRef = useRef<string | null>(null);
-  /** True after leaving Create while a success screen was showing. */
   const pendingNewSessionRef = useRef(false);
 
+  const startAtIso = useMemo(() => {
+    try {
+      return composeKstIso(gameDate, startTime);
+    } catch {
+      return '';
+    }
+  }, [gameDate, startTime]);
+
   const resetFormForNewSession = useCallback(() => {
+    setStep('venue');
     setSelectedVenue(null);
+    setGameDate(defaultParts.dateYmd);
+    setStartTime(defaultParts.timeHm);
     setPlayers(
       resolveJoinCreatePlayersFromParams(
         typeof params.players === 'string' ? params.players : undefined,
@@ -121,14 +158,14 @@ export default function CreateScreen() {
           : undefined,
       ),
     );
+    setDescription('');
     setSubmitting(false);
     setError(null);
     clearJoinCreateDraft();
-  }, [params.players, params.rewardPerParticipant]);
+  }, [defaultParts.dateYmd, defaultParts.timeHm, params.players, params.rewardPerParticipant]);
 
   useFocusEffect(
     useCallback(() => {
-      // New Create entry after leaving a success screen — never restore that success.
       if (shouldResetJoinCreateSession({ pendingNewSession: pendingNewSessionRef.current })) {
         pendingNewSessionRef.current = false;
         lastCompletedJoinIdRef.current = null;
@@ -146,7 +183,6 @@ export default function CreateScreen() {
       }
 
       return () => {
-        // Success stays visible until leave; next focus starts a fresh write session.
         if (lastCompletedJoinIdRef.current != null) {
           pendingNewSessionRef.current = true;
         }
@@ -186,9 +222,7 @@ export default function CreateScreen() {
           }),
         );
       } catch {
-        if (!cancelled) {
-          setError('선택한 장소 정보를 불러올 수 없습니다.');
-        }
+        if (!cancelled) setError('선택한 장소 정보를 불러올 수 없습니다.');
       } finally {
         if (!cancelled) setResolvingRouteVenue(false);
       }
@@ -212,7 +246,6 @@ export default function CreateScreen() {
   }, [preview]);
 
   const canCreate = preview?.canCreate ?? false;
-  const walletAfterDisplay = preview?.walletAfterCreation ?? preview?.walletAvailable ?? '—';
   const identityVerified = me?.identity.verificationStatus === IdentityStatus.VERIFIED;
   const identityGateApplies = requiresIdentityGate(
     me?.identity.verificationStatus ?? IdentityStatus.UNVERIFIED,
@@ -221,6 +254,7 @@ export default function CreateScreen() {
   );
   const identityVerifiedForCreateFlow = !identityGateApplies || identityVerified;
   const venueReady = venueSelectionHasPlace(selectedVenue) && !resolvingRouteVenue;
+  const startAtValid = Boolean(startAtIso) && new Date(startAtIso).getTime() > Date.now();
 
   const footerState = useMemo(
     () =>
@@ -265,6 +299,12 @@ export default function CreateScreen() {
     if (submitting) return;
     if (!venueSelectionHasPlace(selectedVenue)) {
       setError('장소를 먼저 선택해주세요.');
+      setStep('venue');
+      return;
+    }
+    if (!startAtValid) {
+      setError('날짜와 시간을 확인해주세요.');
+      setStep('venue');
       return;
     }
     if (!canCreate) {
@@ -281,10 +321,11 @@ export default function CreateScreen() {
       const detail = await api.createJoin({
         sportCode: SCREEN_GOLF_CODE,
         venueId: selectedVenue.venueId,
-        startAt: routeStartsAt ?? defaultStartAtIso(),
+        startAt: startAtIso,
         plannedPlayerCount: players,
         joinMethod: JoinMethod.APPROVAL,
         title: routeTitle ?? `${selectedVenue.name} 스크린골프`,
+        description: description.trim() || null,
         rewardPerParticipant,
         idempotencyKey: newIdempotencyKey(),
         clubId: routeClubId,
@@ -296,7 +337,7 @@ export default function CreateScreen() {
             inviteeUserIds: prefilledInvitees.map((p) => p.userId),
           });
         } catch {
-          // Join already created — invitation failure is non-fatal for create UX.
+          // non-fatal
         }
       }
       setDoneJoinId(detail.joinId);
@@ -324,30 +365,57 @@ export default function CreateScreen() {
   }, [
     api,
     canCreate,
+    description,
     players,
+    prefilledInvitees,
     requestGatedAction,
     rewardPerParticipant,
     router,
     routeClubEventId,
     routeClubId,
-    routeStartsAt,
     routeTitle,
     selectedVenue,
     shortfall,
+    startAtIso,
+    startAtValid,
     submitting,
-    prefilledInvitees,
   ]);
+
+  const stepIndex = joinCreateStepIndex(step);
+  const isLastStep = step === 'confirm';
+  const canGoNext = canAdvanceJoinCreateStep(step, {
+    venueReady,
+    startAtValid,
+    players,
+  });
+
+  const goNext = () => {
+    if (!canGoNext) {
+      if (step === 'venue') setError('장소와 일정을 확인해주세요.');
+      return;
+    }
+    setError(null);
+    const next = JOIN_CREATE_STEPS[stepIndex + 1];
+    if (next) setStep(next.id);
+  };
+
+  const goBack = () => {
+    setError(null);
+    const prev = JOIN_CREATE_STEPS[stepIndex - 1];
+    if (prev) setStep(prev.id);
+  };
+
+  const scheduleSummary = startAtIso
+    ? `${formatJoinScheduleDetailDate(startAtIso)} ${formatJoinScheduleDetailTime(startAtIso)}`
+    : '일정 선택';
 
   if (doneJoinId) {
     return (
       <FormScreenFrame>
         <Stack gap="md">
-          <Text variant="sectionTitle" tone="primary">
-            조인 생성 완료
-          </Text>
+          <Text variant="sectionTitle" tone="primary">조인 생성 완료</Text>
           <Text variant="body" tone="secondary">
-            조인 생성비는 사용 처리되고, 참가보상은 예치(HOLD)로 기록되었습니다. 생성비는 취소·정산
-            시 자동 환불되지 않습니다.
+            조인이 생성되었습니다. 상세에서 참가자를 확인하세요.
           </Text>
           <Button
             label="조인 상세"
@@ -355,122 +423,172 @@ export default function CreateScreen() {
               router.push({ pathname: '/join/[joinId]', params: { joinId: doneJoinId } } as Href)
             }
           />
-          <Button
-            label="내 조인"
-            variant="secondary"
-            onPress={() => router.push('/(tabs)/my-joins')}
-          />
-          <Button label="월렛" variant="secondary" onPress={() => router.push('/my/wallet')} />
+          <Button label="내 조인" variant="secondary" onPress={() => router.push('/(tabs)/my-joins')} />
         </Stack>
       </FormScreenFrame>
     );
   }
 
-  return (
-    <FormScreenFrame
-      footer={
-        <StickyActionFrame>
-          {footerState.helperText ? (
-            <Text variant="caption" tone="secondary" style={styles.footerHelper}>
-              {footerState.helperText}
-            </Text>
-          ) : null}
-          {footerState.showWalletCta ? (
-            <Button
-              label="코인 충전하기"
-              variant="secondary"
-              size="sm"
-              onPress={() => router.push('/my/coin-charge')}
-            />
-          ) : null}
-          <Button
-            disabled={footerState.createDisabled}
-            label={footerState.createLabel}
-            loading={submitting}
-            onPress={() => void onCreate()}
-          />
-        </StickyActionFrame>
-      }
-    >
-      <Stack gap="md">
-        <Text variant="screenTitle" tone="primary">
-          조인 만들기
+  const footer = isLastStep ? (
+    <StickyActionFrame>
+      {footerState.helperText ? (
+        <Text variant="caption" tone="secondary" style={styles.footerHelper}>
+          {footerState.helperText}
         </Text>
-        <Text variant="caption" tone="secondary">
-          {me?.publicProfile?.nickname
-            ? `호스트: ${me.publicProfile.nickname}`
-            : '로그인한 뒤 생성하세요'}
-        </Text>
+      ) : null}
+      {footerState.showWalletCta ? (
+        <Button label="코인 충전하기" variant="secondary" size="sm" onPress={() => router.push('/my/coin-charge')} />
+      ) : null}
+      <Button
+        disabled={footerState.createDisabled}
+        label={footerState.createLabel}
+        loading={submitting}
+        onPress={() => void onCreate()}
+      />
+    </StickyActionFrame>
+  ) : (
+    <StickyActionFrame>
+      <View style={styles.footerRow}>
+        {stepIndex > 0 ? (
+          <Button label="이전" variant="secondary" onPress={goBack} style={styles.footerBtn} />
+        ) : null}
+        <Button
+          label="다음"
+          onPress={goNext}
+          disabled={!canGoNext}
+          style={styles.footerBtn}
+        />
+      </View>
+    </StickyActionFrame>
+  );
 
-        {prefilledInvitees.length > 0 ? (
-          <Stack gap="xs">
-            <Text variant="sectionTitle" tone="primary">
-              초대할 사람
-            </Text>
-            <View style={styles.row}>
-              {prefilledInvitees.map((person) => (
-                <Chip
-                  key={person.userId}
-                  label={`${person.nickname} ×`}
-                  selected
-                  onPress={() =>
-                    setPrefilledInvitees((prev) => prev.filter((p) => p.userId !== person.userId))
-                  }
-                />
-              ))}
-            </View>
-          </Stack>
+  return (
+    <FormScreenFrame footer={footer}>
+      <Stack gap="md">
+        <Text variant="screenTitle" tone="primary">조인 만들기</Text>
+        <JoinCreateStepHeader current={step} onSelect={(s) => setStep(s)} />
+
+        {step !== 'venue' ? (
+          <Card variant="base" padding="md">
+            <JoinCreateSummaryRow
+              label="장소"
+              value={selectedVenue ? venueSelectionLabel(selectedVenue) : '미선택'}
+              onPress={() => setStep('venue')}
+            />
+            <JoinCreateSummaryRow label="일정" value={scheduleSummary} onPress={() => setStep('venue')} />
+          </Card>
         ) : null}
 
-        <JoinCreateVenueSection
-          api={api}
-          selected={selectedVenue}
-          onChange={setSelectedVenue}
-          onPickFromMap={onPickFromMap}
-        />
-
-        <Text variant="sectionTitle" tone="primary">
-          모집 인원 {players}명
-        </Text>
-        <Text variant="caption" tone="secondary">
-          {t('create.players.hint')} · 보상 대상 {rewardEligibleSlots}명
-        </Text>
-        <View style={styles.row}>
-          {[2, 3, 4].map((n) => (
-            <Chip
-              key={n}
-              label={`${n}명`}
-              selected={players === n}
-              onPress={() => setPlayers(n)}
+        {step === 'venue' ? (
+          <>
+            <JoinCreateVenueSection
+              api={api}
+              selected={selectedVenue}
+              onChange={setSelectedVenue}
+              onPickFromMap={onPickFromMap}
             />
-          ))}
-        </View>
+            <KstDatePickerField label="날짜" dateYmd={gameDate} onChange={setGameDate} />
+            <KstTimePickerField label="시작 시간" valueHm={startTime} onChange={setStartTime} />
+            {!startAtValid && venueReady ? (
+              <Text variant="caption" tone="error">시작 시간은 현재보다 이후여야 합니다.</Text>
+            ) : null}
+          </>
+        ) : null}
 
-        <RewardCoinInput
-          onChange={setRewardPerParticipant}
-          rewardEligibleSlots={rewardEligibleSlots}
-          value={rewardPerParticipant}
-        />
+        {step === 'capacity' ? (
+          <>
+            <Text variant="sectionTitle" tone="primary">모집 인원 {players}명</Text>
+            <Text variant="caption" tone="secondary">
+              {t('create.players.hint')} · 보상 대상 {rewardEligibleSlots}명
+            </Text>
+            <View style={styles.row}>
+              {[2, 3, 4].map((n) => (
+                <Chip key={n} label={`${n}명`} selected={players === n} onPress={() => setPlayers(n)} />
+              ))}
+            </View>
+            <RewardCoinInput
+              onChange={setRewardPerParticipant}
+              rewardEligibleSlots={rewardEligibleSlots}
+              value={rewardPerParticipant}
+            />
+            <JoinCreatePricingSummary
+              roomCreationFee={preview?.roomCreationFee}
+              rewardPerParticipant={preview?.rewardPerParticipant}
+              rewardEligibleSlots={preview?.rewardEligibleSlots}
+              totalRequiredCoin={preview?.totalRequiredCoin}
+              walletAvailable={preview?.walletAvailable}
+              loading={previewLoading && !preview}
+              error={previewError}
+              shortfall={shortfall}
+              creatorUserTypeLabel={preview?.creatorUserTypeLabel}
+              creationCoinEnabled={preview?.creationCoinEnabled}
+            />
+          </>
+        ) : null}
 
-        <CoinSummaryCard
-          roomCreationFee={preview?.roomCreationFee}
-          rewardPerParticipant={preview?.rewardPerParticipant}
-          rewardEligibleSlots={preview?.rewardEligibleSlots}
-          rewardHoldTotal={preview?.rewardHoldTotal}
-          totalRequiredCoin={preview?.totalRequiredCoin}
-          walletAvailable={preview?.walletAvailable}
-          walletAfterCreation={walletAfterDisplay}
-          loading={previewLoading && !preview}
-          error={previewError}
-          shortfall={shortfall}
-          creatorUserTypeLabel={preview?.creatorUserTypeLabel}
-          creationCoinEnabled={preview?.creationCoinEnabled}
-        />
+        {step === 'members' ? (
+          <>
+            <Text variant="body" tone="secondary">승인 후 참가 방식으로 모집합니다.</Text>
+            {prefilledInvitees.length > 0 ? (
+              <View style={styles.row}>
+                {prefilledInvitees.map((person) => (
+                  <Chip
+                    key={person.userId}
+                    label={`${person.nickname} ×`}
+                    selected
+                    onPress={() =>
+                      setPrefilledInvitees((prev) => prev.filter((p) => p.userId !== person.userId))
+                    }
+                  />
+                ))}
+              </View>
+            ) : (
+              <Text variant="meta" tone="tertiary">무료 초대 대상이 없습니다.</Text>
+            )}
+          </>
+        ) : null}
+
+        {step === 'options' ? (
+          <Input
+            label="추가 안내 (선택)"
+            value={description}
+            onChangeText={setDescription}
+            placeholder="참가자에게 전달할 메모"
+            multiline
+          />
+        ) : null}
+
+        {step === 'confirm' ? (
+          <>
+            <Card variant="elevated" padding="md">
+              <JoinCreateSummaryRow label="장소" value={selectedVenue ? venueSelectionLabel(selectedVenue) : '—'} />
+              <JoinCreateSummaryRow label="일정" value={scheduleSummary} />
+              <JoinCreateSummaryRow label="인원" value={`${players}명`} />
+              <JoinCreateSummaryRow
+                label="참가보상"
+                value={Number(rewardPerParticipant) > 0 ? `${rewardPerParticipant} 코인` : '없음'}
+              />
+              {description.trim() ? (
+                <JoinCreateSummaryRow label="추가 안내" value={description.trim()} />
+              ) : null}
+            </Card>
+            <JoinCreatePricingSummary
+              roomCreationFee={preview?.roomCreationFee}
+              rewardPerParticipant={preview?.rewardPerParticipant}
+              rewardEligibleSlots={preview?.rewardEligibleSlots}
+              totalRequiredCoin={preview?.totalRequiredCoin}
+              walletAvailable={preview?.walletAvailable}
+              loading={previewLoading && !preview}
+              error={previewError}
+              shortfall={shortfall}
+              creatorUserTypeLabel={preview?.creatorUserTypeLabel}
+              creationCoinEnabled={preview?.creationCoinEnabled}
+            />
+          </>
+        ) : null}
 
         {error ? (
-          <Text variant="body" tone="error">
-            {error}
-          </Text>
+          <Text variant="body" tone="error">{error}</Text>
         ) : null}
       </Stack>
     </FormScreenFrame>
@@ -480,4 +598,6 @@ export default function CreateScreen() {
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   footerHelper: { textAlign: 'center' },
+  footerRow: { flexDirection: 'row', gap: 8 },
+  footerBtn: { flex: 1 },
 });
