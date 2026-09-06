@@ -1,23 +1,37 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Button,
   Card,
+  Chip,
+  Input,
+  Row,
   ScrollScreenFrame,
   Spacer,
   Text,
   useTheme,
 } from '@jjoin/design-system';
-import { formatCoinWithLabel, formatNumber, coinToKrw } from '@jjoin/domain';
-import { PaymentProductType, type PaymentProductDto } from '@jjoin/types';
+import {
+  COIN_CUSTOM_PRODUCT_CODE,
+  COIN_KRW_RATE,
+  COIN_PURCHASE_MIN_AMOUNT,
+  COIN_PURCHASE_STEP,
+  formatCoinWithLabel,
+  formatNumber,
+  parseCoinPurchaseInput,
+  validateVariableCoinPurchaseAmount,
+} from '@jjoin/domain';
+import { PaymentProductType } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
 import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
 import { consumeCoinChargePaymentHandoff } from '../payment-return-handoff';
 
+const QUICK_AMOUNTS = [100, 500, 1000];
+
 function formatKrw(price: number) {
-  return `₩${formatNumber(price)}`;
+  return `${formatNumber(price)}원`;
 }
 
 export function CoinChargeScreen() {
@@ -30,12 +44,21 @@ export function CoinChargeScreen() {
   }>();
   const { refreshMe } = useSession();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
-  const [products, setProducts] = useState<PaymentProductDto[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [customProductId, setCustomProductId] = useState<string | null>(null);
+  const [coinInput, setCoinInput] = useState('');
   const [balance, setBalance] = useState<string>('0');
   const [error, setError] = useState<string | null>(null);
   const [successCoin, setSuccessCoin] = useState<string | null>(null);
   const [successBalance, setSuccessBalance] = useState<string | null>(null);
+
+  const parsedCoin = useMemo(() => parseCoinPurchaseInput(coinInput), [coinInput]);
+  const validation = useMemo(
+    () =>
+      parsedCoin == null && coinInput.trim() === ''
+        ? null
+        : validateVariableCoinPurchaseAmount(parsedCoin),
+    [coinInput, parsedCoin],
+  );
 
   const refreshBalance = useCallback(async () => {
     const wallet = await api.getWallet();
@@ -43,10 +66,10 @@ export function CoinChargeScreen() {
     return wallet.availableCoin;
   }, [api]);
 
-  const loadProducts = useCallback(async () => {
+  const loadCustomProduct = useCallback(async () => {
     const items = await api.listPaymentProducts(PaymentProductType.COIN_CHARGE);
-    setProducts(items);
-    setSelectedId((current) => current ?? items[0]?.id ?? null);
+    const custom = items.find((p) => p.code === COIN_CUSTOM_PRODUCT_CODE);
+    setCustomProductId(custom?.id ?? null);
   }, [api]);
 
   useFocusEffect(
@@ -82,11 +105,10 @@ export function CoinChargeScreen() {
   );
 
   useEffect(() => {
-    void loadProducts().catch(() => setError('상품을 불러오지 못했습니다.'));
-  }, [loadProducts]);
+    void loadCustomProduct().catch(() => setError('충전 상품을 불러오지 못했습니다.'));
+  }, [loadCustomProduct]);
 
   useEffect(() => {
-    // Legacy deep-link / replace params fallback.
     if (params.successCoin) {
       setSuccessCoin(params.successCoin);
       setSuccessBalance(params.successBalance ?? null);
@@ -99,16 +121,18 @@ export function CoinChargeScreen() {
     }
   }, [params.paymentError, params.successBalance, params.successCoin, refreshMe]);
 
-  const selected = products.find((p) => p.id === selectedId) ?? null;
-
   const onCharge = () => {
-    if (!selected) return;
+    if (!customProductId || !validation?.ok) return;
     setError(null);
     setSuccessCoin(null);
     setSuccessBalance(null);
     router.push({
       pathname: '/my/payment-checkout',
-      params: { productId: selected.id, returnTo: 'coin-charge' },
+      params: {
+        productId: customProductId,
+        coinAmount: String(validation.coinAmount),
+        returnTo: 'coin-charge',
+      },
     });
   };
 
@@ -119,6 +143,17 @@ export function CoinChargeScreen() {
     setSuccessBalance(null);
     void refreshBalance().catch(() => undefined);
   };
+
+  const validationMessage =
+    coinInput.trim() === ''
+      ? null
+      : validation && !validation.ok
+        ? validation.message
+        : null;
+
+  const priceKrw = validation?.ok ? validation.priceKrw : null;
+  const ctaLabel =
+    priceKrw != null ? `${formatKrw(priceKrw)} 결제하기` : '충전할 코인을 입력하세요';
 
   if (successCoin) {
     return (
@@ -145,48 +180,74 @@ export function CoinChargeScreen() {
 
   return (
     <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
+      <Text variant="sectionTitle">코인 충전</Text>
+      <Spacer size="sm" />
       <Text variant="meta" tone="secondary">
-        보유 코인
-      </Text>
-      <Text variant="coinLarge" style={{ color: theme.colors.reward.primary }}>
-        {formatCoinWithLabel(balance)}
+        보유 코인 {formatCoinWithLabel(balance)}
       </Text>
 
       <Spacer size="lg" />
-      <Text variant="sectionTitle">충전 상품</Text>
-      <Spacer size="sm" />
-      {products.map((product) => (
-        <Pressable key={product.id} onPress={() => setSelectedId(product.id)}>
-          <Card
-            variant={product.id === selectedId ? 'elevated' : 'base'}
-            padding="md"
-            style={styles.productCard}
-          >
-            <View style={styles.productRow}>
-              <Text variant="bodyStrong">{formatCoinWithLabel(product.coinAmount ?? '0')}</Text>
-              <Text variant="body" tone="secondary">
-                {formatKrw(product.price)} · 약 {coinToKrw(Number(product.coinAmount ?? 0)).toLocaleString('ko-KR')}원 상당
-              </Text>
-            </View>
-          </Card>
-        </Pressable>
-      ))}
-
-      {selected ? (
+      <Text variant="bodyStrong">충전할 코인</Text>
+      <Spacer size="xs" />
+      <Row gap="sm" align="center">
+        <View style={styles.inputWrap}>
+          <Input
+            value={coinInput}
+            onChangeText={(text) => {
+              const digits = text.replace(/[^\d]/g, '');
+              setCoinInput(digits);
+            }}
+            keyboardType="number-pad"
+            placeholder={`${COIN_PURCHASE_MIN_AMOUNT}`}
+            accessibilityLabel="충전할 코인"
+          />
+        </View>
+        <Text variant="bodyStrong">Coin</Text>
+      </Row>
+      <Spacer size="xs" />
+      <Text variant="caption" tone="tertiary">
+        {COIN_PURCHASE_STEP} Coin 단위로 충전할 수 있습니다.
+      </Text>
+      {validationMessage ? (
         <>
-          <Spacer size="md" />
-          <Card variant="base" padding="md">
-            <Text variant="bodyStrong">{selected.name}</Text>
-            <Spacer size="xs" />
-            <Text variant="meta" tone="secondary">
-              충전 코인 {formatCoinWithLabel(selected.coinAmount ?? '0')}
-            </Text>
-            <Text variant="meta" tone="secondary">
-              결제 금액 {formatKrw(selected.price)}
-            </Text>
-          </Card>
+          <Spacer size="xs" />
+          <Text variant="caption" tone="error">
+            {validationMessage}
+          </Text>
         </>
       ) : null}
+
+      <Spacer size="md" />
+      <Row gap="sm" style={styles.chipRow}>
+        {QUICK_AMOUNTS.map((amount) => (
+          <Chip
+            key={amount}
+            label={`${amount} Coin`}
+            selected={parsedCoin === amount}
+            onPress={() => setCoinInput(String(amount))}
+          />
+        ))}
+      </Row>
+
+      <Spacer size="lg" />
+      <Card variant="base" padding="md">
+        <Text variant="meta" tone="secondary">결제금액</Text>
+        <Text variant="sectionTitle">
+          {priceKrw != null ? formatKrw(priceKrw) : '—'}
+        </Text>
+        {validation?.ok ? (
+          <>
+            <Spacer size="xs" />
+            <Text variant="meta" tone="secondary">
+              충전 코인 {formatCoinWithLabel(String(validation.coinAmount))}
+            </Text>
+          </>
+        ) : null}
+        <Spacer size="sm" />
+        <Text variant="caption" tone="tertiary">
+          1 Coin = {COIN_KRW_RATE.toLocaleString('ko-KR')}원
+        </Text>
+      </Card>
 
       {error ? (
         <>
@@ -199,8 +260,8 @@ export function CoinChargeScreen() {
 
       <Spacer size="lg" />
       <Button
-        label={selected ? `${formatKrw(selected.price)} 충전하기` : '상품을 선택하세요'}
-        disabled={!selected}
+        label={ctaLabel}
+        disabled={!customProductId || !validation?.ok}
         onPress={onCharge}
       />
     </ScrollScreenFrame>
@@ -208,6 +269,6 @@ export function CoinChargeScreen() {
 }
 
 const styles = StyleSheet.create({
-  productCard: { marginBottom: 8 },
-  productRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  inputWrap: { flex: 1 },
+  chipRow: { flexWrap: 'wrap' },
 });

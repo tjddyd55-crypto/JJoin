@@ -1852,6 +1852,9 @@ model Payment {
   orderId                String              @unique @map("order_id")
   paymentKey             String?             @map("payment_key")
   amount                 Int
+  /// Snapshot for variable COIN_CHARGE orders (COIN_CUSTOM).
+  coinAmount             Decimal?            @map("coin_amount") @db.Decimal(18, 4)
+  coinKrwRate            Int?                @map("coin_krw_rate")
   status                 PaymentStatus       @default(READY)
   checkoutToken          String?             @unique @map("checkout_token")
   checkoutTokenExpiresAt DateTime?           @map("checkout_token_expires_at") @db.Timestamptz(6)

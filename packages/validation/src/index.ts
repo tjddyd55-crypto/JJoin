@@ -455,6 +455,8 @@ export const updateClubNoticeSchema = z.object({
 export const createPaymentOrderSchema = z
   .object({
     productId: z.string().uuid(),
+    /** Required for COIN_CUSTOM variable top-up; server validates step/min. */
+    coinAmount: z.number().int().positive().optional(),
   })
   .strict();
 

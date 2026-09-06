@@ -235,6 +235,16 @@ export {
 } from './coin-krw';
 
 export {
+  COIN_CUSTOM_PRODUCT_CODE,
+  COIN_PURCHASE_MIN_AMOUNT,
+  COIN_PURCHASE_STEP,
+  isCoinPurchaseStepValid,
+  parseCoinPurchaseInput,
+  validateVariableCoinPurchaseAmount,
+  type VariableCoinPurchaseValidationResult,
+} from './coin-purchase';
+
+export {
   assertCoinProductPricing,
   expectedCoinProductPriceKrw,
   type CoinProductInput,
@@ -528,6 +538,25 @@ export {
   type OwnerDashboardKpi,
   type OwnerDashboardPeriod,
 } from './store-owner-dashboard';
+
+export {
+  buildOwnerParticipantSummary,
+  buildOwnerPeriodStats,
+  buildOwnerSettlementSummary,
+  buildOwnerTodaySummary,
+  isJoinOnKstDate,
+  ownerJoinActionPriority,
+  ownerJoinNeedsSettlement,
+  ownerJoinRecruitLabel,
+  sortOwnerTodayJoins,
+  type OwnerOpsJoinLike,
+  type OwnerOpsParticipantLike,
+  type OwnerOpsSettlementLike,
+  type OwnerParticipantSummary,
+  type OwnerPeriodStats,
+  type OwnerSettlementSummary,
+  type OwnerTodaySummary,
+} from './owner-operations-dashboard';
 
 export {
   RECURRING_AHEAD_WEEKS,

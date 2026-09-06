@@ -1709,6 +1709,8 @@ export type OwnerDashboardPeriod = 'month' | '30d' | 'all';
 export type OwnerStoreDashboardDto = {
   ownershipId: string;
   facilityName: string;
+  ownershipStatus: StoreOwnershipStatus;
+  todayDateKey: string;
   period: OwnerDashboardPeriod;
   kpi: StoreOwnershipKpiDto & {
     reParticipantCount: number;
@@ -1716,6 +1718,69 @@ export type OwnerStoreDashboardDto = {
     urgentAttemptCount: number;
     urgentSucceededCount: number;
   };
+  todaySummary: {
+    scheduledCount: number;
+    recruitingCount: number;
+    settlementPendingCount: number;
+    completedCount: number;
+  };
+  participantSummary: {
+    totalExpected: number;
+    confirmedCount: number;
+    pendingCount: number;
+    noShowCount: number;
+  };
+  settlementSummary: {
+    pendingCount: number;
+    payoutDueCoin: string;
+    holdCoin: string;
+    paidTodayCoin: string;
+  };
+  coinSummary: {
+    availableCoin: string;
+    heldCoin: string;
+    todayRewardPaidCoin: string;
+    joinCreationFeeCoin: number;
+    joinCreationBenefitLabel: string | null;
+  };
+  joinPricing: EffectiveJoinCreationPolicyDto;
+  todayJoins: Array<{
+    joinId: string;
+    title: string | null;
+    startAt: string;
+    status: JoinStatus;
+    plannedPlayerCount: number;
+    confirmedPlayerCount: number;
+    recruitLabel: string;
+    needsSettlement: boolean;
+    isUrgent: boolean;
+  }>;
+  periodStats: {
+    last7Days: {
+      createdJoinCount: number;
+      completedJoinCount: number;
+      participantCount: number;
+      attendedCount: number;
+      noShowCount: number;
+      fillRatePercent: number | null;
+    };
+    last30Days: {
+      createdJoinCount: number;
+      completedJoinCount: number;
+      participantCount: number;
+      attendedCount: number;
+      noShowCount: number;
+      fillRatePercent: number | null;
+    };
+  };
+  recentNotifications: Array<{
+    id: string;
+    type: string;
+    title: string;
+    body: string;
+    createdAt: string;
+    readAt: string | null;
+  }>;
   recentJoins: Array<{
     joinId: string;
     startAt: string;
@@ -2238,6 +2303,8 @@ export type PublicPaymentConfigDto = {
 
 export type CreatePaymentOrderRequest = {
   productId: string;
+  /** Variable coin top-up amount (10 Coin step). Ignored for fixed catalog products. */
+  coinAmount?: number;
 };
 
 export type CreatePaymentOrderResponse = {

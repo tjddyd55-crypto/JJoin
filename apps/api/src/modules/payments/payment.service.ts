@@ -10,6 +10,8 @@ import {
 import {
   maskSecretKey,
   assertCoinProductPricing,
+  COIN_CUSTOM_PRODUCT_CODE,
+  validateVariableCoinPurchaseAmount,
 } from '@jjoin/domain';
 import {
   CoinIssuanceType,
@@ -164,13 +166,37 @@ export class PaymentService {
     });
     if (!product || !product.active) throw new NotFoundException('payment_product_not_found');
 
+    let orderAmount = product.price;
+    let orderName = product.name;
+    let snapshotCoinAmount: Prisma.Decimal | null = null;
+    let snapshotCoinKrwRate: number | null = null;
+
     if (product.type === PaymentProductType.COIN_CHARGE) {
-      const coinAmount = product.coinAmount ? Number(product.coinAmount) : 0;
-      try {
-        assertCoinProductPricing({ coinAmount, priceKrw: product.price });
-      } catch {
-        throw new BadRequestException('coin_product_price_mismatch');
+      if (product.code === COIN_CUSTOM_PRODUCT_CODE) {
+        const validated = validateVariableCoinPurchaseAmount(parsed.data.coinAmount);
+        if (!validated.ok) {
+          throw new BadRequestException({
+            code: validated.code,
+            message: validated.message,
+          });
+        }
+        orderAmount = validated.priceKrw;
+        snapshotCoinAmount = new Prisma.Decimal(validated.coinAmount);
+        snapshotCoinKrwRate = validated.coinKrwRate;
+        orderName = `코인 충전 ${validated.coinAmount} Coin`;
+      } else {
+        if (parsed.data.coinAmount != null) {
+          throw new BadRequestException('coin_amount_not_allowed_for_fixed_product');
+        }
+        const coinAmount = product.coinAmount ? Number(product.coinAmount) : 0;
+        try {
+          assertCoinProductPricing({ coinAmount, priceKrw: product.price });
+        } catch {
+          throw new BadRequestException('coin_product_price_mismatch');
+        }
       }
+    } else if (parsed.data.coinAmount != null) {
+      throw new BadRequestException('coin_amount_not_allowed_for_product');
     }
 
     const settings = await this.loadProviderSettings();
@@ -203,7 +229,9 @@ export class PaymentService {
         productId: product.id,
         type: product.type,
         orderId,
-        amount: product.price,
+        amount: orderAmount,
+        coinAmount: snapshotCoinAmount,
+        coinKrwRate: snapshotCoinKrwRate,
         status: PaymentStatus.READY,
         checkoutToken,
         checkoutTokenExpiresAt,
@@ -218,8 +246,8 @@ export class PaymentService {
     return {
       paymentId: payment.id,
       orderId,
-      amount: product.price,
-      orderName: product.name,
+      amount: orderAmount,
+      orderName,
       clientKey: settings.clientKey!,
       checkoutToken,
       checkoutUrl,
@@ -656,7 +684,7 @@ export class PaymentService {
       let premiumNewlyActivated = false;
 
       if (payment.type === PaymentProductType.COIN_CHARGE) {
-        const coinAmount = payment.product.coinAmount;
+        const coinAmount = payment.coinAmount ?? payment.product.coinAmount;
         if (!coinAmount) throw new BadRequestException('invalid_coin_product');
         const amountStr = String(coinAmount);
         const result = await this.ledger.issueCoins(
@@ -667,12 +695,17 @@ export class PaymentService {
             idempotencyKey: `payment-purchase:${payment.id}`,
             referenceType: 'PAYMENT',
             referenceId: payment.id,
-            reason: payment.product.name,
+            reason: payment.product.code === COIN_CUSTOM_PRODUCT_CODE
+              ? `코인 충전 ${amountStr} Coin`
+              : payment.product.name,
             metadata: {
               paymentId: payment.id,
               productId: payment.productId,
               provider: PaymentProviderKind.TOSS,
               orderId: payment.orderId,
+              coinAmount: amountStr,
+              priceKrw: payment.amount,
+              coinKrwRate: payment.coinKrwRate ?? null,
             },
           },
           tx,

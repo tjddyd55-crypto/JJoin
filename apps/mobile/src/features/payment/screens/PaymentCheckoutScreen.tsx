@@ -52,12 +52,14 @@ export function PaymentCheckoutScreen() {
   const { refreshMe } = useSession();
   const params = useLocalSearchParams<{
     productId?: string;
+    coinAmount?: string;
     returnTo?: string;
     billingAuthUrl?: string;
     customerKey?: string;
     plan?: string;
   }>();
   const productId = params.productId ?? '';
+  const coinAmountParam = params.coinAmount ?? '';
   const returnTo = (
     params.returnTo === 'premium'
       ? 'premium'
@@ -301,7 +303,12 @@ export function PaymentCheckoutScreen() {
     let cancelled = false;
     void (async () => {
       try {
-        const created = await api.createPaymentOrder({ productId });
+        const created = await api.createPaymentOrder({
+          productId,
+          ...(coinAmountParam
+            ? { coinAmount: Number(coinAmountParam) }
+            : {}),
+        });
         if (cancelled) return;
         const withWebViewCallback: CreatePaymentOrderResponse = {
           ...created,
@@ -322,7 +329,7 @@ export function PaymentCheckoutScreen() {
     return () => {
       cancelled = true;
     };
-  }, [api, billingAuthUrl, productId, returnTo]);
+  }, [api, billingAuthUrl, coinAmountParam, productId, returnTo]);
 
   const webSourceUrl =
     returnTo === 'premium-billing' ? billingUrl : order?.checkoutUrl ?? null;
