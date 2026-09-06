@@ -4,8 +4,10 @@ import { StoreJoinsController } from './store-joins.controller';
 import { RecurringJoinController } from './recurring-join.controller';
 import { AdminJoinCoinPolicyController } from './admin-join-coin-policy.controller';
 import { MeJoinCoinPolicyController } from './me-join-coin-policy.controller';
+import { JoinWaitlistController } from './join-waitlist.controller';
 import { JoinsService } from './joins.service';
 import { MatchingJoinsService } from './matching-joins.service';
+import { JoinWaitlistService } from './join-waitlist.service';
 import { RecurringJoinService } from './recurring-join.service';
 import { JoinDiscoveryService } from './join-discovery.service';
 import { JoinCreationCoinPolicyService } from './join-creation-coin-policy.service';
@@ -35,6 +37,7 @@ import { AdminGuard } from '../../common/admin.guard';
     forwardRef(() => ClubsModule),
   ],
   controllers: [
+    JoinWaitlistController,
     JoinsController,
     StoreJoinsController,
     RecurringJoinController,
@@ -45,6 +48,7 @@ import { AdminGuard } from '../../common/admin.guard';
     JoinsService,
     JoinDiscoveryService,
     MatchingJoinsService,
+    JoinWaitlistService,
     RecurringJoinService,
     JoinCreationCoinPolicyService,
     AdminGuard,
@@ -53,6 +57,7 @@ import { AdminGuard } from '../../common/admin.guard';
     JoinsService,
     JoinDiscoveryService,
     MatchingJoinsService,
+    JoinWaitlistService,
     RecurringJoinService,
     JoinCreationCoinPolicyService,
   ],

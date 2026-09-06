@@ -24,6 +24,7 @@
     "sync:public-golf-facilities": "pnpm exec tsx scripts/run-public-golf-facility-sync.ts",
     "sync:public-golf-facilities:force": "pnpm exec tsx scripts/run-public-golf-facility-sync.ts --force",
     "matching-deadline": "pnpm exec tsx scripts/run-matching-deadline.ts",
+    "waitlist-offer-expiry": "pnpm exec tsx scripts/run-waitlist-offer-expiry.ts",
     "chat-purge": "pnpm exec tsx scripts/run-chat-purge.ts",
     "recurring-joins": "pnpm exec tsx scripts/run-recurring-joins.ts",
     "notification-delivery": "pnpm exec tsx scripts/run-notification-delivery.ts",

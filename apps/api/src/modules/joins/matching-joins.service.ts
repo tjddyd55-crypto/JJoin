@@ -52,6 +52,7 @@ import { JoinsService } from './joins.service';
 import { JoinEngagementNotifyService } from '../engagement/join-engagement-notify.service';
 import { JoinChatService } from '../join-loop/join-chat.service';
 import { UrgentVacancyService } from '../join-loop/urgent-vacancy.service';
+import { JoinWaitlistService } from './join-waitlist.service';
 
 const MATCHING_OPEN_STATUSES: JoinStatus[] = [JoinStatus.OPEN, JoinStatus.FULL];
 
@@ -72,6 +73,8 @@ export class MatchingJoinsService {
     private readonly joinChat: JoinChatService,
     @Inject(forwardRef(() => UrgentVacancyService))
     private readonly urgentVacancy: UrgentVacancyService,
+    @Inject(forwardRef(() => JoinWaitlistService))
+    private readonly waitlist: JoinWaitlistService,
   ) {}
 
   async create(hostUserId: string, raw: CreateStoreMatchingJoinRequest): Promise<JoinDetailDto> {
@@ -308,6 +311,8 @@ export class MatchingJoinsService {
         },
         data: { participationStatus: 'CANCELLED', cancelledAt: new Date() },
       });
+
+      await this.waitlist.terminalizeForJoinCancel(joinId, tx);
 
       await tx.join.update({
         where: { id: joinId },
@@ -698,6 +703,7 @@ export class MatchingJoinsService {
 
     void this.joinChat.removeMember(joinId, userId);
     void this.urgentVacancy.clearIfNeeded(joinId);
+    void this.waitlist.processWaitlistForJoin(joinId);
 
     return this.joins.getDetail(joinId, userId);
   }
@@ -753,6 +759,7 @@ export class MatchingJoinsService {
           },
           data: { participationStatus: 'CANCELLED', cancelledAt: now },
         });
+        await this.waitlist.terminalizeForJoinCancel(joinId, tx);
         const cancelled = await tx.join.updateMany({
           where: { id: joinId, status: { in: ['OPEN', 'FULL'] } },
           data: { status: 'CANCELLED', cancelledAt: now },

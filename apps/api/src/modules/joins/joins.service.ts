@@ -32,9 +32,10 @@ import {
   SCREEN_GOLF_DURATION_RULE,
   assertPublicProfileHasNoPrivateFields,
   canAffordJoinCreate,
-  canApplyMatchingGenderSlot,
   compareJoinDiscoveryPriority,
   computeConfirmedPlayerCount,
+  canDirectJoinGenderSlot,
+  canDirectJoinGeneralCapacity,
   computeJoinCoinRequirement,
   countMatchingGenderComposition,
   createJoinShareSlug,
@@ -90,6 +91,7 @@ import { JoinChatService } from '../join-loop/join-chat.service';
 import { ClubJoinLinkService } from '../clubs/club-join-link.service';
 import { PremiumService } from '../payments/premium.service';
 import { JoinCreationCoinPolicyService } from './join-creation-coin-policy.service';
+import { JoinWaitlistService } from './join-waitlist.service';
 import type { AttendanceIntent } from '@jjoin/types';
 
 const ACTIVE_JOIN_STATUSES: JoinStatus[] = [JoinStatus.OPEN, JoinStatus.FULL];
@@ -120,6 +122,8 @@ export class JoinsService {
     private readonly clubJoinLink: ClubJoinLinkService,
     private readonly premium: PremiumService,
     private readonly joinCreationCoinPolicy: JoinCreationCoinPolicyService,
+    @Inject(forwardRef(() => JoinWaitlistService))
+    private readonly waitlist: JoinWaitlistService,
   ) {}
 
   ping() {
@@ -803,6 +807,7 @@ export class JoinsService {
     const applicantGender = applicant.profile.gender;
 
     await this.prisma.$transaction(async (tx) => {
+      await this.waitlist.lockJoinRowForCapacity(tx, joinId);
       const join = await tx.join.findUnique({
         where: { id: joinId },
         include: {
@@ -830,31 +835,50 @@ export class JoinsService {
       }
 
       const existing = join.participants.find((p) => p.userId === userId);
-      if (existing && existing.participationStatus !== 'CANCELLED') {
-        throw new ConflictException('already_applied');
+      if (existing) {
+        if (existing.participationStatus === 'OFFERED') {
+          throw new ConflictException('use_waitlist_accept');
+        }
+        const reusable = ['CANCELLED', 'WAITLISTED', 'WAITLIST_EXPIRED'].includes(
+          existing.participationStatus,
+        );
+        if (!reusable) {
+          throw new ConflictException('already_applied');
+        }
       }
 
-      const confirmedGenders = join.participants
-        .filter(
-          (p) =>
-            p.role !== 'HOST' &&
-            p.id !== existing?.id &&
-            (p.participationStatus === 'APPROVED' || p.participationStatus === 'CONFIRMED'),
-        )
-        .map((p) => p.user.profile?.gender ?? null);
+      const rosterRows = join.participants
+        .filter((p) => p.id !== existing?.id && p.role !== 'HOST')
+        .map((p) => ({
+          role: p.role,
+          participationStatus: p.participationStatus,
+          gender: (p.user.profile?.gender ?? null) as 'MALE' | 'FEMALE' | null,
+        }));
 
-      if (
-        !canApplyMatchingGenderSlot({
-          applicantGender,
-          targetMaleCount: join.targetMaleCount ?? 0,
-          targetFemaleCount: join.targetFemaleCount ?? 0,
-          confirmedGenders,
+      const hasGenderQuota =
+        (join.targetMaleCount ?? 0) > 0 || (join.targetFemaleCount ?? 0) > 0;
+
+      if (hasGenderQuota) {
+        if (
+          !canDirectJoinGenderSlot({
+            applicantGender: applicantGender,
+            targetMaleCount: join.targetMaleCount ?? 0,
+            targetFemaleCount: join.targetFemaleCount ?? 0,
+            participants: rosterRows,
+          })
+        ) {
+          throw new BadRequestException({
+            code: 'GENDER_SLOT_FULL',
+            message: '해당 성별 모집 인원이 마감되었습니다.',
+          });
+        }
+      } else if (
+        !canDirectJoinGeneralCapacity({
+          plannedPlayerCount: join.plannedPlayerCount,
+          participants: rosterRows,
         })
       ) {
-        throw new BadRequestException({
-          code: 'GENDER_SLOT_FULL',
-          message: '해당 성별 모집 인원이 마감되었습니다.',
-        });
+        throw new BadRequestException('join_full');
       }
 
       const now = new Date();
@@ -1249,6 +1273,8 @@ export class JoinsService {
   private toDetail(
     join: {
       id: string;
+      hostUserId: string;
+      coinAssetId: string;
       status: string;
       joinMethod: string;
       joinKind?: string;
@@ -1305,6 +1331,8 @@ export class JoinsService {
         attendanceIntentAt?: Date | null;
         appliedAt: Date;
         approvedAt: Date | null;
+        offeredAt?: Date | null;
+        offerExpiresAt?: Date | null;
         user: { profile: { nickname: string; gender?: string | null } | null; identityStatus?: string };
       }>;
       chatRoom?: {
@@ -1332,8 +1360,23 @@ export class JoinsService {
     );
     assertPublicProfileHasNoPrivateFields(hostProfile as unknown as Record<string, unknown>);
 
-    const participants: JoinParticipantDto[] = join.participants.map((p) => {
+    const participants: JoinParticipantDto[] = join.participants
+      .filter((p) => {
+        const waitlistStatus = ['WAITLISTED', 'WAITLIST_EXPIRED'].includes(p.participationStatus);
+        if (!waitlistStatus) return true;
+        return viewerUserId != null && p.userId === viewerUserId;
+      })
+      .map((p) => {
       const reliability = extras?.reliabilityByUserId?.get(p.userId);
+      const waitlistPosition = this.waitlist.enrichParticipantWaitlistPosition(
+        join.participants.map((row) => ({
+          id: row.id,
+          participationStatus: row.participationStatus,
+          appliedAt: row.appliedAt,
+        })),
+        p.id,
+        p.participationStatus,
+      );
       return {
         participantId: p.id,
         userId: p.userId,
@@ -1345,6 +1388,9 @@ export class JoinsService {
         verifiedBadge: true,
         appliedAt: p.appliedAt.toISOString(),
         approvedAt: p.approvedAt?.toISOString() ?? null,
+        offeredAt: p.offeredAt?.toISOString() ?? null,
+        offerExpiresAt: p.offerExpiresAt?.toISOString() ?? null,
+        waitlistPosition,
         gender: (p.user.profile?.gender as JoinParticipantDto['gender']) ?? null,
         completedJoinCount: reliability?.completedCount,
         noShowCount: reliability?.noShowCount,
@@ -1390,6 +1436,44 @@ export class JoinsService {
         })
       : false;
 
+    const isHost = viewerUserId != null && join.host.id === viewerUserId;
+    const waitlistExtras = this.waitlist.computeWaitlistExtras(
+      {
+        id: join.id,
+        hostUserId: join.hostUserId,
+        joinKind: join.joinKind ?? 'STANDARD',
+        status: join.status,
+        plannedPlayerCount: join.plannedPlayerCount,
+        confirmedPlayerCount: join.confirmedPlayerCount,
+        startAt: join.startAt,
+        scheduledEndAt: join.scheduledEndAt,
+        recruitClosesAt: join.recruitClosesAt ?? null,
+        targetMaleCount: join.targetMaleCount ?? null,
+        targetFemaleCount: join.targetFemaleCount ?? null,
+        rewardPerParticipant: join.rewardPerParticipant,
+        coinAssetId: join.coinAssetId,
+        participants: join.participants.map((p) => ({
+          id: p.id,
+          userId: p.userId,
+          role: p.role,
+          participationStatus: p.participationStatus,
+          appliedAt: p.appliedAt,
+          offeredAt: p.offeredAt ?? null,
+          offerExpiresAt: p.offerExpiresAt ?? null,
+          user: {
+            profile: p.user.profile
+              ? {
+                  nickname: p.user.profile.nickname,
+                  gender: p.user.profile.gender ?? null,
+                }
+              : null,
+          },
+        })),
+      },
+      viewerUserId ?? null,
+      isHost,
+    );
+
     return {
       joinId: join.id,
       status: join.status as JoinStatus,
@@ -1425,6 +1509,8 @@ export class JoinsService {
       host: hostProfile,
       myParticipation: mine,
       participants,
+      waitlistAvailable: waitlistExtras.waitlistAvailable,
+      waitlistCount: waitlistExtras.waitlistCount,
       ...matchingExtras,
     };
   }

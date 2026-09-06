@@ -16,6 +16,7 @@ import type { JoinDetailDto, SetAttendanceIntentRequest } from '@jjoin/types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JoinsService } from '../joins/joins.service';
 import { MatchingJoinsService } from '../joins/matching-joins.service';
+import { JoinWaitlistService } from '../joins/join-waitlist.service';
 import { JoinChatService } from './join-chat.service';
 
 @Injectable()
@@ -28,6 +29,8 @@ export class AttendanceIntentService {
     private readonly matchingJoins: MatchingJoinsService,
     @Inject(forwardRef(() => JoinChatService))
     private readonly chat: JoinChatService,
+    @Inject(forwardRef(() => JoinWaitlistService))
+    private readonly waitlist: JoinWaitlistService,
   ) {}
 
   async setIntent(
@@ -82,6 +85,7 @@ export class AttendanceIntentService {
 
     await this.declineStandard(joinId, userId, mine.id);
     await this.chat.removeMember(joinId, userId);
+    void this.waitlist.processWaitlistForJoin(joinId);
     return this.joins.getDetail(joinId, userId);
   }
 
