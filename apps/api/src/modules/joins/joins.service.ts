@@ -24,6 +24,7 @@ import {
   type JoinListItemDto,
   type JoinParticipantDto,
   type JoinPrefillDto,
+  JoinPreferredGender,
   type MatchingJoinExtras,
   type MyJoinsResponse,
   type PublicUserProfileDto,
@@ -63,6 +64,7 @@ import {
   localDayKey,
   computeCoinShortfall,
   joinCreatorUserTypeLabelKo,
+  validateJoinMemberPreferences,
 } from '@jjoin/domain';
 import { createJoinSchema, joinCoinPreviewSchema } from '@jjoin/validation';
 import { Prisma } from '@prisma/client';
@@ -194,6 +196,15 @@ export class JoinsService {
       throw new BadRequestException('invalid_create_join');
     }
     const input = parsed.data;
+    const memberPrefs = {
+      preferredGender: (input.preferredGender ?? null) as JoinPreferredGender | null,
+      minAge: input.minAge ?? null,
+      maxAge: input.maxAge ?? null,
+    };
+    const prefValidation = validateJoinMemberPreferences(memberPrefs);
+    if (!prefValidation.ok) {
+      throw new BadRequestException(prefValidation.code);
+    }
     const startAt = new Date(input.startAt);
     if (Number.isNaN(startAt.getTime()) || startAt.getTime() <= Date.now()) {
       throw new BadRequestException('start_at_must_be_future');
@@ -349,6 +360,9 @@ export class JoinsService {
             creatorUserType: creationSnapshot.creatorUserType,
             creationCoinEnabled: creationSnapshot.creationCoinEnabled,
             rewardHoldTotalAmount: new Prisma.Decimal(requirement.rewardHoldTotal),
+            preferredGender: memberPrefs.preferredGender ?? undefined,
+            minAge: memberPrefs.minAge ?? undefined,
+            maxAge: memberPrefs.maxAge ?? undefined,
             participants: {
               create: {
                 userId: hostUserId,
@@ -1299,6 +1313,9 @@ export class JoinsService {
       rewardPerParticipant: Prisma.Decimal;
       roomCreationFeeAmount: Prisma.Decimal;
       rewardHoldTotalAmount: Prisma.Decimal;
+      preferredGender?: string | null;
+      minAge?: number | null;
+      maxAge?: number | null;
       sport: { code: string };
       venue: {
         id: string;
@@ -1511,6 +1528,9 @@ export class JoinsService {
       participants,
       waitlistAvailable: waitlistExtras.waitlistAvailable,
       waitlistCount: waitlistExtras.waitlistCount,
+      preferredGender: (join.preferredGender as JoinPreferredGender | null) ?? null,
+      minAge: join.minAge ?? null,
+      maxAge: join.maxAge ?? null,
       ...matchingExtras,
     };
   }

@@ -46,6 +46,7 @@ import {
   type JoinDiscoveryRegionMode,
   type JoinDiscoverySort,
   type JoinStatus,
+  JoinPreferredGender,
   type MatchingJoinExtras,
 } from '@jjoin/types';
 import { Prisma } from '@prisma/client';
@@ -112,6 +113,9 @@ type DiscoveryJoinRow = {
   cancelledAt: Date | null;
   rewardPerParticipant: Prisma.Decimal;
   hostUserId: string;
+  preferredGender?: string | null;
+  minAge?: number | null;
+  maxAge?: number | null;
   venue: {
     id: string;
     name: string;
@@ -715,6 +719,9 @@ export class JoinDiscoveryService {
       canJoinState,
       ctaLabel,
       golfFacilityId: gf?.id ?? null,
+      preferredGender: (row.preferredGender as JoinPreferredGender | null) ?? null,
+      minAge: row.minAge ?? null,
+      maxAge: row.maxAge ?? null,
       ...matchingExtras,
     };
   }

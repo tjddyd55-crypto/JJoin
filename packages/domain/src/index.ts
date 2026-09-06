@@ -593,6 +593,15 @@ export {
 } from './recurring-join-schedule';
 
 export {
+  JOIN_MEMBER_MAX_AGE,
+  JOIN_MEMBER_MIN_AGE,
+  formatJoinMemberPreferenceSummary,
+  hasJoinMemberPreferences,
+  validateJoinMemberPreferences,
+  type JoinMemberPreferenceInput,
+} from './join-member-preferences';
+
+export {
   RECOMMENDATION_WEIGHTS,
   RECOMMEND_REASON_LABEL_KO,
   RECOMMEND_REASON_SHORT_LABEL_KO,

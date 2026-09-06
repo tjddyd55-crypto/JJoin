@@ -87,10 +87,22 @@ export const createJoinSchema = z
     idempotencyKey: z.string().trim().min(8).max(120).optional(),
     clubId: z.string().uuid().optional(),
     clubEventId: z.string().uuid().optional(),
+    preferredGender: z.enum(['ANY', 'MALE', 'FEMALE']).optional().nullable(),
+    minAge: z.number().int().min(18).max(70).optional().nullable(),
+    maxAge: z.number().int().min(18).max(70).optional().nullable(),
   })
   .refine((v) => Boolean(v.venueId || v.venue), {
     message: 'venue_or_venueId_required',
-  });
+  })
+  .refine(
+    (v) => {
+      const min = v.minAge ?? null;
+      const max = v.maxAge ?? null;
+      if (min != null && max != null) return min <= max;
+      return true;
+    },
+    { message: 'invalid_age_range' },
+  );
 
 export type CreateJoinInput = z.infer<typeof createJoinSchema>;
 
