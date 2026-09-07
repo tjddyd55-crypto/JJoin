@@ -8,20 +8,34 @@ import {
   StickyActionFrame,
   Text,
 } from '@jjoin/design-system';
+import { SCREEN_HANDICAP_MAX, SCREEN_HANDICAP_MIN } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
 import { profileEditSchema } from '@jjoin/validation';
 import { SportSkillLevel } from '@jjoin/types';
 import { useSession } from '../../../session/SessionContext';
 import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
 
+function parseScreenHandicapInput(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const n = Number.parseInt(trimmed, 10);
+  if (!Number.isFinite(n) || !Number.isInteger(n)) return null;
+  if (n < SCREEN_HANDICAP_MIN || n > SCREEN_HANDICAP_MAX) return null;
+  return n;
+}
+
 export function EditProfileScreen() {
   const { me, editProfile } = useSession();
   const router = useRouter();
+  const golfProfile = me?.publicProfile?.sportProfiles.find((s) => s.sportCode === 'SCREEN_GOLF');
   const [nickname, setNickname] = useState(me?.publicProfile?.nickname ?? '');
   const [regionLabel, setRegionLabel] = useState(me?.publicProfile?.regionLabel ?? '');
   const [bio, setBio] = useState(me?.publicProfile?.bio ?? '');
+  const [screenHandicapText, setScreenHandicapText] = useState(
+    golfProfile?.screenHandicap != null ? String(golfProfile.screenHandicap) : '',
+  );
   const [skillLevel, setSkillLevel] = useState<SportSkillLevel>(
-    me?.publicProfile?.sportProfiles[0]?.skillLevel ?? SportSkillLevel.BEGINNER,
+    golfProfile?.skillLevel ?? SportSkillLevel.BEGINNER,
   );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -32,6 +46,7 @@ export function EditProfileScreen() {
       regionLabel,
       bio,
       skillLevel,
+      screenHandicap: parseScreenHandicapInput(screenHandicapText),
       sportCode: 'SCREEN_GOLF',
     });
     if (!parsed.success) {
@@ -86,10 +101,11 @@ export function EditProfileScreen() {
       />
       <Spacer size="sm" />
       <Input
-        label={t('field.skill')}
-        value={skillLevel}
-        onChangeText={(v) => setSkillLevel(v as SportSkillLevel)}
-        autoCapitalize="characters"
+        label="스크린 핸디"
+        value={screenHandicapText}
+        onChangeText={(v) => setScreenHandicapText(v.replace(/[^\d-]/g, ''))}
+        keyboardType="numbers-and-punctuation"
+        placeholder={`${SCREEN_HANDICAP_MIN}~${SCREEN_HANDICAP_MAX}, 미입력 가능`}
         autoCorrect={false}
       />
       {error ? (

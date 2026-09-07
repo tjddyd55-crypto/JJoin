@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+const SCREEN_HANDICAP_MIN = -10;
+const SCREEN_HANDICAP_MAX = 54;
+
 export const nicknameSchema = z
   .string()
   .trim()
@@ -28,6 +31,7 @@ export const profileEditSchema = z.object({
     .enum(['TEENS', 'TWENTIES', 'THIRTIES', 'FORTIES', 'FIFTIES_PLUS', 'UNSPECIFIED'])
     .optional(),
   skillLevel: z.enum(['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'PRO']).optional(),
+  screenHandicap: z.number().int().min(SCREEN_HANDICAP_MIN).max(SCREEN_HANDICAP_MAX).nullable().optional(),
   sportCode: z.string().default('SCREEN_GOLF'),
   avatarUrl: z.string().url().nullable().optional(),
 });
@@ -58,6 +62,63 @@ export const activateVenueSchema = z.object({
 });
 
 export type ActivateVenueInput = z.infer<typeof activateVenueSchema>;
+
+function refineJoinRoomCharacterHandicap(
+  v: {
+    participantSkillMode?: 'ANY' | 'BEGINNER_OK' | 'HANDICAP_RANGE' | null;
+    minScreenHandicap?: number | null;
+    maxScreenHandicap?: number | null;
+  },
+  ctx: z.RefinementCtx,
+) {
+  const mode = v.participantSkillMode ?? 'ANY';
+  if (mode === 'HANDICAP_RANGE') {
+    if (v.minScreenHandicap == null || v.maxScreenHandicap == null) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'handicap_range_required' });
+      return;
+    }
+    if (v.minScreenHandicap > v.maxScreenHandicap) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'invalid_handicap_range' });
+    }
+  }
+}
+
+export const joinRoomCharacterFieldsObjectSchema = z.object({
+  participantSkillMode: z.enum(['ANY', 'BEGINNER_OK', 'HANDICAP_RANGE']).optional().nullable(),
+  minScreenHandicap: z.number().int().min(SCREEN_HANDICAP_MIN).max(SCREEN_HANDICAP_MAX).optional().nullable(),
+  maxScreenHandicap: z.number().int().min(SCREEN_HANDICAP_MIN).max(SCREEN_HANDICAP_MAX).optional().nullable(),
+  gameStyle: z.enum(['FRIENDLY', 'LIGHT_GAME', 'DECIDE_ON_SITE']).optional().nullable(),
+  gameMemo: z.string().trim().max(500).nullable().optional(),
+  afterPlan: z.enum(['NONE', 'MEAL_OR_DRINK', 'DECIDE_ON_SITE']).optional().nullable(),
+  afterMemo: z.string().trim().max(500).nullable().optional(),
+});
+
+export const joinRoomCharacterFieldsSchema = joinRoomCharacterFieldsObjectSchema.superRefine(
+  refineJoinRoomCharacterHandicap,
+);
+
+export const updateJoinSchema = z
+  .object({
+    title: z.string().trim().max(80).nullable().optional(),
+    description: z.string().trim().max(500).nullable().optional(),
+    joinMethod: z.enum(['OPEN', 'APPROVAL']).optional(),
+    preferredGender: z.enum(['ANY', 'MALE', 'FEMALE']).optional().nullable(),
+    minAge: z.number().int().min(18).max(70).optional().nullable(),
+    maxAge: z.number().int().min(18).max(70).optional().nullable(),
+  })
+  .merge(joinRoomCharacterFieldsObjectSchema)
+  .superRefine(refineJoinRoomCharacterHandicap)
+  .refine(
+    (v) => {
+      const min = v.minAge ?? null;
+      const max = v.maxAge ?? null;
+      if (min != null && max != null) return min <= max;
+      return true;
+    },
+    { message: 'invalid_age_range' },
+  );
+
+export type UpdateJoinInput = z.infer<typeof updateJoinSchema>;
 
 export const createJoinSchema = z
   .object({
@@ -96,6 +157,8 @@ export const createJoinSchema = z
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .optional(),
   })
+  .merge(joinRoomCharacterFieldsObjectSchema)
+  .superRefine(refineJoinRoomCharacterHandicap)
   .refine((v) => Boolean(v.venueId || v.venue), {
     message: 'venue_or_venueId_required',
   })
@@ -286,6 +349,7 @@ export const hostJoinRecurringTemplateSchema = z
     minAge: z.number().int().min(18).max(70).optional().nullable(),
     maxAge: z.number().int().min(18).max(70).optional().nullable(),
   })
+  .merge(joinRoomCharacterFieldsObjectSchema.partial())
   .refine((v) => Boolean(v.venueId || v.venue), {
     message: 'venue_or_venueId_required',
   })
@@ -664,3 +728,54 @@ export const confirmPremiumBillingSchema = z.object({
   customerKey: z.string().trim().min(1).max(200),
   plan: z.enum(['PREMIUM_MONTHLY', 'PREMIUM_YEARLY']),
 });
+
+const optionalTrimmed = (max: number) =>
+  z.string().trim().max(max).nullable().optional();
+
+export const updateServiceOperatorProfileSchema = z.object({
+  businessName: optionalTrimmed(120),
+  brandName: optionalTrimmed(120),
+  representativeName: optionalTrimmed(120),
+  businessRegistrationNumber: optionalTrimmed(20),
+  ecommerceRegistrationNumber: optionalTrimmed(80),
+  corporateRegistrationNumber: optionalTrimmed(20),
+  businessAddress: optionalTrimmed(300),
+  customerServicePhone: optionalTrimmed(20),
+  customerServiceEmail: optionalTrimmed(120),
+  customerServiceHours: optionalTrimmed(200),
+  privacyOfficerName: optionalTrimmed(120),
+  privacyOfficerTitle: optionalTrimmed(80),
+  privacyDepartment: optionalTrimmed(120),
+  privacyEmail: optionalTrimmed(120),
+  privacyPhone: optionalTrimmed(20),
+  paymentInquiryPhone: optionalTrimmed(20),
+  paymentInquiryEmail: optionalTrimmed(120),
+});
+
+export type UpdateServiceOperatorProfileInput = z.infer<
+  typeof updateServiceOperatorProfileSchema
+>;
+
+const httpsUrlSchema = z
+  .string()
+  .trim()
+  .max(2048)
+  .refine((value) => {
+    if (!value) return true;
+    try {
+      return new URL(value).protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }, 'apk_url_must_be_https');
+
+export const updateMobileAndroidReleaseSchema = z.object({
+  latestVersionCode: z.number().int().min(0).optional(),
+  latestVersionName: z.string().trim().min(1).max(32).optional(),
+  apkUrl: httpsUrlSchema.optional(),
+  releaseNotes: z.string().trim().max(4000).nullable().optional(),
+});
+
+export type UpdateMobileAndroidReleaseInput = z.infer<
+  typeof updateMobileAndroidReleaseSchema
+>;

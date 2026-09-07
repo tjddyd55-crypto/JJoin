@@ -24,6 +24,7 @@ export default function JoinDetailLayout() {
         <Stack.Screen name="host-ops" options={{ title: '참석·정산 관리' }} />
         <Stack.Screen name="chat" options={{ title: '조인 채팅' }} />
         <Stack.Screen name="invite" options={{ title: '참가자 초대' }} />
+        <Stack.Screen name="edit" options={{ title: '조인 정보 수정' }} />
       </Stack>
     </>
   );

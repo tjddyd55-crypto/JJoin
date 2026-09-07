@@ -9,6 +9,7 @@ import {
   UserAvatar,
   spacing,
 } from '@jjoin/design-system';
+import { formatScreenHandicap } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
 import type { PlayerReviewPublicDto, PublicUserProfileDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
@@ -108,9 +109,11 @@ export function PublicProfileScreen() {
         </AppText>
         {profile.bio ? <AppText variant="body">{profile.bio}</AppText> : null}
         <AppText variant="label" color="textSecondary">
-          {t('profile.skill')}
+          스크린 핸디
         </AppText>
-        <AppText variant="body">{skill?.skillLevel ?? '-'}</AppText>
+        <AppText variant="body">
+          {formatScreenHandicap(skill?.screenHandicap ?? null) ?? '미설정'}
+        </AppText>
         <AppText variant="label" color="textSecondary">
           조인 활동
         </AppText>

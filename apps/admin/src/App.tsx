@@ -33,6 +33,8 @@ import {
   type UpdatePremiumPlanSettingsRequest,
 } from '@jjoin/types';
 import { COIN_KRW_RATE, coinToKrw, formatKoreanPhoneDisplay, formatNumber } from '@jjoin/domain';
+import { ServiceOperatorProfilePage } from './ServiceOperatorProfilePage';
+import { MobileAndroidReleasePage } from './MobileAndroidReleasePage';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:3000';
 const TOKEN_KEY = 'jjoin_admin_token';
@@ -159,6 +161,8 @@ function Shell({ children }: { children: React.ReactNode }) {
   const analyticsActive = loc.pathname.startsWith('/analytics');
   const paymentsActive = loc.pathname.startsWith('/payments') || loc.pathname.startsWith('/payment-settings');
   const joinCoinPolicyActive = loc.pathname.startsWith('/join-coin-policy');
+  const serviceOperatorActive = loc.pathname.startsWith('/service-operator-profile');
+  const mobileReleaseActive = loc.pathname.startsWith('/mobile-release');
   if (!token) {
     return (
       <div className="layout layout-wide">
@@ -199,6 +203,18 @@ function Shell({ children }: { children: React.ReactNode }) {
         </Link>
         <Link to="/join-coin-policy" className={joinCoinPolicyActive ? 'nav-active' : undefined}>
           조인 생성 코인
+        </Link>
+        <Link
+          to="/service-operator-profile"
+          className={serviceOperatorActive ? 'nav-active' : undefined}
+        >
+          운영 정보
+        </Link>
+        <Link
+          to="/mobile-release/android"
+          className={mobileReleaseActive ? 'nav-active' : undefined}
+        >
+          앱 버전 관리
         </Link>
         <button
           onClick={() => {
@@ -1743,6 +1759,14 @@ export function App() {
         <Route path="/payment-settings" element={<PaymentSettingsPage />} />
         <Route path="/payments" element={<PaymentsAdminListPage />} />
         <Route path="/join-coin-policy" element={<JoinCoinPolicyPage />} />
+        <Route
+          path="/service-operator-profile"
+          element={<ServiceOperatorProfilePage api={api} />}
+        />
+        <Route
+          path="/mobile-release/android"
+          element={<MobileAndroidReleasePage api={api} />}
+        />
         <Route path="/premium-plans" element={<PremiumPlansPage />} />
       </Routes>
     </Shell>

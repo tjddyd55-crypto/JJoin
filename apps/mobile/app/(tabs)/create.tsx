@@ -35,6 +35,13 @@ import {
   memberPreferencesPayload,
   memberPreferencesSummaryLabel,
 } from '../../src/features/join-create/components/JoinCreateMemberPreferencesSection';
+import { JoinCreateParticipantSkillSection } from '../../src/features/join-create/components/JoinCreateParticipantSkillSection';
+import { JoinCreateGameAfterSection } from '../../src/features/join-create/components/JoinCreateGameAfterSection';
+import {
+  defaultJoinCreateRoomCharacter,
+  joinRoomCharacterPayload,
+  joinRoomCharacterSummaryLines,
+} from '../../src/features/join-create/model/join-create-room-character';
 import {
   JoinCreateRecurrenceSection,
   type RecurrenceMode,
@@ -140,6 +147,7 @@ export default function CreateScreen() {
   const [description, setDescription] = useState('');
   const [joinMethod, setJoinMethod] = useState<JoinMethod>(JoinMethod.APPROVAL);
   const [memberPrefs, setMemberPrefs] = useState(() => defaultJoinMemberPreferences());
+  const [roomCharacter, setRoomCharacter] = useState(() => defaultJoinCreateRoomCharacter());
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [doneJoinId, setDoneJoinId] = useState<string | null>(null);
@@ -180,6 +188,7 @@ export default function CreateScreen() {
     setDescription('');
     setJoinMethod(JoinMethod.APPROVAL);
     setMemberPrefs(defaultJoinMemberPreferences());
+    setRoomCharacter(defaultJoinCreateRoomCharacter());
     setRecurrenceMode('NONE');
     setRecurrenceUseEndDate(false);
     setRecurrenceEndDate('');
@@ -374,6 +383,7 @@ export default function CreateScreen() {
             description: description.trim() || null,
             rewardPerParticipant,
             ...memberPreferencesPayload(memberPrefs),
+            ...joinRoomCharacterPayload(roomCharacter),
           },
         });
         setDoneRecurringId(schedule.id);
@@ -394,6 +404,7 @@ export default function CreateScreen() {
         clubId: routeClubId,
         clubEventId: routeClubEventId,
         ...memberPreferencesPayload(memberPrefs),
+        ...joinRoomCharacterPayload(roomCharacter),
       });
       if (prefilledInvitees.length > 0) {
         try {
@@ -628,11 +639,15 @@ export default function CreateScreen() {
         ) : null}
 
         {step === 'members' ? (
-          <JoinCreateMemberPreferencesSection value={memberPrefs} onChange={setMemberPrefs} />
+          <>
+            <JoinCreateMemberPreferencesSection value={memberPrefs} onChange={setMemberPrefs} />
+            <JoinCreateParticipantSkillSection value={roomCharacter} onChange={setRoomCharacter} />
+          </>
         ) : null}
 
         {step === 'options' ? (
           <>
+            <JoinCreateGameAfterSection value={roomCharacter} onChange={setRoomCharacter} />
             <Text variant="sectionTitle" tone="primary">승인 방식</Text>
             <View style={styles.row}>
               <Chip
@@ -697,6 +712,11 @@ export default function CreateScreen() {
                 label="원하는 멤버"
                 value={memberPreferencesSummaryLabel(memberPrefs)}
                 onPress={() => setStep('members')}
+              />
+              <JoinCreateSummaryRow
+                label="게임·애프터"
+                value={joinRoomCharacterSummaryLines(roomCharacter).join(' · ')}
+                onPress={() => setStep('options')}
               />
               <JoinCreateSummaryRow
                 label="승인 방식"

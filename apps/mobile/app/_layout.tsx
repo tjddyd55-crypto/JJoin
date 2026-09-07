@@ -16,6 +16,7 @@ import { resolveOnboardingStep } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
 import { isInternalToolsEnabled } from '../src/lib/internal-tools';
 import { PushRegistrationHost } from '../src/features/notifications/PushRegistrationHost';
+import { ProductionReleaseGate } from '../src/features/release/ProductionReleaseGate';
 import { useAppFonts } from '../src/bootstrap/useAppFonts';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
@@ -187,10 +188,11 @@ export default function RootLayout() {
       style={[styles.root, { backgroundColor: clubMinimalTheme.colors.app.background }]}
     >
       <ThemeProvider theme={clubMinimalTheme}>
-        <SessionProvider>
-          <AuthGateBootstrap>
-            <PushBootstrap />
-            <Stack
+        <ProductionReleaseGate>
+          <SessionProvider>
+            <AuthGateBootstrap>
+              <PushBootstrap />
+              <Stack
               screenOptions={{
                 headerShown: false,
                 contentStyle: {
@@ -210,6 +212,7 @@ export default function RootLayout() {
             </Stack>
           </AuthGateBootstrap>
         </SessionProvider>
+        </ProductionReleaseGate>
       </ThemeProvider>
     </GestureHandlerRootView>
   );

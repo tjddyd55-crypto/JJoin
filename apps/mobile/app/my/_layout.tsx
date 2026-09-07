@@ -40,6 +40,7 @@ export default function MyLayout() {
         <Stack.Screen name="account" options={{ title: '계정' }} />
         <Stack.Screen name="notifications" options={{ title: '알림' }} />
         <Stack.Screen name="notification-settings" options={{ title: '알림 설정' }} />
+        <Stack.Screen name="service-info" options={{ title: '서비스 정보' }} />
         <Stack.Screen name="clubs" options={{ headerShown: false }} />
       </Stack>
     </>

@@ -24,6 +24,7 @@ import { JoinLoopModule } from './modules/join-loop/join-loop.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { ClubsModule } from './modules/clubs/clubs.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { PlatformModule } from './modules/platform/platform.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -54,6 +55,7 @@ import { PrismaModule } from './prisma/prisma.module';
     AnalyticsModule,
     ClubsModule,
     PaymentsModule,
+    PlatformModule,
   ],
 })
 export class AppModule {}

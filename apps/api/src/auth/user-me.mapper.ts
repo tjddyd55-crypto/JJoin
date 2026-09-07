@@ -68,6 +68,7 @@ export function buildMeFromUser(
         sportProfiles: user.sportProfiles.map((sp) => ({
           sportCode: sp.sport.code,
           skillLevel: sp.skillLevel as SportSkillLevel,
+          screenHandicap: sp.screenHandicap ?? null,
         })),
         participationCount,
       }

@@ -648,6 +648,7 @@ model UserSportProfile {
   userId     String   @map("user_id") @db.Uuid
   sportId    String   @map("sport_id") @db.Uuid
   skillLevel String   @map("skill_level")
+  screenHandicap Int? @map("screen_handicap")
   metadata   Json?
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -788,6 +789,13 @@ model Join {
   preferredGender       JoinPreferredGender?  @map("preferred_gender")
   minAge                Int?                  @map("min_age")
   maxAge                Int?                  @map("max_age")
+  participantSkillMode  JoinParticipantSkillMode @default(ANY) @map("participant_skill_mode")
+  minScreenHandicap     Int?                  @map("min_screen_handicap")
+  maxScreenHandicap     Int?                  @map("max_screen_handicap")
+  gameStyle             JoinGameStyle         @default(FRIENDLY) @map("game_style")
+  gameMemo              String?               @map("game_memo") @db.VarChar(500)
+  afterPlan             JoinAfterPlan         @default(NONE) @map("after_plan")
+  afterMemo             String?               @map("after_memo") @db.VarChar(500)
   createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -885,6 +893,24 @@ enum JoinPreferredGender {
   ANY
   MALE
   FEMALE
+}
+
+enum JoinParticipantSkillMode {
+  ANY
+  BEGINNER_OK
+  HANDICAP_RANGE
+}
+
+enum JoinGameStyle {
+  FRIENDLY
+  LIGHT_GAME
+  DECIDE_ON_SITE
+}
+
+enum JoinAfterPlan {
+  NONE
+  MEAL_OR_DRINK
+  DECIDE_ON_SITE
 }
 
 /// User ↔ User golf friend request (MVP).
@@ -2036,4 +2062,42 @@ model PremiumMembership {
   @@index([expiresAt])
   @@index([nextBillingAt])
   @@map("premium_memberships")
+}
+
+model ServiceOperatorProfile {
+  id                          String   @id @default("default")
+  businessName                String?  @map("business_name")
+  brandName                   String?  @map("brand_name")
+  representativeName          String?  @map("representative_name")
+  businessRegistrationNumber  String?  @map("business_registration_number")
+  ecommerceRegistrationNumber String?  @map("ecommerce_registration_number")
+  corporateRegistrationNumber String?  @map("corporate_registration_number")
+  businessAddress             String?  @map("business_address")
+  customerServicePhone        String?  @map("customer_service_phone")
+  customerServiceEmail        String?  @map("customer_service_email")
+  customerServiceHours        String?  @map("customer_service_hours")
+  privacyOfficerName          String?  @map("privacy_officer_name")
+  privacyOfficerTitle         String?  @map("privacy_officer_title")
+  privacyDepartment           String?  @map("privacy_department")
+  privacyEmail                String?  @map("privacy_email")
+  privacyPhone                String?  @map("privacy_phone")
+  paymentInquiryPhone         String?  @map("payment_inquiry_phone")
+  paymentInquiryEmail         String?  @map("payment_inquiry_email")
+  updatedAt                   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy                   String?  @map("updated_by") @db.Uuid
+
+  @@map("service_operator_profiles")
+}
+
+model AndroidMobileReleaseSettings {
+  id                String    @id @default("default")
+  latestVersionCode Int       @default(0) @map("latest_version_code")
+  latestVersionName String    @default("0.0.0") @map("latest_version_name")
+  apkUrl            String    @default("") @map("apk_url")
+  releaseNotes      String?   @map("release_notes")
+  publishedAt       DateTime? @map("published_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy         String?   @map("updated_by") @db.Uuid
+
+  @@map("android_mobile_release_settings")
 }

@@ -47,6 +47,9 @@ import {
   type JoinDiscoverySort,
   type JoinStatus,
   JoinPreferredGender,
+  JoinParticipantSkillMode,
+  JoinGameStyle,
+  JoinAfterPlan,
   type MatchingJoinExtras,
 } from '@jjoin/types';
 import { Prisma } from '@prisma/client';
@@ -116,6 +119,13 @@ type DiscoveryJoinRow = {
   preferredGender?: string | null;
   minAge?: number | null;
   maxAge?: number | null;
+  participantSkillMode?: string | null;
+  minScreenHandicap?: number | null;
+  maxScreenHandicap?: number | null;
+  gameStyle?: string | null;
+  gameMemo?: string | null;
+  afterPlan?: string | null;
+  afterMemo?: string | null;
   venue: {
     id: string;
     name: string;
@@ -722,6 +732,15 @@ export class JoinDiscoveryService {
       preferredGender: (row.preferredGender as JoinPreferredGender | null) ?? null,
       minAge: row.minAge ?? null,
       maxAge: row.maxAge ?? null,
+      participantSkillMode:
+        (row.participantSkillMode as JoinParticipantSkillMode | null) ??
+        JoinParticipantSkillMode.ANY,
+      minScreenHandicap: row.minScreenHandicap ?? null,
+      maxScreenHandicap: row.maxScreenHandicap ?? null,
+      gameStyle: (row.gameStyle as JoinGameStyle | null) ?? JoinGameStyle.FRIENDLY,
+      gameMemo: row.gameMemo ?? null,
+      afterPlan: (row.afterPlan as JoinAfterPlan | null) ?? JoinAfterPlan.NONE,
+      afterMemo: row.afterMemo ?? null,
       ...matchingExtras,
     };
   }

@@ -120,7 +120,6 @@ export function ClubFormBody({
               onChange('minAge', next.minAge);
               onChange('maxAge', next.maxAge);
             }}
-            unrestrictedLabel="연령 제한 없음"
           />
         </ClubFormField>
       </ClubFormSection>

@@ -25,6 +25,10 @@ import {
   type JoinParticipantDto,
   type JoinPrefillDto,
   JoinPreferredGender,
+  JoinParticipantSkillMode,
+  JoinGameStyle,
+  JoinAfterPlan,
+  type UpdateJoinRequest,
   type MatchingJoinExtras,
   type MyJoinsResponse,
   type PublicUserProfileDto,
@@ -65,8 +69,10 @@ import {
   computeCoinShortfall,
   joinCreatorUserTypeLabelKo,
   validateJoinMemberPreferences,
+  validateJoinRoomCharacter,
+  normalizeJoinRoomCharacter,
 } from '@jjoin/domain';
-import { createJoinSchema, joinCoinPreviewSchema } from '@jjoin/validation';
+import { createJoinSchema, joinCoinPreviewSchema, updateJoinSchema } from '@jjoin/validation';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -209,6 +215,11 @@ export class JoinsService {
     if (!prefValidation.ok) {
       throw new BadRequestException(prefValidation.code);
     }
+    const roomCharacterValidation = validateJoinRoomCharacter(input);
+    if (!roomCharacterValidation.ok) {
+      throw new BadRequestException(roomCharacterValidation.code);
+    }
+    const roomCharacter = normalizeJoinRoomCharacter(input);
     const startAt = new Date(input.startAt);
     if (Number.isNaN(startAt.getTime()) || startAt.getTime() <= Date.now()) {
       throw new BadRequestException('start_at_must_be_future');
@@ -367,6 +378,13 @@ export class JoinsService {
             preferredGender: memberPrefs.preferredGender ?? undefined,
             minAge: memberPrefs.minAge ?? undefined,
             maxAge: memberPrefs.maxAge ?? undefined,
+            participantSkillMode: roomCharacter.participantSkillMode,
+            minScreenHandicap: roomCharacter.minScreenHandicap ?? undefined,
+            maxScreenHandicap: roomCharacter.maxScreenHandicap ?? undefined,
+            gameStyle: roomCharacter.gameStyle,
+            gameMemo: roomCharacter.gameMemo,
+            afterPlan: roomCharacter.afterPlan,
+            afterMemo: roomCharacter.afterMemo,
             recurringScheduleId: input.recurringScheduleId ?? undefined,
             recurringOccurrenceDate: input.recurringOccurrenceDate
               ? dateKeyToPrismaDate(input.recurringOccurrenceDate)
@@ -562,6 +580,63 @@ export class JoinsService {
     });
     if (!join?.shareSlug) throw new NotFoundException('join_not_found');
     return { joinId: join.id, shareSlug: join.shareSlug };
+  }
+
+  async update(joinId: string, hostUserId: string, raw: UpdateJoinRequest): Promise<JoinDetailDto> {
+    const parsed = updateJoinSchema.safeParse(raw);
+    if (!parsed.success) {
+      throw new BadRequestException('invalid_update_join');
+    }
+    const input = parsed.data;
+    const join = await this.prisma.join.findUnique({ where: { id: joinId } });
+    if (!join) throw new NotFoundException('join_not_found');
+    if (join.hostUserId !== hostUserId) throw new ForbiddenException('host_only');
+    if (join.status !== 'OPEN') throw new BadRequestException('join_not_editable');
+    if (join.startAt.getTime() <= Date.now()) {
+      throw new BadRequestException('join_already_started');
+    }
+
+    const memberPrefs = {
+      preferredGender: (input.preferredGender ?? join.preferredGender) as JoinPreferredGender | null,
+      minAge: input.minAge !== undefined ? input.minAge : join.minAge,
+      maxAge: input.maxAge !== undefined ? input.maxAge : join.maxAge,
+    };
+    const prefValidation = validateJoinMemberPreferences(memberPrefs);
+    if (!prefValidation.ok) throw new BadRequestException(prefValidation.code);
+
+    const roomInput = {
+      participantSkillMode: input.participantSkillMode ?? join.participantSkillMode,
+      minScreenHandicap: input.minScreenHandicap ?? join.minScreenHandicap,
+      maxScreenHandicap: input.maxScreenHandicap ?? join.maxScreenHandicap,
+      gameStyle: input.gameStyle ?? join.gameStyle,
+      gameMemo: input.gameMemo !== undefined ? input.gameMemo : join.gameMemo,
+      afterPlan: input.afterPlan ?? join.afterPlan,
+      afterMemo: input.afterMemo !== undefined ? input.afterMemo : join.afterMemo,
+    };
+    const roomValidation = validateJoinRoomCharacter(roomInput);
+    if (!roomValidation.ok) throw new BadRequestException(roomValidation.code);
+    const roomCharacter = normalizeJoinRoomCharacter(roomInput);
+
+    await this.prisma.join.update({
+      where: { id: joinId },
+      data: {
+        title: input.title !== undefined ? input.title : join.title,
+        description: input.description !== undefined ? input.description : join.description,
+        joinMethod: input.joinMethod ?? join.joinMethod,
+        preferredGender: memberPrefs.preferredGender ?? undefined,
+        minAge: memberPrefs.minAge ?? undefined,
+        maxAge: memberPrefs.maxAge ?? undefined,
+        participantSkillMode: roomCharacter.participantSkillMode,
+        minScreenHandicap: roomCharacter.minScreenHandicap ?? undefined,
+        maxScreenHandicap: roomCharacter.maxScreenHandicap ?? undefined,
+        gameStyle: roomCharacter.gameStyle,
+        gameMemo: roomCharacter.gameMemo,
+        afterPlan: roomCharacter.afterPlan,
+        afterMemo: roomCharacter.afterMemo,
+      },
+    });
+
+    return this.getDetail(joinId, hostUserId);
   }
 
   async getDetail(joinId: string, viewerUserId?: string): Promise<JoinDetailDto> {
@@ -1325,6 +1400,13 @@ export class JoinsService {
       minAge?: number | null;
       maxAge?: number | null;
       recurringScheduleId?: string | null;
+      participantSkillMode?: string | null;
+      minScreenHandicap?: number | null;
+      maxScreenHandicap?: number | null;
+      gameStyle?: string | null;
+      gameMemo?: string | null;
+      afterPlan?: string | null;
+      afterMemo?: string | null;
       sport: { code: string };
       venue: {
         id: string;
@@ -1541,6 +1623,15 @@ export class JoinsService {
       preferredGender: (join.preferredGender as JoinPreferredGender | null) ?? null,
       minAge: join.minAge ?? null,
       maxAge: join.maxAge ?? null,
+      participantSkillMode:
+        (join.participantSkillMode as JoinParticipantSkillMode | null) ??
+        JoinParticipantSkillMode.ANY,
+      minScreenHandicap: join.minScreenHandicap ?? null,
+      maxScreenHandicap: join.maxScreenHandicap ?? null,
+      gameStyle: (join.gameStyle as JoinGameStyle | null) ?? JoinGameStyle.FRIENDLY,
+      gameMemo: join.gameMemo ?? null,
+      afterPlan: (join.afterPlan as JoinAfterPlan | null) ?? JoinAfterPlan.NONE,
+      afterMemo: join.afterMemo ?? null,
       ...matchingExtras,
     };
   }
@@ -1566,6 +1657,13 @@ export class JoinsService {
       cancelledAt?: Date | null;
       isUrgent?: boolean;
       hostUserId?: string;
+      participantSkillMode?: string | null;
+      minScreenHandicap?: number | null;
+      maxScreenHandicap?: number | null;
+      gameStyle?: string | null;
+      gameMemo?: string | null;
+      afterPlan?: string | null;
+      afterMemo?: string | null;
       rewardPerParticipant: Prisma.Decimal;
       roomCreationFeeAmount: Prisma.Decimal;
       rewardHoldTotalAmount: Prisma.Decimal;
@@ -1639,6 +1737,15 @@ export class JoinsService {
         .length,
       isUrgent: join.isUrgent ?? false,
       chatAvailable,
+      participantSkillMode:
+        (join.participantSkillMode as JoinParticipantSkillMode | null) ??
+        JoinParticipantSkillMode.ANY,
+      minScreenHandicap: join.minScreenHandicap ?? null,
+      maxScreenHandicap: join.maxScreenHandicap ?? null,
+      gameStyle: (join.gameStyle as JoinGameStyle | null) ?? JoinGameStyle.FRIENDLY,
+      gameMemo: join.gameMemo ?? null,
+      afterPlan: (join.afterPlan as JoinAfterPlan | null) ?? JoinAfterPlan.NONE,
+      afterMemo: join.afterMemo ?? null,
       ...matchingExtras,
     };
   }

@@ -34,15 +34,15 @@ const koKR = {
   'auth.terms.marketing': '마케팅 정보 수신 (선택)',
   'auth.terms.next': '동의하고 계속',
   'legal.tos.body':
-    'LEGAL_TBD\n\n이용약관 본문은 정책 확정 후 이 SSOT(legal.tos.body)만 교체합니다. MY · 가입 약관 상세가 동일 소스를 사용합니다.',
+    'LEGAL_TBD\n\n이용약관 본문은 정책 확정 후 이 SSOT(legal.tos.body)만 교체합니다. MY · 가입 약관 상세가 동일 소스를 사용합니다.\n\n[사업자 및 연락처]\n상호: {{businessName}}\n서비스명: {{brandName}}\n대표자: {{representativeName}}\n사업자등록번호: {{businessRegistrationNumber}}\n통신판매업 신고번호: {{ecommerceRegistrationNumber}}\n주소: {{businessAddress}}\n고객센터: {{customerServicePhone}} / {{customerServiceEmail}}\n개인정보 보호책임자: {{privacyOfficerName}}\n개인정보 문의: {{privacyEmail}} / {{privacyPhone}}',
   'legal.privacy.body':
-    'LEGAL_TBD\n\n개인정보처리방침 본문은 정책 확정 후 이 SSOT(legal.privacy.body)만 교체합니다.',
+    'LEGAL_TBD\n\n개인정보처리방침 본문은 정책 확정 후 이 SSOT(legal.privacy.body)만 교체합니다.\n\n[사업자 및 연락처]\n상호: {{businessName}}\n대표자: {{representativeName}}\n사업자등록번호: {{businessRegistrationNumber}}\n개인정보 보호책임자: {{privacyOfficerName}} ({{privacyDepartment}})\n개인정보 문의: {{privacyEmail}} / {{privacyPhone}}',
   'legal.identity.title': '본인확인 동의',
   'legal.identity.body':
     'LEGAL_TBD\n\n본인확인 관련 동의 안내 본문입니다. 실제 사업자 계약 문구로 교체됩니다.',
   'legal.location.title': '위치기반 서비스 이용약관',
   'legal.location.body':
-    'LEGAL_TBD\n\n위치기반 서비스 이용에 관한 안내 본문입니다.',
+    'LEGAL_TBD\n\n위치기반 서비스 이용에 관한 안내 본문입니다.\n\n[사업자 및 연락처]\n상호: {{businessName}}\n대표자: {{representativeName}}\n사업자등록번호: {{businessRegistrationNumber}}\n고객센터: {{customerServicePhone}} / {{customerServiceEmail}}',
   'legal.marketing.title': '마케팅 정보 수신 동의',
   'legal.marketing.body':
     'LEGAL_TBD\n\n마케팅 정보 수신에 관한 안내 본문입니다. 선택 동의 항목입니다.',
@@ -101,6 +101,9 @@ const koKR = {
   'my.notificationSettings.subtitle': '푸시 알림 및 종류 설정',
   'my.terms': '이용약관',
   'my.privacy': '개인정보처리방침',
+  'my.serviceInfo': '서비스 정보',
+  'my.serviceInfo.empty': '등록된 사업자 정보가 없습니다.',
+  'my.serviceInfo.legal': '약관 및 정책',
   'my.logout': '로그아웃',
   'my.withdraw': '회원탈퇴',
   'my.account.title': '계정',

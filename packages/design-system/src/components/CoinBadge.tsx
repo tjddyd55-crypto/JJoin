@@ -1,4 +1,4 @@
-﻿import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { AppText } from '../primitives/AppText';
 import { colors, radius, spacing } from '../tokens';
 

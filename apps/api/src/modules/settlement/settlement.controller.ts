@@ -1,4 +1,4 @@
-﻿import { Body, Controller, Get, Headers, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post, UseGuards } from '@nestjs/common';
 import type { SettlementIssueRequest, HostFinalizeAttendanceRequest } from '@jjoin/types';
 import { SettlementService } from './settlement.service';
 import { CurrentUserId, MockAuthGuard } from '../../common/mock-auth.guard';

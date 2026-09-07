@@ -564,6 +564,10 @@ export default function JoinDetailScreen() {
   }
 
   const matching = isStoreMatchingJoin(detail);
+  const canEditJoin =
+    isHost &&
+    detail.status === JoinStatus.OPEN &&
+    new Date(detail.startAt).getTime() > Date.now();
   const canCancelMatching =
     matching &&
     isHost &&
@@ -654,6 +658,11 @@ export default function JoinDetailScreen() {
                     pathname: '/join/[joinId]/invite',
                     params: { joinId },
                   })
+              : undefined
+          }
+          onEdit={
+            canEditJoin
+              ? () => router.push(`/join/${joinId}/edit`)
               : undefined
           }
           onOpenReviews={

@@ -31,6 +31,8 @@ export type JoinCardProps = {
   hostNickname?: string | null;
   hostAvatarUrl?: string | null;
   reasonTags?: string[];
+  /** Join character chips (skill / game / after). */
+  infoTags?: string[];
   rewardLabel?: string | null;
   isUrgent?: boolean;
   onPress?: () => void;
@@ -51,6 +53,7 @@ export function JoinCard({
   hostNickname,
   hostAvatarUrl,
   reasonTags,
+  infoTags,
   rewardLabel,
   isUrgent,
   onPress,
@@ -112,9 +115,12 @@ export function JoinCard({
             seatsHighlight={seatsHighlight}
             highlightTone={seatsHighlightTone}
           />
-          {reasonTags && reasonTags.length > 0 ? (
+          {(infoTags && infoTags.length > 0) || (reasonTags && reasonTags.length > 0) ? (
             <View style={styles.tags}>
-              {reasonTags.slice(0, 2).map((tag) => (
+              {(infoTags ?? []).slice(0, 3).map((tag) => (
+                <RecommendationReasonTag key={tag} label={tag} />
+              ))}
+              {(reasonTags ?? []).slice(0, 2).map((tag) => (
                 <RecommendationReasonTag key={tag} label={tag} />
               ))}
             </View>

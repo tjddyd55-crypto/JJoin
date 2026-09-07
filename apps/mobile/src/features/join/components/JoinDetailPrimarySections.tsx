@@ -18,6 +18,7 @@ import {
 import type { JoinDetailDto, JoinParticipantDto } from '@jjoin/types';
 import {
   buildJoinBenefitLines,
+  buildJoinGameInfoLines,
   buildJoinMemberPreferenceLabels,
   buildJoinParticipationStatTiles,
   buildJoinParticipationSummary,
@@ -26,6 +27,7 @@ import {
   formatParticipantGenderLabel,
   formatParticipationStatusLabel,
   hasJoinBenefits,
+  hasJoinGameInfoSection,
   hasJoinMemberPreferenceLabels,
 } from '../../../ui/join-detail-display';
 import {
@@ -45,6 +47,7 @@ export type JoinDetailPrimarySectionsProps = {
   onOpenHost?: () => void;
   onOpenChat?: () => void;
   onInvite?: () => void;
+  onEdit?: () => void;
   onOpenReviews?: () => void;
 };
 
@@ -170,6 +173,7 @@ export function JoinDetailPrimarySections({
   onOpenHost,
   onOpenChat,
   onInvite,
+  onEdit,
   onOpenReviews,
 }: JoinDetailPrimarySectionsProps) {
   const theme = useTheme();
@@ -195,6 +199,8 @@ export function JoinDetailPrimarySections({
   const benefitLines = buildJoinBenefitLines(detail);
   const showBenefits = hasJoinBenefits(detail);
   const memberPreferenceLabels = buildJoinMemberPreferenceLabels(detail);
+  const gameInfo = buildJoinGameInfoLines(detail);
+  const showGameInfo = hasJoinGameInfoSection(detail);
   const hasRecruitmentTargets =
     (recruitment.maleTarget ?? 0) > 0 ||
     (recruitment.femaleTarget ?? 0) > 0 ||
@@ -317,6 +323,27 @@ export function JoinDetailPrimarySections({
         </JoinDetailCard>
       ) : null}
 
+      {showGameInfo ? (
+        <JoinDetailCard>
+          <Text variant="caption" tone="secondary" style={styles.eyebrow}>
+            게임 정보
+          </Text>
+          {gameInfo.skillLabel ? (
+            <Text variant="body" tone="primary">참가 실력 · {gameInfo.skillLabel}</Text>
+          ) : null}
+          <Text variant="body" tone="primary">게임 방식 · {gameInfo.gameStyleLabel}</Text>
+          {gameInfo.gameMemo ? (
+            <Text variant="body" tone="secondary" style={styles.introBody}>{gameInfo.gameMemo}</Text>
+          ) : null}
+          <Text variant="body" tone="primary" style={styles.sectionGap}>
+            애프터 플랜 · {gameInfo.afterPlanLabel}
+          </Text>
+          {gameInfo.afterMemo ? (
+            <Text variant="body" tone="secondary" style={styles.introBody}>{gameInfo.afterMemo}</Text>
+          ) : null}
+        </JoinDetailCard>
+      ) : null}
+
       {detail.description?.trim() ? (
         <JoinDetailCard>
           <Text variant="caption" tone="secondary" style={styles.eyebrow}>
@@ -352,10 +379,13 @@ export function JoinDetailPrimarySections({
           </View>
         )}
 
-        {(onOpenChat || onInvite || onOpenReviews) ? (
+        {(onOpenChat || onInvite || onEdit || onOpenReviews) ? (
           <View style={styles.auxLinks}>
             {onOpenChat ? (
               <InlineLink label="조인 채팅" onPress={onOpenChat} />
+            ) : null}
+            {onEdit ? (
+              <InlineLink label="조인 정보 수정" onPress={onEdit} />
             ) : null}
             {onInvite ? (
               <InlineLink label="참가자 초대" onPress={onInvite} />
@@ -423,6 +453,9 @@ const styles = StyleSheet.create({
   introBody: {
     fontSize: 15,
     lineHeight: 22,
+  },
+  sectionGap: {
+    marginTop: 8,
   },
   participantHeader: {
     gap: 4,

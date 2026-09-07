@@ -622,6 +622,64 @@ export {
 } from './age-range';
 
 export {
+  SCREEN_HANDICAP_MIN,
+  SCREEN_HANDICAP_MAX,
+  clampScreenHandicap,
+  formatScreenHandicap,
+  validateScreenHandicap,
+} from './screen-handicap';
+
+export {
+  JOIN_PARTICIPANT_SKILL_MODES,
+  DEFAULT_HANDICAP_RANGE_MIN,
+  DEFAULT_HANDICAP_RANGE_MAX,
+  normalizeJoinParticipantSkill,
+  validateJoinParticipantSkill,
+  formatScreenHandicapRange,
+  formatJoinParticipantSkillCardLabel,
+  formatJoinParticipantSkillDetailLabel,
+  handicapToTrackRatio,
+  trackRatioToHandicap,
+  type JoinParticipantSkillMode,
+  type JoinParticipantSkillInput,
+} from './join-participant-skill';
+
+export {
+  JOIN_GAME_STYLES,
+  JOIN_GAME_MEMO_MAX_LENGTH,
+  GAME_MEMO_PRESETS,
+  GAME_MEMO_CUSTOM_PRESET_LABEL,
+  normalizeJoinGameStyle,
+  validateJoinGameStyle,
+  formatJoinGameStyleLabel,
+  formatJoinGameStyleCardLabel,
+  hasJoinGameInfo,
+  type JoinGameStyle,
+  type JoinGameStyleInput,
+} from './join-game-style';
+
+export {
+  JOIN_AFTER_PLANS,
+  JOIN_AFTER_MEMO_MAX_LENGTH,
+  AFTER_MEMO_PRESETS,
+  AFTER_MEMO_CUSTOM_PRESET_LABEL,
+  normalizeJoinAfterPlan,
+  validateJoinAfterPlan,
+  formatJoinAfterPlanLabel,
+  formatJoinAfterPlanCardLabel,
+  hasJoinAfterInfo,
+  type JoinAfterPlan,
+  type JoinAfterPlanInput,
+} from './join-after-plan';
+
+export {
+  normalizeJoinRoomCharacter,
+  validateJoinRoomCharacter,
+  buildJoinCardCharacterTags,
+  type JoinRoomCharacterInput,
+} from './join-room-character';
+
+export {
   RECOMMENDATION_WEIGHTS,
   RECOMMEND_REASON_LABEL_KO,
   RECOMMEND_REASON_SHORT_LABEL_KO,
@@ -763,3 +821,32 @@ export {
   rolling30DayStartUtc,
   kstDateParts,
 } from './club-stats-period';
+
+export {
+  SERVICE_OPERATOR_PROFILE_ID,
+  SERVICE_OPERATOR_COMPLETENESS_CHECKLIST,
+  SERVICE_OPERATOR_FIELD_MAX,
+  applyServiceOperatorTemplate,
+  assessServiceOperatorCompleteness,
+  buildServiceOperatorDisplayLines,
+  buildServiceOperatorTemplateContext,
+  formatBusinessRegistrationNumber,
+  normalizeBusinessRegistrationNumber,
+  normalizeServiceOperatorProfile,
+  validateServiceOperatorProfileUpdate,
+  type ServiceOperatorCompletenessItem,
+  type ServiceOperatorDisplayLine,
+  type ServiceOperatorProfileInput,
+  type ServiceOperatorProfileValues,
+  type ServiceOperatorTemplateContext,
+} from './service-operator-profile';
+export {
+  ANDROID_MOBILE_RELEASE_SETTINGS_ID,
+  MOBILE_ANDROID_RELEASE_LIMITS,
+  isPublishableAndroidRelease,
+  normalizeHttpsApkUrl,
+  shouldForceAndroidUpdate,
+  validateMobileAndroidReleaseUpdate,
+  type MobileAndroidReleaseUpdateInput,
+  type MobileAndroidReleaseValues,
+} from './mobile-android-release';

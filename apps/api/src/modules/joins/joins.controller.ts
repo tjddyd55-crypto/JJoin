@@ -3,11 +3,12 @@
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
-import type { CreateJoinRequest, JoinCoinPreviewRequest } from '@jjoin/types';
+import type { CreateJoinRequest, JoinCoinPreviewRequest, UpdateJoinRequest } from '@jjoin/types';
 import { JoinsService } from './joins.service';
 import { JoinDiscoveryService } from './join-discovery.service';
 import { MatchingJoinsService } from './matching-joins.service';
@@ -184,6 +185,16 @@ export class JoinsController {
   @UseGuards(MockAuthGuard)
   resolveShare(@Param('shareSlug') shareSlug: string) {
     return this.service.resolveShareSlug(shareSlug);
+  }
+
+  @Patch(':joinId')
+  @UseGuards(MockAuthGuard)
+  update(
+    @Param('joinId') joinId: string,
+    @CurrentUserId() userId: string,
+    @Body() body: UpdateJoinRequest,
+  ) {
+    return this.service.update(joinId, userId, body);
   }
 
   @Get(':joinId')

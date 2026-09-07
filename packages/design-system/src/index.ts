@@ -41,6 +41,15 @@ export {
   type AgeRangeSelectorProps,
   type AgeRangeSelectorValue,
 } from './components/AgeRangeSelector';
+export {
+  HandicapRangeSelector,
+  type HandicapRangeSelectorProps,
+  type HandicapRangeValue,
+} from './components/HandicapRangeSelector';
+export {
+  PresetMemoField,
+  type PresetMemoFieldProps,
+} from './components/PresetMemoField';
 export { Badge, type BadgeProps, type BadgeVariant } from './components/Badge';
 export { BrandMark, type BrandMarkVariant, type BrandMarkTone } from './components/BrandMark';
 export { JoinHostAvatar, type JoinHostAvatarProps, type JoinHostAvatarSize } from './components/JoinHostAvatar';

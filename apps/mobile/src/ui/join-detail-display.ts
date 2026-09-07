@@ -1,5 +1,14 @@
 import { formatMatchingDeadlineHint } from '@jjoin/domain';
 import {
+  buildJoinCardCharacterTags,
+  formatJoinAfterPlanLabel,
+  formatJoinGameStyleLabel,
+  formatJoinParticipantSkillDetailLabel,
+  hasJoinAfterInfo,
+  hasJoinGameInfo,
+} from '@jjoin/domain';
+import { JoinParticipantSkillMode } from '@jjoin/types';
+import {
   JoinPreferredGender,
   ParticipationStatus,
   type JoinDetailDto,
@@ -191,4 +200,45 @@ export function buildJoinMemberPreferenceLabels(detail: JoinDetailDto): string[]
 
 export function hasJoinMemberPreferenceLabels(detail: JoinDetailDto): boolean {
   return buildJoinMemberPreferenceLabels(detail).length > 0;
+}
+
+export function buildJoinCardInfoTags(detail: JoinDetailDto): string[] {
+  return buildJoinCardCharacterTags({
+    participantSkillMode: detail.participantSkillMode,
+    minScreenHandicap: detail.minScreenHandicap,
+    maxScreenHandicap: detail.maxScreenHandicap,
+    gameStyle: detail.gameStyle,
+    afterPlan: detail.afterPlan,
+  });
+}
+
+export function hasJoinGameInfoSection(detail: JoinDetailDto): boolean {
+  return (
+    (detail.participantSkillMode &&
+      detail.participantSkillMode !== JoinParticipantSkillMode.ANY) ||
+    hasJoinGameInfo(detail.gameStyle, detail.gameMemo) ||
+    hasJoinAfterInfo(detail.afterPlan, detail.afterMemo)
+  );
+}
+
+export type JoinGameInfoLines = {
+  skillLabel: string | null;
+  gameStyleLabel: string;
+  gameMemo: string | null;
+  afterPlanLabel: string;
+  afterMemo: string | null;
+};
+
+export function buildJoinGameInfoLines(detail: JoinDetailDto): JoinGameInfoLines {
+  return {
+    skillLabel: formatJoinParticipantSkillDetailLabel(
+      detail.participantSkillMode,
+      detail.minScreenHandicap,
+      detail.maxScreenHandicap,
+    ),
+    gameStyleLabel: formatJoinGameStyleLabel(detail.gameStyle),
+    gameMemo: detail.gameMemo?.trim() || null,
+    afterPlanLabel: formatJoinAfterPlanLabel(detail.afterPlan),
+    afterMemo: detail.afterMemo?.trim() || null,
+  };
 }

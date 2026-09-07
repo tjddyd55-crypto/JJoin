@@ -6,27 +6,25 @@
 
 /** @typedef {'development' | 'production'} AppVariant */
 
-/** Development keeps side-by-side distinction via DEV badge / teal legacy fill. */
-const DEVELOPMENT_APP_ICON = './assets/images/icon.png';
-const DEVELOPMENT_ADAPTIVE_FOREGROUND =
-  './assets/images/android-icon-foreground.png';
+const WORDMARK_ICON = './assets/branding/jjoinzone-wordmark-primary.png';
+
+/** Development uses the same wordmark; DEV badge is in display name. */
+const DEVELOPMENT_APP_ICON = WORDMARK_ICON;
+const DEVELOPMENT_ADAPTIVE_FOREGROUND = WORDMARK_ICON;
 const DEVELOPMENT_ADAPTIVE_BACKGROUND_IMAGE =
   './assets/images/android-icon-background.png';
 const DEVELOPMENT_ADAPTIVE_MONOCHROME =
   './assets/images/android-icon-monochrome.png';
-/** DEV adaptive fill — Bright Lime (distinct from Production navy-safe pad). */
+/** DEV adaptive fill — lime plate behind wordmark */
 const DEVELOPMENT_ADAPTIVE_BACKGROUND_COLOR = '#A7E65B';
 
 /**
- * Production launcher assets under assets/icons/.
- * - Full icon: opaque finished art for Expo `icon` / iOS.
- * - Foreground: transparent adaptive layer for Android (safe-padded).
+ * Production launcher assets — 한글 쪼인존 wordmark (홀컵 심볼 제거).
  */
-const PRODUCTION_APP_ICON = './assets/icons/jjoinzone-prod-icon.png';
-const PRODUCTION_ADAPTIVE_FOREGROUND =
-  './assets/icons/jjoinzone-prod-foreground-safe.png';
-/** Bright Social Sports icon plate */
-const PRODUCTION_ADAPTIVE_BACKGROUND_COLOR = '#A7E65B';
+const PRODUCTION_APP_ICON = WORDMARK_ICON;
+const PRODUCTION_ADAPTIVE_FOREGROUND = WORDMARK_ICON;
+/** Wordmark plate — matches brand lime accent */
+const PRODUCTION_ADAPTIVE_BACKGROUND_COLOR = '#FFFFFF';
 
 /**
  * @param {string | undefined} [appVariant]

@@ -21,7 +21,7 @@ test('resolveAppVariant: only explicit development selects DEV', () => {
   assert.equal(resolveAppVariant('staging'), 'production');
 });
 
-test('production identity uses Bright Social Sports icons and com.jjoin.app', () => {
+test('production identity uses wordmark icons and com.jjoin.app', () => {
   const id = identityFor('production');
   assert.equal(id.name, '쪼인존');
   assert.equal(id.androidPackage, 'com.jjoin.app');
@@ -31,11 +31,9 @@ test('production identity uses Bright Social Sports icons and com.jjoin.app', ()
   assert.equal(adaptive.backgroundColor, PRODUCTION_ADAPTIVE_BACKGROUND_COLOR);
   assert.equal(adaptive.backgroundImage, undefined);
   assert.equal(adaptive.monochromeImage, undefined);
-  assert.notEqual(iconFor('production'), DEVELOPMENT_APP_ICON);
-  assert.notEqual(adaptive.foregroundImage, DEVELOPMENT_ADAPTIVE_FOREGROUND);
 });
 
-test('development identity uses Expo DEV icons and com.jjoin.app.dev', () => {
+test('development identity uses wordmark icons and com.jjoin.app.dev', () => {
   const id = identityFor('development');
   assert.equal(id.name, '쪼인존 DEV');
   assert.equal(id.androidPackage, 'com.jjoin.app.dev');
@@ -43,8 +41,7 @@ test('development identity uses Expo DEV icons and com.jjoin.app.dev', () => {
   const adaptive = androidAdaptiveIconFor('development');
   assert.equal(adaptive.foregroundImage, DEVELOPMENT_ADAPTIVE_FOREGROUND);
   assert.equal(adaptive.backgroundColor, DEVELOPMENT_ADAPTIVE_BACKGROUND_COLOR);
-  assert.notEqual(iconFor('development'), PRODUCTION_APP_ICON);
-  assert.notEqual(adaptive.foregroundImage, PRODUCTION_ADAPTIVE_FOREGROUND);
+  assert.equal(iconFor('development'), iconFor('production'));
 });
 
 test('notification plugin icons follow the same variant split', () => {
@@ -53,8 +50,5 @@ test('notification plugin icons follow the same variant split', () => {
     notificationIconFor('production').icon,
     PRODUCTION_ADAPTIVE_FOREGROUND,
   );
-  assert.notEqual(
-    notificationIconFor('production').icon,
-    notificationIconFor('development').icon,
-  );
+  assert.equal(notificationIconFor('production').icon, notificationIconFor('development').icon);
 });

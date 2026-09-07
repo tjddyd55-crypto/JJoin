@@ -1,11 +1,13 @@
 import {
   RECOMMEND_REASON_SHORT_LABEL_KO,
+  buildJoinCardCharacterTags,
   type RecommendReasonCode,
 } from '@jjoin/domain';
 import type {
   DiscoverJoinCardDto,
   ExploreJoinPreviewDto,
   JoinListItemDto,
+  JoinRoomCharacterFields,
   RecommendedJoinDto,
 } from '@jjoin/types';
 import type { JoinCardProps } from '@jjoin/design-system';
@@ -14,6 +16,16 @@ import {
   formatJoinDisplayTitle,
   type JoinCardMapperOptions,
 } from './join-display';
+
+function mapRoomCharacterInfoTags(item: JoinRoomCharacterFields): string[] {
+  return buildJoinCardCharacterTags({
+    participantSkillMode: item.participantSkillMode,
+    minScreenHandicap: item.minScreenHandicap,
+    maxScreenHandicap: item.maxScreenHandicap,
+    gameStyle: item.gameStyle,
+    afterPlan: item.afterPlan,
+  });
+}
 
 export {
   formatJoinDisplayTitle,
@@ -86,6 +98,7 @@ export function mapDiscoverToJoinCardProps(
       },
       { ...options, variant: options?.variant ?? 'default' },
     ),
+    infoTags: mapRoomCharacterInfoTags(item),
     onPress,
   };
 }
@@ -113,6 +126,7 @@ export function mapJoinListItemToJoinCardProps(
       },
       { ...options, variant: options?.variant ?? 'management' },
     ),
+    infoTags: mapRoomCharacterInfoTags(item),
     onPress,
   };
 }

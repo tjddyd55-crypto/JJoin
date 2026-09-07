@@ -8,6 +8,7 @@ import {
   type AuthSessionDto,
   type CreateCustomVenueRequest,
   type CreateJoinRequest,
+  type UpdateJoinRequest,
   type CreateStoreMatchingJoinRequest,
   type CreateStoreOwnershipRequest,
   type ExploreFilter,
@@ -131,6 +132,8 @@ import {
   type PaymentProductDto,
   type PaymentProductType,
   type PublicPaymentConfigDto,
+  type PublicServiceOperatorProfileDto,
+  type PublicMobileAndroidReleaseDto,
   type CreatePaymentOrderRequest,
   type CreatePaymentOrderResponse,
   type ConfirmTossPaymentRequest,
@@ -799,6 +802,15 @@ export class ApiClient {
   async getJoin(joinId: string): Promise<JoinDetailDto> {
     const res = await request(`${this.config.baseUrl}/joins/${joinId}`, {
       headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async updateJoin(joinId: string, body: UpdateJoinRequest): Promise<JoinDetailDto> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}`, {
+      method: 'PATCH',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
     });
     return parseJson(res);
   }
@@ -1966,6 +1978,20 @@ export class ApiClient {
 
   async getPublicPaymentConfig(): Promise<PublicPaymentConfigDto> {
     const res = await request(`${this.config.baseUrl}/payment-config/public`, {
+      headers: await this.headers(false),
+    });
+    return parseJson(res);
+  }
+
+  async getPublicServiceOperatorProfile(): Promise<PublicServiceOperatorProfileDto> {
+    const res = await request(`${this.config.baseUrl}/public/service-operator-profile`, {
+      headers: await this.headers(false),
+    });
+    return parseJson(res);
+  }
+
+  async getPublicMobileAndroidRelease(): Promise<PublicMobileAndroidReleaseDto> {
+    const res = await request(`${this.config.baseUrl}/public/mobile-release/android`, {
       headers: await this.headers(false),
     });
     return parseJson(res);

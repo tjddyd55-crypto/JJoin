@@ -291,11 +291,22 @@ export class UserAccountService {
             bio: data.bio ?? existing.bio,
           },
         });
-        if (data.skillLevel) {
+        if (data.skillLevel || data.screenHandicap !== undefined) {
+          const existingSport = await tx.userSportProfile.findUnique({
+            where: { userId_sportId: { userId, sportId: sport.id } },
+          });
           await tx.userSportProfile.upsert({
             where: { userId_sportId: { userId, sportId: sport.id } },
-            create: { userId, sportId: sport.id, skillLevel: data.skillLevel },
-            update: { skillLevel: data.skillLevel },
+            create: {
+              userId,
+              sportId: sport.id,
+              skillLevel: data.skillLevel ?? existingSport?.skillLevel ?? 'BEGINNER',
+              screenHandicap: data.screenHandicap ?? null,
+            },
+            update: {
+              ...(data.skillLevel ? { skillLevel: data.skillLevel } : {}),
+              ...(data.screenHandicap !== undefined ? { screenHandicap: data.screenHandicap } : {}),
+            },
           });
         }
       });

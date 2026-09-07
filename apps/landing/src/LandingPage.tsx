@@ -1,4 +1,5 @@
 import { formatCoin, formatSignedCoin } from '@jjoin/domain';
+import { OperatorFooter } from './OperatorFooter';
 
 const ANDROID_DOWNLOAD_URL = (import.meta.env.VITE_ANDROID_DOWNLOAD_URL ?? '').trim();
 const ANDROID_DOWNLOAD_VERSION = (import.meta.env.VITE_ANDROID_DOWNLOAD_VERSION ?? '').trim();
@@ -160,10 +161,7 @@ export function LandingPage() {
         </section>
       </main>
 
-      <footer className="footer">
-        <p className="brand footer-brand">JJOINZONE</p>
-        <p className="footer-copy">© JJOINZONE</p>
-      </footer>
+      <OperatorFooter />
     </div>
   );
 }

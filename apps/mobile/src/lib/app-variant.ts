@@ -23,3 +23,9 @@ export function isDevelopmentVariant(
 ): boolean {
   return resolveAppVariant(appVariant) === 'development';
 }
+
+export function isProductionVariant(
+  appVariant: string | undefined = process.env.APP_VARIANT,
+): boolean {
+  return resolveAppVariant(appVariant) === 'production';
+}

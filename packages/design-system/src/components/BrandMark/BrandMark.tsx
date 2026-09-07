@@ -1,5 +1,4 @@
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
 import { Text } from '../../primitives/Text';
 import { useTheme } from '../../theme';
 
@@ -14,38 +13,45 @@ type Props = {
   style?: StyleProp<ViewStyle>;
 };
 
-/** ㅉ-inspired join monogram — two linked uprights (people joining). */
-function JjMonogram({ color, size }: { color: string; size: number }) {
+function WordmarkText({
+  size,
+  navy,
+  lime,
+}: {
+  size: number;
+  navy: string;
+  lime: string;
+}) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 32 32" accessibilityElementsHidden>
-      <Path
-        d="M8 6v14.5c0 3.2 2.2 5.5 5.2 5.5H14"
-        stroke={color}
-        strokeWidth={3.2}
-        strokeLinecap="round"
-        fill="none"
-      />
-      <Path
-        d="M24 6v14.5c0 3.2-2.2 5.5-5.2 5.5H18"
-        stroke={color}
-        strokeWidth={3.2}
-        strokeLinecap="round"
-        fill="none"
-      />
-      <Path
-        d="M12.5 18.5h7"
-        stroke={color}
-        strokeWidth={3.2}
-        strokeLinecap="round"
-        fill="none"
-      />
-    </Svg>
+    <Text
+      variant="sectionTitle"
+      style={{
+        color: navy,
+        fontSize: size,
+        lineHeight: size + 6,
+        letterSpacing: -0.8,
+        fontWeight: '700',
+      }}
+    >
+      <Text
+        style={{
+          color: lime,
+          fontSize: size,
+          lineHeight: size + 6,
+          fontWeight: '700',
+          letterSpacing: -0.8,
+        }}
+      >
+        쪼
+      </Text>
+      인존
+    </Text>
   );
 }
 
 /**
  * Official user-facing brand: 쪼인존
- * Hangul wordmark is text (correct glyphs); lime accent on 쪼 only.
+ * Hangul wordmark only — lime accent on 쪼.
  */
 export function BrandMark({
   variant = 'horizontal',
@@ -63,19 +69,15 @@ export function BrandMark({
         : theme.colors.text.primary;
   const lime =
     tone === 'premium' ? theme.premium.gold : theme.colors.brand.limeAccent;
-  const monogramColor = tone === 'onLime' ? theme.colors.text.onPrimary : navy;
-
-  if (variant === 'symbol') {
-    return (
-      <View style={[styles.symbolWrap, style]} accessibilityLabel="쪼인존">
-        <JjMonogram color={monogramColor} size={28} />
-      </View>
-    );
-  }
 
   const size =
-    variant === 'compactHeader' ? 18 : variant === 'compact' ? 20 : 26;
-  const monogramSize = variant === 'compactHeader' ? 18 : size + 2;
+    variant === 'symbol'
+      ? 16
+      : variant === 'compactHeader'
+        ? 18
+        : variant === 'compact'
+          ? 20
+          : 26;
 
   return (
     <View
@@ -83,30 +85,7 @@ export function BrandMark({
       accessibilityRole="header"
       accessibilityLabel={showDevBadge ? '쪼인존 DEV' : '쪼인존'}
     >
-      <JjMonogram color={monogramColor} size={monogramSize} />
-      <Text
-        variant="sectionTitle"
-        style={{
-          color: navy,
-          fontSize: size,
-          lineHeight: size + 6,
-          letterSpacing: -0.8,
-          fontWeight: '700',
-        }}
-      >
-        <Text
-          style={{
-            color: lime,
-            fontSize: size,
-            lineHeight: size + 6,
-            fontWeight: '700',
-            letterSpacing: -0.8,
-          }}
-        >
-          쪼
-        </Text>
-        인존
-      </Text>
+      <WordmarkText size={size} navy={navy} lime={lime} />
       {showDevBadge ? (
         <View
           style={[
@@ -133,12 +112,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  symbolWrap: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   devBadge: {
     paddingHorizontal: 6,

@@ -207,6 +207,8 @@ export type PendingActionIntent =
 export type SportProfileDto = {
   sportCode: string;
   skillLevel: SportSkillLevel;
+  /** Screen golf numeric handicap; null when unset. */
+  screenHandicap?: number | null;
 };
 
 export type PublicUserProfileDto = {
@@ -247,6 +249,35 @@ export enum JoinPreferredGender {
   MALE = 'MALE',
   FEMALE = 'FEMALE',
 }
+
+export enum JoinParticipantSkillMode {
+  ANY = 'ANY',
+  BEGINNER_OK = 'BEGINNER_OK',
+  HANDICAP_RANGE = 'HANDICAP_RANGE',
+}
+
+export enum JoinGameStyle {
+  FRIENDLY = 'FRIENDLY',
+  LIGHT_GAME = 'LIGHT_GAME',
+  DECIDE_ON_SITE = 'DECIDE_ON_SITE',
+}
+
+export enum JoinAfterPlan {
+  NONE = 'NONE',
+  MEAL_OR_DRINK = 'MEAL_OR_DRINK',
+  DECIDE_ON_SITE = 'DECIDE_ON_SITE',
+}
+
+/** Join room character — participant skill, game style, after plan. */
+export type JoinRoomCharacterFields = {
+  participantSkillMode?: JoinParticipantSkillMode | null;
+  minScreenHandicap?: number | null;
+  maxScreenHandicap?: number | null;
+  gameStyle?: JoinGameStyle | null;
+  gameMemo?: string | null;
+  afterPlan?: JoinAfterPlan | null;
+  afterMemo?: string | null;
+};
 
 export type GolfFriendCardDto = {
   user: PublicUserProfileDto;
@@ -744,7 +775,16 @@ export type CreateJoinRequest = {
   preferredGender?: JoinPreferredGender | null;
   minAge?: number | null;
   maxAge?: number | null;
-};
+} & JoinRoomCharacterFields;
+
+export type UpdateJoinRequest = {
+  title?: string | null;
+  description?: string | null;
+  joinMethod?: JoinMethod;
+  preferredGender?: JoinPreferredGender | null;
+  minAge?: number | null;
+  maxAge?: number | null;
+} & JoinRoomCharacterFields;
 
 export type JoinCoinPreviewRequest = {
   plannedPlayerCount: number;
@@ -919,7 +959,7 @@ export type MatchingJoinExtras = {
   preferredGender?: JoinPreferredGender | null;
   minAge?: number | null;
   maxAge?: number | null;
-};
+} & JoinRoomCharacterFields;
 
 export type JoinDetailDto = {
   joinId: string;
@@ -973,7 +1013,7 @@ export type JoinDetailDto = {
   preferredGender?: JoinPreferredGender | null;
   minAge?: number | null;
   maxAge?: number | null;
-} & MatchingJoinExtras;
+} & JoinRoomCharacterFields & MatchingJoinExtras;
 
 export type ActivateUrgentVacancyRequest = {
   seats?: number;
@@ -1127,7 +1167,7 @@ export type JoinListItemDto = {
   isUrgent?: boolean;
   /** True when viewer can open the join chat room. */
   chatAvailable?: boolean;
-} & MatchingJoinExtras;
+} & JoinRoomCharacterFields & MatchingJoinExtras;
 
 export type CreateStoreOwnershipRequest = {
   golfFacilityId: string;
@@ -1306,7 +1346,7 @@ export type DiscoverJoinCardDto = {
   preferredGender?: JoinPreferredGender | null;
   minAge?: number | null;
   maxAge?: number | null;
-} & MatchingJoinExtras;
+} & JoinRoomCharacterFields & MatchingJoinExtras;
 
 export type DiscoverJoinsResponse = {
   date: string;
@@ -2556,4 +2596,75 @@ export type UpdatePaymentProductRequest = {
   premiumDays?: number | null;
   active?: boolean;
   sortOrder?: number;
+};
+
+/** Public legal / footer operator info — no admin audit fields. */
+export type PublicServiceOperatorProfileDto = {
+  businessName: string | null;
+  brandName: string | null;
+  representativeName: string | null;
+  businessRegistrationNumber: string | null;
+  ecommerceRegistrationNumber: string | null;
+  corporateRegistrationNumber: string | null;
+  businessAddress: string | null;
+  customerServicePhone: string | null;
+  customerServiceEmail: string | null;
+  customerServiceHours: string | null;
+  privacyOfficerName: string | null;
+  privacyOfficerTitle: string | null;
+  privacyDepartment: string | null;
+  privacyEmail: string | null;
+  privacyPhone: string | null;
+  paymentInquiryPhone: string | null;
+  paymentInquiryEmail: string | null;
+  displayLines: Array<{ label: string; value: string }>;
+};
+
+export type AdminServiceOperatorProfileDto = PublicServiceOperatorProfileDto & {
+  updatedAt: string;
+  updatedBy: string | null;
+  completeness: {
+    complete: boolean;
+    missingLabels: string[];
+  };
+};
+
+export type UpdateServiceOperatorProfileRequest = {
+  businessName?: string | null;
+  brandName?: string | null;
+  representativeName?: string | null;
+  businessRegistrationNumber?: string | null;
+  ecommerceRegistrationNumber?: string | null;
+  corporateRegistrationNumber?: string | null;
+  businessAddress?: string | null;
+  customerServicePhone?: string | null;
+  customerServiceEmail?: string | null;
+  customerServiceHours?: string | null;
+  privacyOfficerName?: string | null;
+  privacyOfficerTitle?: string | null;
+  privacyDepartment?: string | null;
+  privacyEmail?: string | null;
+  privacyPhone?: string | null;
+  paymentInquiryPhone?: string | null;
+  paymentInquiryEmail?: string | null;
+};
+
+export type PublicMobileAndroidReleaseDto = {
+  latestVersionCode: number;
+  latestVersionName: string;
+  apkUrl: string;
+  releaseNotes: string | null;
+  publishedAt: string | null;
+};
+
+export type AdminMobileAndroidReleaseDto = PublicMobileAndroidReleaseDto & {
+  updatedAt: string;
+  updatedBy: string | null;
+};
+
+export type UpdateMobileAndroidReleaseRequest = {
+  latestVersionCode?: number;
+  latestVersionName?: string;
+  apkUrl?: string;
+  releaseNotes?: string | null;
 };
