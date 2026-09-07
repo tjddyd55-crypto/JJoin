@@ -6,10 +6,11 @@ import {
   Button,
   Chip,
   FormScreenFrame,
-  StickyActionFrame,
   Stack,
   Input,
   Card,
+  layoutSpacing,
+  spacing,
 } from '@jjoin/design-system';
 import { computeCoinShortfall, computeRewardEligibleSlots, formatNumber, requiresIdentityGate } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
@@ -529,8 +530,8 @@ export default function CreateScreen() {
     );
   }
 
-  const footer = isLastStep ? (
-    <StickyActionFrame>
+  const actionSection = isLastStep ? (
+    <Stack gap="sm" style={styles.actionSection}>
       {footerState.helperText ? (
         <Text variant="caption" tone="secondary" style={styles.footerHelper}>
           {footerState.helperText}
@@ -545,9 +546,9 @@ export default function CreateScreen() {
         loading={submitting}
         onPress={() => void onCreate()}
       />
-    </StickyActionFrame>
+    </Stack>
   ) : (
-    <StickyActionFrame>
+    <View style={styles.actionSection}>
       <View style={styles.footerRow}>
         {stepIndex > 0 ? (
           <Button label="이전" variant="secondary" onPress={goBack} style={styles.footerBtn} />
@@ -559,11 +560,11 @@ export default function CreateScreen() {
           style={styles.footerBtn}
         />
       </View>
-    </StickyActionFrame>
+    </View>
   );
 
   return (
-    <FormScreenFrame footer={footer}>
+    <FormScreenFrame contentContainerStyle={styles.scrollContent}>
       <Stack gap="md">
         <Text variant="screenTitle" tone="primary">조인 만들기</Text>
         <JoinCreateStepHeader current={step} onSelect={(s) => setStep(s)} />
@@ -741,14 +742,21 @@ export default function CreateScreen() {
         {error ? (
           <Text variant="body" tone="error">{error}</Text>
         ) : null}
+
+        {actionSection}
       </Stack>
     </FormScreenFrame>
   );
 }
 
 const styles = StyleSheet.create({
+  scrollContent: { flexGrow: 0 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   optionsTitle: { marginTop: 8 },
+  actionSection: {
+    marginTop: layoutSpacing.sectionGap,
+    marginBottom: spacing.sm,
+  },
   footerHelper: { textAlign: 'center' },
   footerRow: { flexDirection: 'row', gap: 8 },
   footerBtn: { flex: 1 },
