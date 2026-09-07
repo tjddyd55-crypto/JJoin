@@ -1,7 +1,7 @@
 import type { RecurringJoinScheduleStatus } from '@jjoin/types';
 import {
   isoWeekdayKst,
-  occurrenceDateKeyFromStart,
+  kstDateKey,
   nextWeeklyOccurrenceStart,
   previewHostRecurringOccurrenceDates,
   type IsoWeekday,
@@ -52,7 +52,7 @@ export function nextOccurrenceDateForSkip(input: {
 }): string | null {
   if (input.nextRunAt) {
     const d = new Date(input.nextRunAt);
-    if (!Number.isNaN(d.getTime())) return occurrenceDateKeyFromStart(d);
+    if (!Number.isNaN(d.getTime())) return kstDateKey(d);
   }
   const day = input.dayOfWeek;
   if (day < 1 || day > 7) return null;
@@ -62,7 +62,7 @@ export function nextOccurrenceDateForSkip(input: {
       startTimeLocal: input.startTimeLocal,
       after: input.now ?? new Date(),
     });
-    return occurrenceDateKeyFromStart(next);
+    return kstDateKey(next);
   } catch {
     return null;
   }
