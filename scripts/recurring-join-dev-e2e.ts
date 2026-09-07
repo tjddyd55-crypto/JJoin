@@ -125,12 +125,18 @@ async function main() {
   const devB = await signIn(MockAuthPersona.DEV_B);
   await cleanupBlockingHostedJoin(devA);
 
-  const venue = await mustOk<{ items: Array<{ venueId: string; name: string }> }>(
-    '/venues/search?q=스크린&limit=1',
-    { headers: devA },
+  const facilities = await mustOk<{
+    items: Array<{ id: string; displayName: string; selectable?: boolean }>;
+  }>(`/golf-facilities/search?q=${encodeURIComponent('골프존')}&limit=10`, {
+    headers: devA,
+  });
+  const facility = facilities.items.find((i) => i.selectable !== false) ?? facilities.items[0];
+  assert(facility, 'golf facility required');
+  const activated = await mustOk<{ venueId: string }>(
+    `/golf-facilities/${facility.id}/activate-venue`,
+    { method: 'POST', headers: devA },
   );
-  const venueId = venue.items?.[0]?.venueId;
-  assert(venueId, 'venue required');
+  const venueId = activated.venueId;
 
   const startDate = nextSaturdayKey();
   const dayOfWeek = 6;
