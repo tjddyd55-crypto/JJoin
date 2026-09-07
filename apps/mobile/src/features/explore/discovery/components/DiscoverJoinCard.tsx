@@ -7,6 +7,7 @@ import {
   matchingRewardBenefitLabel,
   matchingSlotProgressLabel,
 } from '../../../store/matching-join-ui';
+import { hasFixedGenderComposition, formatStandardGenderCompositionLabel } from '@jjoin/domain';
 import { mapDiscoverToJoinCardProps } from '../../../../ui/join-card-map';
 import { splitJoinCapacityDisplay } from '../../../../ui/join-display';
 
@@ -52,6 +53,14 @@ export function DiscoverJoinCard({ join, onPress }: Props) {
       cardProps.seatsHighlightTone = capacity.seatsHighlightTone;
     }
     cardProps.rewardLabel = rewardLabel ?? cardProps.rewardLabel;
+  } else if (hasFixedGenderComposition(join.targetMaleCount, join.targetFemaleCount)) {
+    const compositionLabel = formatStandardGenderCompositionLabel(
+      join.targetMaleCount,
+      join.targetFemaleCount,
+    );
+    if (compositionLabel) {
+      cardProps.infoTags = [...(cardProps.infoTags ?? []), compositionLabel].slice(0, 3);
+    }
   }
 
   return <DSJoinCard {...cardProps} />;

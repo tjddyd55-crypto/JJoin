@@ -775,6 +775,10 @@ export type CreateJoinRequest = {
   preferredGender?: JoinPreferredGender | null;
   minAge?: number | null;
   maxAge?: number | null;
+  /** Standard join gender composition — enforced server-side when FIXED. */
+  genderCompositionMode?: 'ANY' | 'FIXED';
+  targetMaleCount?: number | null;
+  targetFemaleCount?: number | null;
 } & JoinRoomCharacterFields;
 
 export type UpdateJoinRequest = {
@@ -784,6 +788,9 @@ export type UpdateJoinRequest = {
   preferredGender?: JoinPreferredGender | null;
   minAge?: number | null;
   maxAge?: number | null;
+  genderCompositionMode?: 'ANY' | 'FIXED';
+  targetMaleCount?: number | null;
+  targetFemaleCount?: number | null;
 } & JoinRoomCharacterFields;
 
 export type JoinCoinPreviewRequest = {

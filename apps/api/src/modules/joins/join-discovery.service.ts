@@ -33,6 +33,7 @@ import {
   isJoinWaitlistJoinable,
   isJoinVisibleInDiscoveryList,
   sundayOfWeek,
+  formatStandardGenderCompositionLabel,
 } from '@jjoin/domain';
 import {
   JoinKind,
@@ -568,7 +569,23 @@ export class JoinDiscoveryService {
   }
 
   private buildMatchingExtrasForDiscovery(row: DiscoveryJoinRow): MatchingJoinExtras {
-    if (row.joinKind !== 'STORE_MATCHING') return {};
+    if (row.joinKind !== 'STORE_MATCHING') {
+      if (
+        row.targetMaleCount == null ||
+        row.targetFemaleCount == null ||
+        row.targetMaleCount + row.targetFemaleCount < 1
+      ) {
+        return {};
+      }
+      return {
+        targetMaleCount: row.targetMaleCount,
+        targetFemaleCount: row.targetFemaleCount,
+        recruitmentLabel: formatStandardGenderCompositionLabel(
+          row.targetMaleCount,
+          row.targetFemaleCount,
+        ),
+      };
+    }
 
     const maleTarget = row.targetMaleCount ?? 0;
     const femaleTarget = row.targetFemaleCount ?? 0;

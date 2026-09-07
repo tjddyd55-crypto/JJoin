@@ -1,5 +1,5 @@
 import { StyleSheet, View } from 'react-native';
-import { AgeRangeSelector, Chip, Text } from '@jjoin/design-system';
+import { AgeRangeSelector, Text } from '@jjoin/design-system';
 import {
   JOIN_MEMBER_MAX_AGE,
   JOIN_MEMBER_MIN_AGE,
@@ -17,12 +17,6 @@ type Props = {
   value: JoinMemberPreferencesState;
   onChange: (next: JoinMemberPreferencesState) => void;
 };
-
-const GENDER_OPTIONS: Array<{ value: JoinPreferredGender; label: string }> = [
-  { value: JoinPreferredGender.FEMALE, label: '여성' },
-  { value: JoinPreferredGender.MALE, label: '남성' },
-  { value: JoinPreferredGender.ANY, label: '무관' },
-];
 
 export function defaultJoinMemberPreferences(): JoinMemberPreferencesState {
   return {
@@ -49,10 +43,6 @@ export function memberPreferencesSummaryLabel(value: JoinMemberPreferencesState)
 }
 
 export function JoinCreateMemberPreferencesSection({ value, onChange }: Props) {
-  const setGender = (preferredGender: JoinPreferredGender) => {
-    onChange({ ...value, preferredGender });
-  };
-
   const setAgeRange = (next: { minAge: number | null; maxAge: number | null }) => {
     onChange({ ...value, ...next });
   };
@@ -63,18 +53,6 @@ export function JoinCreateMemberPreferencesSection({ value, onChange }: Props) {
       <Text variant="caption" tone="secondary" style={styles.hint}>
         참가 조건 안내용입니다. 신청 차단은 적용되지 않습니다.
       </Text>
-
-      <Text variant="bodyStrong" tone="primary" style={styles.label}>성별</Text>
-      <View style={styles.row}>
-        {GENDER_OPTIONS.map((opt) => (
-          <Chip
-            key={opt.value}
-            label={opt.label}
-            selected={value.preferredGender === opt.value}
-            onPress={() => setGender(opt.value)}
-          />
-        ))}
-      </View>
 
       <Text variant="bodyStrong" tone="primary" style={styles.label}>연령대</Text>
       <AgeRangeSelector

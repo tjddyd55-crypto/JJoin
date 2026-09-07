@@ -614,6 +614,21 @@ export {
 } from './join-member-preferences';
 
 export {
+  STANDARD_GENDER_ROSTER_STATUSES,
+  canApproveStandardGenderSlot,
+  countStandardGenderRoster,
+  formatStandardGenderCompositionLabel,
+  hasFixedGenderComposition,
+  normalizeFixedGenderComposition,
+  parseGenderCompositionPayload,
+  resolveGenderCompositionMode,
+  validateFixedGenderComposition,
+  validateStandardGenderCompositionEdit,
+  type JoinGenderCompositionMode,
+  type StandardGenderRosterParticipant,
+} from './join-gender-composition';
+
+export {
   MEMBER_AGE_MAX,
   MEMBER_AGE_MIN,
   clampMemberAge,

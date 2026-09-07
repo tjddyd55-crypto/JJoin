@@ -18,6 +18,14 @@ import {
   type JoinMemberPreferencesState,
 } from '../../join-create/components/JoinCreateMemberPreferencesSection';
 import { JoinCreateParticipantSkillSection } from '../../join-create/components/JoinCreateParticipantSkillSection';
+import { JoinCreateGenderCompositionSection } from '../../join-create/components/JoinCreateGenderCompositionSection';
+import {
+  genderCompositionPayload,
+  joinGenderCompositionFromDetail,
+  resolveHostGenderFromDisplay,
+  validateJoinGenderCompositionClient,
+  type JoinGenderCompositionState,
+} from '../../join-create/model/join-create-gender-composition';
 import {
   defaultJoinCreateRoomCharacter,
   joinRoomCharacterFromDetail,
@@ -25,13 +33,19 @@ import {
   type JoinCreateRoomCharacterState,
 } from '../../join-create/model/join-create-room-character';
 import { getApiClient } from '../../../lib/api';
-import { getSecureSessionStore } from '../../../session/SessionContext';
+import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
 import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
 
 export function JoinEditScreen() {
   const { joinId } = useLocalSearchParams<{ joinId: string }>();
   const router = useRouter();
+  const { me } = useSession();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
+  const [plannedPlayerCount, setPlannedPlayerCount] = useState(4);
+  const [genderComposition, setGenderComposition] = useState<JoinGenderCompositionState>({
+    mode: 'ANY',
+    maleCapacity: 2,
+  });
   const [memberPrefs, setMemberPrefs] = useState<JoinMemberPreferencesState>(() =>
     defaultJoinMemberPreferences(),
   );
@@ -44,12 +58,16 @@ export function JoinEditScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const hostGender = resolveHostGenderFromDisplay(me?.publicProfile?.genderDisplay);
+
   const load = useCallback(async () => {
     if (!joinId) return;
     setLoading(true);
     setError(null);
     try {
       const detail = await api.getJoin(joinId);
+      setPlannedPlayerCount(detail.plannedPlayerCount);
+      setGenderComposition(joinGenderCompositionFromDetail(detail));
       setMemberPrefs({
         preferredGender: detail.preferredGender ?? defaultJoinMemberPreferences().preferredGender,
         minAge: detail.minAge ?? null,
@@ -85,12 +103,23 @@ export function JoinEditScreen() {
     if (!joinId) return;
     setSaving(true);
     setError(null);
+    const genderValidation = validateJoinGenderCompositionClient({
+      state: genderComposition,
+      totalCapacity: plannedPlayerCount,
+      hostGender,
+    });
+    if (!genderValidation.ok) {
+      setError(genderValidation.message);
+      setSaving(false);
+      return;
+    }
     try {
       await api.updateJoin(joinId, {
         description: description.trim() || null,
         joinMethod,
         ...memberPreferencesPayload(memberPrefs),
         ...joinRoomCharacterPayload(roomCharacter),
+        ...genderCompositionPayload(genderComposition, plannedPlayerCount),
       });
       router.back();
     } catch {
@@ -112,6 +141,12 @@ export function JoinEditScreen() {
     <FormScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       <Stack gap="md">
         <Text variant="screenTitle">조인 정보 수정</Text>
+        <JoinCreateGenderCompositionSection
+          totalCapacity={plannedPlayerCount}
+          value={genderComposition}
+          hostGender={hostGender}
+          onChange={setGenderComposition}
+        />
         <JoinCreateMemberPreferencesSection value={memberPrefs} onChange={setMemberPrefs} />
         <JoinCreateParticipantSkillSection value={roomCharacter} onChange={setRoomCharacter} />
         <JoinCreateGameAfterSection value={roomCharacter} onChange={setRoomCharacter} />

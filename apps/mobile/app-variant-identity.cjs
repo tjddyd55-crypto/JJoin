@@ -7,10 +7,12 @@
 /** @typedef {'development' | 'production'} AppVariant */
 
 const WORDMARK_ICON = './assets/branding/jjoinzone-wordmark-primary.png';
+/** Launcher/adaptive icon — same wordmark with safe-area padding (no crop). */
+const WORDMARK_LAUNCHER_ICON = './assets/branding/jjoinzone-wordmark-launcher.png';
 
 /** Development uses the same wordmark; DEV badge is in display name. */
-const DEVELOPMENT_APP_ICON = WORDMARK_ICON;
-const DEVELOPMENT_ADAPTIVE_FOREGROUND = WORDMARK_ICON;
+const DEVELOPMENT_APP_ICON = WORDMARK_LAUNCHER_ICON;
+const DEVELOPMENT_ADAPTIVE_FOREGROUND = WORDMARK_LAUNCHER_ICON;
 const DEVELOPMENT_ADAPTIVE_BACKGROUND_IMAGE =
   './assets/images/android-icon-background.png';
 const DEVELOPMENT_ADAPTIVE_MONOCHROME =
@@ -21,8 +23,8 @@ const DEVELOPMENT_ADAPTIVE_BACKGROUND_COLOR = '#A7E65B';
 /**
  * Production launcher assets — 한글 쪼인존 wordmark (홀컵 심볼 제거).
  */
-const PRODUCTION_APP_ICON = WORDMARK_ICON;
-const PRODUCTION_ADAPTIVE_FOREGROUND = WORDMARK_ICON;
+const PRODUCTION_APP_ICON = WORDMARK_LAUNCHER_ICON;
+const PRODUCTION_ADAPTIVE_FOREGROUND = WORDMARK_LAUNCHER_ICON;
 /** Wordmark plate — matches brand lime accent */
 const PRODUCTION_ADAPTIVE_BACKGROUND_COLOR = '#FFFFFF';
 

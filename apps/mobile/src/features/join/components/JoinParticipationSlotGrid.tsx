@@ -36,8 +36,10 @@ function FilledSlot({
   );
 }
 
-function EmptySlot() {
+function EmptySlot({ gender }: { gender?: 'MALE' | 'FEMALE' | null }) {
   const theme = useTheme();
+  const label =
+    gender === 'MALE' ? '남성 자리' : gender === 'FEMALE' ? '여성 자리' : '빈 자리';
 
   return (
     <View
@@ -50,7 +52,7 @@ function EmptySlot() {
         },
       ]}
     >
-      <Text variant="caption" tone="tertiary">빈 자리</Text>
+      <Text variant="caption" tone="tertiary">{label}</Text>
     </View>
   );
 }
@@ -72,7 +74,7 @@ export function JoinParticipationSlotGrid({ slots }: JoinParticipationSlotGridPr
               avatarUrl={slot.avatarUrl}
             />
           ) : (
-            <EmptySlot />
+            <EmptySlot gender={slot.type === 'empty' ? slot.gender : undefined} />
           )}
         </View>
       ))}

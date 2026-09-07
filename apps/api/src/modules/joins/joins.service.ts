@@ -71,6 +71,14 @@ import {
   validateJoinMemberPreferences,
   validateJoinRoomCharacter,
   normalizeJoinRoomCharacter,
+  parseGenderCompositionPayload,
+  validateFixedGenderComposition,
+  hasFixedGenderComposition,
+  canApproveStandardGenderSlot,
+  countStandardGenderRoster,
+  validateStandardGenderCompositionEdit,
+  formatStandardGenderCompositionLabel,
+  type MatchingGender,
 } from '@jjoin/domain';
 import { createJoinSchema, joinCoinPreviewSchema, updateJoinSchema } from '@jjoin/validation';
 import { Prisma } from '@prisma/client';
@@ -220,6 +228,33 @@ export class JoinsService {
       throw new BadRequestException(roomCharacterValidation.code);
     }
     const roomCharacter = normalizeJoinRoomCharacter(input);
+    const hostProfile = await this.prisma.user.findUnique({
+      where: { id: hostUserId },
+      select: { profile: { select: { gender: true } } },
+    });
+    const hostGender = (hostProfile?.profile?.gender ?? null) as MatchingGender | null;
+    const genderComposition = parseGenderCompositionPayload({
+      genderCompositionMode: input.genderCompositionMode,
+      targetMaleCount: input.targetMaleCount,
+      targetFemaleCount: input.targetFemaleCount,
+      plannedPlayerCount: input.plannedPlayerCount,
+    });
+    if (
+      hasFixedGenderComposition(
+        genderComposition.targetMaleCount,
+        genderComposition.targetFemaleCount,
+      )
+    ) {
+      const compositionValidation = validateFixedGenderComposition({
+        totalCapacity: input.plannedPlayerCount,
+        targetMaleCount: genderComposition.targetMaleCount!,
+        targetFemaleCount: genderComposition.targetFemaleCount!,
+        hostGender,
+      });
+      if (!compositionValidation.ok) {
+        throw new BadRequestException(compositionValidation.code);
+      }
+    }
     const startAt = new Date(input.startAt);
     if (Number.isNaN(startAt.getTime()) || startAt.getTime() <= Date.now()) {
       throw new BadRequestException('start_at_must_be_future');
@@ -378,6 +413,8 @@ export class JoinsService {
             preferredGender: memberPrefs.preferredGender ?? undefined,
             minAge: memberPrefs.minAge ?? undefined,
             maxAge: memberPrefs.maxAge ?? undefined,
+            targetMaleCount: genderComposition.targetMaleCount ?? undefined,
+            targetFemaleCount: genderComposition.targetFemaleCount ?? undefined,
             participantSkillMode: roomCharacter.participantSkillMode,
             minScreenHandicap: roomCharacter.minScreenHandicap ?? undefined,
             maxScreenHandicap: roomCharacter.maxScreenHandicap ?? undefined,
@@ -588,7 +625,13 @@ export class JoinsService {
       throw new BadRequestException('invalid_update_join');
     }
     const input = parsed.data;
-    const join = await this.prisma.join.findUnique({ where: { id: joinId } });
+    const join = await this.prisma.join.findUnique({
+      where: { id: joinId },
+      include: {
+        host: { include: { profile: true } },
+        participants: { include: { user: { include: { profile: true } } } },
+      },
+    });
     if (!join) throw new NotFoundException('join_not_found');
     if (join.hostUserId !== hostUserId) throw new ForbiddenException('host_only');
     if (join.status !== 'OPEN') throw new BadRequestException('join_not_editable');
@@ -617,6 +660,59 @@ export class JoinsService {
     if (!roomValidation.ok) throw new BadRequestException(roomValidation.code);
     const roomCharacter = normalizeJoinRoomCharacter(roomInput);
 
+    const genderCompositionTouched =
+      input.genderCompositionMode !== undefined ||
+      input.targetMaleCount !== undefined ||
+      input.targetFemaleCount !== undefined;
+    let nextGenderComposition = {
+      targetMaleCount: join.targetMaleCount,
+      targetFemaleCount: join.targetFemaleCount,
+    };
+    if (genderCompositionTouched) {
+      nextGenderComposition = parseGenderCompositionPayload({
+        genderCompositionMode: input.genderCompositionMode,
+        targetMaleCount:
+          input.targetMaleCount !== undefined ? input.targetMaleCount : join.targetMaleCount,
+        targetFemaleCount:
+          input.targetFemaleCount !== undefined ? input.targetFemaleCount : join.targetFemaleCount,
+        plannedPlayerCount: join.plannedPlayerCount,
+      });
+      if (
+        hasFixedGenderComposition(
+          nextGenderComposition.targetMaleCount,
+          nextGenderComposition.targetFemaleCount,
+        )
+      ) {
+        const hostGender = (join.host.profile?.gender ?? null) as MatchingGender | null;
+        const compositionValidation = validateFixedGenderComposition({
+          totalCapacity: join.plannedPlayerCount,
+          targetMaleCount: nextGenderComposition.targetMaleCount!,
+          targetFemaleCount: nextGenderComposition.targetFemaleCount!,
+          hostGender,
+        });
+        if (!compositionValidation.ok) {
+          throw new BadRequestException(compositionValidation.code);
+        }
+        const roster = countStandardGenderRoster({
+          participants: join.participants.map((p) => ({
+            role: p.role,
+            participationStatus: p.participationStatus,
+            gender: (p.user.profile?.gender ?? null) as MatchingGender | null,
+          })),
+          hostGender,
+        });
+        const editValidation = validateStandardGenderCompositionEdit({
+          targetMaleCount: nextGenderComposition.targetMaleCount!,
+          targetFemaleCount: nextGenderComposition.targetFemaleCount!,
+          currentMaleCount: roster.male,
+          currentFemaleCount: roster.female,
+        });
+        if (!editValidation.ok) {
+          throw new BadRequestException(editValidation.code);
+        }
+      }
+    }
+
     await this.prisma.join.update({
       where: { id: joinId },
       data: {
@@ -626,6 +722,12 @@ export class JoinsService {
         preferredGender: memberPrefs.preferredGender ?? undefined,
         minAge: memberPrefs.minAge ?? undefined,
         maxAge: memberPrefs.maxAge ?? undefined,
+        ...(genderCompositionTouched
+          ? {
+              targetMaleCount: nextGenderComposition.targetMaleCount,
+              targetFemaleCount: nextGenderComposition.targetFemaleCount,
+            }
+          : {}),
         participantSkillMode: roomCharacter.participantSkillMode,
         minScreenHandicap: roomCharacter.minScreenHandicap ?? undefined,
         maxScreenHandicap: roomCharacter.maxScreenHandicap ?? undefined,
@@ -1074,9 +1176,13 @@ export class JoinsService {
     let newlyApprovedUserId: string | null = null;
 
     await this.prisma.$transaction(async (tx) => {
+      await this.waitlist.lockJoinRowForCapacity(tx, joinId);
       const join = await tx.join.findUnique({
         where: { id: joinId },
-        include: { participants: true },
+        include: {
+          participants: { include: { user: { include: { profile: true } } } },
+          host: { include: { profile: true } },
+        },
       });
       if (!join) throw new NotFoundException('join_not_found');
       if (join.hostUserId !== hostUserId) {
@@ -1096,6 +1202,38 @@ export class JoinsService {
       }
       if (participant.participationStatus !== 'APPLIED') {
         throw new BadRequestException('invalid_participant_status');
+      }
+
+      if (
+        join.joinKind !== 'STORE_MATCHING' &&
+        hasFixedGenderComposition(join.targetMaleCount, join.targetFemaleCount)
+      ) {
+        const applicantGender = (participant.user.profile?.gender ?? null) as MatchingGender | null;
+        if (applicantGender !== 'MALE' && applicantGender !== 'FEMALE') {
+          throw new BadRequestException({
+            code: 'GENDER_REQUIRED',
+            message: '참가자 성별 정보가 필요합니다.',
+          });
+        }
+        const hostGender = (join.host.profile?.gender ?? null) as MatchingGender | null;
+        if (
+          !canApproveStandardGenderSlot({
+            applicantGender,
+            targetMaleCount: join.targetMaleCount ?? 0,
+            targetFemaleCount: join.targetFemaleCount ?? 0,
+            participants: join.participants.map((p) => ({
+              role: p.role,
+              participationStatus: p.participationStatus,
+              gender: (p.user.profile?.gender ?? null) as MatchingGender | null,
+            })),
+            hostGender,
+          })
+        ) {
+          throw new BadRequestException({
+            code: 'GENDER_SLOT_FULL',
+            message: '해당 성별 모집 인원이 마감되었습니다.',
+          });
+        }
       }
 
       const confirmed = computeConfirmedPlayerCount(
@@ -1527,6 +1665,14 @@ export class JoinsService {
       cancelledAt: join.cancelledAt,
       participants: join.participants,
     });
+    const standardGenderExtras = this.buildStandardGenderExtras({
+      joinKind: join.joinKind,
+      plannedPlayerCount: join.plannedPlayerCount,
+      targetMaleCount: join.targetMaleCount,
+      targetFemaleCount: join.targetFemaleCount,
+      host: join.host,
+      participants: join.participants,
+    });
 
     const chatAvailable = viewerUserId
       ? canAccessJoinChatWithClubBridge({
@@ -1633,6 +1779,50 @@ export class JoinsService {
       afterPlan: (join.afterPlan as JoinAfterPlan | null) ?? JoinAfterPlan.NONE,
       afterMemo: join.afterMemo ?? null,
       ...matchingExtras,
+      ...standardGenderExtras,
+    };
+  }
+
+  private buildStandardGenderExtras(join: {
+    joinKind?: string;
+    plannedPlayerCount?: number;
+    targetMaleCount?: number | null;
+    targetFemaleCount?: number | null;
+    host?: { profile?: { gender?: string | null } | null };
+    participants?: Array<{
+      role: string;
+      participationStatus: string;
+      user?: { profile?: { gender?: string | null } | null };
+    }>;
+  }): MatchingJoinExtras {
+    if (join.joinKind === 'STORE_MATCHING') {
+      return {};
+    }
+    if (!hasFixedGenderComposition(join.targetMaleCount, join.targetFemaleCount)) {
+      return {
+        targetMaleCount: null,
+        targetFemaleCount: null,
+      };
+    }
+
+    const hostGender = (join.host?.profile?.gender ?? null) as MatchingGender | null;
+    const composition = countStandardGenderRoster({
+      participants: (join.participants ?? []).map((p) => ({
+        role: p.role,
+        participationStatus: p.participationStatus,
+        gender: (p.user?.profile?.gender ?? null) as MatchingGender | null,
+      })),
+      hostGender,
+    });
+    const maleTarget = join.targetMaleCount ?? 0;
+    const femaleTarget = join.targetFemaleCount ?? 0;
+
+    return {
+      targetMaleCount: join.targetMaleCount ?? null,
+      targetFemaleCount: join.targetFemaleCount ?? null,
+      confirmedMaleCount: composition.male,
+      confirmedFemaleCount: composition.female,
+      recruitmentLabel: formatStandardGenderCompositionLabel(maleTarget, femaleTarget),
     };
   }
 

@@ -105,6 +105,9 @@ export const updateJoinSchema = z
     preferredGender: z.enum(['ANY', 'MALE', 'FEMALE']).optional().nullable(),
     minAge: z.number().int().min(18).max(70).optional().nullable(),
     maxAge: z.number().int().min(18).max(70).optional().nullable(),
+    genderCompositionMode: z.enum(['ANY', 'FIXED']).optional(),
+    targetMaleCount: z.number().int().min(0).max(8).optional().nullable(),
+    targetFemaleCount: z.number().int().min(0).max(8).optional().nullable(),
   })
   .merge(joinRoomCharacterFieldsObjectSchema)
   .superRefine(refineJoinRoomCharacterHandicap)
@@ -156,6 +159,9 @@ export const createJoinSchema = z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .optional(),
+    genderCompositionMode: z.enum(['ANY', 'FIXED']).optional(),
+    targetMaleCount: z.number().int().min(0).max(8).optional().nullable(),
+    targetFemaleCount: z.number().int().min(0).max(8).optional().nullable(),
   })
   .merge(joinRoomCharacterFieldsObjectSchema)
   .superRefine(refineJoinRoomCharacterHandicap)

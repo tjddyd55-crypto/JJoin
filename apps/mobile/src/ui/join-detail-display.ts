@@ -1,4 +1,4 @@
-import { formatMatchingDeadlineHint } from '@jjoin/domain';
+import { formatMatchingDeadlineHint, hasFixedGenderComposition, countStandardGenderRoster } from '@jjoin/domain';
 import {
   buildJoinCardCharacterTags,
   formatJoinAfterPlanLabel,
@@ -37,7 +37,7 @@ export type JoinRosterSlot =
       isHost: boolean;
       avatarUrl: string | null;
     }
-  | { type: 'empty' };
+  | { type: 'empty'; gender?: 'MALE' | 'FEMALE' | null };
 
 export function buildJoinRosterSlots(detail: JoinDetailDto): JoinRosterSlot[] {
   const filled: JoinRosterSlot[] = [];
@@ -65,6 +65,43 @@ export function buildJoinRosterSlots(detail: JoinDetailDto): JoinRosterSlot[] {
 
   const emptyCount = Math.max(0, detail.plannedPlayerCount - filled.length);
   const slots: JoinRosterSlot[] = [...filled];
+
+  if (
+    hasFixedGenderComposition(detail.targetMaleCount, detail.targetFemaleCount) &&
+    detail.targetMaleCount != null &&
+    detail.targetFemaleCount != null
+  ) {
+    const hostGender =
+      detail.participants.find((p) => p.role === 'HOST')?.gender ??
+      detail.host.genderDisplay === '남성'
+        ? 'MALE'
+        : detail.host.genderDisplay === '여성'
+          ? 'FEMALE'
+          : null;
+    const roster = countStandardGenderRoster({
+      participants: detail.participants.map((p) => ({
+        role: p.role,
+        participationStatus: p.participationStatus,
+        gender: p.gender ?? null,
+      })),
+      hostGender: hostGender as 'MALE' | 'FEMALE' | null,
+    });
+    let maleRemaining = Math.max(0, detail.targetMaleCount - roster.male);
+    let femaleRemaining = Math.max(0, detail.targetFemaleCount - roster.female);
+    for (let i = 0; i < emptyCount; i++) {
+      if (maleRemaining > 0) {
+        slots.push({ type: 'empty', gender: 'MALE' });
+        maleRemaining -= 1;
+      } else if (femaleRemaining > 0) {
+        slots.push({ type: 'empty', gender: 'FEMALE' });
+        femaleRemaining -= 1;
+      } else {
+        slots.push({ type: 'empty' });
+      }
+    }
+    return slots;
+  }
+
   for (let i = 0; i < emptyCount; i++) {
     slots.push({ type: 'empty' });
   }

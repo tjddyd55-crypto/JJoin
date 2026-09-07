@@ -36,6 +36,16 @@ import {
   memberPreferencesSummaryLabel,
 } from '../../src/features/join-create/components/JoinCreateMemberPreferencesSection';
 import { JoinCreateParticipantSkillSection } from '../../src/features/join-create/components/JoinCreateParticipantSkillSection';
+import { JoinCreateGenderCompositionSection } from '../../src/features/join-create/components/JoinCreateGenderCompositionSection';
+import {
+  defaultJoinGenderComposition,
+  genderCompositionPayload,
+  genderCompositionSummaryLabel,
+  resolveHostGenderFromDisplay,
+  validateJoinGenderCompositionClient,
+  clampMaleCapacity,
+  type JoinGenderCompositionState,
+} from '../../src/features/join-create/model/join-create-gender-composition';
 import { JoinCreateGameAfterSection } from '../../src/features/join-create/components/JoinCreateGameAfterSection';
 import {
   defaultJoinCreateRoomCharacter,
@@ -147,6 +157,13 @@ export default function CreateScreen() {
   const [description, setDescription] = useState('');
   const [joinMethod, setJoinMethod] = useState<JoinMethod>(JoinMethod.APPROVAL);
   const [memberPrefs, setMemberPrefs] = useState(() => defaultJoinMemberPreferences());
+  const [genderComposition, setGenderComposition] = useState<JoinGenderCompositionState>(() =>
+    defaultJoinGenderComposition(
+      resolveJoinCreatePlayersFromParams(
+        typeof params.players === 'string' ? params.players : undefined,
+      ),
+    ),
+  );
   const [roomCharacter, setRoomCharacter] = useState(() => defaultJoinCreateRoomCharacter());
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -159,6 +176,18 @@ export default function CreateScreen() {
   const [resolvingRouteVenue, setResolvingRouteVenue] = useState(false);
   const lastCompletedJoinIdRef = useRef<string | null>(null);
   const pendingNewSessionRef = useRef(false);
+
+  const hostGender = useMemo(
+    () => resolveHostGenderFromDisplay(me?.publicProfile?.genderDisplay),
+    [me?.publicProfile?.genderDisplay],
+  );
+
+  useEffect(() => {
+    setGenderComposition((prev) => ({
+      ...prev,
+      maleCapacity: clampMaleCapacity(prev.maleCapacity, players, hostGender),
+    }));
+  }, [players, hostGender]);
 
   const startAtIso = useMemo(() => {
     try {
@@ -350,6 +379,16 @@ export default function CreateScreen() {
       );
       return;
     }
+    const genderValidation = validateJoinGenderCompositionClient({
+      state: genderComposition,
+      totalCapacity: players,
+      hostGender,
+    });
+    if (!genderValidation.ok) {
+      setError(genderValidation.message);
+      setStep('capacity');
+      return;
+    }
     if (recurrenceMode === 'WEEKLY') {
       if (!recurrenceUseEndDate && maxOccurrences < 1) {
         setError('반복 횟수를 선택해주세요.');
@@ -384,6 +423,7 @@ export default function CreateScreen() {
             rewardPerParticipant,
             ...memberPreferencesPayload(memberPrefs),
             ...joinRoomCharacterPayload(roomCharacter),
+            ...genderCompositionPayload(genderComposition, players),
           },
         });
         setDoneRecurringId(schedule.id);
@@ -405,6 +445,7 @@ export default function CreateScreen() {
         clubEventId: routeClubEventId,
         ...memberPreferencesPayload(memberPrefs),
         ...joinRoomCharacterPayload(roomCharacter),
+        ...genderCompositionPayload(genderComposition, players),
       });
       if (prefilledInvitees.length > 0) {
         try {
@@ -445,6 +486,8 @@ export default function CreateScreen() {
     joinMethod,
     maxOccurrences,
     memberPrefs,
+    genderComposition,
+    hostGender,
     players,
     prefilledInvitees,
     recurrenceEndDate,
@@ -618,6 +661,12 @@ export default function CreateScreen() {
                 <Chip key={n} label={`${n}명`} selected={players === n} onPress={() => setPlayers(n)} />
               ))}
             </View>
+            <JoinCreateGenderCompositionSection
+              totalCapacity={players}
+              value={genderComposition}
+              hostGender={hostGender}
+              onChange={setGenderComposition}
+            />
             <RewardCoinInput
               onChange={setRewardPerParticipant}
               rewardEligibleSlots={rewardEligibleSlots}
@@ -708,6 +757,11 @@ export default function CreateScreen() {
               <JoinCreateSummaryRow label="장소" value={selectedVenue ? venueSelectionLabel(selectedVenue) : '—'} />
               <JoinCreateSummaryRow label="일정" value={scheduleSummary} />
               <JoinCreateSummaryRow label="인원" value={`${players}명`} />
+              <JoinCreateSummaryRow
+                label="성별 구성"
+                value={genderCompositionSummaryLabel(genderComposition, players)}
+                onPress={() => setStep('capacity')}
+              />
               <JoinCreateSummaryRow
                 label="원하는 멤버"
                 value={memberPreferencesSummaryLabel(memberPrefs)}
