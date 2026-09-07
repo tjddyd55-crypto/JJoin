@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   LayoutChangeEvent,
   PanResponder,
@@ -49,6 +49,15 @@ function formatLabel(minAge: number | null, maxAge: number | null): string {
   return '연령 무관';
 }
 
+const PAN_HANDLERS = {
+  onStartShouldSetPanResponder: () => true,
+  onStartShouldSetPanResponderCapture: () => true,
+  onMoveShouldSetPanResponder: () => true,
+  onMoveShouldSetPanResponderCapture: () => true,
+  onPanResponderTerminationRequest: () => false,
+  onShouldBlockNativeResponder: () => true,
+};
+
 export function AgeRangeSelector({
   minBound,
   maxBound,
@@ -60,57 +69,83 @@ export function AgeRangeSelector({
   const theme = useTheme();
   const [trackWidth, setTrackWidth] = useState(0);
   const dragStartX = useRef(0);
-  const dragStartAge = useRef(0);
 
-  const unrestricted = value.minAge == null && value.maxAge == null;
-  const effectiveMin = value.minAge ?? minBound;
-  const effectiveMax = value.maxAge ?? maxBound;
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const trackWidthRef = useRef(trackWidth);
+  trackWidthRef.current = trackWidth;
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const boundsRef = useRef({ minBound, maxBound });
+  boundsRef.current = { minBound, maxBound };
+
+  const applyDrag = useCallback((which: 'min' | 'max', x: number) => {
+    const width = trackWidthRef.current;
+    if (width <= 0) return;
+
+    const { minBound: minB, maxBound: maxB } = boundsRef.current;
+    const current = valueRef.current;
+    const ratio = Math.max(0, Math.min(1, x / width));
+    const age = ageForRatio(ratio, minB, maxB);
+    const effectiveMin = current.minAge ?? minB;
+    const effectiveMax = current.maxAge ?? maxB;
+
+    if (which === 'min') {
+      onChangeRef.current({
+        minAge: Math.min(age, effectiveMax),
+        maxAge: effectiveMax,
+      });
+      return;
+    }
+
+    onChangeRef.current({
+      minAge: effectiveMin,
+      maxAge: Math.max(age, effectiveMin),
+    });
+  }, []);
+
+  const minResponder = useRef(
+    PanResponder.create({
+      ...PAN_HANDLERS,
+      onPanResponderGrant: () => {
+        const { minBound: minB, maxBound: maxB } = boundsRef.current;
+        const current = valueRef.current;
+        const age = current.minAge ?? minB;
+        dragStartX.current = ratioForAge(age, minB, maxB) * trackWidthRef.current;
+      },
+      onPanResponderMove: (_, gesture) => {
+        applyDrag('min', dragStartX.current + gesture.dx);
+      },
+    }),
+  ).current;
+
+  const maxResponder = useRef(
+    PanResponder.create({
+      ...PAN_HANDLERS,
+      onPanResponderGrant: () => {
+        const { minBound: minB, maxBound: maxB } = boundsRef.current;
+        const current = valueRef.current;
+        const age = current.maxAge ?? maxB;
+        dragStartX.current = ratioForAge(age, minB, maxB) * trackWidthRef.current;
+      },
+      onPanResponderMove: (_, gesture) => {
+        applyDrag('max', dragStartX.current + gesture.dx);
+      },
+    }),
+  ).current;
 
   const onTrackLayout = useCallback((event: LayoutChangeEvent) => {
     setTrackWidth(event.nativeEvent.layout.width);
   }, []);
 
-  const updateFromX = useCallback(
-    (which: 'min' | 'max', x: number) => {
-      if (trackWidth <= 0) return;
-      const ratio = Math.max(0, Math.min(1, x / trackWidth));
-      const age = ageForRatio(ratio, minBound, maxBound);
-      if (which === 'min') {
-        const nextMin = Math.min(age, effectiveMax);
-        onChange({ minAge: nextMin, maxAge: effectiveMax });
-      } else {
-        const nextMax = Math.max(age, effectiveMin);
-        onChange({ minAge: effectiveMin, maxAge: nextMax });
-      }
-    },
-    [effectiveMax, effectiveMin, maxBound, minBound, onChange, trackWidth],
-  );
-
-  const makeResponder = useCallback(
-    (which: 'min' | 'max') =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
-        onPanResponderGrant: () => {
-          const age = which === 'min' ? effectiveMin : effectiveMax;
-          dragStartAge.current = age;
-          dragStartX.current = ratioForAge(age, minBound, maxBound) * trackWidth;
-        },
-        onPanResponderMove: (_, gesture) => {
-          updateFromX(which, dragStartX.current + gesture.dx);
-        },
-      }),
-    [effectiveMax, effectiveMin, maxBound, minBound, trackWidth, updateFromX],
-  );
-
-  const minResponder = useMemo(() => makeResponder('min'), [makeResponder]);
-  const maxResponder = useMemo(() => makeResponder('max'), [makeResponder]);
+  const unrestricted = value.minAge == null && value.maxAge == null;
+  const effectiveMin = value.minAge ?? minBound;
+  const effectiveMax = value.maxAge ?? maxBound;
 
   const minLeft =
     trackWidth > 0 ? ratioForAge(effectiveMin, minBound, maxBound) * trackWidth : 0;
   const maxLeft =
     trackWidth > 0 ? ratioForAge(effectiveMax, minBound, maxBound) * trackWidth : trackWidth;
-
   const selectedWidth = Math.max(0, maxLeft - minLeft);
 
   const enableRange = () => {
@@ -133,12 +168,7 @@ export function AgeRangeSelector({
         <Text variant="caption" tone="tertiary">{maxBound}세</Text>
       </View>
 
-      <Pressable
-        accessibilityRole="adjustable"
-        accessibilityLabel="연령 범위"
-        onPress={enableRange}
-        style={styles.trackPressable}
-      >
+      <View style={styles.trackPressable}>
         <View onLayout={onTrackLayout} style={styles.trackOuter}>
           <View
             style={[
@@ -146,6 +176,7 @@ export function AgeRangeSelector({
               { backgroundColor: theme.colors.border.subtle },
             ]}
           />
+
           {!unrestricted ? (
             <View
               pointerEvents="none"
@@ -159,12 +190,20 @@ export function AgeRangeSelector({
               ]}
             />
           ) : null}
-          {!unrestricted ? (
+
+          {unrestricted ? (
+            <Pressable
+              accessibilityRole="adjustable"
+              accessibilityLabel="연령 범위"
+              onPress={enableRange}
+              style={styles.trackTouchZone}
+            />
+          ) : (
             <>
               <View
                 style={[
                   styles.handleTouch,
-                  { left: minLeft - HANDLE_TOUCH / 2 },
+                  { left: minLeft - HANDLE_TOUCH / 2, zIndex: 2 },
                 ]}
                 {...minResponder.panHandlers}
               >
@@ -181,7 +220,7 @@ export function AgeRangeSelector({
               <View
                 style={[
                   styles.handleTouch,
-                  { left: maxLeft - HANDLE_TOUCH / 2 },
+                  { left: maxLeft - HANDLE_TOUCH / 2, zIndex: 2 },
                 ]}
                 {...maxResponder.panHandlers}
               >
@@ -196,9 +235,9 @@ export function AgeRangeSelector({
                 />
               </View>
             </>
-          ) : null}
+          )}
         </View>
-      </Pressable>
+      </View>
 
       <Pressable
         accessibilityRole="button"
@@ -231,6 +270,9 @@ const styles = StyleSheet.create({
   trackOuter: {
     height: HANDLE_TOUCH,
     justifyContent: 'center',
+  },
+  trackTouchZone: {
+    ...StyleSheet.absoluteFill,
   },
   track: {
     height: 4,
