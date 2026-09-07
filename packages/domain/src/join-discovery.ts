@@ -442,6 +442,17 @@ export function aggregateWeeklyDayCounts(
   return counts;
 }
 
+/** Discovery list visibility — separate from `canJoin` (apply CTA). */
+export function isJoinVisibleInDiscoveryList(input: {
+  joinability: JoinDiscoveryJoinability;
+  canJoin: boolean;
+  canJoinState: DiscoverCanJoinState;
+}): boolean {
+  if (input.joinability === 'ALL') return true;
+  if (input.canJoinState === 'HOST') return true;
+  return input.canJoin;
+}
+
 export function resolveDiscoverCanJoin(input: {
   status: JoinStatus | string;
   currentParticipants: number;

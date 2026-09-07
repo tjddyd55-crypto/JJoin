@@ -369,6 +369,7 @@ export {
   createDefaultDiscoveryFilter,
   emptyFacilityJoinActivity,
   isDiscoveryJoinStatus,
+  isJoinVisibleInDiscoveryList,
   isHomeHostedActiveJoin,
   isOngoingJoin,
   isTerminalJoinStatus,

@@ -31,6 +31,7 @@ import {
   canDirectJoinGeneralCapacity,
   computeMatchingRemainingSlots,
   isJoinWaitlistJoinable,
+  isJoinVisibleInDiscoveryList,
   sundayOfWeek,
 } from '@jjoin/domain';
 import {
@@ -189,7 +190,13 @@ export class JoinDiscoveryService {
     const filtered = this.filterByRegion(discoverable, region);
     const cards = filtered
       .map((row) => this.toCard(row, userId, region, now))
-      .filter((card) => (joinability === 'JOINABLE' ? card.canJoin : true))
+      .filter((card) =>
+        isJoinVisibleInDiscoveryList({
+          joinability,
+          canJoin: card.canJoin,
+          canJoinState: card.canJoinState,
+        }),
+      )
       .sort((a, b) =>
         compareDiscoverJoinOrder(a, b, { sort, now }),
       );
@@ -412,7 +419,13 @@ export class JoinDiscoveryService {
     };
     const cards = discoverable
       .map((row) => this.toCard(row, userId, region, now))
-      .filter((card) => (joinability === 'JOINABLE' ? card.canJoin : true));
+      .filter((card) =>
+        isJoinVisibleInDiscoveryList({
+          joinability,
+          canJoin: card.canJoin,
+          canJoinState: card.canJoinState,
+        }),
+      );
     return cards;
   }
 

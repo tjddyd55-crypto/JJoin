@@ -13,6 +13,7 @@ import {
   kstDayBoundsUtc,
   partitionDiscoverJoins,
   pickHomeHostedJoins,
+  isJoinVisibleInDiscoveryList,
   resolveDiscoverCanJoin,
   resolveJoinDiscoveryBadge,
   resolveMapJoinCaption,
@@ -261,6 +262,61 @@ test('partitionDiscoverJoins + compareDiscoverJoinOrder', () => {
   assert.equal(u.length, 1);
   assert.ok(compareDiscoverJoinOrder(ongoing, laterNear, { now, sort: 'TIME' }) < 0);
   assert.ok(compareDiscoverJoinOrder(laterNear, laterFar, { now, sort: 'TIME' }) < 0);
+});
+
+test('isJoinVisibleInDiscoveryList includes host-owned joins when JOINABLE', () => {
+  assert.equal(
+    isJoinVisibleInDiscoveryList({
+      joinability: 'JOINABLE',
+      canJoin: false,
+      canJoinState: 'HOST',
+    }),
+    true,
+  );
+  assert.equal(
+    isJoinVisibleInDiscoveryList({
+      joinability: 'JOINABLE',
+      canJoin: true,
+      canJoinState: 'JOINABLE',
+    }),
+    true,
+  );
+  assert.equal(
+    isJoinVisibleInDiscoveryList({
+      joinability: 'JOINABLE',
+      canJoin: false,
+      canJoinState: 'FULL',
+    }),
+    false,
+  );
+  assert.equal(
+    isJoinVisibleInDiscoveryList({
+      joinability: 'ALL',
+      canJoin: false,
+      canJoinState: 'FULL',
+    }),
+    true,
+  );
+});
+
+test('host-created join is visible in discovery JOINABLE filter', () => {
+  const host = resolveDiscoverCanJoin({
+    status: JoinStatus.OPEN,
+    currentParticipants: 1,
+    maxParticipants: 4,
+    isHost: true,
+    isParticipant: false,
+  });
+  assert.equal(host.state, 'HOST');
+  assert.equal(host.canJoin, false);
+  assert.equal(
+    isJoinVisibleInDiscoveryList({
+      joinability: 'JOINABLE',
+      canJoin: host.canJoin,
+      canJoinState: host.state,
+    }),
+    true,
+  );
 });
 
 test('resolveDiscoverCanJoin states', () => {
