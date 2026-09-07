@@ -1265,6 +1265,17 @@ export class ApiClient {
     return parseJson(res);
   }
 
+  async endRecurringJoin(scheduleId: string): Promise<RecurringJoinScheduleDto> {
+    const res = await request(
+      `${this.config.baseUrl}/my/recurring-joins/${scheduleId}/end`,
+      {
+        method: 'POST',
+        headers: await this.headers(true),
+      },
+    );
+    return parseJson(res);
+  }
+
   async skipRecurringJoinOccurrence(
     scheduleId: string,
     body: SkipRecurringJoinOccurrenceRequest,

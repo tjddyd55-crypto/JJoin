@@ -11,6 +11,7 @@ import {
   JoinSeatsRemainingBanner,
   JoinStatusBadge,
   JoinVenueSummary,
+  Badge,
   Text,
   useTheme,
 } from '@jjoin/design-system';
@@ -228,6 +229,9 @@ export function JoinDetailPrimarySections({
             {statusBadges.map((badge) => (
               <JoinStatusBadge key={badge.label} label={badge.label} tone={badge.tone} />
             ))}
+            {detail.recurringScheduleId ? (
+              <Badge label="반복 조인" variant="neutral" />
+            ) : null}
           </View>
           {(onToggleBookmark || onShare) ? (
             <View style={styles.headerActions}>

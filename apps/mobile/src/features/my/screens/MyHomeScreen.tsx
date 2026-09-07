@@ -265,6 +265,11 @@ export function MyHomeScreen() {
               onPress={() => router.push('/my/golf-friends' as Href)}
             />
             <ListRow
+              label="반복 조인"
+              icon="calendar"
+              onPress={() => router.push('/my/recurring-joins' as Href)}
+            />
+            <ListRow
               label="함께 친 사람"
               icon="people"
               onPress={() => router.push('/my/played-together' as Href)}

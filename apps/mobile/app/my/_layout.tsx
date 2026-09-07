@@ -24,7 +24,7 @@ export default function MyLayout() {
         <Stack.Screen name="stores" options={{ title: '내 매장' }} />
         <Stack.Screen name="store-dashboard" options={{ title: '운영 대시보드' }} />
         <Stack.Screen name="create-store-join" options={{ title: '모집 조인 만들기' }} />
-        <Stack.Screen name="recurring-joins" options={{ title: '정기 조인' }} />
+        <Stack.Screen name="recurring-joins" options={{ title: '반복 조인' }} />
         <Stack.Screen name="create-recurring-join" options={{ title: '정기 조인 만들기' }} />
         <Stack.Screen name="join-alerts" options={{ title: '조인 알림' }} />
         <Stack.Screen name="bookmarks" options={{ title: '찜한 조인' }} />

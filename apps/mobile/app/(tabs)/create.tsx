@@ -35,6 +35,11 @@ import {
   memberPreferencesSummaryLabel,
 } from '../../src/features/join-create/components/JoinCreateMemberPreferencesSection';
 import {
+  JoinCreateRecurrenceSection,
+  type RecurrenceMode,
+} from '../../src/features/join-create/components/JoinCreateRecurrenceSection';
+import { isoWeekdayFromDateKey, hostRecurringSummaryLabel } from '../../src/features/store/recurring-join-ui';
+import {
   clearJoinCreateDraft,
   peekJoinCreateDraft,
   saveJoinCreateDraft,
@@ -137,6 +142,11 @@ export default function CreateScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [doneJoinId, setDoneJoinId] = useState<string | null>(null);
+  const [doneRecurringId, setDoneRecurringId] = useState<string | null>(null);
+  const [recurrenceMode, setRecurrenceMode] = useState<RecurrenceMode>('NONE');
+  const [recurrenceUseEndDate, setRecurrenceUseEndDate] = useState(false);
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState('');
+  const [maxOccurrences, setMaxOccurrences] = useState(4);
   const [resolvingRouteVenue, setResolvingRouteVenue] = useState(false);
   const lastCompletedJoinIdRef = useRef<string | null>(null);
   const pendingNewSessionRef = useRef(false);
@@ -169,6 +179,11 @@ export default function CreateScreen() {
     setDescription('');
     setJoinMethod(JoinMethod.APPROVAL);
     setMemberPrefs(defaultJoinMemberPreferences());
+    setRecurrenceMode('NONE');
+    setRecurrenceUseEndDate(false);
+    setRecurrenceEndDate('');
+    setMaxOccurrences(4);
+    setDoneRecurringId(null);
     setSubmitting(false);
     setError(null);
     clearJoinCreateDraft();
@@ -243,7 +258,7 @@ export default function CreateScreen() {
   }, [api, params.venueAddress, params.venueName, routeVenueId]);
 
   const rewardEligibleSlots = useMemo(() => computeRewardEligibleSlots(players), [players]);
-  const previewEnabled = Boolean(me?.userId);
+  const previewEnabled = Boolean(me?.userId) && recurrenceMode === 'NONE';
   const {
     preview,
     loading: previewLoading,
@@ -317,7 +332,7 @@ export default function CreateScreen() {
       setStep('venue');
       return;
     }
-    if (!canCreate) {
+    if (!canCreate && recurrenceMode === 'NONE') {
       setError(
         shortfall
           ? t('create.coin.insufficientAmount').replace('{amount}', formatNumber(shortfall))
@@ -325,9 +340,46 @@ export default function CreateScreen() {
       );
       return;
     }
+    if (recurrenceMode === 'WEEKLY') {
+      if (!recurrenceUseEndDate && maxOccurrences < 1) {
+        setError('반복 횟수를 선택해주세요.');
+        return;
+      }
+      if (recurrenceUseEndDate && (!recurrenceEndDate || recurrenceEndDate < gameDate)) {
+        setError('반복 종료일을 확인해주세요.');
+        return;
+      }
+    }
     setSubmitting(true);
     setError(null);
     try {
+      if (recurrenceMode === 'WEEKLY') {
+        const dayOfWeek = isoWeekdayFromDateKey(gameDate);
+        const schedule = await api.createRecurringJoin({
+          dayOfWeek,
+          startTimeLocal: startTime,
+          recurrenceStartDate: gameDate,
+          ...(recurrenceUseEndDate
+            ? { recurrenceEndDate }
+            : { maxOccurrences }),
+          title: routeTitle ?? `${selectedVenue.name} 스크린골프`,
+          description: description.trim() || null,
+          joinTemplate: {
+            sportCode: SCREEN_GOLF_CODE,
+            venueId: selectedVenue.venueId,
+            plannedPlayerCount: players,
+            joinMethod,
+            title: routeTitle ?? `${selectedVenue.name} 스크린골프`,
+            description: description.trim() || null,
+            rewardPerParticipant,
+            ...memberPreferencesPayload(memberPrefs),
+          },
+        });
+        setDoneRecurringId(schedule.id);
+        clearJoinCreateDraft();
+        setPrefilledInvitees([]);
+        return;
+      }
       const detail = await api.createJoin({
         sportCode: SCREEN_GOLF_CODE,
         venueId: selectedVenue.venueId,
@@ -377,10 +429,15 @@ export default function CreateScreen() {
     api,
     canCreate,
     description,
+    gameDate,
     joinMethod,
+    maxOccurrences,
     memberPrefs,
     players,
     prefilledInvitees,
+    recurrenceEndDate,
+    recurrenceMode,
+    recurrenceUseEndDate,
     requestGatedAction,
     rewardPerParticipant,
     router,
@@ -391,6 +448,7 @@ export default function CreateScreen() {
     shortfall,
     startAtIso,
     startAtValid,
+    startTime,
     submitting,
   ]);
 
@@ -421,6 +479,35 @@ export default function CreateScreen() {
   const scheduleSummary = startAtIso
     ? `${formatJoinScheduleDetailDate(startAtIso)} ${formatJoinScheduleDetailTime(startAtIso)}`
     : '일정 선택';
+
+  const recurringSummary =
+    recurrenceMode === 'WEEKLY' && gameDate && startTime
+      ? hostRecurringSummaryLabel({
+          dayOfWeek: isoWeekdayFromDateKey(gameDate),
+          startTimeLocal: startTime,
+          recurrenceStartDate: gameDate,
+          recurrenceEndDate: recurrenceUseEndDate ? recurrenceEndDate : undefined,
+          maxOccurrences: recurrenceUseEndDate ? undefined : maxOccurrences,
+        })
+      : null;
+
+  if (doneRecurringId) {
+    return (
+      <FormScreenFrame>
+        <Stack gap="md">
+          <Text variant="sectionTitle" tone="primary">반복 조인 등록 완료</Text>
+          <Text variant="body" tone="secondary">
+            매주 자동으로 조인이 생성됩니다. MY → 반복 조인에서 관리할 수 있습니다.
+          </Text>
+          <Button
+            label="반복 조인 관리"
+            onPress={() => router.push('/my/recurring-joins' as Href)}
+          />
+          <Button label="내 조인" variant="secondary" onPress={() => router.push('/(tabs)/my-joins')} />
+        </Stack>
+      </FormScreenFrame>
+    );
+  }
 
   if (doneJoinId) {
     return (
@@ -453,8 +540,8 @@ export default function CreateScreen() {
         <Button label="코인 충전하기" variant="secondary" size="sm" onPress={() => router.push('/my/coin-charge')} />
       ) : null}
       <Button
-        disabled={footerState.createDisabled}
-        label={footerState.createLabel}
+        disabled={footerState.createDisabled && recurrenceMode === 'NONE'}
+        label={recurrenceMode === 'WEEKLY' ? '반복 조인 만들기' : footerState.createLabel}
         loading={submitting}
         onPress={() => void onCreate()}
       />
@@ -577,6 +664,18 @@ export default function CreateScreen() {
             ) : (
               <Text variant="meta" tone="tertiary">무료 초대 대상이 없습니다.</Text>
             )}
+            <JoinCreateRecurrenceSection
+              mode={recurrenceMode}
+              onModeChange={setRecurrenceMode}
+              startDate={gameDate}
+              startTime={startTime}
+              recurrenceEndDate={recurrenceEndDate}
+              onRecurrenceEndDateChange={setRecurrenceEndDate}
+              maxOccurrences={maxOccurrences}
+              onMaxOccurrencesChange={setMaxOccurrences}
+              useEndDate={recurrenceUseEndDate}
+              onUseEndDateChange={setRecurrenceUseEndDate}
+            />
           </>
         ) : null}
 
@@ -603,6 +702,13 @@ export default function CreateScreen() {
                 value={joinMethod === JoinMethod.OPEN ? '참가 즉시 확정' : '승인 후 참가'}
                 onPress={() => setStep('options')}
               />
+              {recurrenceMode === 'WEEKLY' && recurringSummary ? (
+                <>
+                  <JoinCreateSummaryRow label="반복" value={recurringSummary.repeatLabel} />
+                  <JoinCreateSummaryRow label="기간" value={recurringSummary.periodLabel} />
+                  <JoinCreateSummaryRow label="예정" value={recurringSummary.totalLabel} />
+                </>
+              ) : null}
               <JoinCreateSummaryRow
                 label="참가보상"
                 value={Number(rewardPerParticipant) > 0 ? `${rewardPerParticipant} 코인` : '없음'}
@@ -611,18 +717,24 @@ export default function CreateScreen() {
                 <JoinCreateSummaryRow label="추가 안내" value={description.trim()} />
               ) : null}
             </Card>
-            <JoinCreatePricingSummary
-              roomCreationFee={preview?.roomCreationFee}
-              rewardPerParticipant={preview?.rewardPerParticipant}
-              rewardEligibleSlots={preview?.rewardEligibleSlots}
-              totalRequiredCoin={preview?.totalRequiredCoin}
-              walletAvailable={preview?.walletAvailable}
-              loading={previewLoading && !preview}
-              error={previewError}
-              shortfall={shortfall}
-              creatorUserTypeLabel={preview?.creatorUserTypeLabel}
-              creationCoinEnabled={preview?.creationCoinEnabled}
-            />
+            {recurrenceMode === 'WEEKLY' ? (
+              <Text variant="caption" tone="secondary">
+                반복 조인은 회차별 생성 시점에 생성비가 차감됩니다.
+              </Text>
+            ) : (
+              <JoinCreatePricingSummary
+                roomCreationFee={preview?.roomCreationFee}
+                rewardPerParticipant={preview?.rewardPerParticipant}
+                rewardEligibleSlots={preview?.rewardEligibleSlots}
+                totalRequiredCoin={preview?.totalRequiredCoin}
+                walletAvailable={preview?.walletAvailable}
+                loading={previewLoading && !preview}
+                error={previewError}
+                shortfall={shortfall}
+                creatorUserTypeLabel={preview?.creatorUserTypeLabel}
+                creationCoinEnabled={preview?.creationCoinEnabled}
+              />
+            )}
           </>
         ) : null}
 

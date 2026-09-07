@@ -14,6 +14,8 @@ test('dayOfWeekLabel covers Mon–Sun', () => {
 test('recurringStatusLabel Korean', () => {
   assert.equal(recurringStatusLabel('ACTIVE'), '진행중');
   assert.equal(recurringStatusLabel('PAUSED'), '일시정지');
+  assert.equal(recurringStatusLabel('ENDED'), '종료됨');
+  assert.equal(recurringStatusLabel('DELETED'), '삭제됨');
 });
 
 test('nextOccurrenceDateForSkip prefers nextRunAt', () => {
