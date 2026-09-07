@@ -14,7 +14,6 @@ import { Button, ScreenFrame, Text, spacing, useTheme } from '@jjoin/design-syst
 import { getApiClient } from '../../lib/api';
 import { isProductionVariant } from '../../lib/app-variant';
 import { getSecureSessionStore } from '../../session/SessionContext';
-import { downloadAndInstallApk, openUnknownAppInstallSettings } from './apk-install';
 
 type GatePhase = 'checking' | 'ready' | 'blocked' | 'downloading' | 'error';
 
@@ -75,6 +74,7 @@ export function ProductionReleaseGate({ children }: { children: React.ReactNode 
     setPhase('downloading');
     setDownloadProgress(0);
     try {
+      const { downloadAndInstallApk } = await import('./apk-install');
       await downloadAndInstallApk(release.apkUrl, (progress) => {
         if (progress.totalBytes > 0) {
           setDownloadProgress(progress.downloadedBytes / progress.totalBytes);
@@ -138,7 +138,9 @@ export function ProductionReleaseGate({ children }: { children: React.ReactNode 
                 />
               )}
               {showRetry ? (
-                <Pressable onPress={() => void openUnknownAppInstallSettings()}>
+                <Pressable
+                  onPress={() => void import('./apk-install').then((m) => m.openUnknownAppInstallSettings())}
+                >
                   <Text variant="caption" tone="secondary" style={styles.permissionLink}>
                     업데이트 설치 권한이 필요합니다.
                   </Text>

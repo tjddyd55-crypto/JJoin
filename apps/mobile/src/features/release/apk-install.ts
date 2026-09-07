@@ -1,5 +1,3 @@
-import * as FileSystem from 'expo-file-system/legacy';
-import * as IntentLauncher from 'expo-intent-launcher';
 import { Linking, Platform } from 'react-native';
 
 const APK_MIME = 'application/vnd.android.package-archive';
@@ -17,6 +15,9 @@ export async function downloadAndInstallApk(
     throw new Error('apk_install_android_only');
   }
 
+  const FileSystem = await import('expo-file-system/legacy');
+  const IntentLauncher = await import('expo-intent-launcher');
+
   const cacheDir = FileSystem.cacheDirectory;
   if (!cacheDir) {
     throw new Error('apk_cache_unavailable');
@@ -24,7 +25,7 @@ export async function downloadAndInstallApk(
 
   const targetPath = `${cacheDir}jjoinzone-update.apk`;
   const callback = onProgress
-    ? (data: FileSystem.DownloadProgressData) => {
+    ? (data: { totalBytesExpectedToWrite: number; totalBytesWritten: number }) => {
         onProgress({
           totalBytes: data.totalBytesExpectedToWrite,
           downloadedBytes: data.totalBytesWritten,
@@ -50,9 +51,8 @@ export async function openUnknownAppInstallSettings(): Promise<void> {
   if (Platform.OS !== 'android') return;
 
   try {
-    await IntentLauncher.startActivityAsync(
-      'android.settings.MANAGE_UNKNOWN_APP_SOURCES',
-    );
+    const IntentLauncher = await import('expo-intent-launcher');
+    await IntentLauncher.startActivityAsync('android.settings.MANAGE_UNKNOWN_APP_SOURCES');
     return;
   } catch {
     // Fall through to generic settings.
