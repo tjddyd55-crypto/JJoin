@@ -20,7 +20,7 @@ const ROW_1: QuickMenuItem[] = [
 
 const ROW_2: QuickMenuItem[] = [
   { label: '내 조인', icon: 'people', href: '/(tabs)/my-joins' },
-  { label: '긴급 모집', icon: 'warning', href: '/(tabs)/joins', accent: true, iconTone: 'gold' },
+  { label: '골프친구', icon: 'people', href: '/my/golf-friends' as Href },
   { label: '알림', icon: 'notification', href: '/my/notifications' },
   { label: '코인', icon: 'coin', href: '/my/wallet' },
 ];
