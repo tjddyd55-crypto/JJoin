@@ -18,6 +18,7 @@ import {
 } from '@jjoin/design-system';
 import {
   clubActivityTypeLabel,
+  formatAgeRangeLabel,
   formatClubActivityRegionsCompact,
   isClubStaff,
 } from '@jjoin/domain';
@@ -124,6 +125,7 @@ export function ClubHomeScreen() {
   const regionLabel = formatClubActivityRegionsCompact(detail.activityRegions ?? [], {
     maxParts: 3,
   });
+  const ageLabel = formatAgeRangeLabel(detail.minAge, detail.maxAge);
 
   return (
     <View style={styles.root}>
@@ -158,6 +160,7 @@ export function ClubHomeScreen() {
               <ClubJoinPolicyBadge
                 label={detail.visibility === ClubVisibility.PUBLIC ? '공개' : '비공개'}
               />
+              <ClubJoinPolicyBadge label={ageLabel} tone="neutral" />
             </View>
             <Text variant="clubMeta" tone="tertiary">
               {regionLabel || detail.region} · 회원 {detail.memberCount}명
