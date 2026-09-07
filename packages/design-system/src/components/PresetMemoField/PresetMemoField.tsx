@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 import { Input } from '../Input';
+import { SelectTrigger } from '../SelectTrigger';
 import { Text } from '../../primitives/Text';
 import { useTheme } from '../../theme';
 import { spacing } from '../../tokens';
 
 export type PresetMemoFieldProps = {
-  label: string;
   presets: readonly string[];
   customPresetLabel: string;
   value: string;
@@ -14,18 +14,32 @@ export type PresetMemoFieldProps = {
   maxLength: number;
   visible: boolean;
   placeholder?: string;
+  triggerPlaceholder?: string;
   style?: ViewStyle;
 };
 
+function resolveTriggerLabel(
+  value: string,
+  presets: readonly string[],
+  customPresetLabel: string,
+  triggerPlaceholder: string,
+): string {
+  const trimmed = value.trim();
+  if (!trimmed) return triggerPlaceholder;
+  const matched = presets.some((preset) => preset === trimmed);
+  if (matched) return triggerPlaceholder;
+  return customPresetLabel;
+}
+
 export function PresetMemoField({
-  label,
   presets,
   customPresetLabel,
   value,
   onChange,
   maxLength,
   visible,
-  placeholder = '메모를 입력해 주세요',
+  placeholder = '내용을 입력해 주세요',
+  triggerPlaceholder = '예시 문구 선택',
   style,
 }: PresetMemoFieldProps) {
   const theme = useTheme();
@@ -34,20 +48,16 @@ export function PresetMemoField({
 
   if (!visible) return null;
 
-  const selectedPreset =
-    presets.find((preset) => preset === value.trim()) ??
-    (value.trim() ? customPresetLabel : '예시 문구 선택 ▼');
+  const triggerLabel = resolveTriggerLabel(
+    value,
+    presets,
+    customPresetLabel,
+    triggerPlaceholder,
+  );
 
   return (
     <View style={[styles.root, style]}>
-      <Text variant="bodyStrong" tone="primary">{label}</Text>
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => setOpen(true)}
-        style={[styles.presetBtn, { borderColor: theme.colors.border.subtle }]}
-      >
-        <Text variant="body" tone="secondary">{selectedPreset}</Text>
-      </Pressable>
+      <SelectTrigger label={triggerLabel} onPress={() => setOpen(true)} />
       <Input
         value={value}
         onChangeText={onChange}
@@ -80,14 +90,6 @@ export function PresetMemoField({
 
 const styles = StyleSheet.create({
   root: { gap: spacing.sm },
-  presetBtn: {
-    minHeight: 44,
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
   backdrop: {
     flex: 1,
     justifyContent: 'flex-end',

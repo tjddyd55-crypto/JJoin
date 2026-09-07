@@ -50,6 +50,7 @@ export {
   PresetMemoField,
   type PresetMemoFieldProps,
 } from './components/PresetMemoField';
+export { SelectTrigger, type SelectTriggerProps } from './components/SelectTrigger';
 export { Badge, type BadgeProps, type BadgeVariant } from './components/Badge';
 export { BrandMark, type BrandMarkVariant, type BrandMarkTone } from './components/BrandMark';
 export { JoinHostAvatar, type JoinHostAvatarProps, type JoinHostAvatarSize } from './components/JoinHostAvatar';

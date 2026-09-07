@@ -23,6 +23,63 @@ const ACTIVE_PARTICIPANT_STATUSES: ParticipationStatus[] = [
   ParticipationStatus.COMPLETED,
 ];
 
+const ROSTER_SLOT_STATUSES: ParticipationStatus[] = [
+  ParticipationStatus.APPROVED,
+  ParticipationStatus.CONFIRMED,
+  ParticipationStatus.COMPLETED,
+];
+
+export type JoinRosterSlot =
+  | {
+      type: 'filled';
+      participantId: string;
+      nickname: string;
+      isHost: boolean;
+      avatarUrl: string | null;
+    }
+  | { type: 'empty' };
+
+export function buildJoinRosterSlots(detail: JoinDetailDto): JoinRosterSlot[] {
+  const filled: JoinRosterSlot[] = [];
+  const hostParticipant = detail.participants.find((p) => p.role === 'HOST');
+
+  filled.push({
+    type: 'filled',
+    participantId: hostParticipant?.participantId ?? 'host',
+    nickname: detail.host.nickname,
+    isHost: true,
+    avatarUrl: detail.host.avatarUrl ?? null,
+  });
+
+  for (const participant of detail.participants) {
+    if (participant.role === 'HOST') continue;
+    if (!ROSTER_SLOT_STATUSES.includes(participant.participationStatus)) continue;
+    filled.push({
+      type: 'filled',
+      participantId: participant.participantId,
+      nickname: participant.nickname,
+      isHost: false,
+      avatarUrl: null,
+    });
+  }
+
+  const emptyCount = Math.max(0, detail.plannedPlayerCount - filled.length);
+  const slots: JoinRosterSlot[] = [...filled];
+  for (let i = 0; i < emptyCount; i++) {
+    slots.push({ type: 'empty' });
+  }
+  return slots;
+}
+
+export function canShowJoinChatEntry(detail: JoinDetailDto, isHost: boolean): boolean {
+  if (detail.chatAvailable) return true;
+  if (detail.status === 'COMPLETED' || detail.status === 'CANCELLED') return false;
+  if (isHost) return true;
+  const mine = detail.myParticipation;
+  if (!mine) return false;
+  return ROSTER_SLOT_STATUSES.includes(mine.participationStatus);
+}
+
 export function filterJoinDisplayParticipants(
   participants: JoinParticipantDto[],
 ): JoinParticipantDto[] {
@@ -150,7 +207,7 @@ export function buildJoinParticipationSummary(detail: JoinDetailDto): JoinPartic
     seatsLeft <= 0 ? 'full' : seatsLeft === 1 ? 'lastSeat' : 'available';
 
   return {
-    headline: `현재 ${detail.confirmedPlayerCount}/${detail.plannedPlayerCount}명 참가`,
+    headline: `현재 ${detail.confirmedPlayerCount}/${detail.plannedPlayerCount}`,
     maleLine:
       maleTarget > 0 || femaleTarget > 0 ? `남성 ${maleConfirmed}/${maleTarget}` : null,
     femaleLine:

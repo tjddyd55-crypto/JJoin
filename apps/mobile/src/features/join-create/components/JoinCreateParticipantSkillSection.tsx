@@ -16,23 +16,10 @@ import type { JoinCreateRoomCharacterState } from '../model/join-create-room-cha
 const SKILL_OPTIONS: Array<{
   value: JoinParticipantSkillMode;
   label: string;
-  description: string;
 }> = [
-  {
-    value: JoinParticipantSkillMode.ANY,
-    label: '실력 상관없음',
-    description: '스크린골프 실력과 관계없이 누구나 참여할 수 있어요.',
-  },
-  {
-    value: JoinParticipantSkillMode.BEGINNER_OK,
-    label: '초보 가능',
-    description: '스크린골프 경험이 적거나 핸디를 잘 모르는 분도 참여할 수 있어요.',
-  },
-  {
-    value: JoinParticipantSkillMode.HANDICAP_RANGE,
-    label: '핸디 범위 지정',
-    description: '원하는 스크린 핸디 범위를 지정해요.',
-  },
+  { value: JoinParticipantSkillMode.ANY, label: '실력 상관없음' },
+  { value: JoinParticipantSkillMode.BEGINNER_OK, label: '초보 가능' },
+  { value: JoinParticipantSkillMode.HANDICAP_RANGE, label: '핸디 범위 지정' },
 ];
 
 type Props = {
@@ -54,8 +41,6 @@ export function JoinCreateParticipantSkillSection({ value, onChange }: Props) {
     });
   };
 
-  const selected = SKILL_OPTIONS.find((opt) => opt.value === value.participantSkillMode);
-
   return (
     <View style={styles.root}>
       <Text variant="bodyStrong" tone="primary" style={styles.label}>참가 실력</Text>
@@ -69,9 +54,6 @@ export function JoinCreateParticipantSkillSection({ value, onChange }: Props) {
           />
         ))}
       </View>
-      {selected ? (
-        <Text variant="caption" tone="secondary">{selected.description}</Text>
-      ) : null}
       {value.participantSkillMode === JoinParticipantSkillMode.HANDICAP_RANGE ? (
         <HandicapRangeSelector
           minBound={SCREEN_HANDICAP_MIN}

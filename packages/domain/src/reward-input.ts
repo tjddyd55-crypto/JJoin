@@ -7,7 +7,7 @@ import { compareCoinAmounts, subCoinAmounts } from './coin-amount';
 import { formatGroupedInteger } from './display-number';
 
 /** Quick-add denominations — UI config only, not business policy. */
-export const REWARD_QUICK_ADD_DENOMINATIONS = [1, 5, 10, 50, 100] as const;
+export const REWARD_QUICK_ADD_DENOMINATIONS = [10, 30, 50, 100] as const;
 
 const MAX_REWARD_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
 

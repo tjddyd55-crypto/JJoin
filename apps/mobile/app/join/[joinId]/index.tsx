@@ -30,11 +30,7 @@ import {
   isStoreMatchingJoin,
   matchingCanConfirmAttendance,
 } from '../../../src/features/store/matching-join-ui';
-import {
-  canActivateUrgentVacancy,
-  summarizeMatchingSettlement,
-  formatCoinWithLabel,
-} from '@jjoin/domain';
+import { canHostManageUrgentRecruitment, summarizeMatchingSettlement, formatCoinWithLabel } from '@jjoin/domain';
 import { isInternalToolsEnabled } from '../../../src/lib/internal-tools';
 import { isJoinDetailDevPanelEnabled } from '../../../src/lib/join-detail-dev-tools';
 import { publicJoinShareUrl } from '../../../src/lib/landing-url';
@@ -45,6 +41,8 @@ import {
   canSetAttendanceIntent,
 } from '../../../src/features/join/attendance-intent-ui';
 import { JoinDetailPrimarySections } from '../../../src/features/join/components/JoinDetailPrimarySections';
+import { JoinHostManagementSection } from '../../../src/features/join/components/JoinHostManagementSection';
+import { canShowJoinChatEntry } from '../../../src/ui/join-detail-display';
 import type { JoinWaitlistResponse } from '@jjoin/types';
 import {
   joinDetailCtaButtonVariant,
@@ -521,18 +519,32 @@ export default function JoinDetailScreen() {
     }
   }
 
-  async function onActivateUrgent() {
-    if (!joinId || busy) return;
+  async function onToggleUrgent() {
+    if (!joinId || busy || !detail) return;
     setBusy(true);
     setError(null);
     try {
-      const next = await api.activateUrgentVacancy(joinId);
+      const next = detail.isUrgent
+        ? await api.clearUrgentVacancy(joinId)
+        : await api.activateUrgentVacancy(joinId);
       setDetail(next);
     } catch {
-      setError('긴급 모집을 시작할 수 없습니다.');
+      setError(
+        detail.isUrgent
+          ? '긴급 모집을 끌 수 없습니다.'
+          : '긴급 모집을 시작할 수 없습니다.',
+      );
     } finally {
       setBusy(false);
     }
+  }
+
+  function openJoinChat() {
+    if (!joinId) return;
+    router.push({
+      pathname: '/join/[joinId]/chat',
+      params: { joinId },
+    });
   }
 
   async function onSetAttendanceIntent(intent: 'CONFIRMED' | 'DECLINED') {
@@ -603,15 +615,16 @@ export default function JoinDetailScreen() {
     (detail.status === JoinStatus.COMPLETED ||
       detail.status === JoinStatus.CANCELLED ||
       new Date(detail.startAt).getTime() < Date.now());
-  const showUrgentActivate =
+  const showUrgentToggle =
     isHost &&
-    !detail.isUrgent &&
-    canActivateUrgentVacancy({
+    canHostManageUrgentRecruitment({
       status: detail.status,
       startAt: detail.startAt,
       plannedPlayerCount: detail.plannedPlayerCount,
       confirmedPlayerCount: detail.confirmedPlayerCount,
+      isUrgent: detail.isUrgent ?? false,
     });
+  const showChatEntry = canShowJoinChatEntry(detail, isHost);
   const showAttendanceIntentActions = canSetAttendanceIntent({
     isHost,
     participationStatus: detail.myParticipation?.participationStatus,
@@ -642,39 +655,41 @@ export default function JoinDetailScreen() {
           onToggleBookmark={() => void onToggleBookmark()}
           onShare={() => void onShare()}
           onOpenHost={() => router.push(`/user/${detail.host.id}`)}
-          onOpenChat={
-            detail.chatAvailable
-              ? () =>
-                  router.push({
-                    pathname: '/join/[joinId]/chat',
-                    params: { joinId },
-                  })
-              : undefined
-          }
-          onInvite={
-            isHost
-              ? () =>
-                  router.push({
-                    pathname: '/join/[joinId]/invite',
-                    params: { joinId },
-                  })
-              : undefined
-          }
-          onEdit={
-            canEditJoin
-              ? () => router.push(`/join/${joinId}/edit`)
-              : undefined
-          }
-          onOpenReviews={
-            detail.status === JoinStatus.COMPLETED
-              ? () =>
-                  router.push({
-                    pathname: '/join/[joinId]/reviews',
-                    params: { joinId },
-                  })
-              : undefined
-          }
         />
+
+        {isHost ? (
+          <JoinHostManagementSection
+            detail={detail}
+            busy={busy}
+            showUrgentToggle={showUrgentToggle}
+            onToggleUrgent={() => void onToggleUrgent()}
+            onOpenChat={showChatEntry ? openJoinChat : undefined}
+            onEdit={
+              canEditJoin
+                ? () => router.push(`/join/${joinId}/edit`)
+                : undefined
+            }
+            onInvite={() =>
+              router.push({
+                pathname: '/join/[joinId]/invite',
+                params: { joinId },
+              })
+            }
+            onOpenReviews={
+              detail.status === JoinStatus.COMPLETED
+                ? () =>
+                    router.push({
+                      pathname: '/join/[joinId]/reviews',
+                      params: { joinId },
+                    })
+                : undefined
+            }
+          />
+        ) : showChatEntry ? (
+          <Section title="채팅">
+            <Button label="💬 채팅방" loading={busy} onPress={openJoinChat} />
+          </Section>
+        ) : null}
 
         {isHost && hostWaitlist && hostWaitlist.total > 0 ? (
           <Section title={`대기 ${hostWaitlist.total}명`}>
@@ -910,16 +925,6 @@ export default function JoinDetailScreen() {
                 onPress={() => void onSetAttendanceIntent('DECLINED')}
               />
             </View>
-          </Section>
-        ) : null}
-
-        {showUrgentActivate ? (
-          <Section title="모집 관리">
-            <Button
-              label="긴급 모집"
-              loading={busy}
-              onPress={() => void onActivateUrgent()}
-            />
           </Section>
         ) : null}
 

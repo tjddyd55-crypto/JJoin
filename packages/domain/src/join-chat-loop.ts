@@ -54,6 +54,23 @@ export function canActivateUrgentVacancy(input: {
 }
 
 /**
+ * Host urgent toggle is visible while join is open and either urgent is on (can turn off)
+ * or activation is still allowed.
+ */
+export function canHostManageUrgentRecruitment(input: {
+  status: string;
+  startAt: Date | string;
+  plannedPlayerCount: number;
+  confirmedPlayerCount: number;
+  isUrgent: boolean;
+  now?: Date | string;
+}): boolean {
+  if (input.status === 'COMPLETED' || input.status === 'CANCELLED') return false;
+  if (input.isUrgent) return true;
+  return canActivateUrgentVacancy(input);
+}
+
+/**
  * Clear urgent flag when no longer recruitable as urgent, or deadline passed.
  */
 export function shouldClearUrgent(input: {

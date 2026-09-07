@@ -3,11 +3,9 @@ import {
   Icon,
   JoinDdayBadge,
   JoinDetailCard,
-  JoinHostAvatar,
   JoinHostSummary,
   JoinMiniStatGrid,
   JoinRequirementChips,
-  JoinScheduleRow,
   JoinSeatsRemainingBanner,
   JoinStatusBadge,
   JoinVenueSummary,
@@ -15,17 +13,15 @@ import {
   Text,
   useTheme,
 } from '@jjoin/design-system';
-import type { JoinDetailDto, JoinParticipantDto } from '@jjoin/types';
+import type { JoinDetailDto } from '@jjoin/types';
+import { JoinParticipationSlotGrid } from './JoinParticipationSlotGrid';
 import {
   buildJoinBenefitLines,
   buildJoinGameInfoLines,
   buildJoinMemberPreferenceLabels,
-  buildJoinParticipationStatTiles,
   buildJoinParticipationSummary,
   buildJoinRecruitmentBreakdown,
-  filterJoinDisplayParticipants,
-  formatParticipantGenderLabel,
-  formatParticipationStatusLabel,
+  buildJoinRosterSlots,
   hasJoinBenefits,
   hasJoinGameInfoSection,
   hasJoinMemberPreferenceLabels,
@@ -45,10 +41,6 @@ export type JoinDetailPrimarySectionsProps = {
   onToggleBookmark?: () => void;
   onShare?: () => void;
   onOpenHost?: () => void;
-  onOpenChat?: () => void;
-  onInvite?: () => void;
-  onEdit?: () => void;
-  onOpenReviews?: () => void;
 };
 
 function formatHostMetaLine(detail: JoinDetailDto): string | null {
@@ -82,47 +74,44 @@ function SectionDivider() {
   );
 }
 
-function JoinParticipantRow({ participant }: { participant: JoinParticipantDto }) {
-  const gender = formatParticipantGenderLabel(participant.gender);
-  const statusLabel = formatParticipationStatusLabel(participant.participationStatus);
-  const meta = [gender, statusLabel].filter(Boolean).join(' · ');
+type InfoRow = { label: string; value: string };
 
-  return (
-    <View style={styles.participantRow}>
-      <JoinHostAvatar profileImageUrl={null} hostName={participant.nickname} size="sm" />
-      <View style={styles.participantText}>
-        <Text variant="bodyStrong" tone="primary" numberOfLines={1}>
-          {participant.nickname}
-        </Text>
-        {meta ? (
-          <Text variant="caption" tone="secondary" numberOfLines={1}>
-            {meta}
-          </Text>
-        ) : null}
-      </View>
-    </View>
-  );
-}
-
-function InlineLink({
-  label,
-  onPress,
+function JoinDetailInfoPanel({
+  title,
+  rows,
 }: {
-  label: string;
-  onPress: () => void;
+  title: string;
+  rows: InfoRow[];
 }) {
   const theme = useTheme();
+  if (rows.length === 0) return null;
+
   return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      hitSlop={8}
-      style={styles.inlineLink}
+    <View
+      style={[
+        styles.infoPanel,
+        {
+          backgroundColor: theme.colors.surface.soft,
+          borderColor: theme.colors.border.subtle,
+        },
+      ]}
     >
-      <Text variant="caption" style={{ color: theme.colors.join.dday.text, fontWeight: '600' }}>
-        {label}
+      <Text variant="caption" tone="secondary" style={styles.infoPanelTitle}>
+        {title}
       </Text>
-    </Pressable>
+      <View style={styles.infoPanelRows}>
+        {rows.map((row) => (
+          <View key={row.label} style={styles.infoRow}>
+            <Text variant="caption" tone="secondary" style={styles.infoRowLabel}>
+              {row.label}
+            </Text>
+            <Text variant="body" tone="primary" style={styles.infoRowValue}>
+              {row.value}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
   );
 }
 
@@ -141,8 +130,8 @@ function buildScheduleStatTiles(detail: JoinDetailDto) {
       surface: 'info' as const,
     },
     {
-      label: '참가',
-      value: `${detail.confirmedPlayerCount}명`,
+      label: '현재',
+      value: `${detail.confirmedPlayerCount}/${detail.plannedPlayerCount}`,
       surface: 'success' as const,
     },
   ];
@@ -171,10 +160,6 @@ export function JoinDetailPrimarySections({
   onToggleBookmark,
   onShare,
   onOpenHost,
-  onOpenChat,
-  onInvite,
-  onEdit,
-  onOpenReviews,
 }: JoinDetailPrimarySectionsProps) {
   const theme = useTheme();
   const displayTitle = resolveJoinDisplayTitle(detail.venue.name, detail.title);
@@ -192,9 +177,8 @@ export function JoinDetailPrimarySections({
   });
   const recruitment = buildJoinRecruitmentBreakdown(detail);
   const participation = buildJoinParticipationSummary(detail);
-  const participationTiles = buildJoinParticipationStatTiles(detail);
+  const rosterSlots = buildJoinRosterSlots(detail);
   const scheduleTiles = buildScheduleStatTiles(detail);
-  const displayParticipants = filterJoinDisplayParticipants(detail.participants);
   const requirements = requirementLabels(detail, matching);
   const benefitLines = buildJoinBenefitLines(detail);
   const showBenefits = hasJoinBenefits(detail);
@@ -225,6 +209,10 @@ export function JoinDetailPrimarySections({
       conditionLabels.push(`최소 ${recruitment.minimumPlayers}명`);
     }
   }
+
+  const genderSummary = [participation.maleLine, participation.femaleLine]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <View style={styles.root}>
@@ -304,6 +292,13 @@ export function JoinDetailPrimarySections({
           label={participation.seatsLeftLabel}
           tone={participation.seatsHighlightTone}
         />
+        <Text variant="bodyStrong" tone="primary" style={styles.rosterTitle}>
+          참가 현황
+        </Text>
+        {genderSummary ? (
+          <Text variant="caption" tone="secondary">{genderSummary}</Text>
+        ) : null}
+        <JoinParticipationSlotGrid slots={rosterSlots} />
       </JoinDetailCard>
 
       {(conditionLabels.length > 0 || showBenefits) ? (
@@ -326,21 +321,25 @@ export function JoinDetailPrimarySections({
       {showGameInfo ? (
         <JoinDetailCard>
           <Text variant="caption" tone="secondary" style={styles.eyebrow}>
-            게임 정보
+            게임 · 애프터
           </Text>
-          {gameInfo.skillLabel ? (
-            <Text variant="body" tone="primary">참가 실력 · {gameInfo.skillLabel}</Text>
-          ) : null}
-          <Text variant="body" tone="primary">게임 방식 · {gameInfo.gameStyleLabel}</Text>
-          {gameInfo.gameMemo ? (
-            <Text variant="body" tone="secondary" style={styles.introBody}>{gameInfo.gameMemo}</Text>
-          ) : null}
-          <Text variant="body" tone="primary" style={styles.sectionGap}>
-            애프터 플랜 · {gameInfo.afterPlanLabel}
-          </Text>
-          {gameInfo.afterMemo ? (
-            <Text variant="body" tone="secondary" style={styles.introBody}>{gameInfo.afterMemo}</Text>
-          ) : null}
+          <JoinDetailInfoPanel
+            title="게임 정보"
+            rows={[
+              ...(gameInfo.skillLabel
+                ? [{ label: '참가 실력', value: gameInfo.skillLabel }]
+                : []),
+              { label: '게임 방식', value: gameInfo.gameStyleLabel },
+              ...(gameInfo.gameMemo ? [{ label: '메모', value: gameInfo.gameMemo }] : []),
+            ]}
+          />
+          <JoinDetailInfoPanel
+            title="애프터 플랜"
+            rows={[
+              { label: '플랜', value: gameInfo.afterPlanLabel },
+              ...(gameInfo.afterMemo ? [{ label: '메모', value: gameInfo.afterMemo }] : []),
+            ]}
+          />
         </JoinDetailCard>
       ) : null}
 
@@ -354,48 +353,6 @@ export function JoinDetailPrimarySections({
           </Text>
         </JoinDetailCard>
       ) : null}
-
-      <JoinDetailCard>
-        <View style={styles.participantHeader}>
-          <Text variant="bodyStrong" tone="primary">
-            참가자 {detail.confirmedPlayerCount}/{detail.plannedPlayerCount}
-          </Text>
-          {participationTiles.length > 0 ? (
-            <Text variant="caption" tone="secondary">
-              {[participation.maleLine, participation.femaleLine].filter(Boolean).join(' · ')}
-            </Text>
-          ) : null}
-        </View>
-
-        {displayParticipants.length > 0 ? (
-          <View style={styles.participantList}>
-            {displayParticipants.map((p) => (
-              <JoinParticipantRow key={p.participantId} participant={p} />
-            ))}
-          </View>
-        ) : (
-          <View style={styles.emptyParticipants}>
-            <Text variant="meta" tone="secondary">아직 참가자가 없습니다.</Text>
-          </View>
-        )}
-
-        {(onOpenChat || onInvite || onEdit || onOpenReviews) ? (
-          <View style={styles.auxLinks}>
-            {onOpenChat ? (
-              <InlineLink label="조인 채팅" onPress={onOpenChat} />
-            ) : null}
-            {onEdit ? (
-              <InlineLink label="조인 정보 수정" onPress={onEdit} />
-            ) : null}
-            {onInvite ? (
-              <InlineLink label="참가자 초대" onPress={onInvite} />
-            ) : null}
-            {onOpenReviews ? (
-              <InlineLink label="함께한 사람 평가하기" onPress={onOpenReviews} />
-            ) : null}
-          </View>
-        ) : null}
-      </JoinDetailCard>
     </View>
   );
 }
@@ -443,6 +400,9 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: 4,
   },
+  rosterTitle: {
+    marginTop: 4,
+  },
   benefitList: {
     gap: 6,
   },
@@ -454,38 +414,29 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
   },
-  sectionGap: {
-    marginTop: 8,
+  infoPanel: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 12,
+    gap: 8,
   },
-  participantHeader: {
-    gap: 4,
+  infoPanelTitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
   },
-  participantList: {
-    gap: 10,
+  infoPanelRows: {
+    gap: 8,
   },
-  participantRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    minHeight: 44,
-  },
-  participantText: {
-    flex: 1,
+  infoRow: {
     gap: 2,
-    minWidth: 0,
   },
-  emptyParticipants: {
-    gap: 4,
-    paddingVertical: 4,
+  infoRowLabel: {
+    fontSize: 12,
+    lineHeight: 16,
   },
-  auxLinks: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-    marginTop: 4,
-  },
-  inlineLink: {
-    minHeight: 44,
-    justifyContent: 'center',
+  infoRowValue: {
+    fontSize: 15,
+    lineHeight: 22,
   },
 });

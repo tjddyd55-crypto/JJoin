@@ -484,6 +484,7 @@ export {
   canAccessJoinChatWithClubBridge,
   isClubEventChatEligibleAttendance,
   canActivateUrgentVacancy,
+  canHostManageUrgentRecruitment,
   chatHideAfterFrom,
   chatPurgeAfterFrom,
   isJoinChatVisibleInUi,

@@ -5,6 +5,8 @@ import {
   buildJoinParticipationSummary,
   buildJoinRecruitmentBreakdown,
   buildJoinRecruitmentStatTiles,
+  buildJoinRosterSlots,
+  canShowJoinChatEntry,
   filterJoinDisplayParticipants,
   hasJoinBenefits,
 } from './join-detail-display';
@@ -99,8 +101,50 @@ test('buildJoinParticipationSummary highlights last seat', () => {
     confirmedMaleCount: 2,
     confirmedFemaleCount: 1,
   } as never);
+  assert.equal(summary.headline, '현재 3/4');
   assert.equal(summary.seatsHighlightTone, 'lastSeat');
   assert.equal(summary.seatsLeftLabel, '1자리 남음');
+});
+
+test('buildJoinRosterSlots includes host and empty slots', () => {
+  const slots = buildJoinRosterSlots({
+    plannedPlayerCount: 4,
+    confirmedPlayerCount: 1,
+    host: { id: 'h1', nickname: '방장닉', avatarUrl: null },
+    participants: [
+      {
+        participantId: 'p-host',
+        userId: 'h1',
+        role: 'HOST',
+        participationStatus: 'APPROVED',
+        nickname: '방장닉',
+        verifiedBadge: true,
+        appliedAt: '2026-01-01T00:00:00.000Z',
+        approvedAt: null,
+      },
+    ],
+  } as never);
+  assert.equal(slots.length, 4);
+  assert.equal(slots[0].type, 'filled');
+  if (slots[0].type === 'filled') {
+    assert.equal(slots[0].isHost, true);
+    assert.equal(slots[0].nickname, '방장닉');
+  }
+  assert.equal(slots.filter((s) => s.type === 'empty').length, 3);
+});
+
+test('canShowJoinChatEntry allows host before room exists', () => {
+  assert.equal(
+    canShowJoinChatEntry(
+      {
+        status: 'OPEN',
+        chatAvailable: false,
+        myParticipation: null,
+      } as never,
+      true,
+    ),
+    true,
+  );
 });
 
 test('buildJoinRecruitmentStatTiles uses recruitment targets only', () => {

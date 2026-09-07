@@ -9,6 +9,7 @@ import {
   PLAYED_TOGETHER_ELIGIBLE_STATUS,
   canAccessJoinChat,
   canActivateUrgentVacancy,
+  canHostManageUrgentRecruitment,
   isJoinChatVisibleInUi,
   joinInvitationNotificationEventKey,
   normalizeChatMessageBody,
@@ -114,6 +115,57 @@ test('canActivateUrgentVacancy — today KST, before start, seats, joinable', ()
       now: morning,
     }),
     false,
+  );
+});
+
+test('canHostManageUrgentRecruitment allows toggle off while urgent', () => {
+  const now = new Date('2026-08-31T01:00:00.000Z');
+  const startAt = new Date('2026-08-31T05:00:00.000Z');
+  assert.equal(
+    canHostManageUrgentRecruitment({
+      status: 'OPEN',
+      startAt,
+      plannedPlayerCount: 4,
+      confirmedPlayerCount: 2,
+      isUrgent: true,
+      now,
+    }),
+    true,
+  );
+});
+
+test('canHostManageUrgentRecruitment hides on completed joins', () => {
+  assert.equal(
+    canHostManageUrgentRecruitment({
+      status: 'COMPLETED',
+      startAt: new Date('2026-08-31T05:00:00.000Z'),
+      plannedPlayerCount: 4,
+      confirmedPlayerCount: 4,
+      isUrgent: true,
+    }),
+    false,
+  );
+});
+
+test('canHostManageUrgentRecruitment follows activate rules when off', () => {
+  const now = new Date('2026-08-31T01:00:00.000Z');
+  const startAt = new Date('2026-08-31T05:00:00.000Z');
+  assert.equal(
+    canHostManageUrgentRecruitment({
+      status: 'OPEN',
+      startAt,
+      plannedPlayerCount: 4,
+      confirmedPlayerCount: 2,
+      isUrgent: false,
+      now,
+    }),
+    canActivateUrgentVacancy({
+      status: 'OPEN',
+      startAt,
+      plannedPlayerCount: 4,
+      confirmedPlayerCount: 2,
+      now,
+    }),
   );
 });
 

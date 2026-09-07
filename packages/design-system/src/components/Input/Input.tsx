@@ -44,6 +44,7 @@ export function Input({
     : focused
       ? theme.colors.action.primary
       : theme.colors.border.subtle;
+  const isMultiline = Boolean(multiline);
 
   return (
     <View style={styles.wrap}>
@@ -55,14 +56,17 @@ export function Input({
       <View
         style={[
           styles.field,
+          isMultiline ? styles.fieldMultiline : styles.fieldSingle,
           {
-            minHeight: theme.sizes.input.md,
             borderRadius: theme.radius.md,
             backgroundColor: theme.colors.surface.card,
             borderColor,
             opacity: isDisabled ? 0.5 : 1,
-            alignItems: multiline ? 'flex-start' : 'center',
+            alignItems: isMultiline ? 'flex-start' : 'center',
           },
+          isMultiline
+            ? { minHeight: theme.sizes.input.md }
+            : { height: theme.sizes.input.md },
         ]}
       >
         {leftIcon ? <Icon name={leftIcon} size="md" tone="tertiary" /> : null}
@@ -120,12 +124,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     gap: 8,
   },
+  fieldSingle: {
+    paddingVertical: 0,
+  },
+  fieldMultiline: {
+    paddingVertical: 10,
+  },
   input: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 0,
   },
   multiline: {
-    minHeight: 88,
+    minHeight: 72,
+    paddingVertical: 0,
     textAlignVertical: 'top',
   },
 });

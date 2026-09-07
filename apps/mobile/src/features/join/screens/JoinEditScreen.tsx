@@ -1,11 +1,13 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
 import {
   Button,
   FormScreenFrame,
   Stack,
-  StickyActionFrame,
   Text,
+  layoutSpacing,
+  spacing,
 } from '@jjoin/design-system';
 import { JoinMethod } from '@jjoin/types';
 import { JoinCreateGameAfterSection } from '../../join-create/components/JoinCreateGameAfterSection';
@@ -107,21 +109,24 @@ export function JoinEditScreen() {
   }
 
   return (
-    <FormScreenFrame
-      edges={[...NESTED_SCREEN_EDGES]}
-      footer={
-        <StickyActionFrame>
-          <Button label="저장" loading={saving} onPress={() => void onSave()} />
-        </StickyActionFrame>
-      }
-    >
+    <FormScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       <Stack gap="md">
         <Text variant="screenTitle">조인 정보 수정</Text>
         <JoinCreateMemberPreferencesSection value={memberPrefs} onChange={setMemberPrefs} />
         <JoinCreateParticipantSkillSection value={roomCharacter} onChange={setRoomCharacter} />
         <JoinCreateGameAfterSection value={roomCharacter} onChange={setRoomCharacter} />
         {error ? <Text tone="error">{error}</Text> : null}
+        <View style={styles.actionSection}>
+          <Button label="저장" loading={saving} onPress={() => void onSave()} />
+        </View>
       </Stack>
     </FormScreenFrame>
   );
 }
+
+const styles = StyleSheet.create({
+  actionSection: {
+    marginTop: layoutSpacing.sectionGap,
+    marginBottom: spacing.sm,
+  },
+});

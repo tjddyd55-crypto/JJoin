@@ -5,7 +5,8 @@ export const sizes = {
     lg: 56,
   },
   input: {
-    md: 48,
+    /** Single-line text fields — search, number, select trigger */
+    md: 44,
     lg: 52,
   },
   icon: {

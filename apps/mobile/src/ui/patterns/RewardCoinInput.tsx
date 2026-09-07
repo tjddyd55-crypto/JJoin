@@ -108,32 +108,35 @@ export function RewardCoinInput({
         ) : null}
       </View>
 
-      <Text variant="caption" tone="secondary">
-        {t('create.reward.quickAdd')}
-      </Text>
-      <Row gap="xs" style={styles.quickRow}>
-        {REWARD_QUICK_ADD_DENOMINATIONS.map((delta) => (
-          <View key={delta} style={styles.quickItem}>
-            <Chip
-              label={`+${delta}`}
-              variant="quickAdd"
-              disabled={disabled}
-              onPress={() => onQuickAdd(delta)}
-            />
-          </View>
-        ))}
-      </Row>
-
-      <Pressable
-        accessibilityRole="button"
-        disabled={disabled}
-        onPress={onReset}
-        style={styles.reset}
-      >
-        <Text variant="caption" tone="tertiary">
-          {t('create.reward.reset')}
-        </Text>
-      </Pressable>
+      <View style={styles.quickSection}>
+        <Row justify="space-between" align="center">
+          <Text variant="caption" tone="secondary">
+            {t('create.reward.quickAdd')}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            disabled={disabled}
+            onPress={onReset}
+            hitSlop={8}
+          >
+            <Text variant="caption" tone="tertiary">
+              {t('create.reward.reset')}
+            </Text>
+          </Pressable>
+        </Row>
+        <Row gap="xs" style={styles.quickRow}>
+          {REWARD_QUICK_ADD_DENOMINATIONS.map((delta) => (
+            <View key={delta} style={styles.quickItem}>
+              <Chip
+                label={`+${delta}`}
+                variant="quickAdd"
+                disabled={disabled}
+                onPress={() => onQuickAdd(delta)}
+              />
+            </View>
+          ))}
+        </Row>
+      </View>
 
       <View
         style={[
@@ -177,9 +180,9 @@ function SummaryRow({
 const styles = StyleSheet.create({
   section: { gap: 10 },
   inputWrap: { position: 'relative' },
+  quickSection: { gap: 6 },
   quickRow: { flexWrap: 'nowrap', alignItems: 'stretch' },
   quickItem: { flex: 1, minWidth: 0 },
-  reset: { alignSelf: 'flex-end', paddingVertical: 4 },
   rewardSummary: {
     gap: 8,
     paddingTop: 10,
