@@ -1,9 +1,15 @@
 /**
- * Weekly recurring store-matching join schedule — pure helpers.
+ * Weekly recurring join schedule — pure helpers (KST SSOT).
  */
 
 export const RECURRING_AHEAD_WEEKS = 3;
 export const RECURRING_CADENCE_WEEKLY = 'WEEKLY' as const;
+
+/** TEMP_MVP_POLICY — max weekly host recurring occurrences per schedule. */
+export const HOST_RECURRING_MAX_OCCURRENCES = 52;
+
+/** TEMP_MVP_POLICY — max span from recurrence start when only end-by-count is omitted. */
+export const HOST_RECURRING_MAX_DURATION_WEEKS = 52;
 
 export type RecurringCadence = typeof RECURRING_CADENCE_WEEKLY;
 
@@ -107,6 +113,131 @@ export function listUpcomingWeeklyStarts(input: {
 
 export function occurrenceDateKeyFromStart(startAt: Date): string {
   return kstDateKey(startAt);
+}
+
+export function isDateKeyInRange(
+  dateKey: string,
+  startKey?: string | null,
+  endKey?: string | null,
+): boolean {
+  if (startKey && dateKey < startKey) return false;
+  if (endKey && dateKey > endKey) return false;
+  return true;
+}
+
+/** Bounded weekly starts for worker window + recurrence bounds. */
+export function listBoundedWeeklyStarts(input: {
+  dayOfWeek: IsoWeekday;
+  startTimeLocal: string;
+  from: Date;
+  aheadWeeks?: number;
+  recurrenceStartDate?: string | null;
+  recurrenceEndDate?: string | null;
+  skipDateKeys?: ReadonlySet<string>;
+}): Date[] {
+  const base = listUpcomingWeeklyStarts({
+    dayOfWeek: input.dayOfWeek,
+    startTimeLocal: input.startTimeLocal,
+    from: input.from,
+    aheadWeeks: input.aheadWeeks,
+  });
+  return base.filter((startAt) => {
+    const key = occurrenceDateKeyFromStart(startAt);
+    if (!isDateKeyInRange(key, input.recurrenceStartDate, input.recurrenceEndDate)) {
+      return false;
+    }
+    if (input.skipDateKeys?.has(key)) return false;
+    return true;
+  });
+}
+
+/** Count all planned occurrence date keys from recurrence start until end/count cap. */
+export function countPlannedHostOccurrences(input: {
+  dayOfWeek: IsoWeekday;
+  startTimeLocal: string;
+  recurrenceStartDate: string;
+  recurrenceEndDate?: string | null;
+  maxOccurrences?: number | null;
+}): number {
+  const max = input.maxOccurrences ?? HOST_RECURRING_MAX_OCCURRENCES;
+  const endKey =
+    input.recurrenceEndDate ??
+    addDaysKst(input.recurrenceStartDate, HOST_RECURRING_MAX_DURATION_WEEKS * 7);
+  let count = 0;
+  let cursor = kstLocalDateTime(input.recurrenceStartDate, input.startTimeLocal);
+  cursor = new Date(cursor.getTime() - 1);
+  for (let guard = 0; guard < HOST_RECURRING_MAX_OCCURRENCES + 4; guard += 1) {
+    const next = nextWeeklyOccurrenceStart({
+      dayOfWeek: input.dayOfWeek,
+      startTimeLocal: input.startTimeLocal,
+      after: cursor,
+    });
+    const key = occurrenceDateKeyFromStart(next);
+    if (!isDateKeyInRange(key, input.recurrenceStartDate, endKey)) break;
+    count += 1;
+    if (count >= max) break;
+    cursor = next;
+  }
+  return count;
+}
+
+/** Preview first N occurrence date keys for UX summary. */
+export function previewHostRecurringOccurrenceDates(input: {
+  dayOfWeek: IsoWeekday;
+  startTimeLocal: string;
+  recurrenceStartDate: string;
+  recurrenceEndDate?: string | null;
+  maxOccurrences?: number | null;
+  previewCount?: number;
+}): { totalPlanned: number; previewDates: string[] } {
+  const previewCount = input.previewCount ?? 3;
+  const totalPlanned = countPlannedHostOccurrences(input);
+  const endKey =
+    input.recurrenceEndDate ??
+    addDaysKst(input.recurrenceStartDate, HOST_RECURRING_MAX_DURATION_WEEKS * 7);
+  const max = input.maxOccurrences ?? HOST_RECURRING_MAX_OCCURRENCES;
+  const previewDates: string[] = [];
+  let cursor = kstLocalDateTime(input.recurrenceStartDate, input.startTimeLocal);
+  cursor = new Date(cursor.getTime() - 1);
+  for (let guard = 0; guard < HOST_RECURRING_MAX_OCCURRENCES + 4; guard += 1) {
+    const next = nextWeeklyOccurrenceStart({
+      dayOfWeek: input.dayOfWeek,
+      startTimeLocal: input.startTimeLocal,
+      after: cursor,
+    });
+    const key = occurrenceDateKeyFromStart(next);
+    if (!isDateKeyInRange(key, input.recurrenceStartDate, endKey)) break;
+    if (previewDates.length < previewCount) previewDates.push(key);
+    if (previewDates.length >= previewCount && previewDates.length >= totalPlanned) break;
+    if (previewDates.length >= max) break;
+    cursor = next;
+    if (previewDates.length >= previewCount && previewDates.length >= Math.min(totalPlanned, max)) {
+      break;
+    }
+  }
+  return { totalPlanned, previewDates };
+}
+
+export function shouldEndHostSchedule(input: {
+  occurrencesCreatedCount: number;
+  maxOccurrences?: number | null;
+  recurrenceEndDate?: string | null;
+  nextOccurrenceDateKey?: string | null;
+}): boolean {
+  if (
+    input.maxOccurrences != null &&
+    input.occurrencesCreatedCount >= input.maxOccurrences
+  ) {
+    return true;
+  }
+  if (
+    input.recurrenceEndDate &&
+    input.nextOccurrenceDateKey &&
+    input.nextOccurrenceDateKey > input.recurrenceEndDate
+  ) {
+    return true;
+  }
+  return false;
 }
 
 /** Default recruit close = start − hours (min 1h). */

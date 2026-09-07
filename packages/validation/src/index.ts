@@ -90,6 +90,11 @@ export const createJoinSchema = z
     preferredGender: z.enum(['ANY', 'MALE', 'FEMALE']).optional().nullable(),
     minAge: z.number().int().min(18).max(70).optional().nullable(),
     maxAge: z.number().int().min(18).max(70).optional().nullable(),
+    recurringScheduleId: z.string().uuid().optional(),
+    recurringOccurrenceDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
   })
   .refine((v) => Boolean(v.venueId || v.venue), {
     message: 'venue_or_venueId_required',
@@ -253,6 +258,74 @@ export const createRecurringJoinScheduleSchema = z
   .refine((v) => v.minimumPlayers <= v.targetMaleCount + v.targetFemaleCount, {
     message: 'minimum_exceeds_planned',
   });
+
+export const hostJoinRecurringTemplateSchema = z
+  .object({
+    sportCode: z.string().trim().min(1).max(40),
+    venueId: z.string().uuid().optional(),
+    venue: z
+      .object({
+        provider: z.string().trim().min(1),
+        providerPlaceId: z.string().trim().min(1),
+        name: z.string().trim().min(1).max(120),
+        address: z.string().trim().max(200).nullable().optional(),
+        regionLabel: z.string().trim().max(80).nullable().optional(),
+        latitude: z.number().finite().gte(-90).lte(90),
+        longitude: z.number().finite().gte(-180).lte(180),
+      })
+      .optional(),
+    plannedPlayerCount: z.number().int().min(2).max(8),
+    joinMethod: z.enum(['OPEN', 'APPROVAL']),
+    title: z.string().trim().max(80).nullable().optional(),
+    description: z.string().trim().max(500).nullable().optional(),
+    rewardPerParticipant: z
+      .string()
+      .regex(/^\d+(\.\d{1,4})?$/)
+      .optional(),
+    preferredGender: z.enum(['ANY', 'MALE', 'FEMALE']).optional().nullable(),
+    minAge: z.number().int().min(18).max(70).optional().nullable(),
+    maxAge: z.number().int().min(18).max(70).optional().nullable(),
+  })
+  .refine((v) => Boolean(v.venueId || v.venue), {
+    message: 'venue_or_venueId_required',
+  })
+  .refine(
+    (v) => {
+      const min = v.minAge ?? null;
+      const max = v.maxAge ?? null;
+      if (min != null && max != null) return min <= max;
+      return true;
+    },
+    { message: 'invalid_age_range' },
+  );
+
+export const createHostRecurringJoinScheduleSchema = z
+  .object({
+    dayOfWeek: z.number().int().min(1).max(7),
+    startTimeLocal: z
+      .string()
+      .regex(/^([01]?\d|2[0-3]):[0-5]\d$/),
+    recurrenceStartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    recurrenceEndDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    maxOccurrences: z.number().int().min(1).max(52).optional(),
+    joinTemplate: hostJoinRecurringTemplateSchema,
+    title: z.string().trim().max(80).nullable().optional(),
+    description: z.string().trim().max(500).nullable().optional(),
+  })
+  .refine((v) => Boolean(v.recurrenceEndDate || v.maxOccurrences), {
+    message: 'recurrence_bounds_required',
+  })
+  .refine(
+    (v) => {
+      if (!v.recurrenceEndDate) return true;
+      return v.recurrenceEndDate >= v.recurrenceStartDate;
+    },
+    { message: 'invalid_recurrence_range' },
+  );
+
+export type CreateHostRecurringJoinScheduleInput = z.infer<
+  typeof createHostRecurringJoinScheduleSchema
+>;
 
 export type CreateRecurringJoinScheduleInput = z.infer<
   typeof createRecurringJoinScheduleSchema

@@ -104,6 +104,10 @@ function generateJoinShareSlug(): string {
   return createJoinShareSlug(bytes);
 }
 
+function dateKeyToPrismaDate(dateKey: string): Date {
+  return new Date(`${dateKey}T00:00:00.000Z`);
+}
+
 @Injectable()
 export class JoinsService {
   constructor(
@@ -363,6 +367,10 @@ export class JoinsService {
             preferredGender: memberPrefs.preferredGender ?? undefined,
             minAge: memberPrefs.minAge ?? undefined,
             maxAge: memberPrefs.maxAge ?? undefined,
+            recurringScheduleId: input.recurringScheduleId ?? undefined,
+            recurringOccurrenceDate: input.recurringOccurrenceDate
+              ? dateKeyToPrismaDate(input.recurringOccurrenceDate)
+              : undefined,
             participants: {
               create: {
                 userId: hostUserId,
@@ -1316,6 +1324,7 @@ export class JoinsService {
       preferredGender?: string | null;
       minAge?: number | null;
       maxAge?: number | null;
+      recurringScheduleId?: string | null;
       sport: { code: string };
       venue: {
         id: string;
@@ -1528,6 +1537,7 @@ export class JoinsService {
       participants,
       waitlistAvailable: waitlistExtras.waitlistAvailable,
       waitlistCount: waitlistExtras.waitlistCount,
+      recurringScheduleId: join.recurringScheduleId ?? null,
       preferredGender: (join.preferredGender as JoinPreferredGender | null) ?? null,
       minAge: join.minAge ?? null,
       maxAge: join.maxAge ?? null,

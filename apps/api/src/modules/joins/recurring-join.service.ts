@@ -6,29 +6,37 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  HOST_RECURRING_MAX_OCCURRENCES,
   RECURRING_AHEAD_WEEKS,
   defaultRecruitClosesAt,
+  listBoundedWeeklyStarts,
   listUpcomingWeeklyStarts,
   nextWeeklyOccurrenceStart,
   occurrenceDateKeyFromStart,
   parseLocalHm,
+  shouldEndHostSchedule,
   type IsoWeekday,
 } from '@jjoin/domain';
 import type {
+  CreateHostRecurringJoinScheduleRequest,
   CreateRecurringJoinScheduleRequest,
   CreateStoreMatchingJoinRequest,
+  HostJoinRecurringTemplate,
   RecurringJoinRunSummary,
   RecurringJoinScheduleDto,
   SkipRecurringJoinOccurrenceRequest,
   UpdateRecurringJoinScheduleRequest,
 } from '@jjoin/types';
 import {
+  createHostRecurringJoinScheduleSchema,
   createRecurringJoinScheduleSchema,
   skipRecurringJoinOccurrenceSchema,
   updateRecurringJoinScheduleSchema,
 } from '@jjoin/validation';
-import { Prisma } from '@prisma/client';
+import { NotificationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationEventService } from '../notifications/notification-event.service';
+import { JoinsService } from './joins.service';
 import { MatchingJoinsService } from './matching-joins.service';
 
 function dateKeyToPrismaDate(dateKey: string): Date {
@@ -44,6 +52,43 @@ function asIsoWeekday(n: number): IsoWeekday {
   return n as IsoWeekday;
 }
 
+type ScheduleRow = {
+  id: string;
+  ownerUserId: string;
+  kind: string;
+  storeOwnershipId: string | null;
+  golfFacilityId: string | null;
+  cadence: string;
+  dayOfWeek: number;
+  startTimeLocal: string;
+  timezone: string;
+  targetMaleCount: number | null;
+  targetFemaleCount: number | null;
+  minimumPlayers: number | null;
+  matchingRewardTarget: string | null;
+  rewardPerParticipant: Prisma.Decimal | string | null;
+  title: string | null;
+  description: string | null;
+  recruitClosesHoursBefore: number;
+  joinTemplateJson: Prisma.JsonValue | null;
+  recurrenceStartDate: Date | null;
+  recurrenceEndDate: Date | null;
+  maxOccurrences: number | null;
+  occurrencesCreatedCount: number;
+  status: string;
+  nextRunAt: Date | null;
+  lastRunAt: Date | null;
+  lastError: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  golfFacility?: { displayName: string } | null;
+  occurrences?: Array<{
+    occurrenceDate: Date;
+    joinId: string | null;
+    status: string;
+  }>;
+};
+
 @Injectable()
 export class RecurringJoinService {
   private readonly logger = new Logger(RecurringJoinService.name);
@@ -51,6 +96,8 @@ export class RecurringJoinService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly matchingJoins: MatchingJoinsService,
+    private readonly joins: JoinsService,
+    private readonly notifications: NotificationEventService,
   ) {}
 
   async listMine(ownerUserId: string): Promise<RecurringJoinScheduleDto[]> {
@@ -59,13 +106,30 @@ export class RecurringJoinService {
         ownerUserId,
         status: { not: 'DELETED' },
       },
-      include: { golfFacility: { select: { displayName: true } } },
+      include: {
+        golfFacility: { select: { displayName: true } },
+        occurrences: {
+          orderBy: { occurrenceDate: 'desc' },
+          take: 5,
+          select: { occurrenceDate: true, joinId: true, status: true },
+        },
+      },
       orderBy: [{ status: 'asc' }, { nextRunAt: 'asc' }, { createdAt: 'desc' }],
     });
     return rows.map((r) => this.toDto(r));
   }
 
   async create(
+    ownerUserId: string,
+    raw: CreateRecurringJoinScheduleRequest,
+  ): Promise<RecurringJoinScheduleDto> {
+    if ('joinTemplate' in raw && raw.joinTemplate) {
+      return this.createHost(ownerUserId, raw as CreateHostRecurringJoinScheduleRequest);
+    }
+    return this.createStore(ownerUserId, raw);
+  }
+
+  private async createStore(
     ownerUserId: string,
     raw: CreateRecurringJoinScheduleRequest,
   ): Promise<RecurringJoinScheduleDto> {
@@ -106,6 +170,7 @@ export class RecurringJoinService {
     const row = await this.prisma.recurringJoinSchedule.create({
       data: {
         ownerUserId,
+        kind: 'STORE_MATCHING',
         storeOwnershipId: ownership.id,
         golfFacilityId: ownership.golfFacilityId,
         cadence: 'WEEKLY',
@@ -128,6 +193,70 @@ export class RecurringJoinService {
     return this.toDto(row);
   }
 
+  async createHost(
+    ownerUserId: string,
+    raw: CreateHostRecurringJoinScheduleRequest,
+  ): Promise<RecurringJoinScheduleDto> {
+    const parsed = createHostRecurringJoinScheduleSchema.safeParse(raw);
+    if (!parsed.success) {
+      throw new BadRequestException('invalid_host_recurring_join_schedule');
+    }
+    const input = parsed.data;
+    try {
+      parseLocalHm(input.startTimeLocal);
+    } catch {
+      throw new BadRequestException('invalid_start_time');
+    }
+
+    const dayOfWeek = asIsoWeekday(input.dayOfWeek);
+    const startKey = input.recurrenceStartDate;
+    const firstStart = occurrenceDateKeyFromStart(
+      nextWeeklyOccurrenceStart({
+        dayOfWeek,
+        startTimeLocal: input.startTimeLocal,
+        after: new Date(`${startKey}T00:00:00+09:00`),
+      }),
+    );
+    if (firstStart !== startKey) {
+      throw new BadRequestException('recurrence_start_must_match_weekday');
+    }
+
+    if (input.maxOccurrences != null && input.maxOccurrences > HOST_RECURRING_MAX_OCCURRENCES) {
+      throw new BadRequestException('max_occurrences_exceeded');
+    }
+
+    const now = new Date();
+    const nextRunAt = nextWeeklyOccurrenceStart({
+      dayOfWeek,
+      startTimeLocal: input.startTimeLocal,
+      after: now,
+    });
+
+    const row = await this.prisma.recurringJoinSchedule.create({
+      data: {
+        ownerUserId,
+        kind: 'HOST_JOIN',
+        cadence: 'WEEKLY',
+        dayOfWeek,
+        startTimeLocal: this.normalizeHm(input.startTimeLocal),
+        timezone: 'Asia/Seoul',
+        title: input.title ?? input.joinTemplate.title ?? null,
+        description: input.description ?? input.joinTemplate.description ?? null,
+        joinTemplateJson: input.joinTemplate as Prisma.InputJsonValue,
+        recurrenceStartDate: dateKeyToPrismaDate(input.recurrenceStartDate),
+        recurrenceEndDate: input.recurrenceEndDate
+          ? dateKeyToPrismaDate(input.recurrenceEndDate)
+          : null,
+        maxOccurrences: input.maxOccurrences ?? null,
+        occurrencesCreatedCount: 0,
+        recruitClosesHoursBefore: 3,
+        status: 'ACTIVE',
+        nextRunAt,
+      },
+    });
+    return this.toDto(row);
+  }
+
   async update(
     ownerUserId: string,
     scheduleId: string,
@@ -139,8 +268,11 @@ export class RecurringJoinService {
     }
     const input = parsed.data;
     const schedule = await this.requireOwnerSchedule(ownerUserId, scheduleId);
-    if (schedule.status === 'DELETED') {
+    if (schedule.status === 'DELETED' || schedule.status === 'ENDED') {
       throw new NotFoundException('recurring_schedule_not_found');
+    }
+    if (schedule.kind === 'HOST_JOIN') {
+      throw new BadRequestException('host_recurring_schedule_not_editable');
     }
 
     const dayOfWeek = input.dayOfWeek ?? schedule.dayOfWeek;
@@ -153,9 +285,9 @@ export class RecurringJoinService {
       throw new BadRequestException('invalid_start_time');
     }
 
-    const male = input.targetMaleCount ?? schedule.targetMaleCount;
-    const female = input.targetFemaleCount ?? schedule.targetFemaleCount;
-    const minimum = input.minimumPlayers ?? schedule.minimumPlayers;
+    const male = input.targetMaleCount ?? schedule.targetMaleCount ?? 0;
+    const female = input.targetFemaleCount ?? schedule.targetFemaleCount ?? 0;
+    const minimum = input.minimumPlayers ?? schedule.minimumPlayers ?? 2;
     if (male + female < 1 || male + female > 4) {
       throw new BadRequestException('matching_roster_invalid');
     }
@@ -202,7 +334,7 @@ export class RecurringJoinService {
 
   async pause(ownerUserId: string, scheduleId: string): Promise<RecurringJoinScheduleDto> {
     const schedule = await this.requireOwnerSchedule(ownerUserId, scheduleId);
-    if (schedule.status === 'DELETED') {
+    if (schedule.status === 'DELETED' || schedule.status === 'ENDED') {
       throw new NotFoundException('recurring_schedule_not_found');
     }
     const row = await this.prisma.recurringJoinSchedule.update({
@@ -215,7 +347,7 @@ export class RecurringJoinService {
 
   async resume(ownerUserId: string, scheduleId: string): Promise<RecurringJoinScheduleDto> {
     const schedule = await this.requireOwnerSchedule(ownerUserId, scheduleId);
-    if (schedule.status === 'DELETED') {
+    if (schedule.status === 'DELETED' || schedule.status === 'ENDED') {
       throw new NotFoundException('recurring_schedule_not_found');
     }
     const nextRunAt = nextWeeklyOccurrenceStart({
@@ -226,6 +358,16 @@ export class RecurringJoinService {
     const row = await this.prisma.recurringJoinSchedule.update({
       where: { id: scheduleId },
       data: { status: 'ACTIVE', nextRunAt, lastError: null },
+      include: { golfFacility: { select: { displayName: true } } },
+    });
+    return this.toDto(row);
+  }
+
+  async end(ownerUserId: string, scheduleId: string): Promise<RecurringJoinScheduleDto> {
+    await this.requireOwnerSchedule(ownerUserId, scheduleId);
+    const row = await this.prisma.recurringJoinSchedule.update({
+      where: { id: scheduleId },
+      data: { status: 'ENDED', nextRunAt: null },
       include: { golfFacility: { select: { displayName: true } } },
     });
     return this.toDto(row);
@@ -302,12 +444,27 @@ export class RecurringJoinService {
     const allDateKeys = new Set<string>();
 
     for (const schedule of schedules) {
-      const starts = listUpcomingWeeklyStarts({
-        dayOfWeek: asIsoWeekday(schedule.dayOfWeek),
-        startTimeLocal: schedule.startTimeLocal,
-        from: now,
-        aheadWeeks: RECURRING_AHEAD_WEEKS,
-      });
+      const dayOfWeek = asIsoWeekday(schedule.dayOfWeek);
+      const starts =
+        schedule.kind === 'HOST_JOIN'
+          ? listBoundedWeeklyStarts({
+              dayOfWeek,
+              startTimeLocal: schedule.startTimeLocal,
+              from: now,
+              aheadWeeks: RECURRING_AHEAD_WEEKS,
+              recurrenceStartDate: schedule.recurrenceStartDate
+                ? prismaDateToKey(schedule.recurrenceStartDate)
+                : null,
+              recurrenceEndDate: schedule.recurrenceEndDate
+                ? prismaDateToKey(schedule.recurrenceEndDate)
+                : null,
+            })
+          : listUpcomingWeeklyStarts({
+              dayOfWeek,
+              startTimeLocal: schedule.startTimeLocal,
+              from: now,
+              aheadWeeks: RECURRING_AHEAD_WEEKS,
+            });
       const planned = starts.map((startAt) => ({
         startAt,
         dateKey: occurrenceDateKeyFromStart(startAt),
@@ -317,7 +474,7 @@ export class RecurringJoinService {
     }
 
     const dateList = [...allDateKeys].map(dateKeyToPrismaDate);
-    const [skips, existingJoins] = await Promise.all([
+    const [skips, existingJoins, failedOccurrences] = await Promise.all([
       this.prisma.recurringJoinSkip.findMany({
         where: {
           scheduleId: { in: scheduleIds },
@@ -336,6 +493,15 @@ export class RecurringJoinService {
           recurringOccurrenceDate: true,
         },
       }),
+      this.prisma.recurringJoinOccurrence.findMany({
+        where: {
+          scheduleId: { in: scheduleIds },
+          occurrenceDate: { in: dateList },
+          status: 'CREATED',
+          joinId: { not: null },
+        },
+        select: { scheduleId: true, occurrenceDate: true },
+      }),
     ]);
 
     const skipKeys = new Set(
@@ -349,11 +515,15 @@ export class RecurringJoinService {
             `${j.recurringScheduleId}:${prismaDateToKey(j.recurringOccurrenceDate!)}`,
         ),
     );
+    for (const row of failedOccurrences) {
+      existingKeys.add(`${row.scheduleId}:${prismaDateToKey(row.occurrenceDate)}`);
+    }
 
     for (const schedule of schedules) {
       const planned = plannedBySchedule.get(schedule.id) ?? [];
       let lastCreatedStart: Date | null = null;
       let lastError: string | null = null;
+      let createdThisRun = 0;
 
       for (const item of planned) {
         const key = `${schedule.id}:${item.dateKey}`;
@@ -366,59 +536,37 @@ export class RecurringJoinService {
           continue;
         }
 
-        const recruitClosesAt = defaultRecruitClosesAt(
-          item.startAt,
-          schedule.recruitClosesHoursBefore,
-        );
-        if (recruitClosesAt.getTime() <= now.getTime()) {
-          summary.skipped += 1;
-          continue;
+        if (schedule.kind === 'HOST_JOIN') {
+          if (
+            schedule.maxOccurrences != null &&
+            schedule.occurrencesCreatedCount + createdThisRun >= schedule.maxOccurrences
+          ) {
+            summary.skipped += 1;
+            continue;
+          }
         }
 
-        const createBody: CreateStoreMatchingJoinRequest = {
-          storeOwnershipId: schedule.storeOwnershipId,
-          startAt: item.startAt.toISOString(),
-          recruitClosesAt: recruitClosesAt.toISOString(),
-          targetMaleCount: schedule.targetMaleCount,
-          targetFemaleCount: schedule.targetFemaleCount,
-          minimumPlayers: schedule.minimumPlayers,
-          matchingRewardTarget: schedule.matchingRewardTarget as CreateStoreMatchingJoinRequest['matchingRewardTarget'],
-          rewardPerParticipant: String(schedule.rewardPerParticipant),
-          title: schedule.title,
-          description: schedule.description,
-          idempotencyKey: `recurring:${schedule.id}:${item.dateKey}`,
-          recurringScheduleId: schedule.id,
-          recurringOccurrenceDate: item.dateKey,
-        };
+        if (schedule.kind === 'STORE_MATCHING') {
+          const recruitClosesAt = defaultRecruitClosesAt(
+            item.startAt,
+            schedule.recruitClosesHoursBefore,
+          );
+          if (recruitClosesAt.getTime() <= now.getTime()) {
+            summary.skipped += 1;
+            continue;
+          }
+        }
 
         try {
-          const detail = await this.matchingJoins.create(
-            schedule.ownerUserId,
-            createBody,
-          );
+          if (schedule.kind === 'HOST_JOIN') {
+            await this.materializeHostOccurrence(schedule, item.startAt, item.dateKey);
+          } else {
+            await this.materializeStoreOccurrence(schedule, item.startAt, item.dateKey);
+          }
           existingKeys.add(key);
           lastCreatedStart = item.startAt;
+          createdThisRun += 1;
           summary.created += 1;
-
-          await this.prisma.recurringJoinOccurrence.upsert({
-            where: {
-              scheduleId_occurrenceDate: {
-                scheduleId: schedule.id,
-                occurrenceDate: dateKeyToPrismaDate(item.dateKey),
-              },
-            },
-            create: {
-              scheduleId: schedule.id,
-              occurrenceDate: dateKeyToPrismaDate(item.dateKey),
-              joinId: detail.joinId,
-              status: 'CREATED',
-            },
-            update: {
-              joinId: detail.joinId,
-              status: 'CREATED',
-              errorMessage: null,
-            },
-          });
         } catch (e) {
           const message =
             e instanceof Error ? e.message.slice(0, 400) : 'create_failed';
@@ -445,6 +593,9 @@ export class RecurringJoinService {
               errorMessage: message,
             },
           });
+          if (schedule.kind === 'HOST_JOIN') {
+            await this.notifyHostFailure(schedule, item.dateKey, message);
+          }
         }
       }
 
@@ -453,10 +604,27 @@ export class RecurringJoinService {
         startTimeLocal: schedule.startTimeLocal,
         after: now,
       });
+      const nextKey = occurrenceDateKeyFromStart(nextRunAt);
+      const endSchedule =
+        schedule.kind === 'HOST_JOIN' &&
+        shouldEndHostSchedule({
+          occurrencesCreatedCount:
+            schedule.occurrencesCreatedCount + createdThisRun,
+          maxOccurrences: schedule.maxOccurrences,
+          recurrenceEndDate: schedule.recurrenceEndDate
+            ? prismaDateToKey(schedule.recurrenceEndDate)
+            : null,
+          nextOccurrenceDateKey: nextKey,
+        });
+
       await this.prisma.recurringJoinSchedule.update({
         where: { id: schedule.id },
         data: {
-          nextRunAt,
+          nextRunAt: endSchedule ? null : nextRunAt,
+          status: endSchedule ? 'ENDED' : schedule.status,
+          ...(createdThisRun > 0
+            ? { occurrencesCreatedCount: { increment: createdThisRun } }
+            : {}),
           ...(lastCreatedStart ? { lastRunAt: lastCreatedStart } : {}),
           lastError,
         },
@@ -464,6 +632,117 @@ export class RecurringJoinService {
     }
 
     return summary;
+  }
+
+  private async materializeStoreOccurrence(
+    schedule: ScheduleRow,
+    startAt: Date,
+    dateKey: string,
+  ) {
+    if (
+      !schedule.storeOwnershipId ||
+      schedule.targetMaleCount == null ||
+      schedule.targetFemaleCount == null ||
+      schedule.minimumPlayers == null ||
+      !schedule.matchingRewardTarget ||
+      schedule.rewardPerParticipant == null
+    ) {
+      throw new Error('invalid_store_schedule');
+    }
+    const recruitClosesAt = defaultRecruitClosesAt(
+      startAt,
+      schedule.recruitClosesHoursBefore,
+    );
+    const createBody: CreateStoreMatchingJoinRequest = {
+      storeOwnershipId: schedule.storeOwnershipId,
+      startAt: startAt.toISOString(),
+      recruitClosesAt: recruitClosesAt.toISOString(),
+      targetMaleCount: schedule.targetMaleCount,
+      targetFemaleCount: schedule.targetFemaleCount,
+      minimumPlayers: schedule.minimumPlayers,
+      matchingRewardTarget:
+        schedule.matchingRewardTarget as CreateStoreMatchingJoinRequest['matchingRewardTarget'],
+      rewardPerParticipant: String(schedule.rewardPerParticipant),
+      title: schedule.title,
+      description: schedule.description,
+      idempotencyKey: `recurring:${schedule.id}:${dateKey}`,
+      recurringScheduleId: schedule.id,
+      recurringOccurrenceDate: dateKey,
+    };
+    const detail = await this.matchingJoins.create(schedule.ownerUserId, createBody);
+    await this.prisma.recurringJoinOccurrence.upsert({
+      where: {
+        scheduleId_occurrenceDate: {
+          scheduleId: schedule.id,
+          occurrenceDate: dateKeyToPrismaDate(dateKey),
+        },
+      },
+      create: {
+        scheduleId: schedule.id,
+        occurrenceDate: dateKeyToPrismaDate(dateKey),
+        joinId: detail.joinId,
+        status: 'CREATED',
+      },
+      update: {
+        joinId: detail.joinId,
+        status: 'CREATED',
+        errorMessage: null,
+      },
+    });
+  }
+
+  private async materializeHostOccurrence(
+    schedule: ScheduleRow,
+    startAt: Date,
+    dateKey: string,
+  ) {
+    const template = schedule.joinTemplateJson as HostJoinRecurringTemplate | null;
+    if (!template) throw new Error('missing_join_template');
+    const detail = await this.joins.create(schedule.ownerUserId, {
+      ...template,
+      startAt: startAt.toISOString(),
+      idempotencyKey: `recurring:${schedule.id}:${dateKey}`,
+      recurringScheduleId: schedule.id,
+      recurringOccurrenceDate: dateKey,
+    });
+    await this.prisma.recurringJoinOccurrence.upsert({
+      where: {
+        scheduleId_occurrenceDate: {
+          scheduleId: schedule.id,
+          occurrenceDate: dateKeyToPrismaDate(dateKey),
+        },
+      },
+      create: {
+        scheduleId: schedule.id,
+        occurrenceDate: dateKeyToPrismaDate(dateKey),
+        joinId: detail.joinId,
+        status: 'CREATED',
+      },
+      update: {
+        joinId: detail.joinId,
+        status: 'CREATED',
+        errorMessage: null,
+      },
+    });
+  }
+
+  private async notifyHostFailure(
+    schedule: ScheduleRow,
+    dateKey: string,
+    message: string,
+  ) {
+    await this.notifications.enqueueSafe({
+      userId: schedule.ownerUserId,
+      type: NotificationType.RECURRING_JOIN_OCCURRENCE_FAILED,
+      title: '반복 조인 자동 생성 실패',
+      body: `${dateKey} 회차를 만들지 못했습니다. 코인 잔액·조인 제한을 확인해 주세요.`,
+      data: {
+        scheduleId: schedule.id,
+        occurrenceDate: dateKey,
+        reason: message,
+      },
+      eventKey: `recurring-fail:${schedule.id}:${dateKey}`,
+    });
   }
 
   private async requireOwnerSchedule(ownerUserId: string, scheduleId: string) {
@@ -481,35 +760,24 @@ export class RecurringJoinService {
     return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
   }
 
-  private toDto(row: {
-    id: string;
-    storeOwnershipId: string;
-    golfFacilityId: string;
-    cadence: string;
-    dayOfWeek: number;
-    startTimeLocal: string;
-    timezone: string;
-    targetMaleCount: number;
-    targetFemaleCount: number;
-    minimumPlayers: number;
-    matchingRewardTarget: string;
-    rewardPerParticipant: Prisma.Decimal | string;
-    title: string | null;
-    description: string | null;
-    recruitClosesHoursBefore: number;
-    status: string;
-    nextRunAt: Date | null;
-    lastRunAt: Date | null;
-    lastError: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-    golfFacility: { displayName: string };
-  }): RecurringJoinScheduleDto {
+  private templateVenueLabel(template: HostJoinRecurringTemplate | null): string | null {
+    if (!template) return null;
+    if (template.title) return template.title;
+    return template.venue?.name ?? null;
+  }
+
+  private toDto(row: ScheduleRow): RecurringJoinScheduleDto {
+    const template =
+      row.joinTemplateJson != null
+        ? (row.joinTemplateJson as HostJoinRecurringTemplate)
+        : null;
     return {
       id: row.id,
+      kind: row.kind as RecurringJoinScheduleDto['kind'],
       storeOwnershipId: row.storeOwnershipId,
       golfFacilityId: row.golfFacilityId,
-      facilityName: row.golfFacility.displayName,
+      facilityName:
+        row.golfFacility?.displayName ?? this.templateVenueLabel(template),
       cadence: row.cadence as RecurringJoinScheduleDto['cadence'],
       dayOfWeek: row.dayOfWeek,
       startTimeLocal: row.startTimeLocal,
@@ -519,14 +787,29 @@ export class RecurringJoinService {
       minimumPlayers: row.minimumPlayers,
       matchingRewardTarget:
         row.matchingRewardTarget as RecurringJoinScheduleDto['matchingRewardTarget'],
-      rewardPerParticipant: String(row.rewardPerParticipant),
+      rewardPerParticipant:
+        row.rewardPerParticipant != null ? String(row.rewardPerParticipant) : null,
       title: row.title,
       description: row.description,
       recruitClosesHoursBefore: row.recruitClosesHoursBefore,
+      joinTemplate: template,
+      recurrenceStartDate: row.recurrenceStartDate
+        ? prismaDateToKey(row.recurrenceStartDate)
+        : null,
+      recurrenceEndDate: row.recurrenceEndDate
+        ? prismaDateToKey(row.recurrenceEndDate)
+        : null,
+      maxOccurrences: row.maxOccurrences,
+      occurrencesCreatedCount: row.occurrencesCreatedCount,
       status: row.status as RecurringJoinScheduleDto['status'],
       nextRunAt: row.nextRunAt?.toISOString() ?? null,
       lastRunAt: row.lastRunAt?.toISOString() ?? null,
       lastError: row.lastError,
+      recentOccurrences: row.occurrences?.map((o) => ({
+        occurrenceDate: prismaDateToKey(o.occurrenceDate),
+        joinId: o.joinId,
+        status: o.status as 'CREATED' | 'SKIPPED' | 'FAILED',
+      })),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };

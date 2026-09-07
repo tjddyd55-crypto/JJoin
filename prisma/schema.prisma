@@ -218,6 +218,7 @@ enum NotificationType {
   WAITLIST_PROMOTED
   FRIEND_REQUEST_RECEIVED
   FRIEND_REQUEST_ACCEPTED
+  RECURRING_JOIN_OCCURRENCE_FAILED
 }
 
 /// Pre-game attendance intent — distinct from ParticipationStatus COMPLETED/NO_SHOW.
@@ -237,9 +238,15 @@ enum RecurringJoinCadence {
   WEEKLY
 }
 
+enum RecurringJoinScheduleKind {
+  STORE_MATCHING
+  HOST_JOIN
+}
+
 enum RecurringJoinScheduleStatus {
   ACTIVE
   PAUSED
+  ENDED
   DELETED
 }
 
@@ -956,21 +963,28 @@ model StoreOwnership {
 model RecurringJoinSchedule {
   id                       String                      @id @default(uuid()) @db.Uuid
   ownerUserId              String                      @map("owner_user_id") @db.Uuid
-  storeOwnershipId         String                      @map("store_ownership_id") @db.Uuid
-  golfFacilityId           String                      @map("golf_facility_id") @db.Uuid
+  kind                     RecurringJoinScheduleKind     @default(STORE_MATCHING)
+  storeOwnershipId         String?                     @map("store_ownership_id") @db.Uuid
+  golfFacilityId           String?                     @map("golf_facility_id") @db.Uuid
   cadence                  RecurringJoinCadence        @default(WEEKLY)
   /// ISO weekday 1=Mon … 7=Sun
   dayOfWeek                Int                         @map("day_of_week")
   startTimeLocal           String                      @map("start_time_local") @db.VarChar(5)
   timezone                 String                      @default("Asia/Seoul")
-  targetMaleCount          Int                         @map("target_male_count")
-  targetFemaleCount        Int                         @map("target_female_count")
-  minimumPlayers           Int                         @map("minimum_players")
-  matchingRewardTarget     MatchingRewardTarget        @map("matching_reward_target")
-  rewardPerParticipant     Decimal                     @map("reward_per_participant") @db.Decimal(18, 4)
+  targetMaleCount          Int?                        @map("target_male_count")
+  targetFemaleCount        Int?                        @map("target_female_count")
+  minimumPlayers           Int?                        @map("minimum_players")
+  matchingRewardTarget     MatchingRewardTarget?       @map("matching_reward_target")
+  rewardPerParticipant     Decimal?                    @map("reward_per_participant") @db.Decimal(18, 4)
   title                    String?
   description              String?
   recruitClosesHoursBefore Int                         @default(3) @map("recruit_closes_hours_before")
+  /// HOST_JOIN: CreateJoinRequest snapshot minus startAt (pricing resolved per occurrence).
+  joinTemplateJson         Json?                       @map("join_template_json")
+  recurrenceStartDate      DateTime?                   @map("recurrence_start_date") @db.Date
+  recurrenceEndDate        DateTime?                   @map("recurrence_end_date") @db.Date
+  maxOccurrences           Int?                        @map("max_occurrences")
+  occurrencesCreatedCount  Int                         @default(0) @map("occurrences_created_count")
   status                   RecurringJoinScheduleStatus @default(ACTIVE)
   nextRunAt                DateTime?                   @map("next_run_at") @db.Timestamptz(6)
   lastRunAt                DateTime?                   @map("last_run_at") @db.Timestamptz(6)
@@ -979,8 +993,8 @@ model RecurringJoinSchedule {
   updatedAt                DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   owner          User                       @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
-  storeOwnership StoreOwnership             @relation(fields: [storeOwnershipId], references: [id], onDelete: Cascade)
-  golfFacility   GolfFacility               @relation(fields: [golfFacilityId], references: [id], onDelete: Cascade)
+  storeOwnership StoreOwnership?            @relation(fields: [storeOwnershipId], references: [id], onDelete: Cascade)
+  golfFacility   GolfFacility?              @relation(fields: [golfFacilityId], references: [id], onDelete: Cascade)
   joins          Join[]
   skips          RecurringJoinSkip[]
   occurrences    RecurringJoinOccurrence[]

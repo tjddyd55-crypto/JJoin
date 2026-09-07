@@ -733,6 +733,10 @@ export type CreateJoinRequest = {
   rewardPerParticipant?: string;
   /** Client request idempotency — same key must not double-create join/fee/hold. */
   idempotencyKey?: string;
+  /** Set when created from a recurring schedule runner. */
+  recurringScheduleId?: string;
+  /** YYYY-MM-DD occurrence date (KST calendar day). */
+  recurringOccurrenceDate?: string;
   /** Club urgent recruitment link (staff only, validated server-side). */
   clubId?: string;
   clubEventId?: string;
@@ -963,6 +967,8 @@ export type JoinDetailDto = {
   waitlistCount?: number | null;
   /** Present when viewer is host or participant with settlement rows. */
   settlement?: JoinSettlementSummaryDto | null;
+  /** Present when join was materialized from a recurring schedule. */
+  recurringScheduleId?: string | null;
   /** Standard join member preference — soft condition (display only unless policy extended). */
   preferredGender?: JoinPreferredGender | null;
   minAge?: number | null;
@@ -1864,35 +1870,63 @@ export type OwnerStoreDashboardDto = {
 };
 
 export type RecurringJoinCadence = 'WEEKLY';
-export type RecurringJoinScheduleStatus = 'ACTIVE' | 'PAUSED' | 'DELETED';
+export type RecurringJoinScheduleKind = 'STORE_MATCHING' | 'HOST_JOIN';
+export type RecurringJoinScheduleStatus = 'ACTIVE' | 'PAUSED' | 'ENDED' | 'DELETED';
+
+export type HostJoinRecurringTemplate = {
+  sportCode: string;
+  venueId?: string;
+  venue?: JoinVenueRefInput;
+  plannedPlayerCount: number;
+  joinMethod: JoinMethod;
+  title?: string | null;
+  description?: string | null;
+  rewardPerParticipant?: string;
+  preferredGender?: JoinPreferredGender | null;
+  minAge?: number | null;
+  maxAge?: number | null;
+};
+
+export type RecurringJoinOccurrenceSummary = {
+  occurrenceDate: string;
+  joinId: string | null;
+  status: 'CREATED' | 'SKIPPED' | 'FAILED';
+};
 
 export type RecurringJoinScheduleDto = {
   id: string;
-  storeOwnershipId: string;
-  golfFacilityId: string;
-  facilityName: string;
+  kind: RecurringJoinScheduleKind;
+  storeOwnershipId: string | null;
+  golfFacilityId: string | null;
+  facilityName: string | null;
   cadence: RecurringJoinCadence;
   /** ISO weekday 1=Mon … 7=Sun */
   dayOfWeek: number;
   startTimeLocal: string;
   timezone: string;
-  targetMaleCount: number;
-  targetFemaleCount: number;
-  minimumPlayers: number;
-  matchingRewardTarget: MatchingRewardTarget;
-  rewardPerParticipant: string;
+  targetMaleCount: number | null;
+  targetFemaleCount: number | null;
+  minimumPlayers: number | null;
+  matchingRewardTarget: MatchingRewardTarget | null;
+  rewardPerParticipant: string | null;
   title: string | null;
   description: string | null;
   recruitClosesHoursBefore: number;
+  joinTemplate?: HostJoinRecurringTemplate | null;
+  recurrenceStartDate: string | null;
+  recurrenceEndDate: string | null;
+  maxOccurrences: number | null;
+  occurrencesCreatedCount: number;
   status: RecurringJoinScheduleStatus;
   nextRunAt: string | null;
   lastRunAt: string | null;
   lastError: string | null;
+  recentOccurrences?: RecurringJoinOccurrenceSummary[];
   createdAt: string;
   updatedAt: string;
 };
 
-export type CreateRecurringJoinScheduleRequest = {
+export type CreateStoreRecurringJoinScheduleRequest = {
   storeOwnershipId: string;
   dayOfWeek: number;
   startTimeLocal: string;
@@ -1905,6 +1939,22 @@ export type CreateRecurringJoinScheduleRequest = {
   description?: string | null;
   recruitClosesHoursBefore?: number;
 };
+
+export type CreateHostRecurringJoinScheduleRequest = {
+  dayOfWeek: number;
+  startTimeLocal: string;
+  recurrenceStartDate: string;
+  recurrenceEndDate?: string;
+  maxOccurrences?: number;
+  joinTemplate: HostJoinRecurringTemplate;
+  title?: string | null;
+  description?: string | null;
+};
+
+/** Store matching (legacy) or host join recurring schedule. */
+export type CreateRecurringJoinScheduleRequest =
+  | CreateStoreRecurringJoinScheduleRequest
+  | CreateHostRecurringJoinScheduleRequest;
 
 export type UpdateRecurringJoinScheduleRequest = {
   dayOfWeek?: number;

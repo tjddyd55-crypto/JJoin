@@ -75,6 +75,15 @@ export class RecurringJoinController {
     return this.service.softDelete(userId, scheduleId);
   }
 
+  @Post('my/recurring-joins/:scheduleId/end')
+  @UseGuards(MockAuthGuard)
+  end(
+    @CurrentUserId() userId: string,
+    @Param('scheduleId') scheduleId: string,
+  ) {
+    return this.service.end(userId, scheduleId);
+  }
+
   @Post('my/recurring-joins/:scheduleId/skip')
   @UseGuards(MockAuthGuard)
   skip(
