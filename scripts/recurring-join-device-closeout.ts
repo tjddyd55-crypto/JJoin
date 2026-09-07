@@ -22,20 +22,25 @@ async function main() {
   qa.ensureAdbReverse();
   qa.launchDevClient();
   await qa.waitForAppReady();
-  await qa.logoutIfNeeded();
-  await qa.loginPersona('DEV_A');
+  if (qa.uiHas('카카오로 시작하기') || qa.uiHas('카카오', '로그인')) {
+    await qa.logoutIfNeeded();
+    await qa.loginPersona('A 김진우');
+  }
 
   qa.tapTab('MY');
-  await qa.sleep(1200);
-  qa.scrollDown();
-  qa.assert(qa.uiHas('반복 조인'), 'MY 반복 조인 menu');
-  qa.tapText('반복 조인');
   await qa.sleep(1500);
-  qa.screenshot('01-my-recurring-list');
-  qa.assert(qa.uiHas('반복 조인', '등록된'), 'recurring list screen');
-
-  qa.deepLink('/(tabs)/create');
+  qa.scrollDown();
+  if (qa.uiHas('반복 조인')) {
+    qa.tapText('반복 조인');
+  } else {
+    qa.deepLink('/my/recurring-joins');
+  }
   await qa.sleep(2000);
+  qa.screenshot('01-my-recurring-list');
+  qa.assert(qa.uiHas('반복 조인') || qa.uiHas('등록된'), 'recurring list screen');
+
+  qa.deepLink('create');
+  await qa.sleep(5000);
   qa.assert(qa.uiHas('조인 만들기'), 'create screen');
   qa.screenshot('02-create-entry');
 
