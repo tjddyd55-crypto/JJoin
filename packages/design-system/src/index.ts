@@ -36,6 +36,11 @@ export {
 export { Input, type InputProps } from './components/Input';
 export { Card, type CardProps, type CardVariant, type CardPadding } from './components/Card';
 export { Chip, type ChipProps, type ChipVariant } from './components/Chip';
+export {
+  AgeRangeSelector,
+  type AgeRangeSelectorProps,
+  type AgeRangeSelectorValue,
+} from './components/AgeRangeSelector';
 export { Badge, type BadgeProps, type BadgeVariant } from './components/Badge';
 export { BrandMark, type BrandMarkVariant, type BrandMarkTone } from './components/BrandMark';
 export { JoinHostAvatar, type JoinHostAvatarProps, type JoinHostAvatarSize } from './components/JoinHostAvatar';

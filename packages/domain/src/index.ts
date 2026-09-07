@@ -609,6 +609,19 @@ export {
 } from './join-member-preferences';
 
 export {
+  MEMBER_AGE_MAX,
+  MEMBER_AGE_MIN,
+  clampMemberAge,
+  formatAgeRangeLabel,
+  isUnrestrictedAgeRange,
+  normalizeAgeRange,
+  trackRatioToAge,
+  ageToTrackRatio,
+  validateMemberAgeRange,
+  type AgeRangeValue,
+} from './age-range';
+
+export {
   RECOMMENDATION_WEIGHTS,
   RECOMMEND_REASON_LABEL_KO,
   RECOMMEND_REASON_SHORT_LABEL_KO,

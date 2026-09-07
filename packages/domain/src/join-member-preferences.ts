@@ -1,4 +1,5 @@
 import { JoinPreferredGender } from '@jjoin/types';
+import { formatAgeRangeLabel } from './age-range';
 
 export const JOIN_MEMBER_MIN_AGE = 18;
 export const JOIN_MEMBER_MAX_AGE = 70;
@@ -42,12 +43,8 @@ export function formatJoinMemberPreferenceSummary(input: JoinMemberPreferenceInp
   if (input.preferredGender === JoinPreferredGender.MALE) lines.push('남성');
   else if (input.preferredGender === JoinPreferredGender.FEMALE) lines.push('여성');
 
-  if (input.minAge != null && input.maxAge != null) {
-    lines.push(`${input.minAge}세~${input.maxAge}세`);
-  } else if (input.minAge != null) {
-    lines.push(`${input.minAge}세 이상`);
-  } else if (input.maxAge != null) {
-    lines.push(`${input.maxAge}세 이하`);
+  if (input.minAge != null || input.maxAge != null) {
+    lines.push(formatAgeRangeLabel(input.minAge ?? null, input.maxAge ?? null));
   }
 
   return lines;
