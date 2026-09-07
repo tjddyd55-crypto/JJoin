@@ -228,14 +228,28 @@ export const MAX_JOIN_REGION_PREFERENCES = 5;
 
 export const WEEKDAY_LABELS_KO = ['일', '월', '화', '수', '목', '금', '토'] as const;
 
-export type JoinDiscoveryRegionMode = 'NEARBY' | 'DISTRICT';
+export type JoinDiscoveryRegionMode = 'ALL' | 'NEARBY' | 'DISTRICT';
 export type JoinDiscoverySort = 'TIME' | 'DISTANCE';
 export type JoinDiscoveryJoinability = 'ALL' | 'JOINABLE';
 
 /** Region identity — sido/sigungu match GolfFacility DB columns (canonical Korean names). */
 export type JoinDiscoveryRegion =
+  | { mode: 'ALL'; label: string }
   | { mode: 'NEARBY'; label: string }
   | { mode: 'DISTRICT'; sido: string; sigungu: string; label: string };
+
+export type DiscoverRegionApiQuery = {
+  regionMode: JoinDiscoveryRegionMode;
+  lat?: number;
+  lng?: number;
+  radiusMeters?: number;
+  sido?: string;
+  sigungu?: string;
+};
+
+export type DiscoverRegionApiQueryResult =
+  | DiscoverRegionApiQuery
+  | { error: 'NEARBY_LOCATION_REQUIRED' };
 
 export type JoinDiscoveryFilterState = {
   date: string;
@@ -479,14 +493,49 @@ export function resolveDiscoverCanJoin(input: {
 }
 
 export function regionIdentityKey(region: JoinDiscoveryRegion): string {
+  if (region.mode === 'ALL') return 'ALL';
   if (region.mode === 'NEARBY') return 'NEARBY';
   return `DISTRICT:${region.sido}|${region.sigungu}`;
+}
+
+/** Maps UI region chip → discover API query. NEARBY requires device location. */
+export function buildDiscoverRegionApiQuery(input: {
+  region: JoinDiscoveryRegion;
+  deviceLocation?: { latitude: number; longitude: number } | null;
+  radiusMeters?: number;
+}): DiscoverRegionApiQueryResult {
+  const radiusMeters = input.radiusMeters ?? DEFAULT_NEARBY_RADIUS_METERS;
+  if (input.region.mode === 'ALL') {
+    return {
+      regionMode: 'ALL',
+      lat: input.deviceLocation?.latitude,
+      lng: input.deviceLocation?.longitude,
+    };
+  }
+  if (input.region.mode === 'DISTRICT') {
+    return {
+      regionMode: 'DISTRICT',
+      sido: input.region.sido,
+      sigungu: input.region.sigungu,
+      lat: input.deviceLocation?.latitude,
+      lng: input.deviceLocation?.longitude,
+    };
+  }
+  if (!input.deviceLocation) {
+    return { error: 'NEARBY_LOCATION_REQUIRED' };
+  }
+  return {
+    regionMode: 'NEARBY',
+    lat: input.deviceLocation.latitude,
+    lng: input.deviceLocation.longitude,
+    radiusMeters,
+  };
 }
 
 export function createDefaultDiscoveryFilter(now = new Date()): JoinDiscoveryFilterState {
   return {
     date: localDayKey(now),
-    region: { mode: 'NEARBY', label: '내 주변' },
+    region: { mode: 'ALL', label: '전체' },
     sort: 'TIME',
     joinability: 'ALL',
   };

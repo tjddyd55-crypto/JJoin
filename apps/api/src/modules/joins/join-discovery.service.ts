@@ -458,6 +458,7 @@ export class JoinDiscoveryService {
     cards: DiscoverJoinCardDto[],
     region: ResolvedRegion,
   ): DiscoverJoinCardDto[] {
+    if (region.mode === 'ALL') return cards;
     if (region.mode === 'NEARBY') {
       const lat = region.lat!;
       const lng = region.lng!;
@@ -527,6 +528,7 @@ export class JoinDiscoveryService {
     rows: DiscoveryJoinRow[],
     region: ResolvedRegion,
   ): DiscoveryJoinRow[] {
+    if (region.mode === 'ALL') return rows;
     if (region.mode === 'DISTRICT') {
       const sido = region.sido!;
       const sigungu = region.sigungu!;
@@ -809,11 +811,11 @@ export class JoinDiscoveryService {
   private resolveRegion(
     query: DiscoverJoinsQuery | DiscoverWeeklyCountsQuery,
   ): ResolvedRegion {
-    const modeRaw = query.regionMode ?? 'NEARBY';
-    if (modeRaw !== 'NEARBY' && modeRaw !== 'DISTRICT') {
+    const modeRaw = query.regionMode ?? 'ALL';
+    if (modeRaw !== 'ALL' && modeRaw !== 'NEARBY' && modeRaw !== 'DISTRICT') {
       throw new BadRequestException({
         code: 'INVALID_REGION_MODE',
-        message: '지역 모드가 올바르지 않습니다. (NEARBY | DISTRICT)',
+        message: '지역 모드가 올바르지 않습니다. (ALL | NEARBY | DISTRICT)',
       });
     }
 
@@ -821,6 +823,16 @@ export class JoinDiscoveryService {
       query.radiusMeters != null && Number.isFinite(query.radiusMeters)
         ? Math.max(1, Math.floor(query.radiusMeters))
         : DEFAULT_NEARBY_RADIUS_METERS;
+
+    if (modeRaw === 'ALL') {
+      return {
+        mode: 'ALL',
+        label: '전체',
+        lat: Number.isFinite(query.lat) ? query.lat : undefined,
+        lng: Number.isFinite(query.lng) ? query.lng : undefined,
+        radiusMeters,
+      };
+    }
 
     if (modeRaw === 'DISTRICT') {
       const sido = query.sido?.trim();

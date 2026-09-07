@@ -45,8 +45,8 @@ export function JoinDiscoveryProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     void (async () => {
       const recent = await loadRecentDiscoveryRegion();
-      if (cancelled || !recent || recent.mode === 'NEARBY') return;
-      // First entry default stays NEARBY; recent district only seeds quick picks via prefs API.
+      if (cancelled || !recent || recent.mode === 'NEARBY' || recent.mode === 'ALL') return;
+      // First entry default stays ALL; recent district only seeds quick picks via prefs API.
       // Persist is still useful when user re-selects after leaving Explore mid-session — skip auto-apply.
       void recent;
     })();

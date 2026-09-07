@@ -1313,7 +1313,7 @@ export type MyJoinsResponse = {
 };
 
 /** Weekly + regional join discovery (participant explore). */
-export type JoinDiscoveryRegionMode = 'NEARBY' | 'DISTRICT';
+export type JoinDiscoveryRegionMode = 'ALL' | 'NEARBY' | 'DISTRICT';
 export type JoinDiscoverySort = 'TIME' | 'DISTANCE';
 export type JoinDiscoveryJoinability = 'ALL' | 'JOINABLE';
 

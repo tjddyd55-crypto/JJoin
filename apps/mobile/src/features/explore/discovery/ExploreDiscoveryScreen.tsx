@@ -24,6 +24,7 @@ export function ExploreDiscoveryScreen() {
 }
 
 function regionDisplayLabel(filter: ReturnType<typeof useJoinDiscovery>['filter']): string {
+  if (filter.region.mode === 'ALL') return '전체';
   if (filter.region.mode === 'NEARBY') return '내 주변';
   return filter.region.label?.trim() || filter.region.sigungu || '지역 선택';
 }

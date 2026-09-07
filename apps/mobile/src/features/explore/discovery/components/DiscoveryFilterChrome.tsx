@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import {
-  DEFAULT_NEARBY_RADIUS_METERS,
+  buildDiscoverRegionApiQuery,
   DEFAULT_REGION_QUICK_PICKS,
   regionIdentityKey,
   sundayOfWeek,
@@ -42,12 +42,16 @@ export function DiscoveryFilterChrome({
     const nearbyDisabled = locationDenied && !deviceLocation;
     const base: RegionChip[] = [
       {
+        key: 'ALL',
+        region: { mode: 'ALL', label: '전체' },
+      },
+      {
         key: 'NEARBY',
         region: { mode: 'NEARBY', label: '내 주변' },
         disabled: nearbyDisabled,
       },
     ];
-    const seen = new Set<string>(['NEARBY']);
+    const seen = new Set<string>(['ALL', 'NEARBY']);
     for (const p of prefChips) {
       if (seen.has(p.key)) continue;
       seen.add(p.key);
@@ -104,23 +108,14 @@ export function DiscoveryFilterChrome({
     const abort = new AbortController();
     void (async () => {
       try {
-        if (filter.region.mode === 'NEARBY' && !deviceLocation) {
+        const regionQuery = buildDiscoverRegionApiQuery({
+          region: filter.region,
+          deviceLocation,
+        });
+        if ('error' in regionQuery) {
           setDayCounts({});
           return;
         }
-        const regionQuery =
-          filter.region.mode === 'NEARBY'
-            ? {
-                regionMode: 'NEARBY' as const,
-                lat: deviceLocation!.latitude,
-                lng: deviceLocation!.longitude,
-                radiusMeters: DEFAULT_NEARBY_RADIUS_METERS,
-              }
-            : {
-                regionMode: 'DISTRICT' as const,
-                sido: filter.region.sido,
-                sigungu: filter.region.sigungu,
-              };
         const weekly = await fetchDiscoverWeeklyCounts(
           api,
           { weekStart: sundayOfWeek(filter.weekAnchorDate), ...regionQuery },

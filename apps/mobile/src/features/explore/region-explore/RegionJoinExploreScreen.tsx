@@ -17,39 +17,23 @@ import {
   shiftWeekAnchor,
   sundayOfWeek,
 } from '@jjoin/domain';
-import type {
-  DiscoverFacilityJoinItemDto,
-  DiscoverRegionSummaryItemDto,
-} from '@jjoin/types';
+import type { DiscoverRegionSummaryItemDto } from '@jjoin/types';
 import { getSecureSessionStore } from '../../../session/SessionContext';
 import { getApiClient } from '../../../lib/api';
 import { RegionSummaryList } from './components/RegionSummaryList';
-import { RegionFacilityList } from './components/RegionFacilityList';
 import { RegionJoinListPanel } from './components/RegionJoinListPanel';
 import { WeekStrip } from '../discovery/components/WeekStrip';
-import {
-  fetchFacilityJoins,
-  fetchRegionSummary,
-} from './api/region-explore-api';
+import { fetchFacilityJoins, fetchRegionSummary } from './api/region-explore-api';
 
 type ExploreView =
   | { kind: 'root' }
   | { kind: 'regions'; sido: string; sigungu?: string; title: string }
-  | { kind: 'nearby' }
   | {
-      kind: 'facilities';
+      kind: 'joins';
       title: string;
       regionMode: 'NEARBY' | 'DISTRICT';
       sido?: string;
       sigungu?: string;
-    }
-  | {
-      kind: 'joins';
-      venueId: string;
-      venueName: string;
-      sido: string;
-      sigungu: string;
-      title: string;
     };
 
 type Props = {
@@ -75,13 +59,6 @@ export function RegionJoinExploreScreen({ embedded = false, onSwitchToMap }: Pro
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [nearbyCount, setNearbyCount] = useState<number | null>(null);
-  const [facilityData, setFacilityData] = useState<{
-    facilities: DiscoverFacilityJoinItemDto[];
-    totalJoinCount: number;
-    regionLabel: string;
-  } | null>(null);
-  const [facilityLoading, setFacilityLoading] = useState(false);
-  const [facilityError, setFacilityError] = useState<string | null>(null);
   const [deviceLocation, setDeviceLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -127,7 +104,6 @@ export function RegionJoinExploreScreen({ embedded = false, onSwitchToMap }: Pro
     if (currentView.kind === 'root') {
       return embedded ? '지역별' : '지역별 조인';
     }
-    if (currentView.kind === 'nearby') return '내 위치';
     return currentView.title;
   }, [currentView, embedded]);
 
@@ -135,7 +111,12 @@ export function RegionJoinExploreScreen({ embedded = false, onSwitchToMap }: Pro
     if (currentView.kind === 'regions') {
       return buildRegionBreadcrumb(currentView.sido, currentView.sigungu);
     }
-    if (currentView.kind === 'facilities' && currentView.sido && currentView.sigungu) {
+    if (
+      currentView.kind === 'joins' &&
+      currentView.regionMode === 'DISTRICT' &&
+      currentView.sido &&
+      currentView.sigungu
+    ) {
       return buildRegionBreadcrumb(currentView.sido, currentView.sigungu);
     }
     return [];
@@ -145,6 +126,10 @@ export function RegionJoinExploreScreen({ embedded = false, onSwitchToMap }: Pro
 
   const popView = useCallback(() => {
     setViewStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
+  }, []);
+
+  const resetToRoot = useCallback(() => {
+    setViewStack([{ kind: 'root' }]);
   }, []);
 
   useEffect(() => {
@@ -214,74 +199,6 @@ export function RegionJoinExploreScreen({ embedded = false, onSwitchToMap }: Pro
     }
   }, [api, selectedDate, deviceLocation]);
 
-  const loadFacilities = useCallback(async () => {
-    if (currentView.kind !== 'facilities' && currentView.kind !== 'nearby') {
-      return;
-    }
-    const seq = ++requestSeq.current;
-    setFacilityLoading(true);
-    setFacilityError(null);
-    const abort = new AbortController();
-    try {
-      if (currentView.kind === 'nearby') {
-        if (!deviceLocation) {
-          setFacilityData(null);
-          setFacilityError(
-            locationDenied
-              ? '위치 권한이 필요합니다. 설정에서 위치 권한을 허용해 주세요.'
-              : '위치를 확인하는 중입니다.',
-          );
-          return;
-        }
-        const res = await fetchFacilityJoins(
-          api,
-          {
-            date: selectedDate,
-            joinability: 'JOINABLE',
-            regionMode: 'NEARBY',
-            lat: deviceLocation.latitude,
-            lng: deviceLocation.longitude,
-            radiusMeters: DEFAULT_NEARBY_RADIUS_METERS,
-            sort: 'DISTANCE',
-          },
-          abort.signal,
-        );
-        if (seq !== requestSeq.current) return;
-        setFacilityData({
-          facilities: res.facilities,
-          totalJoinCount: res.totalJoinCount,
-          regionLabel: `5km 이내 · ${selectedDate}`,
-        });
-        return;
-      }
-
-      const res = await fetchFacilityJoins(
-        api,
-        {
-          date: selectedDate,
-          joinability: 'JOINABLE',
-          regionMode: 'DISTRICT',
-          sido: currentView.sido!,
-          sigungu: currentView.sigungu!,
-          sort: 'TIME',
-        },
-        abort.signal,
-      );
-      if (seq !== requestSeq.current) return;
-      setFacilityData({
-        facilities: res.facilities,
-        totalJoinCount: res.totalJoinCount,
-        regionLabel: res.regionLabel,
-      });
-    } catch {
-      if (seq !== requestSeq.current) return;
-      setFacilityData(null);
-      setFacilityError('골프장 목록을 불러오지 못했습니다.');
-    } finally {
-      if (seq === requestSeq.current) setFacilityLoading(false);
-    }
-  }, [api, selectedDate, currentView, deviceLocation, locationDenied]);
-
   useEffect(() => {
     if (currentView.kind === 'root' || currentView.kind === 'regions') {
       void loadSummary();
@@ -293,12 +210,6 @@ export function RegionJoinExploreScreen({ embedded = false, onSwitchToMap }: Pro
       void loadNearbyCount();
     }
   }, [loadNearbyCount, currentView.kind]);
-
-  useEffect(() => {
-    if (currentView.kind === 'facilities' || currentView.kind === 'nearby') {
-      void loadFacilities();
-    }
-  }, [loadFacilities, currentView.kind]);
 
   const requestNearbyLocation = useCallback(async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -323,16 +234,19 @@ export function RegionJoinExploreScreen({ embedded = false, onSwitchToMap }: Pro
     }
   }, []);
 
+  const openJoinList = useCallback(
+    (view: Extract<ExploreView, { kind: 'joins' }>) => {
+      setViewStack((prev) => [...prev, view]);
+    },
+    [],
+  );
+
   const handleNearbyPress = useCallback(async () => {
     if (!deviceLocation) {
-      const ok = await requestNearbyLocation();
-      if (!ok) {
-        setViewStack((prev) => [...prev, { kind: 'nearby' }]);
-        return;
-      }
+      await requestNearbyLocation();
     }
-    setViewStack((prev) => [...prev, { kind: 'nearby' }]);
-  }, [deviceLocation, requestNearbyLocation]);
+    openJoinList({ kind: 'joins', title: '내 위치', regionMode: 'NEARBY' });
+  }, [deviceLocation, openJoinList, requestNearbyLocation]);
 
   const handleRegionSelect = useCallback(
     (item: DiscoverRegionSummaryItemDto) => {
@@ -348,18 +262,15 @@ export function RegionJoinExploreScreen({ embedded = false, onSwitchToMap }: Pro
         ]);
         return;
       }
-      setViewStack((prev) => [
-        ...prev,
-        {
-          kind: 'facilities',
-          title: item.label,
-          regionMode: 'DISTRICT',
-          sido: item.sido,
-          sigungu: item.sigungu!,
-        },
-      ]);
+      openJoinList({
+        kind: 'joins',
+        title: item.label,
+        regionMode: 'DISTRICT',
+        sido: item.sido,
+        sigungu: item.sigungu!,
+      });
     },
-    [],
+    [openJoinList],
   );
 
   const handleSummarySelectFromRegions = useCallback(
@@ -385,22 +296,10 @@ export function RegionJoinExploreScreen({ embedded = false, onSwitchToMap }: Pro
     [currentView.kind, handleRegionSelect],
   );
 
-  const handleFacilitySelect = useCallback(
-    (facility: DiscoverFacilityJoinItemDto) => {
-      setViewStack((prev) => [
-        ...prev,
-        {
-          kind: 'joins',
-          venueId: facility.venueId,
-          venueName: facility.venueName,
-          sido: facility.sido ?? '서울특별시',
-          sigungu: facility.sigungu ?? '강남구',
-          title: facility.venueName,
-        },
-      ]);
-    },
-    [],
-  );
+  const showWeekStrip =
+    currentView.kind === 'root' ||
+    currentView.kind === 'regions' ||
+    currentView.kind === 'joins';
 
   const content = (
     <>
@@ -435,9 +334,7 @@ export function RegionJoinExploreScreen({ embedded = false, onSwitchToMap }: Pro
         </View>
       ) : null}
 
-      {(currentView.kind === 'root' ||
-        currentView.kind === 'regions' ||
-        currentView.kind === 'nearby') && (
+      {showWeekStrip ? (
         <WeekStrip
           weekAnchorDate={weekAnchorDate}
           selectedDate={selectedDate}
@@ -445,7 +342,7 @@ export function RegionJoinExploreScreen({ embedded = false, onSwitchToMap }: Pro
           onPrevWeek={() => shiftWeek(-1)}
           onNextWeek={() => shiftWeek(1)}
         />
-      )}
+      ) : null}
 
       <View style={styles.body}>
         {currentView.kind === 'root' ? (
@@ -476,28 +373,16 @@ export function RegionJoinExploreScreen({ embedded = false, onSwitchToMap }: Pro
           />
         ) : null}
 
-        {currentView.kind === 'nearby' || currentView.kind === 'facilities' ? (
-          <RegionFacilityList
-            facilities={facilityData?.facilities ?? []}
-            totalJoinCount={facilityData?.totalJoinCount ?? 0}
-            regionLabel={facilityData?.regionLabel ?? headerTitle}
-            loading={facilityLoading}
-            error={facilityError}
-            onRetry={() => void loadFacilities()}
-            onSelectFacility={handleFacilitySelect}
-            onSwitchToMap={onSwitchToMap}
-            bottomPadding={listBottomPad}
-          />
-        ) : null}
-
         {currentView.kind === 'joins' ? (
           <RegionJoinListPanel
             date={selectedDate}
-            venueId={currentView.venueId}
-            venueName={currentView.venueName}
+            regionMode={currentView.regionMode}
             sido={currentView.sido}
             sigungu={currentView.sigungu}
+            deviceLocation={deviceLocation}
+            locationDenied={locationDenied}
             bottomPadding={listBottomPad}
+            onBrowseOtherRegions={resetToRoot}
           />
         ) : null}
       </View>

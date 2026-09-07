@@ -183,18 +183,21 @@ export function ExploreMapScreen({
               : nextFilter === 'TODAY_JOIN',
             includeUsers: false,
             date: disc?.date,
-            regionMode,
+            regionMode:
+              regionMode === 'ALL' || regionMode == null
+                ? undefined
+                : regionMode,
             sido: disc?.region.mode === 'DISTRICT' ? disc.region.sido : undefined,
             sigungu:
               disc?.region.mode === 'DISTRICT' ? disc.region.sigungu : undefined,
             lat:
               regionMode === 'NEARBY'
                 ? (externalLocation ?? deviceLocation)?.latitude
-                : (externalLocation ?? deviceLocation)?.latitude,
+                : undefined,
             lng:
               regionMode === 'NEARBY'
                 ? (externalLocation ?? deviceLocation)?.longitude
-                : (externalLocation ?? deviceLocation)?.longitude,
+                : undefined,
             radiusMeters:
               regionMode === 'NEARBY' ? DEFAULT_NEARBY_RADIUS_METERS : undefined,
           });

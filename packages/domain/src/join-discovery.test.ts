@@ -4,15 +4,18 @@ import { JoinStatus } from '@jjoin/types';
 import {
   aggregateFacilityJoinActivity,
   aggregateWeeklyDayCounts,
+  buildDiscoverRegionApiQuery,
   buildWeekStrip,
   compareDiscoverJoinOrder,
   compareJoinDiscoveryPriority,
+  createDefaultDiscoveryFilter,
   isOngoingJoin,
   isTodayValidJoin,
   isValidOnSelectedDate,
   kstDayBoundsUtc,
   partitionDiscoverJoins,
   pickHomeHostedJoins,
+  regionIdentityKey,
   isJoinVisibleInDiscoveryList,
   resolveDiscoverCanJoin,
   resolveJoinDiscoveryBadge,
@@ -262,6 +265,72 @@ test('partitionDiscoverJoins + compareDiscoverJoinOrder', () => {
   assert.equal(u.length, 1);
   assert.ok(compareDiscoverJoinOrder(ongoing, laterNear, { now, sort: 'TIME' }) < 0);
   assert.ok(compareDiscoverJoinOrder(laterNear, laterFar, { now, sort: 'TIME' }) < 0);
+});
+
+test('createDefaultDiscoveryFilter uses nationwide ALL region', () => {
+  const filter = createDefaultDiscoveryFilter(new Date('2026-03-10T12:00:00+09:00'));
+  assert.equal(filter.region.mode, 'ALL');
+  assert.equal(filter.region.label, '전체');
+  assert.equal(filter.joinability, 'ALL');
+});
+
+test('regionIdentityKey includes ALL', () => {
+  assert.equal(regionIdentityKey({ mode: 'ALL', label: '전체' }), 'ALL');
+});
+
+test('buildDiscoverRegionApiQuery maps region chips to API params', () => {
+  assert.deepEqual(
+    buildDiscoverRegionApiQuery({
+      region: { mode: 'ALL', label: '전체' },
+      deviceLocation: { latitude: 37.5, longitude: 127.0 },
+    }),
+    { regionMode: 'ALL', lat: 37.5, lng: 127.0 },
+  );
+  assert.deepEqual(
+    buildDiscoverRegionApiQuery({
+      region: {
+        mode: 'DISTRICT',
+        sido: '서울특별시',
+        sigungu: '강남구',
+        label: '강남구',
+      },
+    }),
+    {
+      regionMode: 'DISTRICT',
+      sido: '서울특별시',
+      sigungu: '강남구',
+      lat: undefined,
+      lng: undefined,
+    },
+  );
+  assert.deepEqual(
+    buildDiscoverRegionApiQuery({
+      region: { mode: 'NEARBY', label: '내 주변' },
+    }),
+    { error: 'NEARBY_LOCATION_REQUIRED' },
+  );
+  assert.deepEqual(
+    buildDiscoverRegionApiQuery({
+      region: { mode: 'NEARBY', label: '내 주변' },
+      deviceLocation: { latitude: 37.5, longitude: 127.0 },
+      radiusMeters: 5000,
+    }),
+    {
+      regionMode: 'NEARBY',
+      lat: 37.5,
+      lng: 127.0,
+      radiusMeters: 5000,
+    },
+  );
+});
+
+test('discovery default list has no required region filter', () => {
+  const filter = createDefaultDiscoveryFilter();
+  const query = buildDiscoverRegionApiQuery({ region: filter.region });
+  assert.equal('error' in query, false);
+  if (!('error' in query)) {
+    assert.equal(query.regionMode, 'ALL');
+  }
 });
 
 test('isJoinVisibleInDiscoveryList includes host-owned joins when JOINABLE', () => {

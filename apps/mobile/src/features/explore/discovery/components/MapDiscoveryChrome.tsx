@@ -125,6 +125,17 @@ export function MapDiscoveryChrome({
             ]}
           >
             <Pressable
+              onPress={() => {
+                setRegion({ mode: 'ALL', label: '전체' });
+                setRegionMenuOpen(false);
+              }}
+              style={styles.menuRow}
+            >
+              <Text variant="body" tone="primary">
+                전체
+              </Text>
+            </Pressable>
+            <Pressable
               disabled={nearbyDisabled}
               onPress={() => {
                 setRegion({ mode: 'NEARBY', label: '내 주변' });
@@ -172,7 +183,7 @@ export function MapDiscoveryChrome({
       />
       {nearbyDisabled && filter.region.mode === 'NEARBY' ? (
         <Text variant="meta" tone="tertiary" style={styles.hint}>
-          위치 권한이 없어 내 주변 조인을 불러올 수 없습니다. 지역을 선택해 주세요.
+          위치 권한이 없어 내 주변 조인을 불러올 수 없습니다. 전체 또는 다른 지역을 선택해 주세요.
         </Text>
       ) : null}
     </View>

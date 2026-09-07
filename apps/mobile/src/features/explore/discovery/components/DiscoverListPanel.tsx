@@ -15,7 +15,7 @@ import {
   spacing,
   useTheme,
 } from '@jjoin/design-system';
-import { DEFAULT_NEARBY_RADIUS_METERS, localDayKey } from '@jjoin/domain';
+import { buildDiscoverRegionApiQuery, localDayKey } from '@jjoin/domain';
 import type { DiscoverJoinsResponse } from '@jjoin/types';
 import { getSecureSessionStore } from '../../../../session/SessionContext';
 import { getApiClient } from '../../../../lib/api';
@@ -59,30 +59,22 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
     setLoading(true);
     setError(null);
     try {
-      if (filter.region.mode === 'NEARBY' && !deviceLocation) {
+      const regionQuery = buildDiscoverRegionApiQuery({
+        region: filter.region,
+        deviceLocation,
+      });
+      if ('error' in regionQuery) {
         if (seq === requestSeq.current) {
           setData(null);
-          setError(locationDenied ? '위치 권한이 없어 내 주변 조인을 불러올 수 없습니다. 지역을 선택해 주세요.' : '위치를 확인하는 중입니다.');
+          setError(
+            locationDenied
+              ? '위치 권한이 없어 내 주변 조인을 불러올 수 없습니다. 전체 또는 다른 지역을 선택해 주세요.'
+              : '위치를 확인하는 중입니다.',
+          );
           setLoading(false);
         }
         return () => abort.abort();
       }
-
-      const regionQuery =
-        filter.region.mode === 'NEARBY'
-          ? {
-              regionMode: 'NEARBY' as const,
-              lat: deviceLocation!.latitude,
-              lng: deviceLocation!.longitude,
-              radiusMeters: DEFAULT_NEARBY_RADIUS_METERS,
-            }
-          : {
-              regionMode: 'DISTRICT' as const,
-              sido: filter.region.sido,
-              sigungu: filter.region.sigungu,
-              lat: deviceLocation?.latitude,
-              lng: deviceLocation?.longitude,
-            };
 
       const list = await fetchDiscoverJoins(
         api,

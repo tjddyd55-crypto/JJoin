@@ -8,6 +8,9 @@ export async function loadRecentDiscoveryRegion(): Promise<JoinDiscoveryRegion |
     const raw = await SecureStore.getItemAsync(RECENT_REGION_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as JoinDiscoveryRegion;
+    if (parsed?.mode === 'ALL') {
+      return { mode: 'ALL', label: parsed.label || '전체' };
+    }
     if (parsed?.mode === 'NEARBY') {
       return { mode: 'NEARBY', label: parsed.label || '내 주변' };
     }
