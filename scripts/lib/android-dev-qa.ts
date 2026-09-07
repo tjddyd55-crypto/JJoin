@@ -4,7 +4,7 @@
  * Reused by device closeout / persona-switch / stabilization smoke scripts.
  */
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, unlinkSync } from 'node:fs';
+import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -33,6 +33,14 @@ export type AndroidDevQaHelpers = AndroidDevQaConfig & {
   screenshot: (name: string) => void;
   ensureAdbReverse: () => void;
   launchDevClient: () => void;
+  launchDevClientSoft: () => void;
+  isAppBooted: () => boolean;
+  isDevLauncherScreen: () => boolean;
+  tapPartialText: (partial: string) => boolean;
+  ensureDevClientConnected: (options?: {
+    retries?: number;
+    forceStopOnRetry?: boolean;
+  }) => Promise<void>;
   deepLink: (path: string) => void;
   waitForAppReady: (timeoutMs?: number) => Promise<void>;
   logoutIfNeeded: () => Promise<void>;
@@ -218,6 +226,12 @@ export function createAndroidDevQaHelpers(
   function launchDevClient() {
     ensureAdbReverse();
     adb(['shell', 'am', 'force-stop', pkg]);
+    launchDevClientSoft();
+  }
+
+  function launchDevClientSoft() {
+    ensureAdbReverse();
+    const encodedUrl = encodeURIComponent(DEFAULT_METRO_URL);
     adb([
       'shell',
       'am',
@@ -225,10 +239,218 @@ export function createAndroidDevQaHelpers(
       '-a',
       'android.intent.action.VIEW',
       '-d',
-      `jjoindev://expo-development-client/?url=${DEFAULT_METRO_URL}`,
+      `jjoindev://expo-development-client/?url=${encodedUrl}`,
       '-p',
       pkg,
+      '-f',
+      '0x24000000',
     ]);
+  }
+
+  function isAppBooted(): boolean {
+    return (
+      uiHas('카카오', '로그인') ||
+      uiHas('카카오로 시작하기') ||
+      uiHas('A 김진우') ||
+      uiHas('B 박민수') ||
+      uiHas('홈') ||
+      uiHas('MY') ||
+      uiHas('조인')
+    );
+  }
+
+  function foregroundPackage(): string | null {
+    const dump = adb(['shell', 'dumpsys', 'window']);
+    const match = /mCurrentFocus=Window\{[^}]+\s+([^\s/]+)/.exec(dump);
+    return match?.[1] ?? null;
+  }
+
+  function quarantineConflictingDevApps() {
+    for (const otherPkg of ['com.onefc.app.dev']) {
+      if (otherPkg === pkg) continue;
+      try {
+        adb(['shell', 'am', 'force-stop', otherPkg]);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  function isDevLauncherErrorScreen(): boolean {
+    return (
+      uiHas('There was a problem loading the project') ||
+      uiHas('problem loading the project') ||
+      uiHas('This development build encountered the following error')
+    );
+  }
+
+  async function bringJjoinToForeground(): Promise<void> {
+    quarantineConflictingDevApps();
+    launchDevClientSoft();
+    for (let i = 0; i < 8; i++) {
+      await sleep(1500);
+      const fg = foregroundPackage();
+      if (fg === pkg) return;
+      if (fg?.includes('launcher') || fg?.includes('kakao')) {
+        launchDevClientSoft();
+      }
+    }
+  }
+
+  function isDevLauncherScreen(): boolean {
+    return (
+      uiHas('DEVELOPMENT SERVERS') ||
+      uiHas('Development servers') ||
+      uiHas('Fetch development servers') ||
+      (uiHas('Connect') && uiHas('8082'))
+    );
+  }
+
+  function tapPartialText(partial: string): boolean {
+    const xml = dumpUiXml();
+    const escaped = partial.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const patterns = [
+      new RegExp(
+        `(?:text|content-desc)="[^"]*${escaped}[^"]*"[^>]*bounds="\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]"`,
+      ),
+      new RegExp(
+        `bounds="\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]"[^>]*(?:text|content-desc)="[^"]*${escaped}[^"]*"`,
+      ),
+    ];
+    for (const pattern of patterns) {
+      const match = pattern.exec(xml);
+      if (!match) continue;
+      const x = Math.round((Number(match[1]) + Number(match[3])) / 2);
+      const y = Math.round((Number(match[2]) + Number(match[4])) / 2);
+      adb(['shell', 'input', 'tap', String(x), String(y)]);
+      return true;
+    }
+    return false;
+  }
+
+  function tapDevLauncherUrlField(): boolean {
+    const xml = dumpUiXml();
+    const patterns = [
+      /class="android\.widget\.EditText"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/,
+      /bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"[^>]*class="android\.widget\.EditText"/,
+    ];
+    for (const pattern of patterns) {
+      const match = pattern.exec(xml);
+      if (!match) continue;
+      const x = Math.round((Number(match[1]) + Number(match[3])) / 2);
+      const y = Math.round((Number(match[2]) + Number(match[4])) / 2);
+      adb(['shell', 'input', 'tap', String(x), String(y)]);
+      return true;
+    }
+    return false;
+  }
+
+  function fillDevLauncherMetroUrl() {
+    if (!tapDevLauncherUrlField()) {
+      adb(['shell', 'input', 'tap', '540', '1293']);
+    }
+    sleepSync(500);
+    adb(['shell', 'input', 'keyevent', '122']);
+    for (let i = 0; i < 80; i++) adb(['shell', 'input', 'keyevent', '67']);
+    adb(['shell', 'input', 'text', 'http://127.0.0.1:8082']);
+    sleepSync(400);
+    adb(['shell', 'input', 'tap', '200', '800']);
+    sleepSync(300);
+  }
+
+  function tapConnectButton(): boolean {
+    if (tapText('Connect')) return true;
+    adb(['shell', 'input', 'tap', '540', '1466']);
+    return true;
+  }
+
+  async function connectDevLauncherMetro(): Promise<boolean> {
+    if (tapPartialText('127.0.0.1:8082')) return true;
+    if (tapPartialText('Recently opened')) {
+      await sleep(800);
+      if (tapPartialText('127.0.0.1')) return true;
+    }
+    if (tapText('Fetch development servers')) {
+      await sleep(4500);
+      if (tapPartialText('127.0.0.1:8082') || tapPartialText('127.0.0.1')) return true;
+    }
+    fillDevLauncherMetroUrl();
+    await sleep(500);
+    return tapConnectButton();
+  }
+
+  async function ensureDevClientConnected(options?: {
+    retries?: number;
+    forceStopOnRetry?: boolean;
+  }) {
+    const retries = options?.retries ?? 3;
+    await assertMetroRunning();
+    ensureAdbReverse();
+    quarantineConflictingDevApps();
+
+    for (let attempt = 0; attempt < retries; attempt++) {
+      await bringJjoinToForeground();
+
+      if (isDevLauncherErrorScreen()) {
+        tapText('Reload');
+        await sleep(12_000);
+      }
+
+      if (isAppBooted()) {
+        if (uiHas('Reload')) {
+          tapText('Reload');
+          await sleep(6000);
+        }
+        if (uiHas('Dismiss')) {
+          tapText('Dismiss');
+          await sleep(1200);
+        }
+        await waitForAppReady(45_000);
+        return;
+      }
+
+      if (isDevLauncherScreen()) {
+        await connectDevLauncherMetro();
+        await sleep(12_000);
+        if (uiHas('Reload')) {
+          tapText('Reload');
+          await sleep(6000);
+        }
+        if (isAppBooted()) {
+          await waitForAppReady(45_000);
+          return;
+        }
+        continue;
+      }
+
+      if (options?.forceStopOnRetry && attempt > 0) {
+        adb(['shell', 'am', 'force-stop', pkg]);
+        await sleep(600);
+      }
+
+      launchDevClientSoft();
+      await sleep(5000);
+
+      if (isDevLauncherScreen()) {
+        await connectDevLauncherMetro();
+        await sleep(12_000);
+      }
+
+      if (uiHas('Reload')) {
+        tapText('Reload');
+        await sleep(6000);
+      }
+      if (uiHas('Dismiss')) {
+        tapText('Dismiss');
+        await sleep(1200);
+      }
+    }
+
+    mkdirSync(screenshotDir, { recursive: true });
+    const dumpPath = join(screenshotDir, `dev-client-connect-fail-${Date.now()}.xml`);
+    writeFileSync(dumpPath, dumpUiXml());
+    screenshot('dev-client-connect-fail.png');
+    throw new Error(`Dev Client connect failed after ${retries} attempts; ui dump: ${dumpPath}`);
   }
 
   function deepLink(path: string) {
@@ -413,6 +635,11 @@ export function createAndroidDevQaHelpers(
     screenshot,
     ensureAdbReverse,
     launchDevClient,
+    launchDevClientSoft,
+    isAppBooted,
+    isDevLauncherScreen,
+    tapPartialText,
+    ensureDevClientConnected,
     deepLink,
     waitForAppReady,
     logoutIfNeeded,
