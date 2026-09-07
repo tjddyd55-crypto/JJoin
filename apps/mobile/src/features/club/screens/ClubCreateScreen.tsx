@@ -9,7 +9,6 @@ import {
 } from '@jjoin/design-system';
 import {
   ClubActivityType,
-  ClubAgeGroup,
   ClubJoinMode,
   ClubVisibility,
   type CreateClubRequest,
@@ -31,7 +30,8 @@ export function ClubCreateScreen() {
   const [activityRegions, setActivityRegions] = useState<ClubActivityRegionDtoShape[]>([]);
   const [primaryVenueName, setPrimaryVenueName] = useState('');
   const [activityType, setActivityType] = useState<ClubActivityType>(ClubActivityType.SCREEN);
-  const [primaryAgeGroup, setPrimaryAgeGroup] = useState<ClubAgeGroup | null>(ClubAgeGroup.FORTIES);
+  const [minAge, setMinAge] = useState<number | null>(null);
+  const [maxAge, setMaxAge] = useState<number | null>(null);
   const [joinMode, setJoinMode] = useState<ClubJoinMode>(ClubJoinMode.APPROVAL);
   const [visibility, setVisibility] = useState<ClubVisibility>(ClubVisibility.PUBLIC);
   const [submitting, setSubmitting] = useState(false);
@@ -44,7 +44,8 @@ export function ClubCreateScreen() {
     activityRegions: activityRegions ?? [],
     primaryVenueName,
     activityType,
-    primaryAgeGroup,
+    minAge,
+    maxAge,
     joinMode,
     visibility,
   };
@@ -69,8 +70,11 @@ export function ClubCreateScreen() {
       case 'activityType':
         setActivityType(value as ClubActivityType);
         break;
-      case 'primaryAgeGroup':
-        setPrimaryAgeGroup(value as ClubAgeGroup | null);
+      case 'minAge':
+        setMinAge(value as number | null);
+        break;
+      case 'maxAge':
+        setMaxAge(value as number | null);
         break;
       case 'joinMode':
         setJoinMode(value as ClubJoinMode);
@@ -111,7 +115,9 @@ export function ClubCreateScreen() {
         primaryVenueName: primaryVenueName.trim() || null,
         joinMode,
         visibility,
-        primaryAgeGroup,
+        minAge,
+        maxAge,
+        primaryAgeGroup: null,
       };
       const created = await api.createClub(body);
       router.replace(`/my/clubs/${created.id}` as Href);

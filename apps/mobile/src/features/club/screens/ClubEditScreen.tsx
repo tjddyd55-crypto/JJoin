@@ -9,7 +9,6 @@ import {
 } from '@jjoin/design-system';
 import {
   ClubActivityType,
-  ClubAgeGroup,
   ClubJoinMode,
   ClubVisibility,
   type UpdateClubRequest,
@@ -33,7 +32,8 @@ export function ClubEditScreen() {
   const [activityRegions, setActivityRegions] = useState<ClubActivityRegionDtoShape[]>([]);
   const [primaryVenueName, setPrimaryVenueName] = useState('');
   const [activityType, setActivityType] = useState<ClubActivityType>(ClubActivityType.SCREEN);
-  const [primaryAgeGroup, setPrimaryAgeGroup] = useState<ClubAgeGroup | null>(ClubAgeGroup.FORTIES);
+  const [minAge, setMinAge] = useState<number | null>(null);
+  const [maxAge, setMaxAge] = useState<number | null>(null);
   const [joinMode, setJoinMode] = useState<ClubJoinMode>(ClubJoinMode.APPROVAL);
   const [visibility, setVisibility] = useState<ClubVisibility>(ClubVisibility.PUBLIC);
   const [submitting, setSubmitting] = useState(false);
@@ -51,7 +51,8 @@ export function ClubEditScreen() {
         setActivityRegions(detail.activityRegions ?? []);
         setPrimaryVenueName(detail.primaryVenueName ?? '');
         setActivityType(detail.activityType);
-        setPrimaryAgeGroup(detail.primaryAgeGroup);
+        setMinAge(detail.minAge);
+        setMaxAge(detail.maxAge);
         setJoinMode(detail.joinMode);
         setVisibility(detail.visibility);
       } catch {
@@ -69,7 +70,8 @@ export function ClubEditScreen() {
     activityRegions,
     primaryVenueName,
     activityType,
-    primaryAgeGroup,
+    minAge,
+    maxAge,
     joinMode,
     visibility,
   };
@@ -94,8 +96,11 @@ export function ClubEditScreen() {
       case 'activityType':
         setActivityType(value as ClubActivityType);
         break;
-      case 'primaryAgeGroup':
-        setPrimaryAgeGroup(value as ClubAgeGroup | null);
+      case 'minAge':
+        setMinAge(value as number | null);
+        break;
+      case 'maxAge':
+        setMaxAge(value as number | null);
         break;
       case 'joinMode':
         setJoinMode(value as ClubJoinMode);
@@ -140,7 +145,9 @@ export function ClubEditScreen() {
         primaryVenueName: primaryVenueName.trim() || null,
         joinMode,
         visibility,
-        primaryAgeGroup,
+        minAge,
+        maxAge,
+        primaryAgeGroup: null,
       };
       await api.updateClub(clubId, body);
       router.replace(`/my/clubs/${clubId}` as Href);

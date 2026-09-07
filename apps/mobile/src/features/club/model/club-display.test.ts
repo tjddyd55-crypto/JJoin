@@ -28,6 +28,8 @@ const sampleClub = {
   joinMode: ClubJoinMode.APPROVAL,
   visibility: ClubVisibility.PUBLIC,
   primaryAgeGroup: null,
+  minAge: null,
+  maxAge: null,
   memberCount: 12,
   myRole: null,
   myStatus: null,

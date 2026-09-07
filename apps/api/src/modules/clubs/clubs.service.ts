@@ -148,6 +148,8 @@ export class ClubsService {
           joinMode: parsed.data.joinMode,
           visibility: parsed.data.visibility,
           primaryAgeGroup: parsed.data.primaryAgeGroup ?? null,
+          minAge: parsed.data.minAge ?? null,
+          maxAge: parsed.data.maxAge ?? null,
           inviteCode,
           ownerUserId: userId,
         },
@@ -208,6 +210,8 @@ export class ClubsService {
       if (parsed.data.joinMode !== undefined) data.joinMode = parsed.data.joinMode;
       if (parsed.data.visibility !== undefined) data.visibility = parsed.data.visibility;
       if (parsed.data.primaryAgeGroup !== undefined) data.primaryAgeGroup = parsed.data.primaryAgeGroup;
+      if (parsed.data.minAge !== undefined) data.minAge = parsed.data.minAge;
+      if (parsed.data.maxAge !== undefined) data.maxAge = parsed.data.maxAge;
       if (activityRegions) {
         data.region = primaryClubRegionString(activityRegions);
         await tx.clubActivityRegion.deleteMany({ where: { clubId } });
@@ -1354,6 +1358,8 @@ export class ClubsService {
       joinMode: string;
       visibility: string;
       primaryAgeGroup: string | null;
+      minAge: number | null;
+      maxAge: number | null;
     },
     extra: {
       memberCount: number;
@@ -1382,6 +1388,8 @@ export class ClubsService {
       joinMode: club.joinMode as ClubSummaryDto['joinMode'],
       visibility: club.visibility as ClubSummaryDto['visibility'],
       primaryAgeGroup: (club.primaryAgeGroup as ClubSummaryDto['primaryAgeGroup']) ?? null,
+      minAge: club.minAge ?? null,
+      maxAge: club.maxAge ?? null,
       memberCount: extra.memberCount,
       myRole: extra.myRole,
       myStatus: extra.myStatus,

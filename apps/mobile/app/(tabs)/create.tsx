@@ -139,7 +139,7 @@ export default function CreateScreen() {
   );
   const [description, setDescription] = useState('');
   const [joinMethod, setJoinMethod] = useState<JoinMethod>(JoinMethod.APPROVAL);
-  const [memberPrefs, setMemberPrefs] = useState(defaultJoinMemberPreferences);
+  const [memberPrefs, setMemberPrefs] = useState(() => defaultJoinMemberPreferences());
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [doneJoinId, setDoneJoinId] = useState<string | null>(null);

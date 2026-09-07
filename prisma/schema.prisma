@@ -1689,6 +1689,8 @@ model Club {
   joinMode         ClubJoinMode     @default(APPROVAL) @map("join_mode")
   visibility       ClubVisibility   @default(PUBLIC)
   primaryAgeGroup  ClubAgeGroup?    @map("primary_age_group")
+  minAge           Int?             @map("min_age")
+  maxAge           Int?             @map("max_age")
   inviteCode       String?          @unique @map("invite_code")
   ownerUserId      String           @map("owner_user_id") @db.Uuid
   createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)

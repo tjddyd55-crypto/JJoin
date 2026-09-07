@@ -1,8 +1,11 @@
 import { StyleSheet, TextInput, View } from 'react-native';
-import { Chip } from '@jjoin/design-system';
+import { AgeRangeSelector, Chip } from '@jjoin/design-system';
+import {
+  JOIN_MEMBER_MAX_AGE,
+  JOIN_MEMBER_MIN_AGE,
+} from '@jjoin/domain';
 import {
   ClubActivityType,
-  ClubAgeGroup,
   ClubJoinMode,
   ClubVisibility,
 } from '@jjoin/types';
@@ -18,14 +21,6 @@ const ACTIVITY_OPTIONS = [
   { value: ClubActivityType.SCREEN_AND_FIELD, label: '스크린 + 필드' },
 ] as const;
 
-const AGE_OPTIONS = [
-  { value: ClubAgeGroup.TWENTIES, label: '20대' },
-  { value: ClubAgeGroup.THIRTIES, label: '30대' },
-  { value: ClubAgeGroup.FORTIES, label: '40대' },
-  { value: ClubAgeGroup.FIFTIES, label: '50대' },
-  { value: ClubAgeGroup.SIXTIES_PLUS, label: '60대+' },
-] as const;
-
 export type ClubFormBodyValues = {
   name: string;
   coverImageUrl: string | null;
@@ -33,7 +28,8 @@ export type ClubFormBodyValues = {
   activityRegions: ClubActivityRegionDtoShape[];
   primaryVenueName: string;
   activityType: ClubActivityType;
-  primaryAgeGroup: ClubAgeGroup | null;
+  minAge: number | null;
+  maxAge: number | null;
   joinMode: ClubJoinMode;
   visibility: ClubVisibility;
 };
@@ -115,17 +111,17 @@ export function ClubFormBody({
             style={inputStyle}
           />
         </ClubFormField>
-        <ClubFormField label="주요 연령대">
-          <View style={clubFormStyles.chips}>
-            {AGE_OPTIONS.map((opt) => (
-              <Chip
-                key={opt.value}
-                label={opt.label}
-                selected={values.primaryAgeGroup === opt.value}
-                onPress={() => onChange('primaryAgeGroup', opt.value)}
-              />
-            ))}
-          </View>
+        <ClubFormField label="가입 조건 · 연령">
+          <AgeRangeSelector
+            minBound={JOIN_MEMBER_MIN_AGE}
+            maxBound={JOIN_MEMBER_MAX_AGE}
+            value={{ minAge: values.minAge, maxAge: values.maxAge }}
+            onChange={(next) => {
+              onChange('minAge', next.minAge);
+              onChange('maxAge', next.maxAge);
+            }}
+            unrestrictedLabel="연령 제한 없음"
+          />
         </ClubFormField>
       </ClubFormSection>
 

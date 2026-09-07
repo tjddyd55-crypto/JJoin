@@ -417,12 +417,30 @@ export const createClubSchema = z.object({
     .enum(['TWENTIES', 'THIRTIES', 'FORTIES', 'FIFTIES', 'SIXTIES_PLUS'])
     .nullable()
     .optional(),
+  minAge: z.number().int().min(18).max(70).nullable().optional(),
+  maxAge: z.number().int().min(18).max(70).nullable().optional(),
 }).superRefine((data, ctx) => {
   if (!data.region?.trim() && !data.activityRegions?.length) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: 'region_or_activity_regions_required',
       path: ['region'],
+    });
+  }
+  const hasMin = data.minAge != null;
+  const hasMax = data.maxAge != null;
+  if (hasMin !== hasMax) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'incomplete_age_range',
+      path: ['minAge'],
+    });
+  }
+  if (hasMin && hasMax && data.minAge! > data.maxAge!) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'invalid_age_range',
+      path: ['maxAge'],
     });
   }
 });
@@ -450,6 +468,25 @@ export const updateClubSchema = z.object({
     .enum(['TWENTIES', 'THIRTIES', 'FORTIES', 'FIFTIES', 'SIXTIES_PLUS'])
     .nullable()
     .optional(),
+  minAge: z.number().int().min(18).max(70).nullable().optional(),
+  maxAge: z.number().int().min(18).max(70).nullable().optional(),
+}).superRefine((data, ctx) => {
+  const hasMin = data.minAge != null;
+  const hasMax = data.maxAge != null;
+  if (hasMin !== hasMax) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'incomplete_age_range',
+      path: ['minAge'],
+    });
+  }
+  if (hasMin && hasMax && data.minAge! > data.maxAge!) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'invalid_age_range',
+      path: ['maxAge'],
+    });
+  }
 });
 
 export type UpdateClubInput = z.infer<typeof updateClubSchema>;

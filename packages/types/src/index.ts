@@ -2116,6 +2116,8 @@ export type CreateClubRequest = {
   joinMode: ClubJoinMode;
   visibility: ClubVisibility;
   primaryAgeGroup?: ClubAgeGroup | null;
+  minAge?: number | null;
+  maxAge?: number | null;
 };
 
 export type ClubActivityRegionInput = {
@@ -2143,6 +2145,8 @@ export type UpdateClubRequest = {
   joinMode?: ClubJoinMode;
   visibility?: ClubVisibility;
   primaryAgeGroup?: ClubAgeGroup | null;
+  minAge?: number | null;
+  maxAge?: number | null;
 };
 
 export type ClubSummaryDto = {
@@ -2158,6 +2162,8 @@ export type ClubSummaryDto = {
   joinMode: ClubJoinMode;
   visibility: ClubVisibility;
   primaryAgeGroup: ClubAgeGroup | null;
+  minAge: number | null;
+  maxAge: number | null;
   memberCount: number;
   myRole: ClubMembershipRole | null;
   myStatus: ClubMembershipStatus | null;

@@ -25,6 +25,8 @@ const baseDetail: ClubDetailDto = {
   joinMode: ClubJoinMode.APPROVAL,
   visibility: ClubVisibility.PUBLIC,
   primaryAgeGroup: null,
+  minAge: null,
+  maxAge: null,
   memberCount: 10,
   myRole: null,
   myStatus: null,

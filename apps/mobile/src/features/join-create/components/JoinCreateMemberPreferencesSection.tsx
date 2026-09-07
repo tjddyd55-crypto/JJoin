@@ -1,8 +1,9 @@
-import { Pressable, StyleSheet, View } from 'react-native';
-import { Chip, Text } from '@jjoin/design-system';
+import { StyleSheet, View } from 'react-native';
+import { AgeRangeSelector, Chip, Text } from '@jjoin/design-system';
 import {
   JOIN_MEMBER_MAX_AGE,
   JOIN_MEMBER_MIN_AGE,
+  formatAgeRangeLabel,
 } from '@jjoin/domain';
 import { JoinPreferredGender } from '@jjoin/types';
 
@@ -23,54 +24,28 @@ const GENDER_OPTIONS: Array<{ value: JoinPreferredGender; label: string }> = [
   { value: JoinPreferredGender.ANY, label: '무관' },
 ];
 
-function clampAge(value: number): number {
-  return Math.min(JOIN_MEMBER_MAX_AGE, Math.max(JOIN_MEMBER_MIN_AGE, value));
-}
-
-function formatAgeSummary(minAge: number | null, maxAge: number | null): string {
-  if (minAge != null && maxAge != null) return `${minAge}세 ~ ${maxAge}세`;
-  if (minAge != null) return `${minAge}세 이상`;
-  if (maxAge != null) return `${maxAge}세 이하`;
-  return '제한 없음';
-}
-
-function AgeStepper({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number | null;
-  onChange: (next: number | null) => void;
-}) {
-  const display = value != null ? `${value}세` : '제한 없음';
-
-  const bump = (delta: number) => {
-    if (value == null) {
-      onChange(clampAge(35 + delta));
-      return;
-    }
-    const next = clampAge(value + delta);
-    onChange(next);
+export function defaultJoinMemberPreferences(): JoinMemberPreferencesState {
+  return {
+    preferredGender: JoinPreferredGender.ANY,
+    minAge: null,
+    maxAge: null,
   };
+}
 
-  return (
-    <View style={styles.stepperRow}>
-      <Text variant="caption" tone="secondary">{label}</Text>
-      <View style={styles.stepperControls}>
-        <Pressable accessibilityRole="button" onPress={() => bump(-1)} style={styles.stepBtn}>
-          <Text variant="bodyStrong" tone="primary">−</Text>
-        </Pressable>
-        <Text variant="bodyStrong" tone="primary" style={styles.stepValue}>{display}</Text>
-        <Pressable accessibilityRole="button" onPress={() => bump(1)} style={styles.stepBtn}>
-          <Text variant="bodyStrong" tone="primary">+</Text>
-        </Pressable>
-        <Pressable accessibilityRole="button" onPress={() => onChange(null)} style={styles.clearBtn}>
-          <Text variant="caption" tone="tertiary">해제</Text>
-        </Pressable>
-      </View>
-    </View>
-  );
+export function memberPreferencesPayload(value: JoinMemberPreferencesState) {
+  return {
+    preferredGender: value.preferredGender,
+    minAge: value.minAge,
+    maxAge: value.maxAge,
+  };
+}
+
+export function memberPreferencesSummaryLabel(value: JoinMemberPreferencesState): string {
+  const parts: string[] = [];
+  if (value.preferredGender === JoinPreferredGender.FEMALE) parts.push('여성');
+  else if (value.preferredGender === JoinPreferredGender.MALE) parts.push('남성');
+  parts.push(formatAgeRangeLabel(value.minAge, value.maxAge));
+  return parts.filter(Boolean).join(' · ');
 }
 
 export function JoinCreateMemberPreferencesSection({ value, onChange }: Props) {
@@ -78,20 +53,8 @@ export function JoinCreateMemberPreferencesSection({ value, onChange }: Props) {
     onChange({ ...value, preferredGender });
   };
 
-  const setMinAge = (minAge: number | null) => {
-    let maxAge = value.maxAge;
-    if (minAge != null && maxAge != null && minAge > maxAge) {
-      maxAge = minAge;
-    }
-    onChange({ ...value, minAge, maxAge });
-  };
-
-  const setMaxAge = (maxAge: number | null) => {
-    let minAge = value.minAge;
-    if (maxAge != null && minAge != null && minAge > maxAge) {
-      minAge = maxAge;
-    }
-    onChange({ ...value, minAge, maxAge });
+  const setAgeRange = (next: { minAge: number | null; maxAge: number | null }) => {
+    onChange({ ...value, ...next });
   };
 
   return (
@@ -114,60 +77,20 @@ export function JoinCreateMemberPreferencesSection({ value, onChange }: Props) {
       </View>
 
       <Text variant="bodyStrong" tone="primary" style={styles.label}>연령대</Text>
-      <Text variant="body" tone="primary" style={styles.ageSummary}>
-        {formatAgeSummary(value.minAge, value.maxAge)}
-      </Text>
-      <AgeStepper label="최소" value={value.minAge} onChange={setMinAge} />
-      <AgeStepper label="최대" value={value.maxAge} onChange={setMaxAge} />
+      <AgeRangeSelector
+        minBound={JOIN_MEMBER_MIN_AGE}
+        maxBound={JOIN_MEMBER_MAX_AGE}
+        value={{ minAge: value.minAge, maxAge: value.maxAge }}
+        onChange={setAgeRange}
+        unrestrictedLabel="연령 제한 없음"
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { gap: 10 },
+  root: { gap: 8 },
   hint: { marginBottom: 4 },
-  label: { marginTop: 4 },
+  label: { marginTop: 8 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  ageSummary: { fontSize: 16 },
-  stepperRow: { gap: 6 },
-  stepperControls: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  stepBtn: {
-    minWidth: 44,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepValue: { minWidth: 72, textAlign: 'center' },
-  clearBtn: {
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-  },
 });
-
-export function defaultJoinMemberPreferences(): JoinMemberPreferencesState {
-  return {
-    preferredGender: JoinPreferredGender.ANY,
-    minAge: null,
-    maxAge: null,
-  };
-}
-
-export function memberPreferencesPayload(state: JoinMemberPreferencesState) {
-  const preferredGender =
-    state.preferredGender === JoinPreferredGender.ANY ? null : state.preferredGender;
-  return {
-    preferredGender,
-    minAge: state.minAge,
-    maxAge: state.maxAge,
-  };
-}
-
-export function memberPreferencesSummaryLabel(state: JoinMemberPreferencesState): string {
-  const parts: string[] = [];
-  if (state.preferredGender === JoinPreferredGender.MALE) parts.push('남성');
-  else if (state.preferredGender === JoinPreferredGender.FEMALE) parts.push('여성');
-  const age = formatAgeSummary(state.minAge, state.maxAge);
-  if (age !== '제한 없음') parts.push(age);
-  return parts.length > 0 ? parts.join(' · ') : '무관';
-}
