@@ -236,6 +236,43 @@ export class CoinLedgerService {
     });
   }
 
+  async applyShopPurchase(
+    userId: string,
+    params: { amount: string; orderId: string; productId: string; productName: string },
+    outerTx?: PrismaTx,
+  ) {
+    const run = async (tx: PrismaTx) => {
+      const { coinAsset } = await ensureFoundation(this.prisma);
+      const wallet = await this.getOrCreateWallet(userId, coinAsset.id, tx);
+      const locked = await this.lockWallet(tx, wallet.id);
+      const available = String(locked.availableBalance);
+
+      if (compareCoinAmounts(available, params.amount) < 0) {
+        throw new InsufficientBalanceError();
+      }
+
+      await this.appendDebit(tx, {
+        walletId: locked.id,
+        coinAssetId: coinAsset.id,
+        type: 'SHOP_PURCHASE',
+        amount: params.amount,
+        availableBefore: available,
+        heldBefore: String(locked.heldBalance),
+        moveToHeld: false,
+        idempotencyKey: `shop-purchase:${params.orderId}`,
+        refType: 'MALL_ORDER',
+        refId: params.orderId,
+        metadata: {
+          productId: params.productId,
+          productName: params.productName,
+        },
+      });
+    };
+
+    if (outerTx) return run(outerTx);
+    return this.prisma.$transaction((tx) => run(tx));
+  }
+
   async applyRoomCreationFee(
     tx: PrismaTx,
     params: {
@@ -734,7 +771,7 @@ export class CoinLedgerService {
     params: {
       walletId: string;
       coinAssetId: string;
-      type: 'ROOM_CREATION_FEE' | 'JOIN_REWARD_HOLD';
+      type: 'ROOM_CREATION_FEE' | 'JOIN_REWARD_HOLD' | 'SHOP_PURCHASE';
       amount: string;
       availableBefore: string;
       heldBefore: string;

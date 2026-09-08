@@ -35,6 +35,7 @@ import {
 import { COIN_KRW_RATE, coinToKrw, formatKoreanPhoneDisplay, formatNumber } from '@jjoin/domain';
 import { ServiceOperatorProfilePage } from './ServiceOperatorProfilePage';
 import { MobileAndroidReleasePage } from './MobileAndroidReleasePage';
+import { MallAdminEditPage, MallAdminListPage } from './MallAdminPages';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:3000';
 const TOKEN_KEY = 'jjoin_admin_token';
@@ -163,6 +164,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   const joinCoinPolicyActive = loc.pathname.startsWith('/join-coin-policy');
   const serviceOperatorActive = loc.pathname.startsWith('/service-operator-profile');
   const mobileReleaseActive = loc.pathname.startsWith('/mobile-release');
+  const mallActive = loc.pathname.startsWith('/mall');
   if (!token) {
     return (
       <div className="layout layout-wide">
@@ -203,6 +205,9 @@ function Shell({ children }: { children: React.ReactNode }) {
         </Link>
         <Link to="/join-coin-policy" className={joinCoinPolicyActive ? 'nav-active' : undefined}>
           조인 생성 코인
+        </Link>
+        <Link to="/mall/products" className={mallActive ? 'nav-active' : undefined}>
+          쪼인몰 관리
         </Link>
         <Link
           to="/service-operator-profile"
@@ -1759,6 +1764,8 @@ export function App() {
         <Route path="/payment-settings" element={<PaymentSettingsPage />} />
         <Route path="/payments" element={<PaymentsAdminListPage />} />
         <Route path="/join-coin-policy" element={<JoinCoinPolicyPage />} />
+        <Route path="/mall/products" element={<MallAdminListPage />} />
+        <Route path="/mall/products/:productId" element={<MallAdminEditPage />} />
         <Route
           path="/service-operator-profile"
           element={<ServiceOperatorProfilePage api={api} />}

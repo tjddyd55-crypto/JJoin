@@ -123,6 +123,25 @@ enum CoinTxType {
   JOIN_REWARD_REFUND
   ADMIN_ADJUSTMENT
   COIN_ISSUANCE
+  SHOP_PURCHASE
+}
+
+enum MallProductStatus {
+  DRAFT
+  ACTIVE
+  SOLD_OUT
+  PAUSED
+  ARCHIVED
+}
+
+enum MallOrderStatus {
+  COMPLETED
+  CANCELLED
+}
+
+enum AdminLoginScope {
+  PLATFORM
+  MALL_MD
 }
 
 enum CoinIssuanceType {
@@ -394,6 +413,7 @@ model User {
   playerReviewsGiven       PlayerReview[]             @relation("PlayerReviewReviewer")
   playerReviewsReceived    PlayerReview[]             @relation("PlayerReviewReviewee")
   profilePhotos            UserProfilePhoto[]
+  mallOrders               MallOrder[]
 
   @@map("users")
 }
@@ -566,12 +586,13 @@ model SocialAccount {
 
 /// Env-bootstrapped admin login (Railway JJOIN_ADMIN_LOGIN_*). Password is hashed; never log plaintext.
 model AdminLoginCredential {
-  id           String   @id @default(uuid()) @db.Uuid
-  userId       String   @unique @map("user_id") @db.Uuid
-  loginId      String   @unique @map("login_id")
-  passwordHash String   @map("password_hash")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id           String          @id @default(uuid()) @db.Uuid
+  userId       String          @unique @map("user_id") @db.Uuid
+  loginId      String          @unique @map("login_id")
+  passwordHash String          @map("password_hash")
+  scope        AdminLoginScope @default(PLATFORM) @map("scope")
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -2115,4 +2136,73 @@ model AndroidMobileReleaseSettings {
   updatedBy         String?   @map("updated_by") @db.Uuid
 
   @@map("android_mobile_release_settings")
+}
+
+model MallCategory {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique
+  name      String
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  products MallProduct[]
+
+  @@map("mall_categories")
+}
+
+model MallProduct {
+  id              String            @id @default(uuid()) @db.Uuid
+  categoryId      String            @map("category_id") @db.Uuid
+  name            String
+  slug            String            @unique
+  shortDescription String?          @map("short_description")
+  description     String?           @db.Text
+  exchangeGuide   String?           @map("exchange_guide") @db.Text
+  coinPrice       Decimal           @map("coin_price") @db.Decimal(18, 4)
+  stock           Int               @default(0)
+  status          MallProductStatus @default(DRAFT)
+  sortOrder       Int               @default(0) @map("sort_order")
+  badge           String?
+  coverImageKey   String?           @map("cover_image_key")
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  category MallCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  images   MallProductImage[]
+  orders   MallOrder[]
+
+  @@index([categoryId, status, sortOrder])
+  @@index([status, sortOrder])
+  @@map("mall_products")
+}
+
+model MallProductImage {
+  id        String   @id @default(cuid())
+  productId String   @map("product_id") @db.Uuid
+  objectKey String   @map("object_key")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  product MallProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, sortOrder])
+  @@map("mall_product_images")
+}
+
+model MallOrder {
+  id                  String          @id @default(uuid()) @db.Uuid
+  userId              String          @map("user_id") @db.Uuid
+  productId           String          @map("product_id") @db.Uuid
+  status              MallOrderStatus @default(COMPLETED)
+  coinPrice           Decimal         @map("coin_price") @db.Decimal(18, 4)
+  productNameSnapshot String          @map("product_name_snapshot")
+  coverImageKeySnapshot String?       @map("cover_image_key_snapshot")
+  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product MallProduct @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt])
+  @@map("mall_orders")
 }

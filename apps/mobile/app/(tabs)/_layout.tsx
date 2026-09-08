@@ -11,6 +11,7 @@ import { t } from '@jjoin/i18n';
 const TAB_ICONS: Record<string, IconName> = {
   index: 'home',
   joins: 'calendar',
+  mall: 'coin',
   screen: 'golf',
   'my-joins': 'people',
   my: 'profile',
@@ -19,6 +20,7 @@ const TAB_ICONS: Record<string, IconName> = {
 const TAB_LABELS: Record<string, string> = {
   index: t('nav.home'),
   joins: t('nav.join'),
+  mall: '쪼인몰',
   screen: t('nav.screen'),
   'my-joins': t('nav.myJoins'),
   my: t('nav.my'),
@@ -82,6 +84,7 @@ export default function TabLayout() {
       >
         <Tabs.Screen name="index" options={{ title: t('nav.home') }} />
         <Tabs.Screen name="joins" options={{ title: t('nav.join') }} />
+        <Tabs.Screen name="mall" options={{ title: '쪼인몰' }} />
         <Tabs.Screen name="screen" options={{ title: t('nav.screen') }} />
         <Tabs.Screen name="my-joins" options={{ title: t('nav.myJoins') }} />
         <Tabs.Screen name="my" options={{ title: t('nav.my') }} />

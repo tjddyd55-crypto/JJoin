@@ -815,3 +815,29 @@
 .admin-root .login-actions .btn-primary {
   width: 100%;
 }
+
+.admin-root .mall-admin-card {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: var(--admin-space-md);
+  align-items: start;
+}
+
+.admin-root .mall-admin-thumb {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 12px;
+  background: var(--admin-surface-elevated);
+}
+
+.admin-root .mall-admin-thumb.placeholder {
+  border: 1px dashed var(--admin-border-subtle);
+}
+
+.admin-root .mall-admin-preview {
+  width: 100%;
+  max-width: 320px;
+  border-radius: 12px;
+  object-fit: cover;
+}

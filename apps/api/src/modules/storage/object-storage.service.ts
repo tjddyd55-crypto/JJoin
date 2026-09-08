@@ -3,8 +3,11 @@ import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client
 import {
   buildProfileAvatarObjectKey,
   buildProfileGalleryObjectKey,
+  buildMallProductCoverObjectKey,
+  buildMallProductGalleryObjectKey,
   buildPublicObjectUrl,
   isOwnedProfileObjectKey,
+  isOwnedMallProductObjectKey,
   resolveStorageEnvironmentPrefix,
   type AllowedProfileImageMime,
 } from '@jjoin/domain';
@@ -97,6 +100,51 @@ export class ObjectStorageService {
       fileId: randomUUID(),
       extension,
     });
+  }
+
+  buildMallCoverObjectKey(productId: string, extension: 'jpg' | 'png' | 'webp'): string {
+    return buildMallProductCoverObjectKey({
+      environmentPrefix: this.config.environmentPrefix,
+      productId,
+      fileId: randomUUID(),
+      extension,
+    });
+  }
+
+  buildMallGalleryObjectKey(productId: string, extension: 'jpg' | 'png' | 'webp'): string {
+    return buildMallProductGalleryObjectKey({
+      environmentPrefix: this.config.environmentPrefix,
+      productId,
+      fileId: randomUUID(),
+      extension,
+    });
+  }
+
+  async deleteMallObject(objectKey: string, productId: string): Promise<void> {
+    if (!objectKey || objectKey.startsWith('mock://') || objectKey.startsWith('http')) return;
+    if (!this.client || !this.config.enabled) return;
+    if (
+      !isOwnedMallProductObjectKey({
+        objectKey,
+        environmentPrefix: this.config.environmentPrefix,
+        productId,
+      })
+    ) {
+      this.logger.warn(`skip_delete_unowned_mall_object product=${productId}`);
+      return;
+    }
+    try {
+      await this.client.send(
+        new DeleteObjectCommand({
+          Bucket: this.config.bucket,
+          Key: objectKey,
+        }),
+      );
+    } catch (error) {
+      this.logger.warn(
+        `mall_object_delete_failed product=${productId} key=${objectKey} err=${error instanceof Error ? error.message : 'unknown'}`,
+      );
+    }
   }
 
   getPublicUrl(objectKey: string | null | undefined): string | null {

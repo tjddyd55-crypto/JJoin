@@ -14,11 +14,12 @@ type QuickMenuItem = {
 const ROW_1: QuickMenuItem[] = [
   { label: '조인 찾기', icon: 'search', href: '/(tabs)/joins' },
   { label: '조인 만들기', icon: 'create', href: '/(tabs)/create' },
+  { label: '쪼인몰', icon: 'coin', href: '/(tabs)/mall' as Href },
   { label: '스크린', icon: 'golf', href: '/(tabs)/screen' },
-  { label: '동호회', icon: 'people', href: '/my/clubs/discover' as Href },
 ];
 
 const ROW_2: QuickMenuItem[] = [
+  { label: '동호회', icon: 'people', href: '/my/clubs/discover' as Href },
   { label: '내 조인', icon: 'people', href: '/(tabs)/my-joins' },
   { label: '골프친구', icon: 'people', href: '/my/golf-friends' as Href },
   { label: '알림', icon: 'notification', href: '/my/notifications' },

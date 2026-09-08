@@ -145,6 +145,11 @@ import {
   type InitPremiumSubscriptionResponse,
   type ConfirmPremiumBillingRequest,
   type ConfirmPremiumBillingResponse,
+  type MallProductListResponse,
+  type MallProductDetailDto,
+  type MallOrderListResponse,
+  type MallPurchaseResultDto,
+  type MallSortOption,
 } from '@jjoin/types';
 
 export type ApiClientConfig = {
@@ -2136,6 +2141,44 @@ export class ApiClient {
   async cancelPremiumSubscription(): Promise<PremiumStatusDto> {
     const res = await request(`${this.config.baseUrl}/premium/cancel`, {
       method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async listMallProducts(query?: {
+    categoryId?: string;
+    sort?: MallSortOption;
+    q?: string;
+  }): Promise<MallProductListResponse> {
+    const params = new URLSearchParams();
+    if (query?.categoryId) params.set('categoryId', query.categoryId);
+    if (query?.sort) params.set('sort', query.sort);
+    if (query?.q) params.set('q', query.q);
+    const qs = params.toString();
+    const res = await request(`${this.config.baseUrl}/mall/products${qs ? `?${qs}` : ''}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getMallProduct(productId: string): Promise<MallProductDetailDto> {
+    const res = await request(`${this.config.baseUrl}/mall/products/${productId}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async purchaseMallProduct(productId: string): Promise<MallPurchaseResultDto> {
+    const res = await request(`${this.config.baseUrl}/mall/products/${productId}/purchase`, {
+      method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async listMallOrders(): Promise<MallOrderListResponse> {
+    const res = await request(`${this.config.baseUrl}/mall/orders`, {
       headers: await this.headers(true),
     });
     return parseJson(res);

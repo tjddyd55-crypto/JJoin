@@ -784,6 +784,16 @@ export {
 } from './profile-photos';
 
 export {
+  MALL_SORT_OPTIONS,
+  buildMallProductCoverObjectKey,
+  buildMallProductGalleryObjectKey,
+  isOwnedMallProductObjectKey,
+  resolveMallPurchaseState,
+  sortMallProducts,
+  type MallSortOption,
+} from './mall';
+
+export {
   assertIdentityVerificationBypassAllowed,
   isIdentityVerificationBypassEnabled,
   requiresIdentityGate,

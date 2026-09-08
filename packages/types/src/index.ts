@@ -178,6 +178,7 @@ export enum CoinTxType {
   ADMIN_ADJUSTMENT = 'ADMIN_ADJUSTMENT',
   /** New Coin mint — must pair with CoinIssuance (balance SSOT remains CoinTransaction). */
   COIN_ISSUANCE = 'COIN_ISSUANCE',
+  SHOP_PURCHASE = 'SHOP_PURCHASE',
 }
 
 /** Why new Coin entered supply. Transfer/hold/refund must NEVER use these. */
@@ -2682,3 +2683,131 @@ export type UpdateMobileAndroidReleaseRequest = {
   apkUrl?: string;
   releaseNotes?: string | null;
 };
+
+export enum MallProductStatus {
+  DRAFT = 'DRAFT',
+  ACTIVE = 'ACTIVE',
+  SOLD_OUT = 'SOLD_OUT',
+  PAUSED = 'PAUSED',
+  ARCHIVED = 'ARCHIVED',
+}
+
+export enum MallOrderStatus {
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum AdminLoginScope {
+  PLATFORM = 'PLATFORM',
+  MALL_MD = 'MALL_MD',
+}
+
+export type MallSortOption = 'recommended' | 'latest' | 'coin_asc';
+
+export type MallPurchaseState =
+  | 'available'
+  | 'insufficient_coin'
+  | 'sold_out'
+  | 'paused'
+  | 'unavailable';
+
+export type MallCategoryDto = {
+  id: string;
+  code: string;
+  name: string;
+  sortOrder: number;
+};
+
+export type MallProductListItemDto = {
+  id: string;
+  categoryId: string;
+  categoryName: string;
+  name: string;
+  slug: string;
+  shortDescription: string | null;
+  coinPrice: string;
+  stock: number;
+  status: MallProductStatus;
+  sortOrder: number;
+  badge: string | null;
+  coverImageUrl: string | null;
+  createdAt: string;
+  purchaseState: MallPurchaseState;
+};
+
+export type MallProductImageDto = {
+  id: string;
+  imageUrl: string;
+  sortOrder: number;
+};
+
+export type MallProductDetailDto = MallProductListItemDto & {
+  description: string | null;
+  exchangeGuide: string | null;
+  images: MallProductImageDto[];
+  availableCoin: string;
+  remainingCoinAfterPurchase: string | null;
+};
+
+export type MallProductListResponse = {
+  items: MallProductListItemDto[];
+  categories: MallCategoryDto[];
+  availableCoin: string;
+};
+
+export type MallOrderListItemDto = {
+  id: string;
+  productId: string;
+  productName: string;
+  coverImageUrl: string | null;
+  coinPrice: string;
+  status: MallOrderStatus;
+  createdAt: string;
+};
+
+export type MallOrderListResponse = {
+  items: MallOrderListItemDto[];
+};
+
+export type MallPurchaseResultDto = {
+  orderId: string;
+  remainingCoin: string;
+};
+
+export type AdminMallProductListItemDto = {
+  id: string;
+  name: string;
+  slug: string;
+  categoryId: string;
+  categoryName: string;
+  coinPrice: string;
+  stock: number;
+  status: MallProductStatus;
+  sortOrder: number;
+  badge: string | null;
+  coverImageUrl: string | null;
+  updatedAt: string;
+};
+
+export type AdminMallProductDetailDto = AdminMallProductListItemDto & {
+  shortDescription: string | null;
+  description: string | null;
+  exchangeGuide: string | null;
+  images: MallProductImageDto[];
+};
+
+export type CreateAdminMallProductRequest = {
+  categoryId: string;
+  name: string;
+  slug?: string;
+  shortDescription?: string | null;
+  description?: string | null;
+  exchangeGuide?: string | null;
+  coinPrice: string;
+  stock: number;
+  status?: MallProductStatus;
+  sortOrder?: number;
+  badge?: string | null;
+};
+
+export type UpdateAdminMallProductRequest = Partial<CreateAdminMallProductRequest>;

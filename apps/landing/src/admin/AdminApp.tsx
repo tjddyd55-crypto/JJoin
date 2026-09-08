@@ -42,6 +42,7 @@ import {
 import { COIN_KRW_RATE, coinToKrw, formatKoreanPhoneDisplay, formatNumber } from '@jjoin/domain';
 import { ServiceOperatorProfilePage } from './ServiceOperatorProfilePage';
 import { MobileAndroidReleasePage } from './MobileAndroidReleasePage';
+import { MallAdminEditPage, MallAdminListPage } from './MallAdminPages';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:3000';
 const TOKEN_KEY = 'jjoin_admin_token';
@@ -225,6 +226,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   const joinCoinPolicyActive = path.startsWith('/admin/join-coin-policy');
   const serviceOperatorActive = path.startsWith('/admin/service-operator-profile');
   const mobileReleaseActive = path.startsWith('/admin/mobile-release');
+  const mallActive = path.startsWith('/admin/mall');
   if (!token) {
     return <Navigate to="/admin/login" replace />;
   }
@@ -277,6 +279,9 @@ function Shell({ children }: { children: React.ReactNode }) {
           </Link>
           <Link to="/admin/stores" className={approvedStoresActive ? 'nav-active' : undefined}>
             승인 매장
+          </Link>
+          <Link to="/admin/mall/products" className={mallActive ? 'nav-active' : undefined}>
+            쪼인몰 관리
           </Link>
           <Link to="/admin/disputes" className={disputeActive ? 'nav-active' : undefined}>
             분쟁 관리
@@ -2204,6 +2209,8 @@ export function AdminApp() {
         <Route path="store-verifications/:requestId" element={<StoreVerificationDetailPage />} />
         <Route path="stores" element={<ApprovedStoresPage />} />
         <Route path="stores/:ownershipId" element={<ApprovedStoreDetailPage />} />
+        <Route path="mall/products" element={<MallAdminListPage />} />
+        <Route path="mall/products/:productId" element={<MallAdminEditPage />} />
         <Route path="payment-settings" element={<PaymentSettingsPage />} />
         <Route path="payments" element={<PaymentsAdminListPage />} />
         <Route path="join-coin-policy" element={<JoinCoinPolicyPage />} />

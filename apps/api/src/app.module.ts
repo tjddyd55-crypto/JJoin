@@ -26,6 +26,7 @@ import { ClubsModule } from './modules/clubs/clubs.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { PlatformModule } from './modules/platform/platform.module';
 import { StorageModule } from './modules/storage/storage.module';
+import { MallModule } from './modules/mall/mall.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -58,6 +59,7 @@ import { PrismaModule } from './prisma/prisma.module';
     ClubsModule,
     PaymentsModule,
     PlatformModule,
+    MallModule,
   ],
 })
 export class AppModule {}
