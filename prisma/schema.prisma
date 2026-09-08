@@ -393,6 +393,7 @@ model User {
   premiumBillingAuthorization PremiumBillingAuthorization?
   playerReviewsGiven       PlayerReview[]             @relation("PlayerReviewReviewer")
   playerReviewsReceived    PlayerReview[]             @relation("PlayerReviewReviewee")
+  profilePhotos            UserProfilePhoto[]
 
   @@map("users")
 }
@@ -611,6 +612,20 @@ model MediaAsset {
 
   @@index([ownerUserId])
   @@map("media_assets")
+}
+
+model UserProfilePhoto {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id") @db.Uuid
+  objectKey String   @map("object_key")
+  sortOrder Int      @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, sortOrder])
+  @@map("user_profile_photos")
 }
 
 model Sport {

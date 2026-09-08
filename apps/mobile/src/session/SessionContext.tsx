@@ -51,6 +51,11 @@ type SessionContextValue = {
   cancelIdentity: (sessionId: string) => Promise<void>;
   setupProfile: (body: unknown) => Promise<void>;
   setAvatar: (body: { localUri?: string | null; skip?: boolean }) => Promise<void>;
+  uploadProfilePhoto: (file: { uri: string; name?: string; type?: string }) => Promise<void>;
+  deleteProfilePhoto: () => Promise<void>;
+  addProfileGalleryPhoto: (file: { uri: string; name?: string; type?: string }) => Promise<void>;
+  deleteProfileGalleryPhoto: (photoId: string) => Promise<void>;
+  reorderProfileGalleryPhotos: (photoIds: string[]) => Promise<void>;
   editProfile: (body: unknown) => Promise<void>;
   completeLocationOnboarding: () => Promise<void>;
   logout: () => Promise<void>;
@@ -221,6 +226,43 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     [api, applyMe],
   );
 
+  const uploadProfilePhoto = useCallback(
+    async (file: { uri: string; name?: string; type?: string }) => {
+      const next = await api.uploadProfilePhoto(file);
+      await applyMe(next, true);
+    },
+    [api, applyMe],
+  );
+
+  const deleteProfilePhoto = useCallback(async () => {
+    const next = await api.deleteProfilePhoto();
+    await applyMe(next, true);
+  }, [api, applyMe]);
+
+  const addProfileGalleryPhoto = useCallback(
+    async (file: { uri: string; name?: string; type?: string }) => {
+      const next = await api.addProfileGalleryPhoto(file);
+      await applyMe(next, true);
+    },
+    [api, applyMe],
+  );
+
+  const deleteProfileGalleryPhoto = useCallback(
+    async (photoId: string) => {
+      const next = await api.deleteProfileGalleryPhoto(photoId);
+      await applyMe(next, true);
+    },
+    [api, applyMe],
+  );
+
+  const reorderProfileGalleryPhotos = useCallback(
+    async (photoIds: string[]) => {
+      const next = await api.reorderProfileGalleryPhotos(photoIds);
+      await applyMe(next, true);
+    },
+    [api, applyMe],
+  );
+
   const editProfile = useCallback(
     async (body: unknown) => {
       const next = await api.editProfile(body);
@@ -288,6 +330,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     cancelIdentity,
     setupProfile,
     setAvatar,
+    uploadProfilePhoto,
+    deleteProfilePhoto,
+    addProfileGalleryPhoto,
+    deleteProfileGalleryPhoto,
+    reorderProfileGalleryPhotos,
     editProfile,
     completeLocationOnboarding,
     logout,

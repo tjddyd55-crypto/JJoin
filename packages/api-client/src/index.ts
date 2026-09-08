@@ -188,6 +188,36 @@ export class ApiClient {
     return headers;
   }
 
+  private async authHeaders(auth = true): Promise<Record<string, string>> {
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+    };
+    if (auth && this.config.getAccessToken) {
+      const token = await this.config.getAccessToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
+    }
+    return headers;
+  }
+
+  private async uploadMultipart(path: string, file: {
+    uri: string;
+    name?: string;
+    type?: string;
+  }): Promise<MeDto> {
+    const form = new FormData();
+    form.append('file', {
+      uri: file.uri,
+      name: file.name ?? 'photo.jpg',
+      type: file.type ?? 'image/jpeg',
+    } as unknown as Blob);
+    const res = await request(`${this.config.baseUrl}${path}`, {
+      method: 'POST',
+      headers: await this.authHeaders(true),
+      body: form,
+    });
+    return parseJson(res);
+  }
+
   async getHealth(): Promise<{ status: string }> {
     const res = await request(`${this.config.baseUrl}/health`);
     return parseJson(res);
@@ -281,6 +311,39 @@ export class ApiClient {
       method: 'POST',
       headers: await this.headers(true),
       body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async uploadProfilePhoto(file: { uri: string; name?: string; type?: string }): Promise<MeDto> {
+    return this.uploadMultipart('/me/profile/photo', file);
+  }
+
+  async deleteProfilePhoto(): Promise<MeDto> {
+    const res = await request(`${this.config.baseUrl}/me/profile/photo`, {
+      method: 'DELETE',
+      headers: await this.authHeaders(true),
+    });
+    return parseJson(res);
+  }
+
+  async addProfileGalleryPhoto(file: { uri: string; name?: string; type?: string }): Promise<MeDto> {
+    return this.uploadMultipart('/me/profile/photos', file);
+  }
+
+  async deleteProfileGalleryPhoto(photoId: string): Promise<MeDto> {
+    const res = await request(`${this.config.baseUrl}/me/profile/photos/${photoId}`, {
+      method: 'DELETE',
+      headers: await this.authHeaders(true),
+    });
+    return parseJson(res);
+  }
+
+  async reorderProfileGalleryPhotos(photoIds: string[]): Promise<MeDto> {
+    const res = await request(`${this.config.baseUrl}/me/profile/photos/reorder`, {
+      method: 'PATCH',
+      headers: await this.headers(true),
+      body: JSON.stringify({ photoIds }),
     });
     return parseJson(res);
   }

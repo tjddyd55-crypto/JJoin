@@ -1,4 +1,5 @@
-﻿import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+﻿import { Body, Controller, Delete, Get, Param, Patch, Post, UploadedFile, UseGuards, UseInterceptors, BadRequestException } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
 import {
   CurrentUserId,
@@ -7,6 +8,10 @@ import {
   OptionalUserId,
 } from '../../common/mock-auth.guard';
 import type { SportSkillLevel } from '@jjoin/types';
+
+type UploadedImageFile = {
+  buffer: Buffer;
+};
 
 @Controller()
 export class UsersController {
@@ -48,6 +53,53 @@ export class UsersController {
     @Body() body: { localUri?: string | null; skip?: boolean },
   ) {
     return this.service.setAvatar(userId, body);
+  }
+
+  @UseGuards(MockAuthGuard)
+  @Post('me/profile/photo')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadProfilePhoto(
+    @CurrentUserId() userId: string,
+    @UploadedFile() file?: UploadedImageFile,
+  ) {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('file_required');
+    }
+    return this.service.uploadProfilePhoto(userId, file.buffer);
+  }
+
+  @UseGuards(MockAuthGuard)
+  @Delete('me/profile/photo')
+  deleteProfilePhoto(@CurrentUserId() userId: string) {
+    return this.service.deleteProfilePhoto(userId);
+  }
+
+  @UseGuards(MockAuthGuard)
+  @Post('me/profile/photos')
+  @UseInterceptors(FileInterceptor('file'))
+  addProfileGalleryPhoto(
+    @CurrentUserId() userId: string,
+    @UploadedFile() file?: UploadedImageFile,
+  ) {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('file_required');
+    }
+    return this.service.addProfileGalleryPhoto(userId, file.buffer);
+  }
+
+  @UseGuards(MockAuthGuard)
+  @Delete('me/profile/photos/:photoId')
+  deleteProfileGalleryPhoto(@CurrentUserId() userId: string, @Param('photoId') photoId: string) {
+    return this.service.deleteProfileGalleryPhoto(userId, photoId);
+  }
+
+  @UseGuards(MockAuthGuard)
+  @Patch('me/profile/photos/reorder')
+  reorderProfileGalleryPhotos(
+    @CurrentUserId() userId: string,
+    @Body() body: { photoIds: string[] },
+  ) {
+    return this.service.reorderProfileGalleryPhotos(userId, body.photoIds ?? []);
   }
 
   @UseGuards(MockAuthGuard)

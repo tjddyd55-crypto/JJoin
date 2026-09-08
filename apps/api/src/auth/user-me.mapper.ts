@@ -5,6 +5,7 @@ import {
   SocialProvider,
   SportSkillLevel,
   type MeDto,
+  type ProfilePhotoDto,
   type PublicUserProfileDto,
 } from '@jjoin/types';
 import { addCoinAmounts, mapGenderDisplay, resolveOnboardingStep } from '@jjoin/domain';
@@ -13,7 +14,8 @@ import { TERMS_VERSION, REQUIRED_CONSENT_TYPES } from './consent-policy';
 
 export type UserWithRelations = Prisma.UserGetPayload<{
   include: {
-    profile: true;
+    profile: { include: { avatarAsset: true } };
+    profilePhotos: true;
     socialAccounts: true;
     sportProfiles: { include: { sport: true } };
     wallets: true;
@@ -21,6 +23,13 @@ export type UserWithRelations = Prisma.UserGetPayload<{
     consents: true;
   };
 }>;
+
+export type ProfileMediaResolver = {
+  avatarUrl: (storageKey: string | null | undefined) => string | null;
+  profilePhotos: (
+    rows: Array<{ id: string; objectKey: string; sortOrder: number }>,
+  ) => ProfilePhotoDto[];
+};
 
 function hasRequiredConsents(consents: UserWithRelations['consents']): boolean {
   return REQUIRED_CONSENT_TYPES.every((type) =>
@@ -48,18 +57,22 @@ function isProfileComplete(profile: UserWithRelations['profile'], sportProfiles:
 export function buildMeFromUser(
   user: UserWithRelations,
   participationCount = 0,
+  media?: ProfileMediaResolver,
 ): MeDto {
   const profile = user.profile;
   const termsAccepted = hasRequiredConsents(user.consents);
   const profileComplete = isProfileComplete(profile, user.sportProfiles);
   const hasAvatar = Boolean(profile?.avatarAssetId) || hasAvatarSkipped(user.consents);
   const locationOnboardingComplete = hasLocationConsent(user.consents);
+  const avatarUrl = media?.avatarUrl(profile?.avatarAsset?.storageKey ?? null) ?? null;
+  const profilePhotos = media?.profilePhotos(user.profilePhotos ?? []) ?? [];
 
   const publicProfile: PublicUserProfileDto | null = profile
     ? {
         id: user.id,
         nickname: profile.nickname,
-        avatarUrl: null,
+        avatarUrl,
+        profilePhotos,
         verifiedBadge: user.identityStatus === IdentityStatus.VERIFIED,
         genderDisplay: profile.gender ? mapGenderDisplay(profile.gender) : null,
         ageBand: (profile.ageBand as AgeBand | null) ?? null,
@@ -135,8 +148,9 @@ export const CONSENT_FIELD_MAP: Record<string, ConsentType> = {
 export function buildPublicProfileFromUser(
   user: UserWithRelations,
   participationCount: number,
+  media?: ProfileMediaResolver,
 ): PublicUserProfileDto {
-  const me = buildMeFromUser(user, participationCount);
+  const me = buildMeFromUser(user, participationCount, media);
   if (!me.publicProfile) throw new Error('profile_missing');
   return me.publicProfile;
 }

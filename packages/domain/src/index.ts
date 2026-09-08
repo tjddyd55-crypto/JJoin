@@ -768,6 +768,22 @@ export {
 } from './app-variant';
 
 export {
+  ALLOWED_PROFILE_IMAGE_MIMES,
+  MAX_PROFILE_GALLERY_PHOTOS,
+  PROFILE_AVATAR_MAX_EDGE_PX,
+  PROFILE_GALLERY_MAX_EDGE_PX,
+  PROFILE_IMAGE_MAX_BYTES,
+  buildProfileAvatarObjectKey,
+  buildProfileGalleryObjectKey,
+  buildPublicObjectUrl,
+  isAllowedProfileImageMime,
+  isOwnedProfileObjectKey,
+  normalizeImageExtension,
+  resolveStorageEnvironmentPrefix,
+  type AllowedProfileImageMime,
+} from './profile-photos';
+
+export {
   assertIdentityVerificationBypassAllowed,
   isIdentityVerificationBypassEnabled,
   requiresIdentityGate,

@@ -56,6 +56,7 @@ import {
 } from '@jjoin/types';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { MediaUrlService } from '../storage/media-url.service';
 import { haversineMeters } from '../presence/privacy-location';
 
 export type DiscoverJoinsQuery = {
@@ -168,7 +169,10 @@ const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 @Injectable()
 export class JoinDiscoveryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mediaUrls: MediaUrlService,
+  ) {}
 
   async discover(
     userId: string,
@@ -754,7 +758,7 @@ export class JoinDiscoveryService {
       availableSlots,
       rewardPerParticipant: String(row.rewardPerParticipant),
       hostNickname: row.host.profile?.nickname ?? '호스트',
-      hostAvatarUrl: row.host.profile?.avatarAsset?.storageKey ?? null,
+      hostAvatarUrl: this.mediaUrls.resolveAvatarUrl(row.host.profile?.avatarAsset?.storageKey ?? null),
       isHost,
       isParticipant,
       canJoin,

@@ -108,6 +108,7 @@ import { ClubJoinLinkService } from '../clubs/club-join-link.service';
 import { PremiumService } from '../payments/premium.service';
 import { JoinCreationCoinPolicyService } from './join-creation-coin-policy.service';
 import { JoinWaitlistService } from './join-waitlist.service';
+import { MediaUrlService } from '../storage/media-url.service';
 import type { AttendanceIntent } from '@jjoin/types';
 
 const ACTIVE_JOIN_STATUSES: JoinStatus[] = [JoinStatus.OPEN, JoinStatus.FULL];
@@ -144,6 +145,7 @@ export class JoinsService {
     private readonly joinCreationCoinPolicy: JoinCreationCoinPolicyService,
     @Inject(forwardRef(() => JoinWaitlistService))
     private readonly waitlist: JoinWaitlistService,
+    private readonly mediaUrls: MediaUrlService,
   ) {}
 
   ping() {
@@ -1499,7 +1501,7 @@ export class JoinsService {
       maxParticipants: join.plannedPlayerCount,
       rewardCoin: String(join.rewardPerParticipant),
       hostNickname: join.host.profile?.nickname ?? '호스트',
-      hostAvatarUrl: join.host.profile?.avatarAsset?.storageKey ?? null,
+      hostAvatarUrl: this.mediaUrls.resolveAvatarUrl(join.host.profile?.avatarAsset?.storageKey ?? null),
       hostVerified: true,
       isUrgent: join.isUrgent ?? false,
     };
@@ -1920,7 +1922,7 @@ export class JoinsService {
       rewardPerParticipant: String(join.rewardPerParticipant),
       venueName: join.venue.name,
       hostNickname: join.host.profile?.nickname ?? '호스트',
-      hostAvatarUrl: join.host.profile?.avatarAsset?.storageKey ?? null,
+      hostAvatarUrl: this.mediaUrls.resolveAvatarUrl(join.host.profile?.avatarAsset?.storageKey ?? null),
       myRole: (mine?.role as ParticipantRole) ?? null,
       myParticipationStatus: (mine?.participationStatus as ParticipationStatus) ?? null,
       pendingApplicantCount: join.participants.filter((p) => p.participationStatus === 'APPLIED')

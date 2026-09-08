@@ -25,11 +25,13 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { ClubsModule } from './modules/clubs/clubs.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { PlatformModule } from './modules/platform/platform.module';
+import { StorageModule } from './modules/storage/storage.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
   imports: [
     PrismaModule,
+    StorageModule,
     HealthModule,
     AuthModule,
     IdentityModule,

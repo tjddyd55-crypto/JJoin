@@ -31,9 +31,11 @@ import { MockMediaAdapter } from '../../providers/mock.adapters';
 import { PrismaService } from '../../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
 import { PremiumService } from '../payments/premium.service';
+import { MediaUrlService } from '../storage/media-url.service';
 
 const USER_INCLUDE = {
-  profile: true,
+  profile: { include: { avatarAsset: true } },
+  profilePhotos: { orderBy: { sortOrder: 'asc' as const } },
   socialAccounts: true,
   sportProfiles: { include: { sport: true } },
   wallets: true,
@@ -49,6 +51,7 @@ export class UserAccountService {
     private readonly premium: PremiumService,
     private readonly media: MockMediaAdapter,
     private readonly mockIdentity: MockIdentityAdapter,
+    private readonly mediaUrls: MediaUrlService,
   ) {}
 
   async loadUser(userId: string): Promise<UserWithRelations> {
@@ -60,6 +63,13 @@ export class UserAccountService {
     return user;
   }
 
+  private profileMediaResolver(): import('../../auth/user-me.mapper').ProfileMediaResolver {
+    return {
+      avatarUrl: (storageKey) => this.mediaUrls.resolveAvatarUrl(storageKey),
+      profilePhotos: (rows) => this.mediaUrls.mapProfilePhotos(rows),
+    };
+  }
+
   async getMe(userId: string): Promise<MeDto> {
     const user = await this.loadUser(userId);
     const participationCount = await this.prisma.joinParticipant.count({
@@ -68,7 +78,7 @@ export class UserAccountService {
     const reliability = await this.loadAttendanceReliability(userId);
     const trust = await this.loadParticipationTrust(userId);
     const reputation = await this.loadPlayerReputation(userId);
-    const me = buildMeFromUser(user, participationCount);
+    const me = buildMeFromUser(user, participationCount, this.profileMediaResolver());
     const walletSummary = await this.wallet.getSummary(userId);
     const premiumStatus = await this.premium.getStatus(userId);
     return {
@@ -373,7 +383,7 @@ export class UserAccountService {
     const reliability = await this.loadAttendanceReliability(userId);
     const trust = await this.loadParticipationTrust(userId);
     const reputation = await this.loadPlayerReputation(userId);
-    const profile = buildPublicProfileFromUser(user, participationCount);
+    const profile = buildPublicProfileFromUser(user, participationCount, this.profileMediaResolver());
     const playedCountWithViewer =
       viewerUserId && viewerUserId !== userId
         ? await this.countPlayedTogether(viewerUserId, userId)

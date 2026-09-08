@@ -18,6 +18,7 @@ import {
 import { NotificationType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationEventService } from '../notifications/notification-event.service';
+import { MediaUrlService } from '../storage/media-url.service';
 
 function startHourKst(instant: Date): number {
   const hourStr = new Intl.DateTimeFormat('en-GB', {
@@ -52,6 +53,7 @@ export class JoinRecommendationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationEventService,
+    private readonly mediaUrls: MediaUrlService,
   ) {}
 
   async listForUser(
@@ -313,7 +315,7 @@ export class JoinRecommendationsService {
     for (const p of profiles) {
       map.set(p.userId, {
         nickname: p.nickname,
-        avatarUrl: p.avatarAsset?.storageKey ?? null,
+        avatarUrl: this.mediaUrls.resolveAvatarUrl(p.avatarAsset?.storageKey ?? null),
       });
     }
     return map;

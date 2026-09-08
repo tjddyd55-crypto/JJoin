@@ -220,7 +220,8 @@ export async function loadMeFromDb(prisma: PrismaClient, userId: string): Promis
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: userId },
     include: {
-      profile: true,
+      profile: { include: { avatarAsset: true } },
+      profilePhotos: { orderBy: { sortOrder: 'asc' } },
       socialAccounts: true,
       sportProfiles: { include: { sport: true } },
       wallets: true,

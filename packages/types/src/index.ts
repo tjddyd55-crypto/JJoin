@@ -211,11 +211,18 @@ export type SportProfileDto = {
   screenHandicap?: number | null;
 };
 
+export type ProfilePhotoDto = {
+  id: string;
+  imageUrl: string | null;
+  sortOrder: number;
+};
+
 export type PublicUserProfileDto = {
   id: string;
   nickname: string;
   verifiedBadge: boolean;
   avatarUrl: string | null;
+  profilePhotos?: ProfilePhotoDto[];
   genderDisplay: string | null;
   ageBand: AgeBand | null;
   regionLabel: string | null;

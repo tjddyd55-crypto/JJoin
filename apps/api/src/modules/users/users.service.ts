@@ -3,6 +3,7 @@ import { AgeBand, SportSkillLevel, type MeDto } from '@jjoin/types';
 import { profileSetupSchema, termsConsentSchema } from '@jjoin/validation';
 import { mockUserStore } from '../../mock/mock-user.store';
 import { UserAccountService } from './user-account.service';
+import { ProfilePhotoService } from './profile-photo.service';
 import { WalletService } from '../wallet/wallet.service';
 
 /**
@@ -14,6 +15,7 @@ import { WalletService } from '../wallet/wallet.service';
 export class UsersService {
   constructor(
     private readonly accounts: UserAccountService,
+    private readonly profilePhotos: ProfilePhotoService,
     private readonly wallet: WalletService,
   ) {}
 
@@ -75,6 +77,26 @@ export class UsersService {
       return mockUserStore.setAvatarMock(userId, body.localUri ?? null, Boolean(body.skip));
     }
     return this.accounts.setAvatar(userId, body);
+  }
+
+  uploadProfilePhoto(userId: string, file: Buffer) {
+    return this.profilePhotos.uploadAvatar(userId, file);
+  }
+
+  deleteProfilePhoto(userId: string) {
+    return this.profilePhotos.deleteAvatar(userId);
+  }
+
+  addProfileGalleryPhoto(userId: string, file: Buffer) {
+    return this.profilePhotos.addGalleryPhoto(userId, file);
+  }
+
+  deleteProfileGalleryPhoto(userId: string, photoId: string) {
+    return this.profilePhotos.deleteGalleryPhoto(userId, photoId);
+  }
+
+  reorderProfileGalleryPhotos(userId: string, photoIds: string[]) {
+    return this.profilePhotos.reorderGalleryPhotos(userId, photoIds);
   }
 
   async completeLocationOnboarding(userId: string): Promise<MeDto> {

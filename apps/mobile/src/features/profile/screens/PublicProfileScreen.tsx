@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Image, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   AppText,
+  ProfileAvatar,
   ScreenContainer,
   Stack,
   StatusBadge,
-  UserAvatar,
   spacing,
 } from '@jjoin/design-system';
 import { formatScreenHandicap } from '@jjoin/domain';
@@ -25,6 +25,7 @@ export function PublicProfileScreen() {
   const [reviews, setReviews] = useState<PlayerReviewPublicDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -74,13 +75,14 @@ export function PublicProfileScreen() {
 
   const skill = profile.sportProfiles.find((s) => s.sportCode === 'SCREEN_GOLF');
   const hasReviews = (profile.reviewCount ?? 0) > 0 && profile.averageRatingDisplay;
+  const gallery = profile.profilePhotos ?? [];
 
   return (
     <ScreenContainer>
       <Stack gap="md">
         <AppText variant="title">{t('profile.public.title')}</AppText>
         <View style={styles.header}>
-          <UserAvatar uri={profile.avatarUrl} name={profile.nickname} size="lg" />
+          <ProfileAvatar imageUrl={profile.avatarUrl} name={profile.nickname} size="lg" />
           <Stack gap="xs">
             <AppText variant="subtitle">{profile.nickname}</AppText>
             {profile.verifiedBadge ? (
@@ -102,6 +104,24 @@ export function PublicProfileScreen() {
             ) : null}
           </Stack>
         </View>
+        {gallery.length > 0 ? (
+          <View style={styles.gallerySection}>
+            <AppText variant="label" color="textSecondary">사진</AppText>
+            <View style={styles.galleryRow}>
+              {gallery.map((photo) => (
+                photo.imageUrl ? (
+                  <Pressable
+                    key={photo.id}
+                    accessibilityRole="button"
+                    onPress={() => setPreviewUrl(photo.imageUrl)}
+                  >
+                    <Image source={{ uri: photo.imageUrl }} style={styles.galleryThumb} />
+                  </Pressable>
+                ) : null
+              ))}
+            </View>
+          </View>
+        ) : null}
         <AppText variant="body" color="textSecondary">
           {[profile.genderDisplay, profile.ageBand, profile.regionLabel]
             .filter(Boolean)
@@ -170,6 +190,12 @@ export function PublicProfileScreen() {
           </AppText>
         </Pressable>
       </Stack>
+
+      <Modal visible={Boolean(previewUrl)} transparent animationType="fade" onRequestClose={() => setPreviewUrl(null)}>
+        <Pressable style={styles.previewBackdrop} onPress={() => setPreviewUrl(null)}>
+          {previewUrl ? <Image source={{ uri: previewUrl }} style={styles.previewImage} resizeMode="contain" /> : null}
+        </Pressable>
+      </Modal>
     </ScreenContainer>
   );
 }
@@ -180,7 +206,31 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     alignItems: 'center',
   },
+  gallerySection: {
+    gap: spacing.sm,
+  },
+  galleryRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  galleryThumb: {
+    width: 88,
+    height: 88,
+    borderRadius: 12,
+  },
   reviewCard: {
     gap: spacing.xs,
+  },
+  previewBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  previewImage: {
+    width: '100%',
+    height: '80%',
   },
 });

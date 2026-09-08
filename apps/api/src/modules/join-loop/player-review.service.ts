@@ -20,10 +20,14 @@ import type {
 } from '@jjoin/types';
 import { upsertPlayerReviewSchema } from '@jjoin/validation';
 import { PrismaService } from '../../prisma/prisma.service';
+import { MediaUrlService } from '../storage/media-url.service';
 
 @Injectable()
 export class PlayerReviewService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mediaUrls: MediaUrlService,
+  ) {}
 
   async getReputation(userId: string): Promise<PlayerReputationDto> {
     const rows = await this.prisma.playerReview.findMany({
@@ -125,7 +129,7 @@ export class PlayerReviewService {
         return {
           userId: p.userId,
           nickname: p.user.profile?.nickname ?? '사용자',
-          avatarUrl: p.user.profile?.avatarAsset?.storageKey ?? null,
+          avatarUrl: this.mediaUrls.resolveAvatarUrl(p.user.profile?.avatarAsset?.storageKey ?? null),
           myReview: existing
             ? {
                 reviewId: existing.id,

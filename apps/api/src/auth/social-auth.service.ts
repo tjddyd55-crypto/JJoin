@@ -71,7 +71,8 @@ export class SocialAuthService {
         },
       },
       include: {
-        profile: true,
+        profile: { include: { avatarAsset: true } },
+        profilePhotos: { orderBy: { sortOrder: 'asc' } },
         socialAccounts: true,
         sportProfiles: { include: { sport: true } },
         wallets: true,
