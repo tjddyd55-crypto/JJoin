@@ -85,3 +85,37 @@ export function isOwnedProfileObjectKey(params: {
   const galleryPrefix = `${params.environmentPrefix}/profiles/${params.userId}/gallery/`;
   return key.startsWith(avatarPrefix) || key.startsWith(galleryPrefix);
 }
+
+const PUBLIC_IMAGE_EXTENSION = /\.(jpg|jpeg|png|webp)$/i;
+
+function isPublicImageLeaf(objectKey: string): boolean {
+  return PUBLIC_IMAGE_EXTENSION.test(objectKey);
+}
+
+/** Keys safe to serve via unauthenticated GET (mall product media + profile photos). */
+export function isPublicReadableObjectKey(params: {
+  objectKey: string;
+  environmentPrefix: 'development' | 'production';
+}): boolean {
+  const key = params.objectKey.replace(/^\/+/, '');
+  const env = params.environmentPrefix;
+  if (!key.startsWith(`${env}/`) || !isPublicImageLeaf(key)) return false;
+
+  const mallPrefix = `${env}/mall/products/`;
+  if (key.startsWith(mallPrefix)) {
+    const rest = key.slice(mallPrefix.length);
+    const [productId, kind] = rest.split('/');
+    if (!productId || (kind !== 'cover' && kind !== 'gallery')) return false;
+    return rest.split('/').length === 3;
+  }
+
+  const profilePrefix = `${env}/profiles/`;
+  if (key.startsWith(profilePrefix)) {
+    const rest = key.slice(profilePrefix.length);
+    const [, kind] = rest.split('/');
+    if (kind !== 'avatar' && kind !== 'gallery') return false;
+    return rest.split('/').length === 3;
+  }
+
+  return false;
+}

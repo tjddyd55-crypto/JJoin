@@ -7,6 +7,7 @@ import {
   buildPublicObjectUrl,
   isAllowedProfileImageMime,
   isOwnedProfileObjectKey,
+  isPublicReadableObjectKey,
   MAX_PROFILE_GALLERY_PHOTOS,
   resolveStorageEnvironmentPrefix,
 } from './profile-photos';
@@ -72,4 +73,35 @@ test('isOwnedProfileObjectKey validates ownership prefix', () => {
 
 test('MAX_PROFILE_GALLERY_PHOTOS is 5', () => {
   assert.equal(MAX_PROFILE_GALLERY_PHOTOS, 5);
+});
+
+test('isPublicReadableObjectKey allows mall and profile media only', () => {
+  assert.equal(
+    isPublicReadableObjectKey({
+      objectKey: 'development/mall/products/p1/cover/a.png',
+      environmentPrefix: 'development',
+    }),
+    true,
+  );
+  assert.equal(
+    isPublicReadableObjectKey({
+      objectKey: 'development/profiles/u1/gallery/a.webp',
+      environmentPrefix: 'development',
+    }),
+    true,
+  );
+  assert.equal(
+    isPublicReadableObjectKey({
+      objectKey: 'production/mall/products/p1/cover/a.png',
+      environmentPrefix: 'development',
+    }),
+    false,
+  );
+  assert.equal(
+    isPublicReadableObjectKey({
+      objectKey: 'development/mall/products/p1/secret/a.png',
+      environmentPrefix: 'development',
+    }),
+    false,
+  );
 });

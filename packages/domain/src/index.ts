@@ -778,6 +778,7 @@ export {
   buildPublicObjectUrl,
   isAllowedProfileImageMime,
   isOwnedProfileObjectKey,
+  isPublicReadableObjectKey,
   normalizeImageExtension,
   resolveStorageEnvironmentPrefix,
   type AllowedProfileImageMime,

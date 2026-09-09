@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import {
   buildProfileAvatarObjectKey,
   buildProfileGalleryObjectKey,
@@ -8,6 +8,7 @@ import {
   buildPublicObjectUrl,
   isOwnedProfileObjectKey,
   isOwnedMallProductObjectKey,
+  isPublicReadableObjectKey,
   resolveStorageEnvironmentPrefix,
   type AllowedProfileImageMime,
 } from '@jjoin/domain';
@@ -26,6 +27,11 @@ function normalizeBaseUrl(value: string): string {
   const trimmed = value.trim();
   const https = trimmed.startsWith('http://') ? trimmed.replace('http://', 'https://') : trimmed;
   return https.replace(/\/+$/, '');
+}
+
+function resolvePublicMediaDeliveryMode(): 'r2' | 'api' {
+  const mode = (process.env.MEDIA_PUBLIC_DELIVERY ?? 'r2').trim().toLowerCase();
+  return mode === 'api' ? 'api' : 'r2';
 }
 
 export function resolveObjectStorageConfig(): ObjectStorageConfig {
@@ -148,11 +154,46 @@ export class ObjectStorageService {
   }
 
   getPublicUrl(objectKey: string | null | undefined): string | null {
-    if (!objectKey || !this.config.publicBaseUrl) return null;
-    if (objectKey.startsWith('mock://') || objectKey.startsWith('http://') || objectKey.startsWith('https://')) {
-      return objectKey.startsWith('http') ? objectKey : null;
+    if (!objectKey) return null;
+    if (objectKey.startsWith('mock://')) return null;
+    if (objectKey.startsWith('http://') || objectKey.startsWith('https://')) {
+      return objectKey;
     }
-    return buildPublicObjectUrl(this.config.publicBaseUrl, objectKey);
+
+    const key = objectKey.trim().replace(/^\/+/, '');
+    if (!key) return null;
+
+    const apiBase = normalizeBaseUrl(process.env.PUBLIC_API_BASE_URL?.trim() ?? '');
+    if (resolvePublicMediaDeliveryMode() === 'api' && apiBase) {
+      return `${apiBase}/media/objects?key=${encodeURIComponent(key)}`;
+    }
+
+    if (!this.config.publicBaseUrl) return null;
+    return buildPublicObjectUrl(this.config.publicBaseUrl, key);
+  }
+
+  canServePublicObject(objectKey: string): boolean {
+    if (!objectKey || objectKey.startsWith('mock://') || objectKey.startsWith('http')) return false;
+    return isPublicReadableObjectKey({
+      objectKey,
+      environmentPrefix: this.config.environmentPrefix,
+    });
+  }
+
+  async getObjectBuffer(objectKey: string): Promise<{ body: Buffer; contentType: string }> {
+    if (!this.client || !this.config.enabled) {
+      throw new Error('object_storage_not_configured');
+    }
+    const response = await this.client.send(
+      new GetObjectCommand({
+        Bucket: this.config.bucket,
+        Key: objectKey,
+      }),
+    );
+    const bytes = await response.Body?.transformToByteArray();
+    if (!bytes) throw new Error('object_body_empty');
+    const contentType = response.ContentType?.trim() || 'application/octet-stream';
+    return { body: Buffer.from(bytes), contentType };
   }
 
   async putObject(params: {
