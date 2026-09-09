@@ -1,7 +1,8 @@
 /**
  * DEV-only mall demo products with realistic images and content blocks.
  *
- *   pnpm exec tsx scripts/fetch-mall-demo-assets.ts   # first time / refresh assets
+ *   pnpm exec tsx scripts/download-mall-demo-assets.ts  # fetch missing assets
+ *   pnpm exec tsx scripts/fetch-mall-demo-assets.ts     # verify assets exist
  *   pnpm exec tsx scripts/seed-mall-demo.ts
  */
 import { readFileSync } from 'node:fs';
@@ -14,6 +15,7 @@ import {
 } from '../packages/types/src/index.ts';
 import {
   MALL_DEMO_PRODUCTS,
+  MALL_DEMO_SLUGS,
   type MallDemoProductSpec,
   resolveDemoAssetPath,
 } from './demo-mall-assets.ts';
@@ -23,6 +25,7 @@ const API_BASE = (process.env.API_BASE ?? 'https://api-development-e387.up.railw
   '',
 );
 const TAG = '[DEV-MALL-DEMO]';
+const DEMO_SLUG_SET = new Set<string>(MALL_DEMO_SLUGS);
 
 async function j<T>(path: string, init?: RequestInit) {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -140,7 +143,26 @@ async function replaceGalleryImages(
   }
 }
 
-async function upsertDemoProduct(token: string, demo: MallDemoProductSpec) {
+async function pauseOrphanProducts(token: string): Promise<number> {
+  const list = await mustOk<Array<{ id: string; slug: string; status: string }>>(
+    '/admin/mall/products',
+    token,
+  );
+  let paused = 0;
+  for (const item of list) {
+    if (DEMO_SLUG_SET.has(item.slug)) continue;
+    if (item.status === MallProductStatus.PAUSED) continue;
+    await mustOk(`/admin/mall/products/${item.id}`, token, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: MallProductStatus.PAUSED }),
+    });
+    paused++;
+    console.log(`${TAG} paused orphan slug=${item.slug} id=${item.id}`);
+  }
+  return paused;
+}
+
+async function upsertDemoProduct(token: string, demo: MallDemoProductSpec): Promise<string> {
   const list = await mustOk<Array<{ id: string; slug: string; name: string }>>(
     '/admin/mall/products',
     token,
@@ -148,69 +170,37 @@ async function upsertDemoProduct(token: string, demo: MallDemoProductSpec) {
   const existing =
     list.find((item) => item.slug === demo.slug) ?? list.find((item) => item.name === demo.name);
 
+  const payload = {
+    name: demo.name,
+    slug: demo.slug,
+    shortDescription: demo.shortDescription,
+    coinPrice: demo.coinPrice,
+    stock: demo.stock,
+    categoryId: demo.categoryId,
+    status: MallProductStatus.ACTIVE,
+    badge: demo.badge ?? null,
+    exchangeGuide: demo.exchangeGuide,
+    usageGuide: demo.usageGuide ?? null,
+    validityGuide: demo.validityGuide ?? null,
+    exchangeRefundGuide: demo.exchangeRefundGuide ?? null,
+    noticeGuide: demo.noticeGuide ?? null,
+    sortOrder: demo.sortOrder,
+  };
+
   const product = existing
     ? await mustOk<{ id: string }>(`/admin/mall/products/${existing.id}`, token, {
         method: 'PATCH',
-        body: JSON.stringify({
-          name: demo.name,
-          slug: demo.slug,
-          shortDescription: demo.shortDescription,
-          coinPrice: demo.coinPrice,
-          stock: demo.stock,
-          categoryId: demo.categoryId,
-          status: MallProductStatus.ACTIVE,
-          badge: demo.badge ?? null,
-          exchangeGuide: demo.exchangeGuide,
-          usageGuide: demo.usageGuide ?? null,
-          validityGuide: demo.validityGuide ?? null,
-          exchangeRefundGuide: demo.exchangeRefundGuide ?? null,
-          noticeGuide: demo.noticeGuide ?? null,
-          sortOrder: 0,
-        }),
+        body: JSON.stringify(payload),
       })
     : await mustOk<{ id: string }>('/admin/mall/products', token, {
         method: 'POST',
-        body: JSON.stringify({
-          name: demo.name,
-          slug: demo.slug,
-          shortDescription: demo.shortDescription,
-          coinPrice: demo.coinPrice,
-          stock: demo.stock,
-          categoryId: demo.categoryId,
-          status: MallProductStatus.ACTIVE,
-          badge: demo.badge ?? null,
-          exchangeGuide: demo.exchangeGuide,
-          usageGuide: demo.usageGuide ?? null,
-          validityGuide: demo.validityGuide ?? null,
-          exchangeRefundGuide: demo.exchangeRefundGuide ?? null,
-          noticeGuide: demo.noticeGuide ?? null,
-          sortOrder: 0,
-        }),
+        body: JSON.stringify(payload),
       });
 
   const productId = product.id;
 
   await uploadAssetFile(`/admin/mall/products/${productId}/cover`, token, demo.cover);
   await replaceGalleryImages(productId, token, demo.gallery);
-
-  const imageBlocks: Array<{ id: string; imageObjectKey: string | null }> = [];
-  for (let i = 0; i < demo.contentImages.length; i++) {
-    const uploaded = await uploadAssetFile(
-      `/admin/mall/products/${productId}/content-blocks/image`,
-      token,
-      demo.contentImages[i]!,
-      { sortOrder: String(100 + i) },
-    );
-    const imageBlock = uploaded.contentBlocks
-      .filter((block) => block.type === MallContentBlockType.IMAGE)
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-      .at(-1);
-    assert(imageBlock, `image block missing after upload (${demo.contentImages[i]})`);
-    imageBlocks.push({
-      id: imageBlock.id,
-      imageObjectKey: imageBlock.imageObjectKey ?? null,
-    });
-  }
 
   const blocks: Array<{
     id?: string;
@@ -219,32 +209,34 @@ async function upsertDemoProduct(token: string, demo: MallDemoProductSpec) {
     text?: string | null;
     imageObjectKey?: string | null;
   }> = [];
+
   let order = 0;
-  for (const textBlock of demo.textBlocks) {
-    blocks.push({
-      type: textBlock.type,
-      sortOrder: order++,
-      text: textBlock.text,
-    });
-    if (textBlock.type === MallContentBlockType.TEXT && imageBlocks.length > 0) {
-      const image = imageBlocks.shift();
-      if (image) {
-        blocks.push({
-          id: image.id,
-          type: MallContentBlockType.IMAGE,
-          sortOrder: order++,
-          imageObjectKey: image.imageObjectKey,
-        });
-      }
+  for (const block of demo.contentBlocks) {
+    if (block.type === MallContentBlockType.IMAGE) {
+      const uploaded = await uploadAssetFile(
+        `/admin/mall/products/${productId}/content-blocks/image`,
+        token,
+        block.file,
+        { sortOrder: String(100 + order) },
+      );
+      const imageBlock = uploaded.contentBlocks
+        .filter((item) => item.type === MallContentBlockType.IMAGE)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .at(-1);
+      assert(imageBlock, `image block missing after upload (${block.file})`);
+      blocks.push({
+        id: imageBlock.id,
+        type: MallContentBlockType.IMAGE,
+        sortOrder: order++,
+        imageObjectKey: imageBlock.imageObjectKey ?? null,
+      });
+    } else {
+      blocks.push({
+        type: block.type,
+        sortOrder: order++,
+        text: block.text,
+      });
     }
-  }
-  for (const image of imageBlocks) {
-    blocks.push({
-      id: image.id,
-      type: MallContentBlockType.IMAGE,
-      sortOrder: order++,
-      imageObjectKey: image.imageObjectKey,
-    });
   }
 
   await mustOk(`/admin/mall/products/${productId}/content-blocks`, token, {
@@ -252,8 +244,9 @@ async function upsertDemoProduct(token: string, demo: MallDemoProductSpec) {
     body: JSON.stringify({ blocks }),
   });
 
+  const imageCount = demo.contentBlocks.filter((b) => b.type === MallContentBlockType.IMAGE).length;
   console.log(
-    `${TAG} seeded ${demo.name} (${productId}) cover=${demo.cover} gallery=${demo.gallery.length} blocks=${blocks.length}`,
+    `${TAG} seeded ${demo.name} (${productId}) cover=${demo.cover} gallery=${demo.gallery.length} images=${imageCount} blocks=${blocks.length}`,
   );
   return productId;
 }
@@ -262,11 +255,15 @@ async function main() {
   await assertDevelopmentOnly();
   const token = await signInAdmin();
 
+  const paused = await pauseOrphanProducts(token);
+  console.log(`${TAG} orphan cleanup paused=${paused}`);
+
+  const ids: string[] = [];
   for (const demo of MALL_DEMO_PRODUCTS) {
-    await upsertDemoProduct(token, demo);
+    ids.push(await upsertDemoProduct(token, demo));
   }
 
-  console.log(`${TAG} COMPLETE products=${MALL_DEMO_PRODUCTS.length}`);
+  console.log(`${TAG} COMPLETE products=${MALL_DEMO_PRODUCTS.length} ids=${ids.join(',')}`);
 }
 
 main().catch((error) => {

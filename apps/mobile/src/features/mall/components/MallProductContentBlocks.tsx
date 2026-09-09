@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Image, StyleSheet, Text as RNText, View } from 'react-native';
 import { Text } from '@jjoin/design-system';
 import { MallContentBlockType, type MallProductContentBlockDto } from '@jjoin/types';
@@ -6,6 +7,29 @@ import { mallColors, mallMetrics } from '../mallDesignTokens';
 type Props = {
   blocks: MallProductContentBlockDto[];
 };
+
+function ContentImage({ uri }: { uri: string }) {
+  const [aspectRatio, setAspectRatio] = useState(1);
+
+  useEffect(() => {
+    Image.getSize(
+      uri,
+      (width, height) => {
+        if (width > 0 && height > 0) setAspectRatio(width / height);
+      },
+      () => setAspectRatio(1),
+    );
+  }, [uri]);
+
+  return (
+    <Image
+      source={{ uri }}
+      style={[styles.image, { aspectRatio }]}
+      resizeMode="contain"
+      accessibilityRole="image"
+    />
+  );
+}
 
 export function MallProductContentBlocks({ blocks }: Props) {
   const ordered = [...blocks].sort((a, b) => a.sortOrder - b.sortOrder);
@@ -29,14 +53,7 @@ export function MallProductContentBlocks({ blocks }: Props) {
           );
         }
         if (block.type === MallContentBlockType.IMAGE && block.imageUrl) {
-          return (
-            <Image
-              key={block.id}
-              source={{ uri: block.imageUrl }}
-              style={styles.image}
-              resizeMode="cover"
-            />
-          );
+          return <ContentImage key={block.id} uri={block.imageUrl} />;
         }
         if (block.type === MallContentBlockType.NOTICE) {
           return (
@@ -67,8 +84,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: '100%',
-    aspectRatio: 1.2,
-    marginVertical: 16,
+    marginVertical: 18,
     borderRadius: 14,
     backgroundColor: mallColors.surfaceMuted,
   },
@@ -77,7 +93,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: mallColors.accentGreenSoft,
     paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingHorizontal: mallMetrics.screenPadding,
   },
   noticeText: {
     fontSize: 14,
