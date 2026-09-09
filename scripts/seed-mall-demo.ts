@@ -253,13 +253,16 @@ async function upsertDemoProduct(token: string, demo: DemoProduct) {
   const list = await mustOk<
     Array<{ id: string; slug: string }>
   >('/admin/mall/products', token);
-  const existing = list.find((item) => item.slug === demo.slug);
+  const existing =
+    list.find((item) => item.slug === demo.slug) ??
+    list.find((item) => item.name === demo.name);
 
   const product = existing
     ? await mustOk<{ id: string }>(`/admin/mall/products/${existing.id}`, token, {
         method: 'PATCH',
         body: JSON.stringify({
           name: demo.name,
+          slug: demo.slug,
           shortDescription: demo.shortDescription,
           coinPrice: demo.coinPrice,
           stock: demo.stock,
