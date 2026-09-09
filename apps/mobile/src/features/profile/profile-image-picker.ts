@@ -1,5 +1,3 @@
-import * as ImagePicker from 'expo-image-picker';
-
 export type PickedProfileImage = {
   uri: string;
   mimeType: string;
@@ -7,6 +5,7 @@ export type PickedProfileImage = {
 };
 
 export async function pickProfileImageFromLibrary(): Promise<PickedProfileImage | null> {
+  const ImagePicker = await import('expo-image-picker');
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!permission.granted) {
     return null;
