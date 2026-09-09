@@ -96,11 +96,12 @@ async function main() {
 
   const sampleImage = join(process.cwd(), 'apps', 'mobile', 'assets', 'images', 'icon.png');
 
+  const ts = Date.now();
   const created = await mustOk<{ id: string; coverImageUrl: string | null }>('/admin/mall/products', {
     method: 'POST',
     headers: { Authorization: admin.Authorization, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      name: `[QA] 골프 장갑 ${Date.now()}`,
+      name: `[QA] 골프 장갑 ${ts}`,
       categoryId,
       coinPrice: '500',
       stock: 5,
@@ -126,12 +127,32 @@ async function main() {
 
   await uploadAdminImage(`/admin/mall/products/${created.id}/images`, admin.token, sampleImage);
 
+  const created2 = await mustOk<{ id: string }>('/admin/mall/products', {
+    method: 'POST',
+    headers: { Authorization: admin.Authorization, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: `[QA] 골프공 세트 ${ts}`,
+      categoryId,
+      coinPrice: '800',
+      stock: 3,
+      status: MallProductStatus.ACTIVE,
+      shortDescription: 'DEV QA sample ball set',
+      description: 'DEV mall QA product — generic golf ball set sample.',
+      exchangeGuide: '앱 내 구매내역에서 확인 후 수령 안내를 따릅니다.',
+      badge: 'HOT',
+    }),
+  });
+  await uploadAdminImage(`/admin/mall/products/${created2.id}/cover`, admin.token, sampleImage);
+  await uploadAdminImage(`/admin/mall/products/${created2.id}/images`, admin.token, sampleImage);
+
   const list = await mustOk<{
     items: Array<{ id: string; name: string; purchaseState: string }>;
     availableCoin: string;
   }>('/mall/products', { headers: { Authorization: buyer.Authorization } });
   const found = list.items.find((item) => item.id === created.id);
+  const found2 = list.items.find((item) => item.id === created2.id);
   assert(found, 'created product missing from mall list');
+  assert(found2, 'second product missing from mall list');
 
   const detail = await mustOk<{
     id: string;

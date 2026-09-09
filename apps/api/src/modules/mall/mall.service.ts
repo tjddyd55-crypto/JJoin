@@ -195,6 +195,18 @@ export class MallService {
 
     try {
       await this.prisma.$transaction(async (tx) => {
+        const existingOrder = await tx.mallOrder.findFirst({
+          where: {
+            userId,
+            productId: product.id,
+            status: MallOrderStatus.COMPLETED,
+          },
+          select: { id: true },
+        });
+        if (existingOrder) {
+          throw new BadRequestException('mall_product_already_purchased');
+        }
+
         await this.ledger.applyShopPurchase(
           userId,
           {
