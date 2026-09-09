@@ -10,8 +10,11 @@ import {
   Stack,
   Text,
   StickyActionFrame,
+  stickyActionScrollPadding,
+  stickyActionSecondaryButtonExtra,
   useTheme,
 } from '@jjoin/design-system';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { JOIN_INVITE_MAX_BATCH } from '@jjoin/domain';
 import type { PlayedTogetherPersonDto } from '@jjoin/types';
 import { getApiClient } from '../../../src/lib/api';
@@ -22,6 +25,9 @@ export default function JoinInviteScreen() {
   const { joinId } = useLocalSearchParams<{ joinId: string }>();
   const router = useRouter();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const scrollBottomPadding =
+    stickyActionScrollPadding(insets.bottom) + stickyActionSecondaryButtonExtra();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [people, setPeople] = useState<PlayedTogetherPersonDto[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -83,7 +89,7 @@ export default function JoinInviteScreen() {
 
   return (
     <View style={styles.root}>
-      <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]} contentPaddingBottom={24}>
+      <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]} contentPaddingBottom={scrollBottomPadding}>
         <Text variant="caption" tone="secondary">
           함께 친 사람을 선택해 초대합니다. 이미 참가 중인 사람은 자동으로 건너뜁니다.
         </Text>

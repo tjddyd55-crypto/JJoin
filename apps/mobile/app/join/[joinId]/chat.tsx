@@ -3,11 +3,13 @@ import {
   ActivityIndicator,
   AppState,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Button,
@@ -62,6 +64,8 @@ export default function JoinChatScreen() {
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [focused, setFocused] = useState(true);
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const insets = useSafeAreaInsets();
   const loadingOlderRef = useRef(false);
 
   const loadLatest = useCallback(async () => {
@@ -129,6 +133,17 @@ export default function JoinChatScreen() {
     }, CHAT_POLL_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [focused, appActive, accessDenied, loadLatest]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   async function onSend() {
     if (!joinId || busy || !room?.canPost) return;
@@ -266,6 +281,7 @@ export default function JoinChatScreen() {
           {
             borderTopColor: theme.colors.border.subtle,
             backgroundColor: theme.colors.app.background,
+            paddingBottom: keyboardVisible ? 10 : 10 + insets.bottom,
           },
         ]}
       >

@@ -11,6 +11,7 @@ import {
   Card,
   layoutSpacing,
   spacing,
+  StickyActionFrame,
 } from '@jjoin/design-system';
 import { computeCoinShortfall, computeRewardEligibleSlots, formatNumber, requiresIdentityGate } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
@@ -618,7 +619,10 @@ export default function CreateScreen() {
   );
 
   return (
-    <FormScreenFrame contentContainerStyle={styles.scrollContent}>
+    <FormScreenFrame
+      contentContainerStyle={styles.scrollContent}
+      footer={<StickyActionFrame>{actionSection}</StickyActionFrame>}
+    >
       <Stack gap="md">
         <Text variant="screenTitle" tone="primary">조인 만들기</Text>
         <JoinCreateStepHeader current={step} onSelect={(s) => setStep(s)} />
@@ -816,8 +820,6 @@ export default function CreateScreen() {
         {error ? (
           <Text variant="body" tone="error">{error}</Text>
         ) : null}
-
-        {actionSection}
       </Stack>
     </FormScreenFrame>
   );

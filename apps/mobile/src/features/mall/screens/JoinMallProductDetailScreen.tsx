@@ -9,7 +9,14 @@ import {
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { AppBar, EmptyState, Text } from '@jjoin/design-system';
+import {
+  AppBar,
+  EmptyState,
+  STICKY_ACTION_SHORTAGE_ROW_EXTRA,
+  Text,
+  stickyActionScrollPaddingForButton,
+} from '@jjoin/design-system';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatNumber } from '@jjoin/domain';
 import type { MallProductDetailDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
@@ -37,6 +44,7 @@ function bottomButtonLabel(state: MallProductDetailDto['purchaseState']): string
 
 export function JoinMallProductDetailScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { productId } = useLocalSearchParams<{ productId: string }>();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [loading, setLoading] = useState(true);
@@ -89,11 +97,19 @@ export function JoinMallProductDetailScreen() {
     ...(product.coverImageUrl ? [product.coverImageUrl] : []),
     ...product.images.map((image) => image.imageUrl).filter(Boolean),
   ];
+  const shortage = shortageAmount(product);
+  const scrollBottomPadding = stickyActionScrollPaddingForButton(
+    insets.bottom,
+    mallMetrics.ctaHeight,
+    {
+      extraContentHeight: shortage ? STICKY_ACTION_SHORTAGE_ROW_EXTRA : 0,
+    },
+  );
 
   return (
     <View style={styles.screen}>
       <AppBar title="상품 상세" showBack onBack={() => router.back()} />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding }]}>
         <View style={styles.hero}>
           {gallery[0] ? (
             <Image source={{ uri: gallery[0] }} style={styles.heroImage} resizeMode="cover" />
@@ -140,7 +156,7 @@ export function JoinMallProductDetailScreen() {
       </ScrollView>
 
       <MallStickyPurchaseBar
-        shortageCoin={shortageAmount(product)}
+        shortageCoin={shortage}
         buttonLabel={bottomButtonLabel(product.purchaseState)}
         disabled={product.purchaseState !== 'available'}
         onPress={onPressCta}
@@ -152,7 +168,7 @@ export function JoinMallProductDetailScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: mallColors.canvas },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  content: { paddingBottom: mallMetrics.bottomBarHeight + 24 },
+  content: {},
   hero: { backgroundColor: mallColors.surfaceMuted },
   heroImage: {
     width: '100%',
