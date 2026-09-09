@@ -2697,6 +2697,13 @@ export enum MallOrderStatus {
   CANCELLED = 'CANCELLED',
 }
 
+export enum MallContentBlockType {
+  HEADING = 'HEADING',
+  TEXT = 'TEXT',
+  IMAGE = 'IMAGE',
+  NOTICE = 'NOTICE',
+}
+
 export enum AdminLoginScope {
   PLATFORM = 'PLATFORM',
   MALL_MD = 'MALL_MD',
@@ -2741,10 +2748,37 @@ export type MallProductImageDto = {
   sortOrder: number;
 };
 
+export type MallProductContentBlockDto = {
+  id: string;
+  type: MallContentBlockType;
+  sortOrder: number;
+  text: string | null;
+  imageUrl: string | null;
+  /** Admin responses only — R2 object key for IMAGE blocks. */
+  imageObjectKey?: string | null;
+};
+
+export type AdminMallContentBlockInput = {
+  id?: string;
+  type: MallContentBlockType;
+  sortOrder: number;
+  text?: string | null;
+  imageObjectKey?: string | null;
+};
+
+export type ReplaceAdminMallContentBlocksRequest = {
+  blocks: AdminMallContentBlockInput[];
+};
+
 export type MallProductDetailDto = MallProductListItemDto & {
   description: string | null;
   exchangeGuide: string | null;
+  usageGuide: string | null;
+  validityGuide: string | null;
+  exchangeRefundGuide: string | null;
+  noticeGuide: string | null;
   images: MallProductImageDto[];
+  contentBlocks: MallProductContentBlockDto[];
   availableCoin: string;
   remainingCoinAfterPurchase: string | null;
 };
@@ -2793,7 +2827,12 @@ export type AdminMallProductDetailDto = AdminMallProductListItemDto & {
   shortDescription: string | null;
   description: string | null;
   exchangeGuide: string | null;
+  usageGuide: string | null;
+  validityGuide: string | null;
+  exchangeRefundGuide: string | null;
+  noticeGuide: string | null;
   images: MallProductImageDto[];
+  contentBlocks: MallProductContentBlockDto[];
 };
 
 export type CreateAdminMallProductRequest = {
@@ -2803,6 +2842,10 @@ export type CreateAdminMallProductRequest = {
   shortDescription?: string | null;
   description?: string | null;
   exchangeGuide?: string | null;
+  usageGuide?: string | null;
+  validityGuide?: string | null;
+  exchangeRefundGuide?: string | null;
+  noticeGuide?: string | null;
   coinPrice: string;
   stock: number;
   status?: MallProductStatus;

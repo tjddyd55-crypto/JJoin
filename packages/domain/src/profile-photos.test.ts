@@ -85,6 +85,13 @@ test('isPublicReadableObjectKey allows mall and profile media only', () => {
   );
   assert.equal(
     isPublicReadableObjectKey({
+      objectKey: 'development/mall/products/p1/content/a.webp',
+      environmentPrefix: 'development',
+    }),
+    true,
+  );
+  assert.equal(
+    isPublicReadableObjectKey({
       objectKey: 'development/profiles/u1/gallery/a.webp',
       environmentPrefix: 'development',
     }),

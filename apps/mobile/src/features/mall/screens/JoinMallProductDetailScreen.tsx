@@ -2,18 +2,27 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text as RNText,
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { AppBar, EmptyState, Text } from '@jjoin/design-system';
+import {
+  AppBar,
+  EmptyState,
+  STICKY_ACTION_SHORTAGE_ROW_EXTRA,
+  Text,
+  stickyActionScrollPaddingForButton,
+} from '@jjoin/design-system';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatNumber } from '@jjoin/domain';
 import type { MallProductDetailDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
+import { MallProductContentBlocks } from '../components/MallProductContentBlocks';
+import { MallProductPolicySection } from '../components/MallProductPolicySection';
+import { MallSectionDivider } from '../components/MallSectionDivider';
 import { MallStickyPurchaseBar } from '../components/MallStickyPurchaseBar';
 import { mallColors, mallMetrics } from '../mallDesignTokens';
 import { formatMallCoinKo } from '../mallFormat';
@@ -37,6 +46,7 @@ function bottomButtonLabel(state: MallProductDetailDto['purchaseState']): string
 
 export function JoinMallProductDetailScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { productId } = useLocalSearchParams<{ productId: string }>();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [loading, setLoading] = useState(true);
@@ -89,11 +99,20 @@ export function JoinMallProductDetailScreen() {
     ...(product.coverImageUrl ? [product.coverImageUrl] : []),
     ...product.images.map((image) => image.imageUrl).filter(Boolean),
   ];
+  const shortage = shortageAmount(product);
+  const hasContentBlocks = (product.contentBlocks?.length ?? 0) > 0;
+  const scrollBottomPadding = stickyActionScrollPaddingForButton(
+    insets.bottom,
+    mallMetrics.ctaHeight,
+    {
+      extraContentHeight: shortage ? STICKY_ACTION_SHORTAGE_ROW_EXTRA : 0,
+    },
+  );
 
   return (
     <View style={styles.screen}>
       <AppBar title="상품 상세" showBack onBack={() => router.back()} />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding }]}>
         <View style={styles.hero}>
           {gallery[0] ? (
             <Image source={{ uri: gallery[0] }} style={styles.heroImage} resizeMode="cover" />
@@ -102,7 +121,7 @@ export function JoinMallProductDetailScreen() {
           )}
         </View>
 
-        <View style={styles.infoCard}>
+        <View style={styles.productMeta}>
           {product.badge ? <RNText style={styles.badge}>{product.badge}</RNText> : null}
           <RNText style={styles.title}>{product.name}</RNText>
           {product.shortDescription ? (
@@ -110,37 +129,44 @@ export function JoinMallProductDetailScreen() {
           ) : null}
           <RNText style={styles.price}>{formatMallCoinKo(product.coinPrice)}</RNText>
           <RNText style={styles.balance}>
-            내 보유 코인  {formatNumber(product.availableCoin)}
+            보유 코인 {formatNumber(product.availableCoin)}
           </RNText>
         </View>
 
-        <Pressable style={styles.sectionCard} accessibilityRole="button">
-          <RNText style={styles.sectionTitle}>상품 정보</RNText>
-          <RNText style={styles.sectionSubtitle}>사용 방법 · 유효기간 · 환불 정책</RNText>
-          <RNText style={styles.sectionChevron}>›</RNText>
-        </Pressable>
+        <MallSectionDivider spacing={22} />
 
-        {product.description ? (
-          <View style={styles.detailBlock}>
-            <Text variant="sectionTitle">상품 설명</Text>
-            <Text variant="body" tone="secondary" style={styles.detailText}>{product.description}</Text>
-          </View>
-        ) : null}
+        <View style={styles.section}>
+          <RNText style={styles.sectionHeading}>상품 설명</RNText>
+          {hasContentBlocks ? (
+            <MallProductContentBlocks blocks={product.contentBlocks ?? []} />
+          ) : (
+            <>
+              {product.description ? (
+                <Text variant="body" tone="secondary" style={styles.bodyText}>
+                  {product.description}
+                </Text>
+              ) : null}
+              {gallery.slice(1).map((uri) => (
+                <Image key={uri} source={{ uri }} style={styles.detailImage} resizeMode="cover" />
+              ))}
+            </>
+          )}
+        </View>
 
         {product.exchangeGuide ? (
-          <View style={styles.detailBlock}>
-            <Text variant="sectionTitle">교환 · 수령 안내</Text>
-            <Text variant="body" tone="secondary" style={styles.detailText}>{product.exchangeGuide}</Text>
+          <View style={[styles.section, styles.exchangeSection]}>
+            <RNText style={styles.sectionHeading}>교환 · 수령 안내</RNText>
+            <Text variant="body" tone="secondary" style={styles.bodyText}>
+              {product.exchangeGuide}
+            </Text>
           </View>
         ) : null}
 
-        {gallery.slice(1).map((uri) => (
-          <Image key={uri} source={{ uri }} style={styles.detailImage} resizeMode="cover" />
-        ))}
+        <MallProductPolicySection product={product} />
       </ScrollView>
 
       <MallStickyPurchaseBar
-        shortageCoin={shortageAmount(product)}
+        shortageCoin={shortage}
         buttonLabel={bottomButtonLabel(product.purchaseState)}
         disabled={product.purchaseState !== 'available'}
         onPress={onPressCta}
@@ -152,21 +178,16 @@ export function JoinMallProductDetailScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: mallColors.canvas },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  content: { paddingBottom: mallMetrics.bottomBarHeight + 24 },
+  content: {},
   hero: { backgroundColor: mallColors.surfaceMuted },
   heroImage: {
     width: '100%',
     height: mallMetrics.detailHeroHeight,
     backgroundColor: mallColors.surfaceMuted,
   },
-  infoCard: {
-    marginHorizontal: mallMetrics.screenPadding,
-    marginTop: 18,
-    borderRadius: mallMetrics.detailInfoRadius,
-    borderWidth: 1,
-    borderColor: mallColors.border,
-    backgroundColor: mallColors.surface,
-    padding: mallMetrics.detailInfoPadding,
+  productMeta: {
+    paddingHorizontal: mallMetrics.screenPadding,
+    paddingTop: 16,
     gap: 8,
   },
   badge: {
@@ -181,59 +202,47 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   summary: {
-    fontSize: 13,
+    marginTop: -2,
+    fontSize: 14,
     color: mallColors.textSecondary,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   price: {
-    marginTop: 8,
+    marginTop: 4,
     fontSize: mallMetrics.detailPriceSize,
     fontWeight: '700',
     color: mallColors.accentGreen,
+    lineHeight: 30,
   },
   balance: {
-    marginTop: 8,
-    fontSize: 13,
+    marginTop: 2,
+    fontSize: 14,
     fontWeight: '500',
+    color: mallColors.textSecondary,
+    lineHeight: 20,
+  },
+  section: {
+    paddingHorizontal: mallMetrics.screenPadding,
+    gap: 12,
+  },
+  exchangeSection: {
+    marginTop: 24,
+  },
+  sectionHeading: {
+    fontSize: 17,
+    fontWeight: '700',
     color: mallColors.textPrimary,
+    lineHeight: 24,
   },
-  sectionCard: {
-    marginHorizontal: mallMetrics.screenPadding,
-    marginTop: 16,
-    minHeight: mallMetrics.detailSectionHeight,
-    borderRadius: mallMetrics.detailSectionRadius,
-    borderWidth: 1,
-    borderColor: mallColors.border,
-    backgroundColor: mallColors.surface,
-    padding: mallMetrics.detailInfoPadding,
-  },
-  sectionTitle: {
+  bodyText: {
     fontSize: 15,
-    fontWeight: '600',
-    color: mallColors.textPrimary,
+    lineHeight: 22,
   },
-  sectionSubtitle: {
-    marginTop: 16,
-    fontSize: 13,
-    color: mallColors.textSecondary,
-  },
-  sectionChevron: {
-    position: 'absolute',
-    right: 16,
-    top: 40,
-    fontSize: 22,
-    color: mallColors.textSecondary,
-  },
-  detailBlock: {
-    marginHorizontal: mallMetrics.screenPadding,
-    marginTop: 20,
-    gap: 8,
-  },
-  detailText: { lineHeight: 22 },
   detailImage: {
     width: '100%',
     aspectRatio: 1.2,
-    marginTop: 16,
+    marginVertical: 16,
+    borderRadius: 14,
     backgroundColor: mallColors.surfaceMuted,
   },
 });

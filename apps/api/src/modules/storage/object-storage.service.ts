@@ -4,6 +4,7 @@ import {
   buildProfileAvatarObjectKey,
   buildProfileGalleryObjectKey,
   buildMallProductCoverObjectKey,
+  buildMallProductContentObjectKey,
   buildMallProductGalleryObjectKey,
   buildPublicObjectUrl,
   isOwnedProfileObjectKey,
@@ -119,6 +120,15 @@ export class ObjectStorageService {
 
   buildMallGalleryObjectKey(productId: string, extension: 'jpg' | 'png' | 'webp'): string {
     return buildMallProductGalleryObjectKey({
+      environmentPrefix: this.config.environmentPrefix,
+      productId,
+      fileId: randomUUID(),
+      extension,
+    });
+  }
+
+  buildMallContentObjectKey(productId: string, extension: 'jpg' | 'png' | 'webp'): string {
+    return buildMallProductContentObjectKey({
       environmentPrefix: this.config.environmentPrefix,
       productId,
       fileId: randomUUID(),

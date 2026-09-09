@@ -8,21 +8,26 @@ import {
   resolveMallPurchaseState,
   sortMallProducts,
   subCoinAmounts,
+  validateMallContentBlocks,
   type MallSortOption,
 } from '@jjoin/domain';
 import {
+  MallContentBlockType,
   MallOrderStatus,
   MallProductStatus,
+  type AdminMallContentBlockInput,
   type AdminMallProductDetailDto,
   type AdminMallProductListItemDto,
   type CreateAdminMallProductRequest,
   type MallCategoryDto,
   type MallOrderListItemDto,
   type MallOrderListResponse,
+  type MallProductContentBlockDto,
   type MallProductDetailDto,
   type MallProductListItemDto,
   type MallProductListResponse,
   type MallPurchaseResultDto,
+  type ReplaceAdminMallContentBlocksRequest,
   type UpdateAdminMallProductRequest,
 } from '@jjoin/types';
 import { Prisma } from '@prisma/client';
@@ -34,8 +39,18 @@ import { CoinLedgerService, InsufficientBalanceError } from '../wallet/coin-ledg
 import { WalletService } from '../wallet/wallet.service';
 
 type ProductRow = Prisma.MallProductGetPayload<{
-  include: { category: true; images: { orderBy: { sortOrder: 'asc' } } };
+  include: {
+    category: true;
+    images: { orderBy: { sortOrder: 'asc' } };
+    contentBlocks: { orderBy: { sortOrder: 'asc' } };
+  };
 }>;
+
+const productInclude = {
+  category: true,
+  images: { orderBy: { sortOrder: 'asc' as const } },
+  contentBlocks: { orderBy: { sortOrder: 'asc' as const } },
+};
 
 function slugify(value: string): string {
   return value
@@ -92,6 +107,20 @@ export class MallService {
     };
   }
 
+  private mapContentBlocks(
+    blocks: ProductRow['contentBlocks'],
+    options?: { includeObjectKey?: boolean },
+  ): MallProductContentBlockDto[] {
+    return blocks.map((block) => ({
+      id: block.id,
+      type: block.type as MallContentBlockType,
+      sortOrder: block.sortOrder,
+      text: block.text,
+      imageUrl: block.imageObjectKey ? this.resolveImageUrl(block.imageObjectKey) : null,
+      ...(options?.includeObjectKey ? { imageObjectKey: block.imageObjectKey } : {}),
+    }));
+  }
+
   private mapDetail(row: ProductRow, availableCoin: string): MallProductDetailDto {
     const base = this.mapListItem(row, availableCoin);
     const remaining =
@@ -102,6 +131,10 @@ export class MallService {
       ...base,
       description: row.description,
       exchangeGuide: row.exchangeGuide,
+      usageGuide: row.usageGuide,
+      validityGuide: row.validityGuide,
+      exchangeRefundGuide: row.exchangeRefundGuide,
+      noticeGuide: row.noticeGuide,
       availableCoin,
       remainingCoinAfterPurchase: remaining,
       images: row.images.map((image) => ({
@@ -109,6 +142,7 @@ export class MallService {
         imageUrl: this.resolveImageUrl(image.objectKey) ?? '',
         sortOrder: image.sortOrder,
       })),
+      contentBlocks: this.mapContentBlocks(row.contentBlocks, { includeObjectKey: false }),
     };
   }
 
@@ -129,7 +163,7 @@ export class MallService {
     const availableCoin = await this.getAvailableCoin(userId);
     const categories = await this.listCategories();
     const where: Prisma.MallProductWhereInput = {
-      status: { in: [MallProductStatus.ACTIVE, MallProductStatus.SOLD_OUT, MallProductStatus.PAUSED] },
+      status: { in: [MallProductStatus.ACTIVE, MallProductStatus.SOLD_OUT] },
     };
     if (query.categoryId) where.categoryId = query.categoryId;
     if (query.q?.trim()) {
@@ -141,7 +175,7 @@ export class MallService {
 
     const rows = await this.prisma.mallProduct.findMany({
       where,
-      include: { category: true, images: { orderBy: { sortOrder: 'asc' } } },
+      include: productInclude,
     });
     const mapped = rows.map((row) => this.mapListItem(row, availableCoin));
     const sorted = sortMallProducts(mapped, query.sort ?? 'recommended');
@@ -152,7 +186,7 @@ export class MallService {
     const availableCoin = await this.getAvailableCoin(userId);
     const row = await this.prisma.mallProduct.findUnique({
       where: { id: productId },
-      include: { category: true, images: { orderBy: { sortOrder: 'asc' } } },
+      include: productInclude,
     });
     if (!row) throw new NotFoundException('mall_product_not_found');
     return this.mapDetail(row, availableCoin);
@@ -281,7 +315,7 @@ export class MallService {
   async getAdminProduct(productId: string): Promise<AdminMallProductDetailDto> {
     const row = await this.prisma.mallProduct.findUnique({
       where: { id: productId },
-      include: { category: true, images: { orderBy: { sortOrder: 'asc' } } },
+      include: productInclude,
     });
     if (!row) throw new NotFoundException('mall_product_not_found');
     return {
@@ -300,11 +334,16 @@ export class MallService {
       shortDescription: row.shortDescription,
       description: row.description,
       exchangeGuide: row.exchangeGuide,
+      usageGuide: row.usageGuide,
+      validityGuide: row.validityGuide,
+      exchangeRefundGuide: row.exchangeRefundGuide,
+      noticeGuide: row.noticeGuide,
       images: row.images.map((image) => ({
         id: image.id,
         imageUrl: this.resolveImageUrl(image.objectKey) ?? '',
         sortOrder: image.sortOrder,
       })),
+      contentBlocks: this.mapContentBlocks(row.contentBlocks, { includeObjectKey: true }),
     };
   }
 
@@ -318,6 +357,10 @@ export class MallService {
         shortDescription: body.shortDescription ?? null,
         description: body.description ?? null,
         exchangeGuide: body.exchangeGuide ?? null,
+        usageGuide: body.usageGuide ?? null,
+        validityGuide: body.validityGuide ?? null,
+        exchangeRefundGuide: body.exchangeRefundGuide ?? null,
+        noticeGuide: body.noticeGuide ?? null,
         coinPrice: new Prisma.Decimal(body.coinPrice),
         stock: body.stock,
         status: body.status ?? MallProductStatus.DRAFT,
@@ -344,6 +387,10 @@ export class MallService {
         shortDescription: body.shortDescription,
         description: body.description,
         exchangeGuide: body.exchangeGuide,
+        usageGuide: body.usageGuide,
+        validityGuide: body.validityGuide,
+        exchangeRefundGuide: body.exchangeRefundGuide,
+        noticeGuide: body.noticeGuide,
         coinPrice: body.coinPrice ? new Prisma.Decimal(body.coinPrice) : undefined,
         stock: body.stock,
         status: body.status,
@@ -423,6 +470,150 @@ export class MallService {
     if (!image) throw new NotFoundException('mall_image_not_found');
     await this.prisma.mallProductImage.delete({ where: { id: imageId } });
     await this.storage.deleteMallObject(image.objectKey, productId);
+    return this.getAdminProduct(productId);
+  }
+
+  private normalizeContentBlockInputs(blocks: AdminMallContentBlockInput[]) {
+    return blocks.map((block, index) => ({
+      id: block.id,
+      type: block.type,
+      sortOrder: block.sortOrder ?? index,
+      text: block.text ?? null,
+      imageObjectKey: block.imageObjectKey ?? null,
+    }));
+  }
+
+  async replaceAdminContentBlocks(
+    productId: string,
+    body: ReplaceAdminMallContentBlocksRequest,
+  ): Promise<AdminMallProductDetailDto> {
+    const product = await this.prisma.mallProduct.findUnique({ where: { id: productId } });
+    if (!product) throw new NotFoundException('mall_product_not_found');
+
+    const normalized = this.normalizeContentBlockInputs(body.blocks ?? []);
+    try {
+      validateMallContentBlocks(
+        normalized.map((block) => ({
+          type: block.type,
+          sortOrder: block.sortOrder,
+          text: block.text,
+          imageObjectKey: block.imageObjectKey,
+        })),
+      );
+    } catch {
+      throw new BadRequestException('mall_content_blocks_invalid');
+    }
+
+    const existing = await this.prisma.mallProductContentBlock.findMany({ where: { productId } });
+    const keepIds = new Set(normalized.filter((block) => block.id).map((block) => block.id as string));
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const row of existing) {
+        if (!keepIds.has(row.id)) {
+          await tx.mallProductContentBlock.delete({ where: { id: row.id } });
+          if (row.imageObjectKey) {
+            await this.storage.deleteMallObject(row.imageObjectKey, productId);
+          }
+        }
+      }
+
+      for (const block of normalized) {
+        if (block.id && existing.some((row) => row.id === block.id)) {
+          const previous = existing.find((row) => row.id === block.id);
+          await tx.mallProductContentBlock.update({
+            where: { id: block.id },
+            data: {
+              type: block.type,
+              sortOrder: block.sortOrder,
+              text: block.text,
+              imageObjectKey: block.imageObjectKey,
+            },
+          });
+          if (
+            previous?.imageObjectKey &&
+            block.imageObjectKey &&
+            previous.imageObjectKey !== block.imageObjectKey
+          ) {
+            await this.storage.deleteMallObject(previous.imageObjectKey, productId);
+          }
+        } else {
+          await tx.mallProductContentBlock.create({
+            data: {
+              productId,
+              type: block.type,
+              sortOrder: block.sortOrder,
+              text: block.text,
+              imageObjectKey: block.imageObjectKey,
+            },
+          });
+        }
+      }
+    });
+
+    return this.getAdminProduct(productId);
+  }
+
+  async uploadContentBlockImage(
+    productId: string,
+    file: Buffer,
+    options?: { blockId?: string; sortOrder?: number },
+  ): Promise<AdminMallProductDetailDto> {
+    const product = await this.prisma.mallProduct.findUnique({ where: { id: productId } });
+    if (!product) throw new NotFoundException('mall_product_not_found');
+
+    const processed = await this.images.validateAndOptimizeProfileImage(file, 'gallery');
+    const objectKey = this.storage.buildMallContentObjectKey(productId, processed.extension);
+
+    await this.storage.putObject({
+      objectKey,
+      body: processed.buffer,
+      contentType: processed.mimeType,
+    });
+
+    try {
+      if (options?.blockId) {
+        const block = await this.prisma.mallProductContentBlock.findFirst({
+          where: { id: options.blockId, productId, type: MallContentBlockType.IMAGE },
+        });
+        if (!block) throw new NotFoundException('mall_content_block_not_found');
+        const previousKey = block.imageObjectKey;
+        await this.prisma.mallProductContentBlock.update({
+          where: { id: block.id },
+          data: { imageObjectKey: objectKey },
+        });
+        if (previousKey && previousKey !== objectKey) {
+          await this.storage.deleteMallObject(previousKey, productId);
+        }
+      } else {
+        const sortOrder =
+          options?.sortOrder ??
+          (await this.prisma.mallProductContentBlock.count({ where: { productId } }));
+        await this.prisma.mallProductContentBlock.create({
+          data: {
+            productId,
+            type: MallContentBlockType.IMAGE,
+            sortOrder,
+            imageObjectKey: objectKey,
+          },
+        });
+      }
+    } catch (error) {
+      await this.storage.deleteMallObject(objectKey, productId);
+      throw error;
+    }
+
+    return this.getAdminProduct(productId);
+  }
+
+  async deleteContentBlock(productId: string, blockId: string): Promise<AdminMallProductDetailDto> {
+    const block = await this.prisma.mallProductContentBlock.findFirst({
+      where: { id: blockId, productId },
+    });
+    if (!block) throw new NotFoundException('mall_content_block_not_found');
+    await this.prisma.mallProductContentBlock.delete({ where: { id: blockId } });
+    if (block.imageObjectKey) {
+      await this.storage.deleteMallObject(block.imageObjectKey, productId);
+    }
     return this.getAdminProduct(productId);
   }
 }

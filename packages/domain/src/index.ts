@@ -785,12 +785,17 @@ export {
 } from './profile-photos';
 
 export {
+  MALL_CONTENT_BLOCK_MAX,
   MALL_SORT_OPTIONS,
+  buildMallProductContentObjectKey,
   buildMallProductCoverObjectKey,
   buildMallProductGalleryObjectKey,
   isOwnedMallProductObjectKey,
   resolveMallPurchaseState,
   sortMallProducts,
+  validateMallContentBlocks,
+  type MallContentBlockInput,
+  type MallContentBlockTypeValue,
   type MallSortOption,
 } from './mall';
 

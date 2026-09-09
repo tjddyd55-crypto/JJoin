@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Text } from '@jjoin/design-system';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Text, stickyActionBottomPadding, STICKY_ACTION_TOP_PADDING } from '@jjoin/design-system';
 import { formatNumber } from '@jjoin/domain';
 import { mallColors, mallMetrics } from '../mallDesignTokens';
 
@@ -18,8 +19,18 @@ export function MallStickyPurchaseBar({
   loading,
   onPress,
 }: Props) {
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.bar}>
+    <View
+      style={[
+        styles.bar,
+        {
+          paddingTop: STICKY_ACTION_TOP_PADDING,
+          paddingBottom: stickyActionBottomPadding(insets.bottom),
+        },
+      ]}
+    >
       {shortageCoin ? (
         <Text style={styles.shortage}>{formatNumber(shortageCoin)} 코인 부족</Text>
       ) : null}
@@ -42,9 +53,6 @@ const styles = StyleSheet.create({
     borderTopColor: mallColors.border,
     backgroundColor: mallColors.surface,
     paddingHorizontal: mallMetrics.screenPadding,
-    paddingTop: 12,
-    paddingBottom: 20,
-    minHeight: mallMetrics.bottomBarHeight,
   },
   shortage: {
     fontSize: 12,

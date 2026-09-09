@@ -2,18 +2,18 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text as RNText,
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { AppBar, EmptyState } from '@jjoin/design-system';
+import { AppBar, EmptyState, useStickyActionInsets } from '@jjoin/design-system';
 import { formatNumber } from '@jjoin/domain';
 import type { MallProductDetailDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
+import { MallStickyPurchaseBar } from '../components/MallStickyPurchaseBar';
 import { mallColors, mallMetrics } from '../mallDesignTokens';
 import { formatMallCoinKo } from '../mallFormat';
 
@@ -26,6 +26,7 @@ function balanceAfter(product: MallProductDetailDto): string {
 
 export function JoinMallPurchaseConfirmScreen() {
   const router = useRouter();
+  const { scrollPadding } = useStickyActionInsets({ buttonHeight: mallMetrics.ctaHeight });
   const { productId } = useLocalSearchParams<{ productId: string }>();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [loading, setLoading] = useState(true);
@@ -86,11 +87,24 @@ export function JoinMallPurchaseConfirmScreen() {
 
   const insufficient = product.purchaseState === 'insufficient_coin';
   const afterBalance = balanceAfter(product);
+  const ctaLabel = busy
+    ? '처리 중…'
+    : insufficient
+      ? '코인 충전하기'
+      : '코인으로 구매';
+
+  const onPressCta = () => {
+    if (insufficient) {
+      router.push('/my/coin-charge' as Href);
+      return;
+    }
+    void onPurchase();
+  };
 
   return (
     <View style={styles.screen}>
       <AppBar title="구매 확인" showBack onBack={() => router.back()} />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: scrollPadding }]}>
         <View style={styles.summaryCard}>
           <View style={styles.summaryTop}>
             {product.coverImageUrl ? (
@@ -121,18 +135,14 @@ export function JoinMallPurchaseConfirmScreen() {
             <RNText style={styles.noticeBody}>먼저 코인을 충전한 뒤 구매를 진행해주세요.</RNText>
           </View>
         ) : null}
-
-        <Pressable
-          accessibilityRole="button"
-          disabled={insufficient || busy}
-          onPress={() => void onPurchase()}
-          style={[styles.cta, (insufficient || busy) ? styles.ctaDisabled : undefined]}
-        >
-          <RNText style={styles.ctaLabel}>
-            {busy ? '처리 중…' : insufficient ? '코인 충전하기' : '코인으로 구매'}
-          </RNText>
-        </Pressable>
       </ScrollView>
+
+      <MallStickyPurchaseBar
+        buttonLabel={ctaLabel}
+        disabled={busy}
+        loading={busy}
+        onPress={onPressCta}
+      />
     </View>
   );
 }
@@ -143,7 +153,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: mallMetrics.screenPadding,
     paddingTop: 28,
-    paddingBottom: 40,
     gap: 20,
   },
   summaryCard: {
@@ -202,21 +211,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: mallColors.textPrimary,
     lineHeight: 18,
-  },
-  cta: {
-    height: mallMetrics.ctaHeight,
-    borderRadius: mallMetrics.ctaRadius,
-    backgroundColor: mallColors.accentLime,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 20,
-    minWidth: 140,
-  },
-  ctaDisabled: { opacity: 0.55 },
-  ctaLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: mallColors.textPrimary,
   },
 });

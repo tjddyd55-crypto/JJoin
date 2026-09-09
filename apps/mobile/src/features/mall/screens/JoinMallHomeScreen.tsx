@@ -36,7 +36,7 @@ export function JoinMallHomeScreen() {
       setError(null);
       const res = await api.listMallProducts({ categoryId, sort });
       setCategories(res.categories);
-      setItems(res.items);
+      setItems(res.items.filter((item) => item.purchaseState !== 'paused'));
       setAvailableCoin(res.availableCoin);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'load_failed');
