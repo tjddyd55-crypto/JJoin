@@ -9,6 +9,7 @@ type Props = {
 
 export function MallProductContentBlocks({ blocks }: Props) {
   const ordered = [...blocks].sort((a, b) => a.sortOrder - b.sortOrder);
+  if (ordered.length === 0) return null;
 
   return (
     <View style={styles.root}>
@@ -52,33 +53,34 @@ export function MallProductContentBlocks({ blocks }: Props) {
 
 const styles = StyleSheet.create({
   root: {
-    marginHorizontal: mallMetrics.screenPadding,
-    marginTop: 20,
-    gap: 16,
+    gap: 12,
   },
   heading: {
-    marginTop: 8,
     fontSize: 17,
     fontWeight: '700',
     color: mallColors.textPrimary,
     lineHeight: 24,
   },
   text: {
+    fontSize: 15,
     lineHeight: 22,
   },
   image: {
     width: '100%',
     aspectRatio: 1.2,
-    borderRadius: mallMetrics.detailInfoRadius,
+    marginVertical: 16,
+    borderRadius: 14,
     backgroundColor: mallColors.surfaceMuted,
   },
   notice: {
-    borderRadius: 16,
+    marginTop: 4,
+    borderRadius: 14,
     backgroundColor: mallColors.accentGreenSoft,
-    padding: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
   noticeText: {
-    fontSize: 13,
+    fontSize: 14,
     color: mallColors.textPrimary,
     lineHeight: 20,
   },

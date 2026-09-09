@@ -22,6 +22,7 @@ import type { MallProductDetailDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
 import { MallProductContentBlocks } from '../components/MallProductContentBlocks';
+import { MallSectionDivider } from '../components/MallSectionDivider';
 import { MallStickyPurchaseBar } from '../components/MallStickyPurchaseBar';
 import { mallColors, mallMetrics } from '../mallDesignTokens';
 import { formatMallCoinKo } from '../mallFormat';
@@ -120,7 +121,7 @@ export function JoinMallProductDetailScreen() {
           )}
         </View>
 
-        <View style={styles.infoCard}>
+        <View style={styles.productMeta}>
           {product.badge ? <RNText style={styles.badge}>{product.badge}</RNText> : null}
           <RNText style={styles.title}>{product.name}</RNText>
           {product.shortDescription ? (
@@ -128,38 +129,44 @@ export function JoinMallProductDetailScreen() {
           ) : null}
           <RNText style={styles.price}>{formatMallCoinKo(product.coinPrice)}</RNText>
           <RNText style={styles.balance}>
-            내 보유 코인  {formatNumber(product.availableCoin)}
+            보유 코인 {formatNumber(product.availableCoin)}
           </RNText>
         </View>
 
-        <Pressable style={styles.sectionCard} accessibilityRole="button">
-          <RNText style={styles.sectionTitle}>상품 정보</RNText>
-          <RNText style={styles.sectionSubtitle}>사용 방법 · 유효기간 · 환불 정책</RNText>
-          <RNText style={styles.sectionChevron}>›</RNText>
+        <MallSectionDivider spacing={20} />
+
+        <Pressable style={styles.productInfoRow} accessibilityRole="button">
+          <View style={styles.productInfoCopy}>
+            <RNText style={styles.productInfoTitle}>상품 정보</RNText>
+            <RNText style={styles.productInfoSubtitle}>사용 방법 · 유효기간 · 환불 정책</RNText>
+          </View>
+          <RNText style={styles.chevron}>›</RNText>
         </Pressable>
 
-        {hasContentBlocks ? (
-          <MallProductContentBlocks blocks={product.contentBlocks} />
-        ) : (
-          <>
-            {product.description ? (
-              <View style={styles.detailBlock}>
-                <Text variant="sectionTitle">상품 설명</Text>
-                <Text variant="body" tone="secondary" style={styles.detailText}>
+        <MallSectionDivider spacing={24} />
+
+        <View style={styles.section}>
+          <RNText style={styles.sectionHeading}>상품 설명</RNText>
+          {hasContentBlocks ? (
+            <MallProductContentBlocks blocks={product.contentBlocks ?? []} />
+          ) : (
+            <>
+              {product.description ? (
+                <Text variant="body" tone="secondary" style={styles.bodyText}>
                   {product.description}
                 </Text>
-              </View>
-            ) : null}
-            {gallery.slice(1).map((uri) => (
-              <Image key={uri} source={{ uri }} style={styles.detailImage} resizeMode="cover" />
-            ))}
-          </>
-        )}
+              ) : null}
+              {gallery.slice(1).map((uri) => (
+                <Image key={uri} source={{ uri }} style={styles.detailImage} resizeMode="cover" />
+              ))}
+            </>
+          )}
+        </View>
 
         {product.exchangeGuide ? (
-          <View style={styles.detailBlock}>
-            <Text variant="sectionTitle">교환 · 수령 안내</Text>
-            <Text variant="body" tone="secondary" style={styles.detailText}>
+          <View style={[styles.section, styles.exchangeSection]}>
+            <RNText style={styles.sectionHeading}>교환 · 수령 안내</RNText>
+            <Text variant="body" tone="secondary" style={styles.bodyText}>
               {product.exchangeGuide}
             </Text>
           </View>
@@ -186,14 +193,9 @@ const styles = StyleSheet.create({
     height: mallMetrics.detailHeroHeight,
     backgroundColor: mallColors.surfaceMuted,
   },
-  infoCard: {
-    marginHorizontal: mallMetrics.screenPadding,
-    marginTop: 18,
-    borderRadius: mallMetrics.detailInfoRadius,
-    borderWidth: 1,
-    borderColor: mallColors.border,
-    backgroundColor: mallColors.surface,
-    padding: mallMetrics.detailInfoPadding,
+  productMeta: {
+    paddingHorizontal: mallMetrics.screenPadding,
+    paddingTop: 16,
     gap: 8,
   },
   badge: {
@@ -208,59 +210,74 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   summary: {
+    marginTop: -2,
+    fontSize: 14,
+    color: mallColors.textSecondary,
+    lineHeight: 20,
+  },
+  price: {
+    marginTop: 4,
+    fontSize: mallMetrics.detailPriceSize,
+    fontWeight: '700',
+    color: mallColors.accentGreen,
+    lineHeight: 30,
+  },
+  balance: {
+    marginTop: 2,
+    fontSize: 14,
+    fontWeight: '500',
+    color: mallColors.textSecondary,
+    lineHeight: 20,
+  },
+  productInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: mallMetrics.screenPadding,
+    paddingVertical: 4,
+    gap: 12,
+  },
+  productInfoCopy: {
+    flex: 1,
+    gap: 6,
+  },
+  productInfoTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: mallColors.textPrimary,
+    lineHeight: 20,
+  },
+  productInfoSubtitle: {
     fontSize: 13,
     color: mallColors.textSecondary,
     lineHeight: 18,
   },
-  price: {
-    marginTop: 8,
-    fontSize: mallMetrics.detailPriceSize,
-    fontWeight: '700',
-    color: mallColors.accentGreen,
-  },
-  balance: {
-    marginTop: 8,
-    fontSize: 13,
-    fontWeight: '500',
-    color: mallColors.textPrimary,
-  },
-  sectionCard: {
-    marginHorizontal: mallMetrics.screenPadding,
-    marginTop: 16,
-    minHeight: mallMetrics.detailSectionHeight,
-    borderRadius: mallMetrics.detailSectionRadius,
-    borderWidth: 1,
-    borderColor: mallColors.border,
-    backgroundColor: mallColors.surface,
-    padding: mallMetrics.detailInfoPadding,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: mallColors.textPrimary,
-  },
-  sectionSubtitle: {
-    marginTop: 16,
-    fontSize: 13,
-    color: mallColors.textSecondary,
-  },
-  sectionChevron: {
-    position: 'absolute',
-    right: 16,
-    top: 40,
+  chevron: {
     fontSize: 22,
     color: mallColors.textSecondary,
+    lineHeight: 24,
   },
-  detailBlock: {
-    marginHorizontal: mallMetrics.screenPadding,
-    marginTop: 20,
-    gap: 8,
+  section: {
+    paddingHorizontal: mallMetrics.screenPadding,
+    gap: 12,
   },
-  detailText: { lineHeight: 22 },
+  exchangeSection: {
+    marginTop: 24,
+  },
+  sectionHeading: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: mallColors.textPrimary,
+    lineHeight: 24,
+  },
+  bodyText: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
   detailImage: {
     width: '100%',
     aspectRatio: 1.2,
-    marginTop: 16,
+    marginVertical: 16,
+    borderRadius: 14,
     backgroundColor: mallColors.surfaceMuted,
   },
 });
