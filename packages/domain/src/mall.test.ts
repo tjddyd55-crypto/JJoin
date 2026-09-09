@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { resolveMallPurchaseState, sortMallProducts } from './mall';
+import {
+  buildMallProductContentObjectKey,
+  isOwnedMallProductObjectKey,
+  resolveMallPurchaseState,
+  sortMallProducts,
+  validateMallContentBlocks,
+} from './mall';
 
 test('resolveMallPurchaseState returns available when balance covers price', () => {
   assert.equal(
@@ -56,4 +62,41 @@ test('sortMallProducts sorts coin ascending', () => {
   ];
   const sorted = sortMallProducts(items, 'coin_asc');
   assert.deepEqual(sorted.map((x) => x.id), ['b', 'c', 'a']);
+});
+
+test('buildMallProductContentObjectKey uses content namespace', () => {
+  const key = buildMallProductContentObjectKey({
+    environmentPrefix: 'development',
+    productId: 'p1',
+    fileId: 'abc',
+    extension: 'webp',
+  });
+  assert.equal(key, 'development/mall/products/p1/content/abc.webp');
+});
+
+test('isOwnedMallProductObjectKey allows content images', () => {
+  assert.equal(
+    isOwnedMallProductObjectKey({
+      objectKey: 'development/mall/products/p1/content/x.webp',
+      environmentPrefix: 'development',
+      productId: 'p1',
+    }),
+    true,
+  );
+});
+
+test('validateMallContentBlocks enforces type-specific fields', () => {
+  validateMallContentBlocks([
+    { type: 'HEADING', sortOrder: 0, text: '제목' },
+    { type: 'TEXT', sortOrder: 1, text: '본문' },
+    {
+      type: 'IMAGE',
+      sortOrder: 2,
+      imageObjectKey: 'development/mall/products/p1/content/a.webp',
+    },
+    { type: 'NOTICE', sortOrder: 3, text: '안내' },
+  ]);
+  assert.throws(() =>
+    validateMallContentBlocks([{ type: 'TEXT', sortOrder: 0, text: '' }]),
+  );
 });

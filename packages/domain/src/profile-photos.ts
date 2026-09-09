@@ -105,7 +105,7 @@ export function isPublicReadableObjectKey(params: {
   if (key.startsWith(mallPrefix)) {
     const rest = key.slice(mallPrefix.length);
     const [productId, kind] = rest.split('/');
-    if (!productId || (kind !== 'cover' && kind !== 'gallery')) return false;
+    if (!productId || (kind !== 'cover' && kind !== 'gallery' && kind !== 'content')) return false;
     return rest.split('/').length === 3;
   }
 

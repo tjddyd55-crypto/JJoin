@@ -139,6 +139,13 @@ enum MallOrderStatus {
   CANCELLED
 }
 
+enum MallContentBlockType {
+  HEADING
+  TEXT
+  IMAGE
+  NOTICE
+}
+
 enum AdminLoginScope {
   PLATFORM
   MALL_MD
@@ -2168,9 +2175,10 @@ model MallProduct {
   createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  category MallCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  images   MallProductImage[]
-  orders   MallOrder[]
+  category      MallCategory              @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  images        MallProductImage[]
+  contentBlocks MallProductContentBlock[]
+  orders        MallOrder[]
 
   @@index([categoryId, status, sortOrder])
   @@index([status, sortOrder])
@@ -2188,6 +2196,22 @@ model MallProductImage {
 
   @@index([productId, sortOrder])
   @@map("mall_product_images")
+}
+
+model MallProductContentBlock {
+  id             String               @id @default(cuid())
+  productId      String               @map("product_id") @db.Uuid
+  type           MallContentBlockType
+  sortOrder      Int                  @default(0) @map("sort_order")
+  text           String?              @db.Text
+  imageObjectKey String?              @map("image_object_key")
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  product MallProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, sortOrder])
+  @@map("mall_product_content_blocks")
 }
 
 model MallOrder {

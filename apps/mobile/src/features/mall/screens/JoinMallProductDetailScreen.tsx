@@ -21,6 +21,7 @@ import { formatNumber } from '@jjoin/domain';
 import type { MallProductDetailDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
+import { MallProductContentBlocks } from '../components/MallProductContentBlocks';
 import { MallStickyPurchaseBar } from '../components/MallStickyPurchaseBar';
 import { mallColors, mallMetrics } from '../mallDesignTokens';
 import { formatMallCoinKo } from '../mallFormat';
@@ -98,6 +99,7 @@ export function JoinMallProductDetailScreen() {
     ...product.images.map((image) => image.imageUrl).filter(Boolean),
   ];
   const shortage = shortageAmount(product);
+  const hasContentBlocks = (product.contentBlocks?.length ?? 0) > 0;
   const scrollBottomPadding = stickyActionScrollPaddingForButton(
     insets.bottom,
     mallMetrics.ctaHeight,
@@ -136,23 +138,32 @@ export function JoinMallProductDetailScreen() {
           <RNText style={styles.sectionChevron}>›</RNText>
         </Pressable>
 
-        {product.description ? (
-          <View style={styles.detailBlock}>
-            <Text variant="sectionTitle">상품 설명</Text>
-            <Text variant="body" tone="secondary" style={styles.detailText}>{product.description}</Text>
-          </View>
-        ) : null}
+        {hasContentBlocks ? (
+          <MallProductContentBlocks blocks={product.contentBlocks} />
+        ) : (
+          <>
+            {product.description ? (
+              <View style={styles.detailBlock}>
+                <Text variant="sectionTitle">상품 설명</Text>
+                <Text variant="body" tone="secondary" style={styles.detailText}>
+                  {product.description}
+                </Text>
+              </View>
+            ) : null}
+            {gallery.slice(1).map((uri) => (
+              <Image key={uri} source={{ uri }} style={styles.detailImage} resizeMode="cover" />
+            ))}
+          </>
+        )}
 
         {product.exchangeGuide ? (
           <View style={styles.detailBlock}>
             <Text variant="sectionTitle">교환 · 수령 안내</Text>
-            <Text variant="body" tone="secondary" style={styles.detailText}>{product.exchangeGuide}</Text>
+            <Text variant="body" tone="secondary" style={styles.detailText}>
+              {product.exchangeGuide}
+            </Text>
           </View>
         ) : null}
-
-        {gallery.slice(1).map((uri) => (
-          <Image key={uri} source={{ uri }} style={styles.detailImage} resizeMode="cover" />
-        ))}
       </ScrollView>
 
       <MallStickyPurchaseBar

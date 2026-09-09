@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   UploadedFile,
   UseGuards,
@@ -16,6 +17,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type { MallSortOption } from '@jjoin/domain';
 import type {
   CreateAdminMallProductRequest,
+  ReplaceAdminMallContentBlocksRequest,
   UpdateAdminMallProductRequest,
 } from '@jjoin/types';
 import { AdminGuard } from '../../common/admin.guard';
@@ -115,5 +117,43 @@ export class AdminMallController {
   @Delete('products/:productId/images/:imageId')
   deleteGalleryImage(@Param('productId') productId: string, @Param('imageId') imageId: string) {
     return this.service.deleteGalleryImage(productId, imageId);
+  }
+
+  @Put('products/:productId/content-blocks')
+  replaceContentBlocks(
+    @Param('productId') productId: string,
+    @Body() body: ReplaceAdminMallContentBlocksRequest,
+  ) {
+    return this.service.replaceAdminContentBlocks(productId, body);
+  }
+
+  @Post('products/:productId/content-blocks/image')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadContentBlockImage(
+    @Param('productId') productId: string,
+    @UploadedFile() file?: UploadedImageFile,
+    @Body('sortOrder') sortOrder?: string,
+  ) {
+    if (!file?.buffer?.length) throw new BadRequestException('file_required');
+    const parsed = sortOrder != null && sortOrder !== '' ? Number(sortOrder) : undefined;
+    return this.service.uploadContentBlockImage(productId, file.buffer, {
+      sortOrder: Number.isFinite(parsed) ? parsed : undefined,
+    });
+  }
+
+  @Post('products/:productId/content-blocks/:blockId/image')
+  @UseInterceptors(FileInterceptor('file'))
+  replaceContentBlockImage(
+    @Param('productId') productId: string,
+    @Param('blockId') blockId: string,
+    @UploadedFile() file?: UploadedImageFile,
+  ) {
+    if (!file?.buffer?.length) throw new BadRequestException('file_required');
+    return this.service.uploadContentBlockImage(productId, file.buffer, { blockId });
+  }
+
+  @Delete('products/:productId/content-blocks/:blockId')
+  deleteContentBlock(@Param('productId') productId: string, @Param('blockId') blockId: string) {
+    return this.service.deleteContentBlock(productId, blockId);
   }
 }
