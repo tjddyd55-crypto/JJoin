@@ -2,43 +2,44 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Pressable,
   ScrollView,
   StyleSheet,
+  Text as RNText,
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import {
-  AppBar,
-  Badge,
-  BottomActionBar,
-  Button,
-  Card,
-  EmptyState,
-  Spacer,
-  Text,
-  spacing,
-  useTheme,
-} from '@jjoin/design-system';
-import { formatCoinWithLabel } from '@jjoin/domain';
+import { AppBar, EmptyState, Text } from '@jjoin/design-system';
+import { formatNumber } from '@jjoin/domain';
 import type { MallProductDetailDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
+import { MallStickyPurchaseBar } from '../components/MallStickyPurchaseBar';
+import { mallColors, mallMetrics } from '../mallDesignTokens';
+import { formatMallCoinKo } from '../mallFormat';
 
-function ctaLabel(state: MallProductDetailDto['purchaseState']): string {
+function shortageAmount(product: MallProductDetailDto): string | null {
+  if (product.purchaseState !== 'insufficient_coin') return null;
+  const price = Number(product.coinPrice);
+  const balance = Number(product.availableCoin);
+  if (!Number.isFinite(price) || !Number.isFinite(balance)) return null;
+  const diff = price - balance;
+  return diff > 0 ? String(diff) : null;
+}
+
+function bottomButtonLabel(state: MallProductDetailDto['purchaseState']): string {
   if (state === 'sold_out') return '품절';
   if (state === 'paused') return '판매중지';
-  if (state === 'insufficient_coin') return '코인 부족';
+  if (state === 'insufficient_coin') return '코인 충전 후 구매';
   if (state === 'unavailable') return '구매 불가';
   return '코인으로 구매';
 }
 
 export function JoinMallProductDetailScreen() {
-  const theme = useTheme();
   const router = useRouter();
   const { productId } = useLocalSearchParams<{ productId: string }>();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [product, setProduct] = useState<MallProductDetailDto | null>(null);
 
@@ -59,25 +60,18 @@ export function JoinMallProductDetailScreen() {
     void load();
   }, [load]);
 
-  const onPurchase = async () => {
+  const onPressCta = () => {
     if (!product || product.purchaseState !== 'available') return;
-    setBusy(true);
-    try {
-      await api.purchaseMallProduct(product.id);
-      router.push('/mall/orders' as Href);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'purchase_failed');
-      await load();
-    } finally {
-      setBusy(false);
-    }
+    router.push(`/mall/confirm?productId=${product.id}` as Href);
   };
 
   if (loading) {
     return (
-      <View style={styles.centered}>
+      <View style={styles.screen}>
         <AppBar title="상품 상세" showBack onBack={() => router.back()} />
-        <ActivityIndicator color={theme.colors.action.primary} />
+        <View style={styles.centered}>
+          <ActivityIndicator color={mallColors.accentGreen} />
+        </View>
       </View>
     );
   }
@@ -104,51 +98,39 @@ export function JoinMallProductDetailScreen() {
           {gallery[0] ? (
             <Image source={{ uri: gallery[0] }} style={styles.heroImage} resizeMode="cover" />
           ) : (
-            <View style={[styles.heroImage, { backgroundColor: theme.colors.surface.soft }]} />
+            <View style={styles.heroImage} />
           )}
-          {product.badge ? (
-            <View style={styles.badge}>
-              <Badge label={product.badge} variant="success" />
-            </View>
-          ) : null}
         </View>
 
-        <View style={styles.section}>
-          <Text variant="caption" tone="tertiary">{product.categoryName}</Text>
-          <Text variant="display" style={styles.title}>{product.name}</Text>
-          <Text variant="coinMedium" tone="success">{formatCoinWithLabel(product.coinPrice)}</Text>
+        <View style={styles.infoCard}>
+          {product.badge ? <RNText style={styles.badge}>{product.badge}</RNText> : null}
+          <RNText style={styles.title}>{product.name}</RNText>
           {product.shortDescription ? (
-            <Text variant="body" tone="secondary" style={styles.summary}>{product.shortDescription}</Text>
+            <RNText style={styles.summary}>{product.shortDescription}</RNText>
           ) : null}
+          <RNText style={styles.price}>{formatMallCoinKo(product.coinPrice)}</RNText>
+          <RNText style={styles.balance}>
+            내 보유 코인  {formatNumber(product.availableCoin)}
+          </RNText>
         </View>
 
-        <Card variant="elevated" padding="md" style={styles.coinCard}>
-          <Text variant="bodyStrong">내 보유 코인</Text>
-          <Text variant="sectionTitle">{formatCoinWithLabel(product.availableCoin)}</Text>
-          {product.remainingCoinAfterPurchase ? (
-            <Text variant="caption" tone="secondary" style={styles.after}>
-              구매 후 {formatCoinWithLabel(product.remainingCoinAfterPurchase)}
-            </Text>
-          ) : product.purchaseState === 'insufficient_coin' ? (
-            <Text variant="caption" tone="error" style={styles.after}>
-              코인이 부족합니다. 조인에 참여하고 보상 코인을 모아보세요.
-            </Text>
-          ) : null}
-        </Card>
+        <Pressable style={styles.sectionCard} accessibilityRole="button">
+          <RNText style={styles.sectionTitle}>상품 정보</RNText>
+          <RNText style={styles.sectionSubtitle}>사용 방법 · 유효기간 · 환불 정책</RNText>
+          <RNText style={styles.sectionChevron}>›</RNText>
+        </Pressable>
 
         {product.description ? (
-          <View style={styles.section}>
+          <View style={styles.detailBlock}>
             <Text variant="sectionTitle">상품 설명</Text>
-            <Spacer size="xs" />
-            <Text variant="body" tone="secondary">{product.description}</Text>
+            <Text variant="body" tone="secondary" style={styles.detailText}>{product.description}</Text>
           </View>
         ) : null}
 
         {product.exchangeGuide ? (
-          <View style={styles.section}>
+          <View style={styles.detailBlock}>
             <Text variant="sectionTitle">교환 · 수령 안내</Text>
-            <Spacer size="xs" />
-            <Text variant="body" tone="secondary">{product.exchangeGuide}</Text>
+            <Text variant="body" tone="secondary" style={styles.detailText}>{product.exchangeGuide}</Text>
           </View>
         ) : null}
 
@@ -157,35 +139,101 @@ export function JoinMallProductDetailScreen() {
         ))}
       </ScrollView>
 
-      <BottomActionBar>
-        <Button
-          label={ctaLabel(product.purchaseState)}
-          onPress={onPurchase}
-          disabled={product.purchaseState !== 'available' || busy}
-          loading={busy}
-          fullWidth
-        />
-      </BottomActionBar>
+      <MallStickyPurchaseBar
+        shortageCoin={shortageAmount(product)}
+        buttonLabel={bottomButtonLabel(product.purchaseState)}
+        disabled={product.purchaseState !== 'available'}
+        onPress={onPressCta}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  centered: { flex: 1, justifyContent: 'center' },
-  content: { paddingBottom: 120 },
-  hero: { position: 'relative' },
-  heroImage: { width: '100%', aspectRatio: 1.1, backgroundColor: '#eef2f6' },
-  badge: { position: 'absolute', top: spacing.md, left: spacing.md },
-  section: { paddingHorizontal: spacing.md, paddingTop: spacing.lg, gap: 6 },
-  title: { marginTop: 4 },
-  summary: { marginTop: spacing.sm },
-  coinCard: { marginHorizontal: spacing.md, marginTop: spacing.md, gap: 4 },
-  after: { marginTop: 4 },
+  screen: { flex: 1, backgroundColor: mallColors.canvas },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  content: { paddingBottom: mallMetrics.bottomBarHeight + 24 },
+  hero: { backgroundColor: mallColors.surfaceMuted },
+  heroImage: {
+    width: '100%',
+    height: mallMetrics.detailHeroHeight,
+    backgroundColor: mallColors.surfaceMuted,
+  },
+  infoCard: {
+    marginHorizontal: mallMetrics.screenPadding,
+    marginTop: 18,
+    borderRadius: mallMetrics.detailInfoRadius,
+    borderWidth: 1,
+    borderColor: mallColors.border,
+    backgroundColor: mallColors.surface,
+    padding: mallMetrics.detailInfoPadding,
+    gap: 8,
+  },
+  badge: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: mallColors.accentGreen,
+  },
+  title: {
+    fontSize: mallMetrics.detailTitleSize,
+    fontWeight: '700',
+    color: mallColors.textPrimary,
+    lineHeight: 28,
+  },
+  summary: {
+    fontSize: 13,
+    color: mallColors.textSecondary,
+    lineHeight: 18,
+  },
+  price: {
+    marginTop: 8,
+    fontSize: mallMetrics.detailPriceSize,
+    fontWeight: '700',
+    color: mallColors.accentGreen,
+  },
+  balance: {
+    marginTop: 8,
+    fontSize: 13,
+    fontWeight: '500',
+    color: mallColors.textPrimary,
+  },
+  sectionCard: {
+    marginHorizontal: mallMetrics.screenPadding,
+    marginTop: 16,
+    minHeight: mallMetrics.detailSectionHeight,
+    borderRadius: mallMetrics.detailSectionRadius,
+    borderWidth: 1,
+    borderColor: mallColors.border,
+    backgroundColor: mallColors.surface,
+    padding: mallMetrics.detailInfoPadding,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: mallColors.textPrimary,
+  },
+  sectionSubtitle: {
+    marginTop: 16,
+    fontSize: 13,
+    color: mallColors.textSecondary,
+  },
+  sectionChevron: {
+    position: 'absolute',
+    right: 16,
+    top: 40,
+    fontSize: 22,
+    color: mallColors.textSecondary,
+  },
+  detailBlock: {
+    marginHorizontal: mallMetrics.screenPadding,
+    marginTop: 20,
+    gap: 8,
+  },
+  detailText: { lineHeight: 22 },
   detailImage: {
     width: '100%',
     aspectRatio: 1.2,
-    marginTop: spacing.md,
-    backgroundColor: '#eef2f6',
+    marginTop: 16,
+    backgroundColor: mallColors.surfaceMuted,
   },
 });
