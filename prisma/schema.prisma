@@ -2165,7 +2165,11 @@ model MallProduct {
   slug            String            @unique
   shortDescription String?          @map("short_description")
   description     String?           @db.Text
-  exchangeGuide   String?           @map("exchange_guide") @db.Text
+  exchangeGuide        String?           @map("exchange_guide") @db.Text
+  usageGuide           String?           @map("usage_guide") @db.Text
+  validityGuide        String?           @map("validity_guide") @db.Text
+  exchangeRefundGuide  String?           @map("exchange_refund_guide") @db.Text
+  noticeGuide          String?           @map("notice_guide") @db.Text
   coinPrice       Decimal           @map("coin_price") @db.Decimal(18, 4)
   stock           Int               @default(0)
   status          MallProductStatus @default(DRAFT)

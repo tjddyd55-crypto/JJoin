@@ -19,6 +19,10 @@ export type MallDemoProductSpec = {
   categoryId: string;
   badge?: string | null;
   exchangeGuide: string;
+  usageGuide?: string | null;
+  validityGuide?: string | null;
+  exchangeRefundGuide?: string | null;
+  noticeGuide?: string | null;
   cover: string;
   gallery: string[];
   contentImages: string[];
@@ -35,7 +39,10 @@ export const MALL_DEMO_PRODUCTS: MallDemoProductSpec[] = [
     categoryId: CATEGORY_GOLF,
     badge: 'NEW',
     exchangeGuide:
-      '구매 후 MY > 구매내역에서 교환 코드를 확인할 수 있습니다. 직접 수령 또는 택배 배송 중 선택 가능합니다. 단순 변심 교환은 제한될 수 있습니다.',
+      '구매 후 MY > 구매내역에서 교환 코드를 확인할 수 있습니다. 직접 수령 또는 택배 배송 중 선택 가능합니다.',
+    exchangeRefundGuide:
+      '단순 변심 교환은 제한될 수 있으며, 불량 또는 오배송은 고객센터를 통해 문의해주세요.',
+    noticeGuide: '색상은 재고 상황에 따라 화이트/베이지 중 랜덤 발송될 수 있습니다.',
     cover: 'uv-cap-cover.jpg',
     gallery: ['uv-cap-lifestyle.jpg', 'uv-cap-detail.jpg'],
     contentImages: ['uv-cap-content-1.jpg', 'uv-cap-content-2.jpg'],
@@ -72,7 +79,10 @@ export const MALL_DEMO_PRODUCTS: MallDemoProductSpec[] = [
     stock: 50,
     categoryId: CATEGORY_GOLF,
     exchangeGuide:
-      '구매 후 MY > 구매내역에서 교환 코드를 확인할 수 있습니다. 사이즈는 재고에 따라 좌타/우타 중 랜덤 발송될 수 있습니다.',
+      '구매 후 MY > 구매내역에서 교환 코드를 확인할 수 있습니다. 직접 수령 또는 택배 배송 중 선택 가능합니다.',
+    exchangeRefundGuide:
+      '사이즈는 재고에 따라 좌타/우타 중 랜덤 발송될 수 있으며, 단순 변심 교환은 제한될 수 있습니다.',
+    noticeGuide: '세탁 시 중성세제를 사용하고 직사광선 건조는 피해주세요.',
     cover: 'golf-glove-cover.jpg',
     gallery: ['golf-glove-grip.jpg', 'golf-glove-detail.jpg'],
     contentImages: ['golf-glove-content-1.jpg', 'golf-glove-content-2.jpg'],
@@ -117,8 +127,13 @@ export const MALL_DEMO_PRODUCTS: MallDemoProductSpec[] = [
     coinPrice: '900',
     stock: 100,
     categoryId: CATEGORY_FOOD,
-    exchangeGuide:
-      '구매일로부터 30일 이내 제휴 스크린골프 매장에서 사용해 주세요. 환불·재발급은 불가하며, 앱 구매내역 화면을 제시하면 됩니다.',
+    exchangeGuide: '제휴 스크린골프 매장 내 카페/음료 코너에서 음료 1잔으로 교환할 수 있습니다.',
+    usageGuide:
+      '결제 시 쪼인존 앱 MY > 구매내역에서 쿠폰 바코드를 직원에게 제시해 주세요. 1인 1회 사용 가능합니다.',
+    validityGuide: '구매일로부터 30일 이내 사용 가능합니다.',
+    exchangeRefundGuide: '환불 및 재발급은 불가합니다.',
+    noticeGuide:
+      '타 쿠폰·프로모션과 중복 사용이 제한될 수 있으며, 유효기간 경과 후에는 사용할 수 없습니다.',
     cover: 'drink-coupon-cover.jpg',
     gallery: ['drink-coupon-lounge.jpg', 'drink-coupon-exchange.jpg'],
     contentImages: ['drink-coupon-content-1.jpg'],

@@ -12,6 +12,7 @@ test('mall detail screen renders flat shopping layout with content blocks', () =
   assert.match(source, /MallSectionDivider/);
   assert.doesNotMatch(source, /infoCard/);
   assert.doesNotMatch(source, /sectionCard/);
+  assert.doesNotMatch(source, /productInfoRow/);
 });
 
 test('mall demo asset SSOT lists realistic product image files', () => {

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text as RNText,
@@ -22,6 +21,7 @@ import type { MallProductDetailDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
 import { MallProductContentBlocks } from '../components/MallProductContentBlocks';
+import { MallProductPolicySection } from '../components/MallProductPolicySection';
 import { MallSectionDivider } from '../components/MallSectionDivider';
 import { MallStickyPurchaseBar } from '../components/MallStickyPurchaseBar';
 import { mallColors, mallMetrics } from '../mallDesignTokens';
@@ -133,17 +133,7 @@ export function JoinMallProductDetailScreen() {
           </RNText>
         </View>
 
-        <MallSectionDivider spacing={20} />
-
-        <Pressable style={styles.productInfoRow} accessibilityRole="button">
-          <View style={styles.productInfoCopy}>
-            <RNText style={styles.productInfoTitle}>상품 정보</RNText>
-            <RNText style={styles.productInfoSubtitle}>사용 방법 · 유효기간 · 환불 정책</RNText>
-          </View>
-          <RNText style={styles.chevron}>›</RNText>
-        </Pressable>
-
-        <MallSectionDivider spacing={24} />
+        <MallSectionDivider spacing={22} />
 
         <View style={styles.section}>
           <RNText style={styles.sectionHeading}>상품 설명</RNText>
@@ -171,6 +161,8 @@ export function JoinMallProductDetailScreen() {
             </Text>
           </View>
         ) : null}
+
+        <MallProductPolicySection product={product} />
       </ScrollView>
 
       <MallStickyPurchaseBar
@@ -228,33 +220,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: mallColors.textSecondary,
     lineHeight: 20,
-  },
-  productInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: mallMetrics.screenPadding,
-    paddingVertical: 4,
-    gap: 12,
-  },
-  productInfoCopy: {
-    flex: 1,
-    gap: 6,
-  },
-  productInfoTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: mallColors.textPrimary,
-    lineHeight: 20,
-  },
-  productInfoSubtitle: {
-    fontSize: 13,
-    color: mallColors.textSecondary,
-    lineHeight: 18,
-  },
-  chevron: {
-    fontSize: 22,
-    color: mallColors.textSecondary,
-    lineHeight: 24,
   },
   section: {
     paddingHorizontal: mallMetrics.screenPadding,

@@ -2773,6 +2773,10 @@ export type ReplaceAdminMallContentBlocksRequest = {
 export type MallProductDetailDto = MallProductListItemDto & {
   description: string | null;
   exchangeGuide: string | null;
+  usageGuide: string | null;
+  validityGuide: string | null;
+  exchangeRefundGuide: string | null;
+  noticeGuide: string | null;
   images: MallProductImageDto[];
   contentBlocks: MallProductContentBlockDto[];
   availableCoin: string;
@@ -2823,6 +2827,10 @@ export type AdminMallProductDetailDto = AdminMallProductListItemDto & {
   shortDescription: string | null;
   description: string | null;
   exchangeGuide: string | null;
+  usageGuide: string | null;
+  validityGuide: string | null;
+  exchangeRefundGuide: string | null;
+  noticeGuide: string | null;
   images: MallProductImageDto[];
   contentBlocks: MallProductContentBlockDto[];
 };
@@ -2834,6 +2842,10 @@ export type CreateAdminMallProductRequest = {
   shortDescription?: string | null;
   description?: string | null;
   exchangeGuide?: string | null;
+  usageGuide?: string | null;
+  validityGuide?: string | null;
+  exchangeRefundGuide?: string | null;
+  noticeGuide?: string | null;
   coinPrice: string;
   stock: number;
   status?: MallProductStatus;

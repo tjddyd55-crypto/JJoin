@@ -161,6 +161,10 @@ async function upsertDemoProduct(token: string, demo: MallDemoProductSpec) {
           status: MallProductStatus.ACTIVE,
           badge: demo.badge ?? null,
           exchangeGuide: demo.exchangeGuide,
+          usageGuide: demo.usageGuide ?? null,
+          validityGuide: demo.validityGuide ?? null,
+          exchangeRefundGuide: demo.exchangeRefundGuide ?? null,
+          noticeGuide: demo.noticeGuide ?? null,
           sortOrder: 0,
         }),
       })
@@ -176,6 +180,10 @@ async function upsertDemoProduct(token: string, demo: MallDemoProductSpec) {
           status: MallProductStatus.ACTIVE,
           badge: demo.badge ?? null,
           exchangeGuide: demo.exchangeGuide,
+          usageGuide: demo.usageGuide ?? null,
+          validityGuide: demo.validityGuide ?? null,
+          exchangeRefundGuide: demo.exchangeRefundGuide ?? null,
+          noticeGuide: demo.noticeGuide ?? null,
           sortOrder: 0,
         }),
       });
