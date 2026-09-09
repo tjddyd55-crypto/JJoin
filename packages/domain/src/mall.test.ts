@@ -3,10 +3,16 @@ import { test } from 'node:test';
 import {
   buildMallProductContentObjectKey,
   isOwnedMallProductObjectKey,
+  MALL_USER_VISIBLE_STATUSES,
   resolveMallPurchaseState,
   sortMallProducts,
   validateMallContentBlocks,
 } from './mall';
+
+test('MALL_USER_VISIBLE_STATUSES excludes paused catalog rows', () => {
+  assert.deepEqual(MALL_USER_VISIBLE_STATUSES, ['ACTIVE', 'SOLD_OUT']);
+  assert.equal(!MALL_USER_VISIBLE_STATUSES.includes('PAUSED'), true);
+});
 
 test('resolveMallPurchaseState returns available when balance covers price', () => {
   assert.equal(

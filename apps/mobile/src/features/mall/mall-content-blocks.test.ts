@@ -2,6 +2,14 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
+test('mall home screen hides paused catalog rows', () => {
+  const source = readFileSync(
+    new URL('./screens/JoinMallHomeScreen.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /purchaseState !== 'paused'/);
+});
+
 test('mall detail screen renders flat shopping layout with content blocks', () => {
   const source = readFileSync(
     new URL('./screens/JoinMallProductDetailScreen.tsx', import.meta.url),
@@ -27,6 +35,8 @@ test('mall demo asset SSOT lists 8 realistic product image files', () => {
   assert.match(source, /screen-pass-cover\.jpg/);
   assert.match(source, /MALL_DEMO_PRODUCTS/);
   assert.match(source, /MALL_DEMO_SLUGS/);
+  assert.match(source, /MallDemoProductImages/);
+  assert.match(source, /images:\s*\{/);
 });
 
 test('mall content blocks preserve natural image aspect ratio', () => {

@@ -163,7 +163,7 @@ export class MallService {
     const availableCoin = await this.getAvailableCoin(userId);
     const categories = await this.listCategories();
     const where: Prisma.MallProductWhereInput = {
-      status: { in: [MallProductStatus.ACTIVE, MallProductStatus.SOLD_OUT, MallProductStatus.PAUSED] },
+      status: { in: [MallProductStatus.ACTIVE, MallProductStatus.SOLD_OUT] },
     };
     if (query.categoryId) where.categoryId = query.categoryId;
     if (query.q?.trim()) {

@@ -4,6 +4,9 @@ export type MallSortOption = 'recommended' | 'latest' | 'coin_asc';
 
 export const MALL_SORT_OPTIONS: MallSortOption[] = ['recommended', 'latest', 'coin_asc'];
 
+/** User-facing mall catalog: hidden products must not appear in list API. */
+export const MALL_USER_VISIBLE_STATUSES: MallProductStatusValue[] = ['ACTIVE', 'SOLD_OUT'];
+
 export function buildMallProductCoverObjectKey(params: {
   environmentPrefix: 'development' | 'production';
   productId: string;

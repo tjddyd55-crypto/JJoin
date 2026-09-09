@@ -5,7 +5,7 @@
  *   pnpm exec tsx scripts/fetch-mall-demo-assets.ts     # verify assets exist
  *   pnpm exec tsx scripts/seed-mall-demo.ts
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import {
   MallContentBlockType,
   MallProductStatus,
@@ -14,6 +14,7 @@ import {
   type AdminMallProductDetailDto,
 } from '../packages/types/src/index.ts';
 import {
+  listRequiredDemoAssetFiles,
   MALL_DEMO_PRODUCTS,
   MALL_DEMO_SLUGS,
   type MallDemoProductSpec,
@@ -26,6 +27,27 @@ const API_BASE = (process.env.API_BASE ?? 'https://api-development-e387.up.railw
 );
 const TAG = '[DEV-MALL-DEMO]';
 const DEMO_SLUG_SET = new Set<string>(MALL_DEMO_SLUGS);
+const MIN_ASSET_BYTES = 8_000;
+
+function assertDemoAssetsReady(): void {
+  const missing: string[] = [];
+  const tooSmall: string[] = [];
+  for (const fileName of listRequiredDemoAssetFiles()) {
+    const filePath = resolveDemoAssetPath(fileName);
+    if (!existsSync(filePath)) {
+      missing.push(fileName);
+      continue;
+    }
+    const size = readFileSync(filePath).length;
+    if (size < MIN_ASSET_BYTES) tooSmall.push(`${fileName}(${size})`);
+  }
+  if (missing.length > 0) {
+    throw new Error(`${TAG} missing assets: ${missing.join(', ')}`);
+  }
+  if (tooSmall.length > 0) {
+    throw new Error(`${TAG} invalid assets (too small): ${tooSmall.join(', ')}`);
+  }
+}
 
 async function j<T>(path: string, init?: RequestInit) {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -253,6 +275,7 @@ async function upsertDemoProduct(token: string, demo: MallDemoProductSpec): Prom
 
 async function main() {
   await assertDevelopmentOnly();
+  assertDemoAssetsReady();
   const token = await signInAdmin();
 
   const paused = await pauseOrphanProducts(token);

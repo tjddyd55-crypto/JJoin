@@ -29,6 +29,17 @@ export type MallDemoContentBlock =
   | { type: MallContentBlockType.IMAGE; file: string }
   | { type: MallContentBlockType.NOTICE; text: string };
 
+/** Named image roles — avoids index/order mix-ups in download + seed. */
+export type MallDemoProductImages = {
+  cover: string;
+  lifestyle: string;
+  detail: string;
+  galleryExtra?: string;
+  content1: string;
+  content2: string;
+  content3: string;
+};
+
 export type MallDemoProductSpec = {
   slug: string;
   name: string;
@@ -43,12 +54,42 @@ export type MallDemoProductSpec = {
   validityGuide?: string | null;
   exchangeRefundGuide?: string | null;
   noticeGuide?: string | null;
+  images: MallDemoProductImages;
   cover: string;
   gallery: string[];
   contentBlocks: MallDemoContentBlock[];
 };
 
-export const MALL_DEMO_PRODUCTS: MallDemoProductSpec[] = [
+type MallDemoProductDraft = Omit<MallDemoProductSpec, 'cover' | 'gallery'>;
+
+export function resolveProductGallery(images: MallDemoProductImages): string[] {
+  const gallery = [images.lifestyle, images.detail];
+  if (images.galleryExtra) gallery.push(images.galleryExtra);
+  return gallery;
+}
+
+export function listProductImageFiles(images: MallDemoProductImages): string[] {
+  const files = [
+    images.cover,
+    images.lifestyle,
+    images.detail,
+    images.content1,
+    images.content2,
+    images.content3,
+  ];
+  if (images.galleryExtra) files.push(images.galleryExtra);
+  return files;
+}
+
+function finalizeProduct(draft: MallDemoProductDraft): MallDemoProductSpec {
+  return {
+    ...draft,
+    cover: draft.images.cover,
+    gallery: resolveProductGallery(draft.images),
+  };
+}
+
+const MALL_DEMO_PRODUCT_DRAFTS: MallDemoProductDraft[] = [
   {
     slug: 'dev-demo-uv-golf-cap',
     name: 'UV 차단 골프 모자',
@@ -63,8 +104,15 @@ export const MALL_DEMO_PRODUCTS: MallDemoProductSpec[] = [
     exchangeRefundGuide:
       '단순 변심 교환은 제한될 수 있으며, 불량 또는 오배송은 고객센터를 통해 문의해주세요.',
     noticeGuide: '색상은 재고 상황에 따라 화이트/베이지 중 랜덤 발송될 수 있습니다.',
-    cover: 'uv-cap-cover.jpg',
-    gallery: ['uv-cap-lifestyle.jpg', 'uv-cap-detail.jpg', 'uv-cap-mesh.jpg'],
+    images: {
+      cover: 'uv-cap-cover.jpg',
+      lifestyle: 'uv-cap-lifestyle.jpg',
+      detail: 'uv-cap-detail.jpg',
+      galleryExtra: 'uv-cap-mesh.jpg',
+      content1: 'uv-cap-content-1.jpg',
+      content2: 'uv-cap-content-2.jpg',
+      content3: 'uv-cap-content-3.jpg',
+    },
     contentBlocks: [
       {
         type: MallContentBlockType.HEADING,
@@ -115,8 +163,15 @@ export const MALL_DEMO_PRODUCTS: MallDemoProductSpec[] = [
     exchangeRefundGuide:
       '사이즈는 재고에 따라 좌타/우타 중 랜덤 발송될 수 있으며, 단순 변심 교환은 제한될 수 있습니다.',
     noticeGuide: '세탁 시 중성세제를 사용하고 직사광선 건조는 피해주세요.',
-    cover: 'golf-glove-cover.jpg',
-    gallery: ['golf-glove-grip.jpg', 'golf-glove-detail.jpg', 'golf-glove-wrist.jpg'],
+    images: {
+      cover: 'golf-glove-cover.jpg',
+      lifestyle: 'golf-glove-grip.jpg',
+      detail: 'golf-glove-detail.jpg',
+      galleryExtra: 'golf-glove-wrist.jpg',
+      content1: 'golf-glove-content-1.jpg',
+      content2: 'golf-glove-content-2.jpg',
+      content3: 'golf-glove-content-3.jpg',
+    },
     contentBlocks: [
       {
         type: MallContentBlockType.HEADING,
@@ -167,8 +222,14 @@ export const MALL_DEMO_PRODUCTS: MallDemoProductSpec[] = [
       '구매 후 MY > 구매내역에서 교환 코드를 확인할 수 있습니다. 직접 수령 또는 택배 배송 중 선택 가능합니다.',
     exchangeRefundGuide: '단순 변심 교환은 제한될 수 있습니다.',
     noticeGuide: '사이즈는 팔둘레에 맞게 선택해 주세요. 세탁 시 찬물 단독 세탁을 권장합니다.',
-    cover: 'arm-sleeve-cover.jpg',
-    gallery: ['arm-sleeve-lifestyle.jpg', 'arm-sleeve-detail.jpg'],
+    images: {
+      cover: 'arm-sleeve-cover.jpg',
+      lifestyle: 'arm-sleeve-lifestyle.jpg',
+      detail: 'arm-sleeve-detail.jpg',
+      content1: 'arm-sleeve-content-1.jpg',
+      content2: 'arm-sleeve-content-2.jpg',
+      content3: 'arm-sleeve-content-3.jpg',
+    },
     contentBlocks: [
       {
         type: MallContentBlockType.HEADING,
@@ -218,8 +279,14 @@ export const MALL_DEMO_PRODUCTS: MallDemoProductSpec[] = [
       '구매 후 MY > 구매내역에서 교환 코드를 확인할 수 있습니다. 직접 수령 또는 택배 배송 중 선택 가능합니다.',
     exchangeRefundGuide: '단순 변심 교환은 제한될 수 있습니다.',
     noticeGuide: '최초 사용 전 미지근한 물로 1회 세탁 후 사용을 권장합니다.',
-    cover: 'towel-cover.jpg',
-    gallery: ['towel-lifestyle.jpg', 'towel-detail.jpg'],
+    images: {
+      cover: 'towel-cover.jpg',
+      lifestyle: 'towel-lifestyle.jpg',
+      detail: 'towel-detail.jpg',
+      content1: 'towel-content-1.jpg',
+      content2: 'towel-content-2.jpg',
+      content3: 'towel-content-3.jpg',
+    },
     contentBlocks: [
       {
         type: MallContentBlockType.HEADING,
@@ -269,8 +336,14 @@ export const MALL_DEMO_PRODUCTS: MallDemoProductSpec[] = [
       '구매 후 MY > 구매내역에서 교환 코드를 확인할 수 있습니다. 직접 수령 또는 택배 배송 중 선택 가능합니다.',
     exchangeRefundGuide: '개봉 후 단순 변심 교환은 제한될 수 있습니다.',
     noticeGuide: '보관 시 직사광선과 고온 다습한 환경을 피해주세요.',
-    cover: 'golf-ball-cover.jpg',
-    gallery: ['golf-ball-package.jpg', 'golf-ball-detail.jpg'],
+    images: {
+      cover: 'golf-ball-cover.jpg',
+      lifestyle: 'golf-ball-package.jpg',
+      detail: 'golf-ball-detail.jpg',
+      content1: 'golf-ball-content-1.jpg',
+      content2: 'golf-ball-content-2.jpg',
+      content3: 'golf-ball-content-3.jpg',
+    },
     contentBlocks: [
       {
         type: MallContentBlockType.HEADING,
@@ -321,8 +394,14 @@ export const MALL_DEMO_PRODUCTS: MallDemoProductSpec[] = [
       '구매 후 MY > 구매내역에서 교환 코드를 확인할 수 있습니다. 택배 배송으로 수령할 수 있습니다.',
     exchangeRefundGuide: '단순 변심 교환은 제한될 수 있습니다.',
     noticeGuide: '바닥이 미끄러운 공간에서는 매트 하단 고정 패드를 확인해 주세요.',
-    cover: 'putting-mat-cover.jpg',
-    gallery: ['putting-mat-lifestyle.jpg', 'putting-mat-detail.jpg'],
+    images: {
+      cover: 'putting-mat-cover.jpg',
+      lifestyle: 'putting-mat-lifestyle.jpg',
+      detail: 'putting-mat-detail.jpg',
+      content1: 'putting-mat-content-1.jpg',
+      content2: 'putting-mat-content-2.jpg',
+      content3: 'putting-mat-content-3.jpg',
+    },
     contentBlocks: [
       {
         type: MallContentBlockType.HEADING,
@@ -375,8 +454,14 @@ export const MALL_DEMO_PRODUCTS: MallDemoProductSpec[] = [
     exchangeRefundGuide: '환불 및 재발급은 불가합니다.',
     noticeGuide:
       '타 쿠폰·프로모션과 중복 사용이 제한될 수 있으며, 유효기간 경과 후에는 사용할 수 없습니다.',
-    cover: 'drink-coupon-cover.jpg',
-    gallery: ['drink-coupon-lounge.jpg', 'drink-coupon-exchange.jpg'],
+    images: {
+      cover: 'drink-coupon-cover.jpg',
+      lifestyle: 'drink-coupon-lounge.jpg',
+      detail: 'drink-coupon-exchange.jpg',
+      content1: 'drink-coupon-content-1.jpg',
+      content2: 'drink-coupon-content-2.jpg',
+      content3: 'drink-coupon-content-3.jpg',
+    },
     contentBlocks: [
       {
         type: MallContentBlockType.HEADING,
@@ -431,8 +516,14 @@ export const MALL_DEMO_PRODUCTS: MallDemoProductSpec[] = [
     exchangeRefundGuide: '환불 및 재발급은 불가합니다. 미사용 만료 시 자동 소멸됩니다.',
     noticeGuide:
       '매장별 예약 정책이 다를 수 있으며, 성수기에는 사전 예약이 필요할 수 있습니다.',
-    cover: 'screen-pass-cover.jpg',
-    gallery: ['screen-pass-lounge.jpg', 'screen-pass-booth.jpg'],
+    images: {
+      cover: 'screen-pass-cover.jpg',
+      lifestyle: 'screen-pass-lounge.jpg',
+      detail: 'screen-pass-booth.jpg',
+      content1: 'screen-pass-content-1.jpg',
+      content2: 'screen-pass-content-2.jpg',
+      content3: 'screen-pass-content-3.jpg',
+    },
     contentBlocks: [
       {
         type: MallContentBlockType.HEADING,
@@ -472,6 +563,9 @@ export const MALL_DEMO_PRODUCTS: MallDemoProductSpec[] = [
   },
 ];
 
+export const MALL_DEMO_PRODUCTS: MallDemoProductSpec[] =
+  MALL_DEMO_PRODUCT_DRAFTS.map(finalizeProduct);
+
 export function resolveDemoAssetPath(fileName: string): string {
   return join(MALL_DEMO_ASSET_DIR, fileName);
 }
@@ -479,11 +573,7 @@ export function resolveDemoAssetPath(fileName: string): string {
 export function listRequiredDemoAssetFiles(): string[] {
   const files = new Set<string>();
   for (const product of MALL_DEMO_PRODUCTS) {
-    files.add(product.cover);
-    for (const file of product.gallery) files.add(file);
-    for (const block of product.contentBlocks) {
-      if (block.type === MallContentBlockType.IMAGE) files.add(block.file);
-    }
+    for (const file of listProductImageFiles(product.images)) files.add(file);
   }
   return [...files].sort();
 }
