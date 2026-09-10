@@ -35,6 +35,38 @@ function resolvePublicMediaDeliveryMode(): 'r2' | 'api' {
   return mode === 'api' ? 'api' : 'r2';
 }
 
+/** Base URL for anonymous `/media/objects` delivery (React Native Image compatible). */
+export function resolvePublicMediaApiBase(): string {
+  const explicit =
+    process.env.PUBLIC_API_BASE_URL?.trim() || process.env.API_PUBLIC_BASE_URL?.trim() || '';
+  if (explicit) return normalizeBaseUrl(explicit);
+
+  const railwayHost =
+    process.env.RAILWAY_PUBLIC_DOMAIN?.trim() || process.env.RAILWAY_STATIC_URL?.trim() || '';
+  if (railwayHost) {
+    const host = railwayHost.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+    return `https://${host}`;
+  }
+
+  return '';
+}
+
+export function resolvePublicObjectUrl(params: {
+  objectKey: string;
+  publicBaseUrl: string;
+}): string | null {
+  const key = params.objectKey.trim().replace(/^\/+/, '');
+  if (!key) return null;
+
+  const apiBase = resolvePublicMediaApiBase();
+  if (resolvePublicMediaDeliveryMode() === 'api' && apiBase) {
+    return `${apiBase}/media/objects?key=${encodeURIComponent(key)}`;
+  }
+
+  if (!params.publicBaseUrl) return null;
+  return buildPublicObjectUrl(params.publicBaseUrl, key);
+}
+
 export function resolveObjectStorageConfig(): ObjectStorageConfig {
   const mode = (process.env.MEDIA_STORAGE_MODE ?? 'mock').trim().toLowerCase();
   if (mode !== 'r2') {
@@ -170,16 +202,10 @@ export class ObjectStorageService {
       return objectKey;
     }
 
-    const key = objectKey.trim().replace(/^\/+/, '');
-    if (!key) return null;
-
-    const apiBase = normalizeBaseUrl(process.env.PUBLIC_API_BASE_URL?.trim() ?? '');
-    if (resolvePublicMediaDeliveryMode() === 'api' && apiBase) {
-      return `${apiBase}/media/objects?key=${encodeURIComponent(key)}`;
-    }
-
-    if (!this.config.publicBaseUrl) return null;
-    return buildPublicObjectUrl(this.config.publicBaseUrl, key);
+    return resolvePublicObjectUrl({
+      objectKey,
+      publicBaseUrl: this.config.publicBaseUrl,
+    });
   }
 
   canServePublicObject(objectKey: string): boolean {
