@@ -37,5 +37,8 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Build workspace packages
+        run: pnpm build:mobile-deps
+
       - name: Test
         run: pnpm test
