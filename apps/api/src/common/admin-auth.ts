@@ -1,6 +1,14 @@
+import { isDevelopmentUnsafePathAllowed } from '../config/app-variant';
 import type { PrismaService } from '../prisma/prisma.service';
 
 const ADMIN_MOCK_SUBJECT = 'dev-persona-admin';
+
+/** DEV_ADMIN social subject may grant admin only on a development variant. */
+export function isDevAdminMockSubjectAllowed(): boolean {
+  if (!isDevelopmentUnsafePathAllowed()) return false;
+  const socialMode = (process.env.SOCIAL_AUTH_MODE ?? 'mock').trim().toLowerCase();
+  return socialMode === 'mock' || socialMode === 'hybrid';
+}
 
 export function parseAdminUserIds(): string[] {
   return (process.env.ADMIN_USER_IDS ?? '')
@@ -21,8 +29,7 @@ export async function isAdminUser(
   });
   if (credential) return true;
 
-  const socialMode = (process.env.SOCIAL_AUTH_MODE ?? 'mock').trim().toLowerCase();
-  if (socialMode !== 'mock' && socialMode !== 'hybrid') return false;
+  if (!isDevAdminMockSubjectAllowed()) return false;
   const account = await prisma.socialAccount.findFirst({
     where: { userId, providerSubject: ADMIN_MOCK_SUBJECT },
   });

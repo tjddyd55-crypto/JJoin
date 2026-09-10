@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { MallProductStatus } from '@jjoin/types';
 import { buildMallPolicyRows } from './mallProductPolicy';
@@ -16,6 +18,7 @@ const baseProduct = {
   sortOrder: 0,
   badge: null,
   coverImageUrl: null,
+  createdAt: '2026-01-01T00:00:00.000Z',
   shortDescription: null,
   purchaseState: 'available' as const,
   description: null,
@@ -45,7 +48,7 @@ test('buildMallPolicyRows omits empty policy fields', () => {
 
 test('mall detail screen places policy section at bottom', () => {
   const source = readFileSync(
-    new URL('./screens/JoinMallProductDetailScreen.tsx', import.meta.url),
+    join(dirname(fileURLToPath(import.meta.url)), './screens/JoinMallProductDetailScreen.tsx'),
     'utf8',
   );
   assert.match(source, /MallProductPolicySection/);

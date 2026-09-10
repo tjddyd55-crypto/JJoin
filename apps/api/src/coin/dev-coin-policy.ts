@@ -1,3 +1,5 @@
+import { isProductionAppVariant } from '../config/app-variant';
+
 /**
  * DEV / TEST coin policy only.
  * Production fee/reward/KRW values remain POLICY_TBD — never treat these as product policy.
@@ -39,15 +41,17 @@ export const DEV_TEST_COIN_POLICY = {
 } as const;
 
 export function resolveCoinPolicyMode(): CoinPolicyMode {
+  if (isProductionAppVariant()) return 'disabled';
   const raw = (process.env.COIN_POLICY_MODE ?? '').trim().toLowerCase();
   if (raw === 'disabled') return 'disabled';
   if (raw === 'dev') return 'dev';
-  // Railway production QA: mock + hybrid social auth both use TEST coin policy for DEV personas.
+  // Development only: mock + hybrid still use TEST coin policy for DEV personas.
   if (isRegressionSocialAuthMode()) return 'dev';
   return 'disabled';
 }
 
 export function isDevCoinFundingAllowed(): boolean {
+  if (isProductionAppVariant()) return false;
   if (resolveCoinPolicyMode() !== 'dev') return false;
   return isRegressionSocialAuthMode();
 }

@@ -1,3 +1,5 @@
+import { isDevelopmentUnsafePathAllowed } from '../config/app-variant';
+
 /**
  * Injectable settlement clock — tests may override via SettlementService injection.
  */
@@ -11,8 +13,9 @@ export class SystemSettlementClock implements SettlementClock {
   }
 }
 
-/** DEV/mock QA only — never exposed to production real users without guard. */
+/** Development-variant QA only — production never, even if SOCIAL_AUTH_MODE is hybrid/mock. */
 export function isSettlementQaAllowed(): boolean {
+  if (!isDevelopmentUnsafePathAllowed()) return false;
   const mode = (process.env.SOCIAL_AUTH_MODE ?? 'mock').trim().toLowerCase();
   return mode === 'mock' || mode === 'hybrid';
 }

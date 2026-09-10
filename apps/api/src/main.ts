@@ -1,19 +1,19 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { validateIdentityVerificationBypassOnBoot } from './config/identity-verification';
+import {
+  assertProductionFailClosedOnBoot,
+  resolveCorsOriginConfig,
+} from './config/production-guards';
 
 async function bootstrap() {
   validateIdentityVerificationBypassOnBoot();
+  assertProductionFailClosedOnBoot();
 
   const app = await NestFactory.create(AppModule);
 
-  const corsOrigins = (process.env.CORS_ORIGINS ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-
   app.enableCors({
-    origin: corsOrigins.length > 0 ? corsOrigins : true,
+    origin: resolveCorsOriginConfig(),
     credentials: false,
   });
 

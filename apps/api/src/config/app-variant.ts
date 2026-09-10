@@ -17,3 +17,16 @@ export function resolveApiAppVariant(): AppVariantName {
 export function resolveApiAppVariantDb(): 'DEVELOPMENT' | 'PRODUCTION' {
   return appVariantToDb(resolveApiAppVariant());
 }
+
+/** Production deployment — Railway production or explicit JJOIN_APP_VARIANT=production. */
+export function isProductionAppVariant(): boolean {
+  return resolveApiAppVariant() === 'production';
+}
+
+/**
+ * Development-only unsafe paths (mock login, DEV persona admin, TEST coin, QA clock).
+ * Production variant is never allowed, even if SOCIAL_AUTH_MODE is hybrid/mock.
+ */
+export function isDevelopmentUnsafePathAllowed(): boolean {
+  return resolveApiAppVariant() === 'development';
+}
