@@ -82,6 +82,11 @@ import {
   formatJoinScheduleDetailDate,
   formatJoinScheduleDetailTime,
 } from '../../src/ui/join-display';
+import {
+  isJoinHostLimitError,
+  messageForJoinCreateError,
+} from '../../src/features/join-create/join-create-error';
+import { resolveVenueIdForCreate } from '../../src/features/join-create/resolve-venue-id-for-create';
 
 function defaultStartParts() {
   const d = new Date(Date.now() + 2 * 60 * 60_000);
@@ -403,6 +408,10 @@ export default function CreateScreen() {
     setSubmitting(true);
     setError(null);
     try {
+      const venueId = await resolveVenueIdForCreate(api, selectedVenue);
+      if (venueId !== selectedVenue.venueId) {
+        setSelectedVenue({ ...selectedVenue, venueId, source: 'VENUE' });
+      }
       if (recurrenceMode === 'WEEKLY') {
         const dayOfWeek = isoWeekdayFromDateKey(gameDate);
         const schedule = await api.createRecurringJoin({
@@ -416,7 +425,7 @@ export default function CreateScreen() {
           description: description.trim() || null,
           joinTemplate: {
             sportCode: SCREEN_GOLF_CODE,
-            venueId: selectedVenue.venueId,
+            venueId,
             plannedPlayerCount: players,
             joinMethod,
             title: routeTitle ?? `${selectedVenue.name} 스크린골프`,
@@ -434,7 +443,7 @@ export default function CreateScreen() {
       }
       const detail = await api.createJoin({
         sportCode: SCREEN_GOLF_CODE,
-        venueId: selectedVenue.venueId,
+        venueId,
         startAt: startAtIso,
         plannedPlayerCount: players,
         joinMethod,
@@ -462,11 +471,7 @@ export default function CreateScreen() {
       clearJoinCreateDraft();
       setPrefilledInvitees([]);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'create_failed';
-      if (msg.startsWith('network_error')) setError('네트워크 오류 — API 연결을 확인하세요.');
-      else if (msg.includes('401')) setError('로그인이 필요합니다.');
-      else if (msg.includes('INSUFFICIENT_BALANCE')) setError(t('create.coin.insufficient'));
-      else if (msg.includes('JOIN_HOST_LIMIT')) {
+      if (isJoinHostLimitError(e)) {
         Alert.alert(
           '조인 생성 제한',
           '일반 회원은 동시에 운영 중인 조인 수에 제한이 있습니다. 프리미엄 회원은 제한 없이 조인을 만들 수 있습니다.',
@@ -475,7 +480,9 @@ export default function CreateScreen() {
             { text: '프리미엄 알아보기', onPress: () => router.push('/my/premium') },
           ],
         );
-      } else setError('조인 생성에 실패했습니다.');
+      } else {
+        setError(messageForJoinCreateError(e));
+      }
     } finally {
       setSubmitting(false);
     }
