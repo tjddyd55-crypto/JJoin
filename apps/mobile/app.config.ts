@@ -196,7 +196,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     name: identity.name,
     slug: identity.slug,
     owner: 'tjddyd55',
-    version: '0.0.13',
+    version: '0.0.14',
     orientation: 'portrait',
     icon: appIcon,
     scheme: identity.scheme,
