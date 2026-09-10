@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import type { PrismaService } from '../prisma/prisma.service';
 import {
   ADMIN_MOCK_SUBJECT,
   isAdminUser,
   isDevAdminMockSubjectAllowed,
 } from './admin-auth';
+
+type AdminPrisma = Pick<PrismaService, 'socialAccount' | 'adminLoginCredential'>;
 
 const TRACKED = ['JJOIN_APP_VARIANT', 'SOCIAL_AUTH_MODE', 'ADMIN_USER_IDS'] as const;
 
@@ -28,7 +31,7 @@ async function withEnv(
   }
 }
 
-function prismaStub(opts: { credential?: boolean; mockSubject?: boolean }) {
+function prismaStub(opts: { credential?: boolean; mockSubject?: boolean }): AdminPrisma {
   return {
     adminLoginCredential: {
       findUnique: async () => (opts.credential ? { id: 'cred-1' } : null),
@@ -36,7 +39,7 @@ function prismaStub(opts: { credential?: boolean; mockSubject?: boolean }) {
     socialAccount: {
       findFirst: async () => (opts.mockSubject ? { id: 'acct-1' } : null),
     },
-  };
+  } as unknown as AdminPrisma;
 }
 
 test('production variant never grants admin via DEV_ADMIN subject even in hybrid', async () => {
