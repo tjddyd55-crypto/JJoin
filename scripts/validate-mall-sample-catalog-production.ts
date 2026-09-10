@@ -42,9 +42,25 @@ function isLogoLike(url: string | null | undefined): boolean {
 }
 
 function extractObjectKey(url: string): string | null {
-  const match = url.match(/[?&]key=([^&]+)/);
-  if (!match) return null;
-  return decodeURIComponent(match[1]);
+  const queryMatch = url.match(/[?&]key=([^&]+)/);
+  if (queryMatch) return decodeURIComponent(queryMatch[1]);
+
+  const r2Match = url.match(/r2\.dev\/(production\/mall\/products\/[^?#]+)/);
+  if (r2Match) return r2Match[1];
+
+  const pathMatch = url.match(/\/media\/objects\?key=([^&]+)/);
+  if (pathMatch) return decodeURIComponent(pathMatch[1]);
+
+  return null;
+}
+
+async function verifyImageViaApiProxy(objectKey: string): Promise<boolean> {
+  const res = await fetch(
+    `${API_BASE}/media/objects?key=${encodeURIComponent(objectKey)}`,
+  );
+  if (!res.ok) return false;
+  const contentType = res.headers.get('content-type') ?? '';
+  return contentType.startsWith('image/');
 }
 
 async function main() {
@@ -100,23 +116,19 @@ async function main() {
     if (!coverUrl) coverMissing++;
     if (isLogoLike(coverUrl)) logoPlaceholder++;
 
-    const urls = [
-      coverUrl,
-      ...detail.images.map((i) => i.imageUrl),
+    const objectKeys = [
+      coverUrl ? extractObjectKey(coverUrl) : null,
+      ...detail.images.map((i) => extractObjectKey(i.imageUrl)),
       ...detail.contentBlocks
         .filter((b) => b.type === MallContentBlockType.IMAGE)
-        .map((b) => b.imageUrl),
+        .map((b) => b.imageObjectKey ?? extractObjectKey(b.imageUrl ?? '')),
     ].filter(Boolean) as string[];
 
-    for (const url of urls) {
-      const res = await fetch(url);
-      if (!res.ok) brokenImages++;
-      const contentType = res.headers.get('content-type') ?? '';
-      if (res.ok && !contentType.startsWith('image/')) brokenImages++;
-
-      const key = extractObjectKey(url);
-      if (key?.startsWith('development/')) wrongPrefix++;
-      if (key && !key.startsWith('production/mall/products/')) wrongPrefix++;
+    for (const key of objectKeys) {
+      if (key.startsWith('development/')) wrongPrefix++;
+      if (!key.startsWith('production/mall/products/')) wrongPrefix++;
+      const ok = await verifyImageViaApiProxy(key);
+      if (!ok) brokenImages++;
     }
 
     const blocks = detail.contentBlocks;
