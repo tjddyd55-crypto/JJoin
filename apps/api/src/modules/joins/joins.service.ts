@@ -81,6 +81,8 @@ import {
   type MatchingGender,
 } from '@jjoin/domain';
 import { createJoinSchema, joinCoinPreviewSchema, updateJoinSchema } from '@jjoin/validation';
+import { joinCreateBadRequest, joinCreateBadRequestFromZod } from './join-create-errors';
+import { findJoinIdByClientIdempotencyKey } from './join-create-idempotency';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -213,7 +215,7 @@ export class JoinsService {
     await this.accounts.assertIdentityVerified(hostUserId, 'CREATE_JOIN');
     const parsed = createJoinSchema.safeParse(raw);
     if (!parsed.success) {
-      throw new BadRequestException('invalid_create_join');
+      throw joinCreateBadRequestFromZod(parsed.error, 'invalid_create_join');
     }
     const input = parsed.data;
     const memberPrefs = {
@@ -223,11 +225,11 @@ export class JoinsService {
     };
     const prefValidation = validateJoinMemberPreferences(memberPrefs);
     if (!prefValidation.ok) {
-      throw new BadRequestException(prefValidation.code);
+      throw joinCreateBadRequest(prefValidation.code);
     }
     const roomCharacterValidation = validateJoinRoomCharacter(input);
     if (!roomCharacterValidation.ok) {
-      throw new BadRequestException(roomCharacterValidation.code);
+      throw joinCreateBadRequest(roomCharacterValidation.code);
     }
     const roomCharacter = normalizeJoinRoomCharacter(input);
     const hostProfile = await this.prisma.user.findUnique({
@@ -254,12 +256,12 @@ export class JoinsService {
         hostGender,
       });
       if (!compositionValidation.ok) {
-        throw new BadRequestException(compositionValidation.code);
+        throw joinCreateBadRequest(compositionValidation.code);
       }
     }
     const startAt = new Date(input.startAt);
     if (Number.isNaN(startAt.getTime()) || startAt.getTime() <= Date.now()) {
-      throw new BadRequestException('start_at_must_be_future');
+      throw joinCreateBadRequest('start_at_must_be_future');
     }
 
     const clubLink = await this.clubJoinLink.assertCanLinkJoin(hostUserId, {
@@ -270,17 +272,16 @@ export class JoinsService {
 
     const clientIdempotencyKey = input.idempotencyKey?.trim();
     if (clientIdempotencyKey) {
-      const existingFee = await this.prisma.coinTransaction.findUnique({
-        where: { idempotencyKey: `join:${clientIdempotencyKey}:room-fee` },
+      const existingJoinId = await findJoinIdByClientIdempotencyKey(this.prisma, {
+        hostUserId,
+        clientKey: clientIdempotencyKey,
+        coinIdempotencyKeys: [
+          `join:${clientIdempotencyKey}:room-fee`,
+          `join:${clientIdempotencyKey}:reward-hold`,
+        ],
       });
-      if (existingFee?.refType === 'JOIN' && existingFee.refId) {
-        return this.getDetail(existingFee.refId, hostUserId);
-      }
-      const existingHold = await this.prisma.coinTransaction.findUnique({
-        where: { idempotencyKey: `join:${clientIdempotencyKey}:reward-hold` },
-      });
-      if (existingHold?.refType === 'JOIN' && existingHold.refId) {
-        return this.getDetail(existingHold.refId, hostUserId);
+      if (existingJoinId) {
+        return this.getDetail(existingJoinId, hostUserId);
       }
     }
 
@@ -288,7 +289,7 @@ export class JoinsService {
 
     const { sport, coinAsset } = await ensureFoundation(this.prisma);
     if (input.sportCode !== sport.code && input.sportCode !== SCREEN_GOLF_CODE) {
-      throw new BadRequestException('unsupported_sport');
+      throw joinCreateBadRequest('unsupported_sport');
     }
 
     let rewardPerParticipant: string;
@@ -337,7 +338,7 @@ export class JoinsService {
           }
           venue = byId;
         } else if (!input.venue) {
-          throw new BadRequestException('invalid_create_join');
+          throw joinCreateBadRequest('invalid_create_join');
         } else if (input.venue.provider === 'KAKAO') {
           const existing = await tx.venue.findUnique({
             where: {
@@ -491,12 +492,20 @@ export class JoinsService {
       }
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
         if (clientIdempotencyKey) {
-          const fee = await this.prisma.coinTransaction.findUnique({
-            where: { idempotencyKey: `join:${clientIdempotencyKey}:room-fee` },
+          const existingJoinId = await findJoinIdByClientIdempotencyKey(this.prisma, {
+            hostUserId,
+            clientKey: clientIdempotencyKey,
+            coinIdempotencyKeys: [
+              `join:${clientIdempotencyKey}:room-fee`,
+              `join:${clientIdempotencyKey}:reward-hold`,
+            ],
           });
-          if (fee?.refId) return this.getDetail(fee.refId, hostUserId);
+          if (existingJoinId) return this.getDetail(existingJoinId, hostUserId);
         }
-        throw new ConflictException('join_create_conflict');
+        throw new ConflictException({
+          code: 'join_create_conflict',
+          message: '조인 생성이 중복 요청되었습니다. 잠시 후 다시 시도해주세요.',
+        });
       }
       throw e;
     }

@@ -36,6 +36,8 @@ import {
   type MatchingDeadlineBatchSummary,
 } from '@jjoin/domain';
 import { createStoreMatchingJoinSchema, storeMatchingCompleteSchema } from '@jjoin/validation';
+import { joinCreateBadRequest, joinCreateBadRequestFromZod } from './join-create-errors';
+import { findJoinIdByClientIdempotencyKey } from './join-create-idempotency';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -81,24 +83,25 @@ export class MatchingJoinsService {
     await this.accounts.assertIdentityVerified(hostUserId, 'CREATE_JOIN');
     const parsed = createStoreMatchingJoinSchema.safeParse(raw);
     if (!parsed.success) {
-      throw new BadRequestException('invalid_store_matching_join');
+      throw joinCreateBadRequestFromZod(parsed.error, 'invalid_store_matching_join');
     }
     const input = parsed.data;
 
     const startAt = new Date(input.startAt);
     const recruitClosesAt = new Date(input.recruitClosesAt);
     if (Number.isNaN(startAt.getTime()) || startAt.getTime() <= Date.now()) {
-      throw new BadRequestException('start_at_must_be_future');
+      throw joinCreateBadRequest('start_at_must_be_future');
     }
     if (Number.isNaN(recruitClosesAt.getTime())) {
-      throw new BadRequestException('invalid_recruit_closes_at');
+      throw joinCreateBadRequest('invalid_recruit_closes_at');
     }
     try {
       assertRecruitClosesBeforeStart(recruitClosesAt, startAt);
       const planned = computeMatchingPlannedPlayerCount(input);
       assertValidMinimumPlayers(input.minimumPlayers, planned);
-    } catch {
-      throw new BadRequestException('invalid_matching_schedule');
+    } catch (e) {
+      const code = e instanceof Error ? e.message : 'invalid_matching_schedule';
+      throw joinCreateBadRequest(code);
     }
 
     const ownership = await this.prisma.storeOwnership.findFirst({
@@ -118,11 +121,13 @@ export class MatchingJoinsService {
 
     const clientIdempotencyKey = input.idempotencyKey?.trim();
     if (clientIdempotencyKey) {
-      const existingHold = await this.prisma.coinTransaction.findUnique({
-        where: { idempotencyKey: `store-join:${clientIdempotencyKey}:reward-hold` },
+      const existingJoinId = await findJoinIdByClientIdempotencyKey(this.prisma, {
+        hostUserId,
+        clientKey: clientIdempotencyKey,
+        coinIdempotencyKeys: [`store-join:${clientIdempotencyKey}:reward-hold`],
       });
-      if (existingHold?.refType === 'JOIN' && existingHold.refId) {
-        return this.joins.getDetail(existingHold.refId, hostUserId);
+      if (existingJoinId) {
+        return this.joins.getDetail(existingJoinId, hostUserId);
       }
     }
 
@@ -244,12 +249,17 @@ export class MatchingJoinsService {
       }
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
         if (clientIdempotencyKey) {
-          const hold = await this.prisma.coinTransaction.findUnique({
-            where: { idempotencyKey: `store-join:${clientIdempotencyKey}:reward-hold` },
+          const existingJoinId = await findJoinIdByClientIdempotencyKey(this.prisma, {
+            hostUserId,
+            clientKey: clientIdempotencyKey,
+            coinIdempotencyKeys: [`store-join:${clientIdempotencyKey}:reward-hold`],
           });
-          if (hold?.refId) return this.joins.getDetail(hold.refId, hostUserId);
+          if (existingJoinId) return this.joins.getDetail(existingJoinId, hostUserId);
         }
-        throw new ConflictException('store_join_create_conflict');
+        throw new ConflictException({
+          code: 'store_join_create_conflict',
+          message: '조인 생성이 중복 요청되었습니다. 잠시 후 다시 시도해주세요.',
+        });
       }
       throw e;
     }

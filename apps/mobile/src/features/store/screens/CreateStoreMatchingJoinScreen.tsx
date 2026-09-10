@@ -1,21 +1,20 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Button,
-  Card,
   Chip,
   FormScreenFrame,
   Input,
-  Row,
   Section,
   Spacer,
   StickyActionFrame,
   Text,
 } from '@jjoin/design-system';
 import {
-  canAffordMatchingJoinCreate,
+  computeCoinShortfall,
   computeMatchingJoinCoinRequirement,
+  computeWalletAfterCreation,
   formatCoin,
 } from '@jjoin/domain';
 import {
@@ -27,6 +26,13 @@ import {
 import { createStoreMatchingJoinSchema } from '@jjoin/validation';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
+import { JoinCreatePricingSummary } from '../../join-create/components/JoinCreatePricingSummary';
+import {
+  isJoinCreateAuthError,
+  isJoinHostLimitError,
+  messageForJoinCreateError,
+} from '../../join-create/join-create-error';
+import { canSubmitStoreMatchingJoinCreate } from '../store-join-create-affordability';
 import { KstDatePickerField } from '../../../shared/date/KstDatePickerField';
 import { KstTimePickerField } from '../../../shared/date/KstTimePickerField';
 import {
@@ -107,6 +113,7 @@ export function CreateStoreMatchingJoinScreen() {
   const [genderPresetLabel, setGenderPresetLabel] = useState('남2여2');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const idempotencyKeyRef = useRef(newIdempotencyKey());
 
   const startAt = useMemo(() => {
     try {
@@ -160,12 +167,28 @@ export function CreateStoreMatchingJoinScreen() {
   }, [matchingRewardTarget, rewardPerParticipant, targetFemaleCount, targetMaleCount]);
 
   const canAfford = useMemo(() => {
-    if (!coinRequirement || !selectedStore?.walletAvailable) return false;
-    return canAffordMatchingJoinCreate(
-      selectedStore.walletAvailable,
+    if (!coinRequirement) return false;
+    return canSubmitStoreMatchingJoinCreate({
+      walletAvailable: selectedStore?.walletAvailable,
+      totalRequiredCoin: coinRequirement.totalRequiredCoin,
+    });
+  }, [coinRequirement, selectedStore?.walletAvailable]);
+
+  const coinShortfall = useMemo(() => {
+    if (!coinRequirement) return null;
+    return computeCoinShortfall(
+      selectedStore?.walletAvailable ?? '0',
       coinRequirement.totalRequiredCoin,
     );
   }, [coinRequirement, selectedStore?.walletAvailable]);
+
+  const walletAfterCreation = useMemo(() => {
+    if (!coinRequirement || !canAfford) return null;
+    return computeWalletAfterCreation(
+      selectedStore?.walletAvailable ?? '0',
+      coinRequirement.totalRequiredCoin,
+    );
+  }, [canAfford, coinRequirement, selectedStore?.walletAvailable]);
 
   function applyGenderPreset(label: string, male: number, female: number) {
     setGenderPresetLabel(label);
@@ -198,24 +221,44 @@ export function CreateStoreMatchingJoinScreen() {
       minimumPlayers: Number(minimumPlayers),
       matchingRewardTarget,
       rewardPerParticipant: normalizeRewardPerParticipantInput(rewardPerParticipant),
-      idempotencyKey: newIdempotencyKey(),
+      idempotencyKey: idempotencyKeyRef.current,
     });
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? '입력값을 확인해 주세요.');
+      const code = parsed.error.issues[0]?.message;
+      setError(
+        code === 'minimum_exceeds_planned'
+          ? '최소 인원이 모집 인원보다 많습니다.'
+          : code === 'matching_roster_required' || code === 'matching_roster_max_four'
+            ? '모집 인원을 확인해주세요.'
+            : '입력값을 확인해 주세요.',
+      );
       return;
     }
     if (!canAfford) {
-      setError('코인이 부족합니다.');
+      setError('조인을 만들기 위한 코인이 부족합니다.');
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
       await api.createStoreJoin(parsed.data as CreateStoreMatchingJoinRequest);
+      idempotencyKeyRef.current = newIdempotencyKey();
       router.replace('/my/stores');
     } catch (e) {
-      const msg = e instanceof Error ? e.message : '';
-      setError(msg.includes('insufficient') ? '코인이 부족합니다.' : '조인 생성에 실패했습니다.');
+      if (isJoinCreateAuthError(e)) {
+        setError(messageForJoinCreateError(e));
+        router.push('/auth/gate');
+        return;
+      }
+      if (isJoinHostLimitError(e)) {
+        Alert.alert(
+          '조인 생성 제한',
+          '현재 생성 가능한 조인 수를 초과했습니다. 진행 중인 조인을 정리하거나 프리미엄을 확인해 주세요.',
+          [{ text: '닫기', style: 'cancel' }],
+        );
+        return;
+      }
+      setError(messageForJoinCreateError(e));
     } finally {
       setSubmitting(false);
     }
@@ -363,56 +406,35 @@ export function CreateStoreMatchingJoinScreen() {
           {coinRequirement ? (
             <>
               <Spacer size="lg" />
-              <Card variant="elevated" padding="md">
-                <Text variant="sectionTitle" tone="primary">
-                  코인 홀드
-                </Text>
-                <Spacer size="sm" />
-                <Row justify="space-between">
-                  <Text variant="body" tone="secondary">
-                    보유 코인
+              <JoinCreatePricingSummary
+                roomCreationFee={coinRequirement.roomCreationFee}
+                rewardPerParticipant={coinRequirement.rewardPerParticipant}
+                rewardEligibleSlots={coinRequirement.rewardEligibleSlots}
+                totalRequiredCoin={coinRequirement.totalRequiredCoin}
+                walletAvailable={selectedStore?.walletAvailable ?? '0'}
+                shortfall={coinShortfall}
+                creationCoinEnabled={Number(coinRequirement.roomCreationFee) > 0}
+                creatorUserTypeLabel="업주 · 모집 조인"
+              />
+              {walletAfterCreation != null ? (
+                <>
+                  <Spacer size="sm" />
+                  <Text variant="caption" tone="tertiary">
+                    생성 후 사용 가능 예상 {formatCoin(walletAfterCreation)} (생성비와 참가보상
+                    HOLD를 뺀 금액)
                   </Text>
-                  <Text variant="bodyStrong" tone="primary">
-                    {formatCoin(selectedStore?.walletAvailable ?? '0')}
-                  </Text>
-                </Row>
-                <Row justify="space-between">
-                  <Text variant="body" tone="secondary">
-                    필요 HOLD
-                  </Text>
-                  <Text variant="bodyStrong" tone="primary">
-                    {formatCoin(coinRequirement.rewardHoldTotal)}
-                  </Text>
-                </Row>
-                <Row justify="space-between">
-                  <Text variant="body" tone="secondary">
-                    생성 후 사용 가능 예상
-                  </Text>
-                  <Text variant="bodyStrong" tone="primary">
-                    {canAfford
-                      ? formatCoin(
-                          Number(selectedStore?.walletAvailable ?? 0) -
-                            Number(coinRequirement.rewardHoldTotal),
-                        )
-                      : '—'}
-                  </Text>
-                </Row>
-                {!canAfford ? (
-                  <>
-                    <Text variant="body" tone="error" style={styles.shortfall}>
-                      코인이 부족합니다. 필요 {formatCoin(coinRequirement.rewardHoldTotal)} / 보유{' '}
-                      {formatCoin(selectedStore?.walletAvailable ?? '0')}
-                    </Text>
-                    <Spacer size="sm" />
-                    <Button
-                      label="코인 충전"
-                      variant="secondary"
-                      onPress={() => router.push('/my/wallet')}
-                      fullWidth
-                    />
-                  </>
-                ) : null}
-              </Card>
+                </>
+              ) : (
+                <>
+                  <Spacer size="sm" />
+                  <Button
+                    label="코인 충전"
+                    variant="secondary"
+                    onPress={() => router.push('/my/wallet')}
+                    fullWidth
+                  />
+                </>
+              )}
             </>
           ) : null}
         </>
@@ -441,9 +463,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginTop: 8,
-  },
-  shortfall: {
     marginTop: 8,
   },
   preview: {

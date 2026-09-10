@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  canAffordMatchingJoinCreate,
   canApplyMatchingGenderSlot,
   canConfirmMatchingAttendance,
   computeMatchingJoinCoinRequirement,
@@ -29,6 +30,20 @@ test('HOLDs reward slots by female target', () => {
   assert.equal(req.rewardEligibleSlots, 2);
   assert.equal(req.rewardHoldTotal, '10000');
   assert.equal(req.totalRequiredCoin, '10000');
+});
+
+test('reward 0 + female target requires no HOLD and is affordable at 0 balance', () => {
+  const req = computeMatchingJoinCoinRequirement({
+    targetMaleCount: 2,
+    targetFemaleCount: 2,
+    matchingRewardTarget: 'FEMALE',
+    rewardPerParticipant: '0',
+    roomCreationFee: '0',
+  });
+  assert.equal(req.rewardHoldTotal, '0');
+  assert.equal(req.roomCreationFee, '0');
+  assert.equal(req.totalRequiredCoin, '0');
+  assert.equal(canAffordMatchingJoinCreate('0', req.totalRequiredCoin), true);
 });
 
 test('blocks excess female applications', () => {
