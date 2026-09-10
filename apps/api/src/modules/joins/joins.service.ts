@@ -82,7 +82,11 @@ import {
 } from '@jjoin/domain';
 import { createJoinSchema, joinCoinPreviewSchema, updateJoinSchema } from '@jjoin/validation';
 import { joinCreateBadRequest, joinCreateBadRequestFromZod } from './join-create-errors';
-import { findJoinIdByClientIdempotencyKey } from './join-create-idempotency';
+import {
+  findJoinIdByClientIdempotencyKey,
+  isPrismaUniqueConflict,
+  writeJoinCreateCoinIdempotencyKey,
+} from './join-create-idempotency';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -275,10 +279,7 @@ export class JoinsService {
       const existingJoinId = await findJoinIdByClientIdempotencyKey(this.prisma, {
         hostUserId,
         clientKey: clientIdempotencyKey,
-        coinIdempotencyKeys: [
-          `join:${clientIdempotencyKey}:room-fee`,
-          `join:${clientIdempotencyKey}:reward-hold`,
-        ],
+        kind: 'standard',
       });
       if (existingJoinId) {
         return this.getDetail(existingJoinId, hostUserId);
@@ -429,6 +430,7 @@ export class JoinsService {
             recurringOccurrenceDate: input.recurringOccurrenceDate
               ? dateKeyToPrismaDate(input.recurringOccurrenceDate)
               : undefined,
+            clientIdempotencyKey: clientIdempotencyKey || undefined,
             participants: {
               create: {
                 userId: hostUserId,
@@ -438,16 +440,6 @@ export class JoinsService {
                 confirmedAt: new Date(),
               },
             },
-            ...(clientIdempotencyKey
-              ? {
-                  options: {
-                    create: {
-                      optionKey: 'client_idempotency_key',
-                      optionValueJson: { key: clientIdempotencyKey },
-                    },
-                  },
-                }
-              : {}),
           },
         });
 
@@ -456,7 +448,13 @@ export class JoinsService {
           coinAssetId: coinAsset.id,
           amount: requirement.roomCreationFee,
           joinId,
-          idempotencyKey: `join:${idemBase}:room-fee`,
+          idempotencyKey: writeJoinCreateCoinIdempotencyKey(
+            'standard',
+            'room-fee',
+            hostUserId,
+            idemBase,
+            Boolean(clientIdempotencyKey),
+          ),
         });
 
         await this.ledger.applyJoinRewardHold(tx, {
@@ -464,7 +462,13 @@ export class JoinsService {
           coinAssetId: coinAsset.id,
           amount: requirement.rewardHoldTotal,
           joinId,
-          idempotencyKey: `join:${idemBase}:reward-hold`,
+          idempotencyKey: writeJoinCreateCoinIdempotencyKey(
+            'standard',
+            'reward-hold',
+            hostUserId,
+            idemBase,
+            Boolean(clientIdempotencyKey),
+          ),
         });
 
         if (clubLink) {
@@ -490,15 +494,12 @@ export class JoinsService {
           message: '보유 코인이 부족합니다.',
         });
       }
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+      if (isPrismaUniqueConflict(e)) {
         if (clientIdempotencyKey) {
           const existingJoinId = await findJoinIdByClientIdempotencyKey(this.prisma, {
             hostUserId,
             clientKey: clientIdempotencyKey,
-            coinIdempotencyKeys: [
-              `join:${clientIdempotencyKey}:room-fee`,
-              `join:${clientIdempotencyKey}:reward-hold`,
-            ],
+            kind: 'standard',
           });
           if (existingJoinId) return this.getDetail(existingJoinId, hostUserId);
         }
