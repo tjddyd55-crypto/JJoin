@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import {
   Text,
@@ -10,8 +11,7 @@ import {
   Input,
   Card,
   layoutSpacing,
-  spacing,
-  StickyActionFrame,
+  stickyActionBottomPadding,
 } from '@jjoin/design-system';
 import { computeCoinShortfall, computeRewardEligibleSlots, formatNumber, requiresIdentityGate } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
@@ -146,6 +146,7 @@ export default function CreateScreen() {
       : [],
   );
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
+  const insets = useSafeAreaInsets();
 
   const [step, setStep] = useState<JoinCreateStepId>('venue');
   const [selectedVenue, setSelectedVenue] = useState<JoinCreateVenueSelection | null>(null);
@@ -599,7 +600,7 @@ export default function CreateScreen() {
   }
 
   const actionSection = isLastStep ? (
-    <Stack gap="sm" style={styles.actionSection}>
+    <Stack gap="sm">
       {footerState.helperText ? (
         <Text variant="caption" tone="secondary" style={styles.footerHelper}>
           {footerState.helperText}
@@ -616,8 +617,7 @@ export default function CreateScreen() {
       />
     </Stack>
   ) : (
-    <View style={styles.actionSection}>
-      <View style={styles.footerRow}>
+    <View style={styles.footerRow}>
         {stepIndex > 0 ? (
           <Button label="이전" variant="secondary" onPress={goBack} style={styles.footerBtn} />
         ) : null}
@@ -627,15 +627,11 @@ export default function CreateScreen() {
           disabled={!canGoNext}
           style={styles.footerBtn}
         />
-      </View>
     </View>
   );
 
   return (
-    <FormScreenFrame
-      contentContainerStyle={styles.scrollContent}
-      footer={<StickyActionFrame>{actionSection}</StickyActionFrame>}
-    >
+    <FormScreenFrame>
       <Stack gap="md">
         <Text variant="screenTitle" tone="primary">조인 만들기</Text>
         <JoinCreateStepHeader current={step} onSelect={(s) => setStep(s)} />
@@ -833,18 +829,25 @@ export default function CreateScreen() {
         {error ? (
           <Text variant="body" tone="error">{error}</Text>
         ) : null}
+
+        <View
+          style={[
+            styles.actionSection,
+            { paddingBottom: stickyActionBottomPadding(insets.bottom) },
+          ]}
+        >
+          {actionSection}
+        </View>
       </Stack>
     </FormScreenFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContent: { flexGrow: 0 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   optionsTitle: { marginTop: 8 },
   actionSection: {
     marginTop: layoutSpacing.sectionGap,
-    marginBottom: spacing.sm,
   },
   footerHelper: { textAlign: 'center' },
   footerRow: { flexDirection: 'row', gap: 8 },
