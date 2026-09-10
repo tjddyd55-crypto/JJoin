@@ -22,6 +22,7 @@ import {
   type StoreOwnershipDto,
 } from '@jjoin/types';
 import { Text, spacing, useTheme } from '@jjoin/design-system';
+import { useModalSafePadding } from '../../../ui/modal-safe-area';
 import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
 import { getApiClient } from '../../../lib/api';
 import { isInternalToolsEnabled } from '../../../lib/internal-tools';
@@ -102,6 +103,7 @@ export function ExploreMapScreen({
   const clubEventPickClubId = params.clubEventPick?.trim() || null;
   const { requestGatedAction } = useSession();
   const theme = useTheme();
+  const modalSafePadding = useModalSafePadding();
   const store = getSecureSessionStore();
   const discovery = useJoinDiscoveryOptional();
   const mapRef = useRef<MapCameraHandle | null>(null);
@@ -1120,7 +1122,16 @@ export function ExploreMapScreen({
       </BottomSheet>
 
       <Modal visible={searchOpen} animationType="slide" onRequestClose={() => setSearchOpen(false)}>
-        <View style={[styles.searchModal, { backgroundColor: theme.colors.app.background }]}>
+        <View
+          style={[
+            styles.searchModal,
+            {
+              backgroundColor: theme.colors.app.background,
+              paddingTop: modalSafePadding.paddingTop + spacing.md,
+              paddingBottom: modalSafePadding.paddingBottom + spacing.md,
+            },
+          ]}
+        >
           <Text variant="sectionTitle" tone="primary">
             장소 / 지역 검색
           </Text>
@@ -1274,7 +1285,6 @@ const styles = StyleSheet.create({
   },
   searchModal: {
     flex: 1,
-    paddingTop: 64,
     paddingHorizontal: spacing.lg,
     gap: spacing.sm,
   },

@@ -825,6 +825,9 @@ model Join {
   cancelledAt           DateTime?             @map("cancelled_at") @db.Timestamptz(6)
   /// Public share slug for Landing `/j/{shareSlug}` (opaque, not UUID).
   shareSlug             String?               @unique @map("share_slug")
+  /// Client create idempotency key. Unique per host; NULL when the client sent none.
+  /// PostgreSQL treats NULL as distinct, so unkeyed joins do not collide.
+  clientIdempotencyKey  String?               @map("client_idempotency_key")
   /// Urgent vacancy recruitment (today, before start, seats remaining).
   isUrgent              Boolean               @default(false) @map("is_urgent")
   urgentUntil           DateTime?             @map("urgent_until") @db.Timestamptz(6)
@@ -870,6 +873,7 @@ model Join {
   @@index([isUrgent, startAt])
   @@index([clubId])
   @@unique([recurringScheduleId, recurringOccurrenceDate])
+  @@unique([hostUserId, clientIdempotencyKey], map: "joins_host_client_idempotency_key")
   @@map("joins")
 }
 

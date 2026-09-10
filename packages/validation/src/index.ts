@@ -785,3 +785,31 @@ export const updateMobileAndroidReleaseSchema = z.object({
 export type UpdateMobileAndroidReleaseInput = z.infer<
   typeof updateMobileAndroidReleaseSchema
 >;
+
+/** First actionable Zod issue code for join-create API mapping. */
+export function firstZodIssueCode(
+  error: z.ZodError,
+  fallback: string,
+): string {
+  const issue = error.issues[0];
+  if (!issue) return fallback;
+  const msg = issue.message?.trim();
+  if (
+    msg &&
+    msg !== 'Required' &&
+    !msg.startsWith('Invalid') &&
+    !msg.startsWith('Expected') &&
+    !msg.startsWith('Required')
+  ) {
+    return msg;
+  }
+  const path = String(issue.path[0] ?? '');
+  if (path === 'rewardPerParticipant') return 'invalid_reward_per_participant';
+  if (path === 'storeOwnershipId') return 'invalid_store_ownership';
+  if (path === 'startAt') return 'start_at_must_be_future';
+  if (path === 'recruitClosesAt') return 'invalid_recruit_closes_at';
+  if (path === 'minimumPlayers') return 'invalid_minimum_players';
+  if (path === 'plannedPlayerCount') return 'invalid_player_count';
+  if (path === 'venueId' || path === 'venue') return 'venue_or_venueId_required';
+  return fallback;
+}

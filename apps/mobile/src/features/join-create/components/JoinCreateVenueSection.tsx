@@ -7,6 +7,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useModalSafePadding } from '../../../ui/modal-safe-area';
 import {
   Button,
   Card,
@@ -49,6 +50,7 @@ export function JoinCreateVenueSection({
   restrictToFacilityPick = false,
 }: Props) {
   const theme = useTheme();
+  const modalSafePadding = useModalSafePadding();
   const [recent, setRecent] = useState<UserVenuePickerItemDto[]>([]);
   const [favorites, setFavorites] = useState<UserVenuePickerItemDto[]>([]);
   const [loadingLists, setLoadingLists] = useState(true);
@@ -377,7 +379,16 @@ export function JoinCreateVenueSection({
   function renderSearchModal() {
     return (
       <Modal visible={searchOpen} animationType="slide" onRequestClose={() => setSearchOpen(false)}>
-        <View style={[styles.modal, themed.modal]}>
+        <View
+          style={[
+            styles.modal,
+            themed.modal,
+            {
+              paddingTop: modalSafePadding.paddingTop + spacing.md,
+              paddingBottom: modalSafePadding.paddingBottom + spacing.lg,
+            },
+          ]}
+        >
           <Text variant="sectionTitle">주소 · 상호 검색</Text>
           <Text variant="caption" tone="secondary">
             쪼인존 시설 DB 기준 · 예: 아차산, 광진, 골프존
@@ -419,7 +430,16 @@ export function JoinCreateVenueSection({
   function renderCustomModal() {
     return (
       <Modal visible={customOpen} animationType="slide" onRequestClose={() => setCustomOpen(false)}>
-        <View style={[styles.modal, themed.modal]}>
+        <View
+          style={[
+            styles.modal,
+            themed.modal,
+            {
+              paddingTop: modalSafePadding.paddingTop + spacing.md,
+              paddingBottom: modalSafePadding.paddingBottom + spacing.lg,
+            },
+          ]}
+        >
           <Text variant="sectionTitle">장소 직접 입력</Text>
           <TextInput
             value={customName}
@@ -541,8 +561,7 @@ const styles = StyleSheet.create({
   sheetTitle: { marginBottom: spacing.xxs },
   modal: {
     flex: 1,
-    padding: spacing.lg,
-    paddingTop: spacing.xl,
+    paddingHorizontal: spacing.lg,
     gap: spacing.md,
   },
   input: {

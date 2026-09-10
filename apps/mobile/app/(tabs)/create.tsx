@@ -83,6 +83,7 @@ import {
   formatJoinScheduleDetailTime,
 } from '../../src/ui/join-display';
 import {
+  isJoinCreateAuthError,
   isJoinHostLimitError,
   messageForJoinCreateError,
 } from '../../src/features/join-create/join-create-error';
@@ -471,6 +472,11 @@ export default function CreateScreen() {
       clearJoinCreateDraft();
       setPrefilledInvitees([]);
     } catch (e) {
+      if (isJoinCreateAuthError(e)) {
+        setError(messageForJoinCreateError(e));
+        router.push('/auth/gate');
+        return;
+      }
       if (isJoinHostLimitError(e)) {
         Alert.alert(
           '조인 생성 제한',
