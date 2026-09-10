@@ -221,7 +221,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     android: {
       package: identity.androidPackage,
-      versionCode: 13,
+      versionCode: 14,
       ...(hasGoogleServices ? { googleServicesFile } : {}),
       adaptiveIcon,
       permissions: [
