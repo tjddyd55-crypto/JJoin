@@ -259,7 +259,7 @@ export function selectNextWaitlistOffers(params: {
     .sort((a, b) => a.appliedAt.getTime() - b.appliedAt.getTime());
 
   const selected: WaitlistParticipantRow[] = [];
-  let simulatedParticipants = [...params.participants];
+  const simulatedParticipants = [...params.participants];
 
   for (const candidate of queue) {
     if (selected.length >= params.maxOffers) break;
