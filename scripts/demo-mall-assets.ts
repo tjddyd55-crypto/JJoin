@@ -23,6 +23,48 @@ export const MALL_DEMO_SLUGS = [
   'dev-demo-screen-practice-pass',
 ] as const;
 
+/** Production sample catalog slugs — never use dev-demo-* in Production. */
+export const MALL_SAMPLE_PRODUCTION_SLUGS = [
+  'uv-golf-cap',
+  'premium-golf-glove',
+  'cooling-golf-arm-sleeve',
+  'soft-golf-towel',
+  'practice-golf-ball-set',
+  'home-putting-mat',
+  'screen-golf-drink-coupon',
+  'screen-golf-practice-pass',
+] as const;
+
+export type MallSampleProductionSlug = (typeof MALL_SAMPLE_PRODUCTION_SLUGS)[number];
+
+export const MALL_SAMPLE_PRODUCTION_SLUG_BY_DEV_SLUG: Record<
+  (typeof MALL_DEMO_SLUGS)[number],
+  MallSampleProductionSlug
+> = {
+  'dev-demo-uv-golf-cap': 'uv-golf-cap',
+  'dev-demo-premium-golf-glove': 'premium-golf-glove',
+  'dev-demo-cooling-arm-sleeve': 'cooling-golf-arm-sleeve',
+  'dev-demo-soft-golf-towel': 'soft-golf-towel',
+  'dev-demo-practice-golf-ball-6': 'practice-golf-ball-set',
+  'dev-demo-home-putting-mat': 'home-putting-mat',
+  'dev-demo-screen-drink-coupon': 'screen-golf-drink-coupon',
+  'dev-demo-screen-practice-pass': 'screen-golf-practice-pass',
+};
+
+export type MallSampleCatalogProductSpec = MallDemoProductSpec & {
+  productionSlug: MallSampleProductionSlug;
+};
+
+export function getSampleCatalogProductionSpecs(): MallSampleCatalogProductSpec[] {
+  return MALL_DEMO_PRODUCTS.map((product) => {
+    const productionSlug = MALL_SAMPLE_PRODUCTION_SLUG_BY_DEV_SLUG[product.slug];
+    if (!productionSlug) {
+      throw new Error(`missing production slug mapping for dev slug=${product.slug}`);
+    }
+    return { ...product, productionSlug };
+  });
+}
+
 export type MallDemoContentBlock =
   | { type: MallContentBlockType.HEADING; text: string }
   | { type: MallContentBlockType.TEXT; text: string }
