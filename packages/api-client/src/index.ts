@@ -151,6 +151,10 @@ import {
   type MallPurchaseResultDto,
   type MallSortOption,
 } from '@jjoin/types';
+import { ApiRequestError } from './api-error';
+
+export { ApiRequestError, isApiRequestError, parseApiErrorBody } from './api-error';
+export type { ParsedApiErrorBody } from './api-error';
 
 export type ApiClientConfig = {
   baseUrl: string;
@@ -160,8 +164,7 @@ export type ApiClientConfig = {
 async function parseJson<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const text = await res.text();
-    const snippet = text.replace(/\s+/g, ' ').slice(0, 120);
-    throw new Error(`api_error:${res.status}:${snippet}`);
+    throw new ApiRequestError(res.status, text);
   }
   return (await res.json()) as T;
 }
