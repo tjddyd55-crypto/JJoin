@@ -7,8 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { isAdminUser } from './admin-auth';
-import { mockUserStore } from '../mock/mock-user.store';
-import { verifySessionToken } from '../auth/session-token';
+import { resolveAuthenticatedUserId } from '../auth/resolve-session-user';
 
 @Injectable()
 export class AdminGuard implements CanActivate {
@@ -21,11 +20,7 @@ export class AdminGuard implements CanActivate {
     }>();
     const header = req.headers.authorization ?? '';
     const token = header.startsWith('Bearer ') ? header.slice(7) : undefined;
-    let userId = mockUserStore.getUserIdByToken(token);
-    if (!userId) {
-      userId = verifySessionToken(token);
-      if (userId && token) mockUserStore.bindToken(token, userId);
-    }
+    const userId = resolveAuthenticatedUserId(token);
     if (!userId) throw new UnauthorizedException('unauthorized');
     if (!(await isAdminUser(this.prisma, userId))) {
       throw new ForbiddenException('admin_forbidden');
