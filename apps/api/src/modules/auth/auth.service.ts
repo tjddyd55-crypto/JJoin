@@ -20,7 +20,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { UserAccountService } from '../users/user-account.service';
 import { loadMeFromDb, signInDevPersona } from '../../auth/dev-persona';
 import { resolveMockSignInProvider } from './auth-mock-signin';
-import { issueSessionToken, verifySessionToken } from '../../auth/session-token';
+import { issueSessionToken } from '../../auth/session-token';
+import { resolveAuthenticatedUserId } from '../../auth/resolve-session-user';
 
 @Injectable()
 export class AuthService {
@@ -69,11 +70,7 @@ export class AuthService {
   }
 
   async getSession(token: string | undefined) {
-    let userId = mockUserStore.getUserIdByToken(token);
-    if (!userId) {
-      userId = verifySessionToken(token);
-      if (userId && token) mockUserStore.bindToken(token, userId);
-    }
+    const userId = resolveAuthenticatedUserId(token);
     if (!userId) throw new UnauthorizedException('unauthorized');
 
     try {
@@ -96,8 +93,7 @@ export class AuthService {
 
   async logout(token: string | undefined) {
     if (!token) throw new BadRequestException('missing_token');
-    const userId =
-      mockUserStore.getUserIdByToken(token) ?? verifySessionToken(token);
+    const userId = resolveAuthenticatedUserId(token);
     if (userId) await this.presence.hideOnLogout(userId);
     mockUserStore.logout(token);
     return { ok: true };

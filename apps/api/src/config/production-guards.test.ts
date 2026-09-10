@@ -200,6 +200,21 @@ test('Railway development (implicit variant) still allows local mock boot', () =
   );
 });
 
+test('documented local sample env boots as development (placeholder JWT + empty CORS + mock)', () => {
+  withEnv(
+    {
+      JJOIN_APP_VARIANT: 'development',
+      JWT_SECRET: 'replace-me',
+      CORS_ORIGINS: '',
+      SOCIAL_AUTH_MODE: 'mock',
+    },
+    () => {
+      assert.doesNotThrow(() => assertProductionFailClosedOnBoot());
+      assert.equal(resolveCorsOriginConfig(), true);
+    },
+  );
+});
+
 test('development boot requires JWT_SECRET but allows placeholder and empty CORS', () => {
   withEnv(
     {

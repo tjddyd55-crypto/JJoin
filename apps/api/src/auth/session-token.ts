@@ -4,6 +4,10 @@ import { assertJwtSecretConfigured, resolveJwtSecret } from '../config/productio
 /** Signed session lifetime. Expired tokens are rejected on verify. */
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
+export function isSignedSessionToken(token: string): boolean {
+  return token.startsWith('jjoin.');
+}
+
 /**
  * Opaque signed session token — survives Railway redeploy without in-memory Map.
  * Format: jjoin.<base64url payload>.<base64url hmac>

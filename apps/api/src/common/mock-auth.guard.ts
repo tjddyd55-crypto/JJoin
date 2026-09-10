@@ -5,8 +5,7 @@ import {
   UnauthorizedException,
   createParamDecorator,
 } from '@nestjs/common';
-import { mockUserStore } from '../mock/mock-user.store';
-import { verifySessionToken } from '../auth/session-token';
+import { resolveAuthenticatedUserId } from '../auth/resolve-session-user';
 
 @Injectable()
 export class MockAuthGuard implements CanActivate {
@@ -39,14 +38,7 @@ export class OptionalMockAuthGuard implements CanActivate {
 
 function resolveUserIdFromAuthHeader(header?: string): string | null {
   const token = header?.startsWith('Bearer ') ? header.slice(7) : undefined;
-  let userId = mockUserStore.getUserIdByToken(token);
-  if (!userId) {
-    userId = verifySessionToken(token);
-    if (userId && token) {
-      mockUserStore.bindToken(token, userId);
-    }
-  }
-  return userId ?? null;
+  return resolveAuthenticatedUserId(token);
 }
 
 export const CurrentUserId = createParamDecorator(
