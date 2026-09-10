@@ -1,12 +1,18 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import type { SocialAuthProvider, VerifiedSocialProfile } from '../ports';
-import { isMockSocialCredential } from '../../auth/social-auth-mode';
+import {
+  isMockSocialCredential,
+  isSocialMockCredentialAllowed,
+} from '../../auth/social-auth-mode';
 
 @Injectable()
 export class MockSocialAuthAdapter implements SocialAuthProvider {
   readonly name = 'KAKAO' as const;
 
   async verifyCredential(credential: string): Promise<VerifiedSocialProfile> {
+    if (!isSocialMockCredentialAllowed()) {
+      throw new UnauthorizedException('mock_credential_not_allowed');
+    }
     if (!isMockSocialCredential(credential)) {
       throw new UnauthorizedException('invalid_mock_credential');
     }
@@ -31,6 +37,9 @@ export function createProviderMockAdapter(
   return {
     name,
     async verifyCredential(credential: string): Promise<VerifiedSocialProfile> {
+      if (!isSocialMockCredentialAllowed()) {
+        throw new UnauthorizedException('mock_credential_not_allowed');
+      }
       if (!isMockSocialCredential(credential)) {
         throw new UnauthorizedException('invalid_mock_credential');
       }

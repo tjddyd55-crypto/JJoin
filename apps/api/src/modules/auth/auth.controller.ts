@@ -9,6 +9,7 @@
 import { AuthService } from './auth.service';
 import { SocialAuthService } from '../../auth/social-auth.service';
 import { resolveSocialAuthMode } from '../../auth/social-auth-mode';
+import { isMockSignInEnabled } from './auth-mock-signin';
 import type { SocialSignInRequest, SocialExchangeRequest, NaverOAuthExchangeRequest } from '@jjoin/types';
 
 @Controller('auth')
@@ -29,13 +30,8 @@ export class AuthController {
    */
   @Post('social/mock-sign-in')
   mockSignIn(@Body() body: SocialSignInRequest) {
-    const mode = resolveSocialAuthMode();
-    if (mode === 'disabled' || mode === 'real') {
+    if (!isMockSignInEnabled()) {
       throw new ForbiddenException('mock_sign_in_disabled');
-    }
-    const nodeEnv = (process.env.NODE_ENV ?? 'development').toLowerCase();
-    if (nodeEnv === 'production' && mode === 'hybrid' && !body.persona) {
-      throw new ForbiddenException('mock_persona_required');
     }
     if (!body.persona && !body.scenario) {
       throw new ForbiddenException('mock_sign_in_invalid');

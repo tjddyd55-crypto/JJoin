@@ -8,7 +8,10 @@ import {
 
 function withEnv(overrides: Record<string, string | undefined>, fn: () => void) {
   const saved = { ...process.env };
-  Object.assign(process.env, overrides);
+  for (const [key, value] of Object.entries(overrides)) {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
   try {
     fn();
   } finally {
@@ -16,15 +19,45 @@ function withEnv(overrides: Record<string, string | undefined>, fn: () => void) 
   }
 }
 
-withEnv({ COIN_POLICY_MODE: '', SOCIAL_AUTH_MODE: 'hybrid', NODE_ENV: 'production' }, () => {
-  assert.equal(resolveCoinPolicyMode(), 'dev');
-  assert.equal(isDevCoinFundingAllowed(), true);
-  assert.equal(resolveRoomCreationFee(), '2');
-});
+withEnv(
+  {
+    JJOIN_APP_VARIANT: 'production',
+    COIN_POLICY_MODE: '',
+    SOCIAL_AUTH_MODE: 'hybrid',
+    NODE_ENV: 'production',
+  },
+  () => {
+    assert.equal(resolveCoinPolicyMode(), 'disabled');
+    assert.equal(isDevCoinFundingAllowed(), false);
+    assert.throws(() => resolveRoomCreationFee(), CoinPolicyDisabledError);
+  },
+);
 
-withEnv({ COIN_POLICY_MODE: '', SOCIAL_AUTH_MODE: 'real', NODE_ENV: 'production' }, () => {
-  assert.equal(resolveCoinPolicyMode(), 'disabled');
-  assert.throws(() => resolveRoomCreationFee(), CoinPolicyDisabledError);
-});
+withEnv(
+  {
+    JJOIN_APP_VARIANT: 'production',
+    COIN_POLICY_MODE: 'dev',
+    SOCIAL_AUTH_MODE: 'hybrid',
+    NODE_ENV: 'production',
+  },
+  () => {
+    assert.equal(resolveCoinPolicyMode(), 'disabled');
+    assert.equal(isDevCoinFundingAllowed(), false);
+  },
+);
+
+withEnv(
+  {
+    JJOIN_APP_VARIANT: 'development',
+    COIN_POLICY_MODE: '',
+    SOCIAL_AUTH_MODE: 'hybrid',
+    NODE_ENV: 'development',
+  },
+  () => {
+    assert.equal(resolveCoinPolicyMode(), 'dev');
+    assert.equal(isDevCoinFundingAllowed(), true);
+    assert.equal(resolveRoomCreationFee(), '2');
+  },
+);
 
 console.log('dev-coin-policy.node-test PASS');

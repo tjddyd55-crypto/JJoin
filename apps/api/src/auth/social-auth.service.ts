@@ -15,6 +15,7 @@ import { issueSessionToken } from '../auth/session-token';
 import { buildMeFromUser, resolveNextOnboardingStep } from '../auth/user-me.mapper';
 import {
   isMockSocialCredential,
+  isSocialMockCredentialAllowed,
   resolveSocialAuthMode,
 } from '../auth/social-auth-mode';
 import { mockUserStore } from '../mock/mock-user.store';
@@ -47,13 +48,13 @@ export class SocialAuthService {
     const credential = body.credential?.trim();
     if (!credential) throw new BadRequestException('credential_required');
 
-    if (mode === 'real' && isMockSocialCredential(credential)) {
+    if (isMockSocialCredential(credential) && !isSocialMockCredentialAllowed()) {
       throw new UnauthorizedException('mock_credential_not_allowed');
     }
     if (mode === 'mock' && !isMockSocialCredential(credential)) {
       throw new UnauthorizedException('real_credential_not_allowed_in_mock_mode');
     }
-    // hybrid: accepts mock credentials and real provider tokens
+    // development hybrid: accepts mock credentials and real provider tokens
 
     const adapter =
       provider === SocialProvider.KAKAO
