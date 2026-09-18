@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Switch, View } from 'react-native';
+import { Alert, Linking, Switch, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
   Button,
@@ -27,7 +27,12 @@ import { SportSkillLevel, type DrinkingHabit, type SmokingHabit } from '@jjoin/t
 import { useSession } from '../../../session/SessionContext';
 import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
 import { ProfilePhotoEditorSection } from '../../profile/components/ProfilePhotoEditorSection';
-import { pickProfileImageFromLibrary, toUploadPayload } from '../../profile/profile-image-picker';
+import { messageForProfilePhotoError } from '../../profile/profile-photo-error';
+import {
+  pickProfileGalleryImagesFromLibrary,
+  pickProfileImageFromLibrary,
+  toUploadPayload,
+} from '../../profile/profile-image-picker';
 
 function parseScreenHandicapInput(raw: string): number | null {
   const trimmed = raw.trim();
@@ -135,24 +140,85 @@ export function EditProfileScreen() {
     setError(null);
     try {
       await action();
-    } catch {
-      setError(t('common.error'));
+    } catch (e) {
+      setError(messageForProfilePhotoError(e));
+      if (__DEV__) {
+        console.warn('[profile-photo-upload]', e);
+      }
     } finally {
       setPhotoLoading(false);
     }
   }
 
-  async function onPickAvatar() {
+  function handleImagePickFailure(
+    result: { status: 'cancelled' } | { status: 'permission_denied' } | { status: 'error'; message: string },
+  ): null {
+    if (result.status === 'cancelled') {
+      return null;
+    }
+    if (result.status === 'permission_denied') {
+      Alert.alert(
+        '사진 접근 권한',
+        '프로필 사진을 선택하려면 사진 라이브러리 접근이 필요합니다.',
+        [
+          { text: '취소', style: 'cancel' },
+          {
+            text: '설정 열기',
+            onPress: () => void Linking.openSettings(),
+          },
+        ],
+      );
+      return null;
+    }
+    setError(messageForProfilePhotoError(new Error(result.message)));
+    return null;
+  }
+
+  async function pickProfileImageForUpload() {
     const picked = await pickProfileImageFromLibrary();
+    if (picked.status !== 'ok') {
+      return handleImagePickFailure(picked);
+    }
+    return picked.image;
+  }
+
+  async function pickProfileGalleryImagesForUpload() {
+    const remaining = MAX_PROFILE_GALLERY_PHOTOS - gallery.length;
+    if (remaining <= 0) {
+      return null;
+    }
+    const picked = await pickProfileGalleryImagesFromLibrary(remaining);
+    if (picked.status !== 'ok') {
+      return handleImagePickFailure(picked);
+    }
+    return picked.images;
+  }
+
+  async function onPickAvatar() {
+    const picked = await pickProfileImageForUpload();
     if (!picked) return;
     await runPhotoAction(() => uploadProfilePhoto(toUploadPayload(picked)));
   }
 
   async function onAddGalleryPhoto() {
     if (gallery.length >= MAX_PROFILE_GALLERY_PHOTOS) return;
-    const picked = await pickProfileImageFromLibrary();
-    if (!picked) return;
-    await runPhotoAction(() => addProfileGalleryPhoto(toUploadPayload(picked)));
+    const picked = await pickProfileGalleryImagesForUpload();
+    if (!picked?.length) return;
+
+    setPhotoLoading(true);
+    setError(null);
+    try {
+      for (const image of picked) {
+        await addProfileGalleryPhoto(toUploadPayload(image));
+      }
+    } catch (e) {
+      setError(messageForProfilePhotoError(e));
+      if (__DEV__) {
+        console.warn('[profile-photo-upload]', e);
+      }
+    } finally {
+      setPhotoLoading(false);
+    }
   }
 
   async function onMoveGalleryPhoto(photoId: string, direction: 'left' | 'right') {
@@ -176,6 +242,12 @@ export function EditProfileScreen() {
         </StickyActionFrame>
       }
     >
+      <Text variant="screenTitle" tone="primary">프로필 수정</Text>
+      <Spacer size="md" />
+      <Text variant="caption" tone="secondary">
+        사진, 나이, 핸디, 음주·흡연, 성격 등을 변경할 수 있습니다.
+      </Text>
+      <Spacer size="md" />
       <ProfilePhotoEditorSection
         avatarUrl={avatarUrl}
         nickname={nicknameLabel}

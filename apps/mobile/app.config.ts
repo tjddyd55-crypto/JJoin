@@ -125,6 +125,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       },
     ],
     [
+      'expo-image-picker',
+      {
+        photosPermission:
+          '프로필 사진을 선택하려면 사진 라이브러리 접근이 필요합니다.',
+      },
+    ],
+    [
       'expo-notifications',
       {
         icon: notificationIcon.icon,

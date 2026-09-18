@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
-import { Image, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   AppText,
   ProfileAvatar,
-  ScreenContainer,
+  ScrollScreenFrame,
   Stack,
   StatusBadge,
   spacing,
@@ -19,18 +19,27 @@ import { t } from '@jjoin/i18n';
 import type { PlayerReviewPublicDto, PublicUserProfileDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { createExpoSecureSessionStore } from '../../../session/expo-secure-session-store';
+import { useSession } from '../../../session/SessionContext';
 import { StarRatingDisplay } from '../../../ui/patterns/StarRating';
+import { ProfileEditCtaButton } from '../components/ProfileEditCtaButton';
+import { ProfileGallerySliderModal } from '../components/ProfileGallerySliderModal';
 
 const store = createExpoSecureSessionStore();
 
 export function PublicProfileScreen() {
   const { userId } = useLocalSearchParams<{ userId: string }>();
   const router = useRouter();
+  const { me } = useSession();
   const [profile, setProfile] = useState<PublicUserProfileDto | null>(null);
   const [reviews, setReviews] = useState<PlayerReviewPublicDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [galleryViewerIndex, setGalleryViewerIndex] = useState<number | null>(null);
+
+  const isOwnProfile = useMemo(
+    () => Boolean(userId && me?.publicProfile?.id && userId === me.publicProfile.id),
+    [me?.publicProfile?.id, userId],
+  );
 
   useEffect(() => {
     let alive = true;
@@ -62,19 +71,27 @@ export function PublicProfileScreen() {
     };
   }, [userId]);
 
+  const gallerySlides = useMemo(
+    () =>
+      (profile?.profilePhotos ?? [])
+        .filter((photo) => Boolean(photo.imageUrl))
+        .map((photo) => ({ id: photo.id, imageUrl: photo.imageUrl as string })),
+    [profile?.profilePhotos],
+  );
+
   if (loading) {
     return (
-      <ScreenContainer>
+      <ScrollScreenFrame edges={['top', 'left', 'right', 'bottom']} contentPaddingBottom={spacing.xl}>
         <AppText>{t('common.loading')}</AppText>
-      </ScreenContainer>
+      </ScrollScreenFrame>
     );
   }
 
   if (error || !profile) {
     return (
-      <ScreenContainer>
+      <ScrollScreenFrame edges={['top', 'left', 'right', 'bottom']} contentPaddingBottom={spacing.xl}>
         <AppText color="danger">{error ?? t('common.empty')}</AppText>
-      </ScreenContainer>
+      </ScrollScreenFrame>
     );
   }
 
@@ -83,9 +100,14 @@ export function PublicProfileScreen() {
   const gallery = profile.profilePhotos ?? [];
 
   return (
-    <ScreenContainer>
+    <ScrollScreenFrame edges={['top', 'left', 'right', 'bottom']} contentPaddingBottom={spacing.xl}>
       <Stack gap="md">
-        <AppText variant="title">{t('profile.public.title')}</AppText>
+        <View style={styles.titleRow}>
+          <AppText variant="title">{t('profile.public.title')}</AppText>
+          {isOwnProfile ? (
+            <ProfileEditCtaButton onPress={() => router.push('/my/edit-profile')} />
+          ) : null}
+        </View>
         <View style={styles.header}>
           <ProfileAvatar imageUrl={profile.avatarUrl} name={profile.nickname} size="lg" />
           <Stack gap="xs">
@@ -113,17 +135,23 @@ export function PublicProfileScreen() {
           <View style={styles.gallerySection}>
             <AppText variant="label" color="textSecondary">사진</AppText>
             <View style={styles.galleryRow}>
-              {gallery.map((photo) => (
+              {gallery.map((photo) =>
                 photo.imageUrl ? (
                   <Pressable
                     key={photo.id}
                     accessibilityRole="button"
-                    onPress={() => setPreviewUrl(photo.imageUrl)}
+                    accessibilityLabel="사진 크게 보기"
+                    onPress={() => {
+                      const slideIndex = gallerySlides.findIndex((slide) => slide.id === photo.id);
+                      if (slideIndex >= 0) {
+                        setGalleryViewerIndex(slideIndex);
+                      }
+                    }}
                   >
                     <Image source={{ uri: photo.imageUrl }} style={styles.galleryThumb} />
                   </Pressable>
-                ) : null
-              ))}
+                ) : null,
+              )}
             </View>
           </View>
         ) : null}
@@ -213,16 +241,23 @@ export function PublicProfileScreen() {
         </Pressable>
       </Stack>
 
-      <Modal visible={Boolean(previewUrl)} transparent animationType="fade" onRequestClose={() => setPreviewUrl(null)}>
-        <Pressable style={styles.previewBackdrop} onPress={() => setPreviewUrl(null)}>
-          {previewUrl ? <Image source={{ uri: previewUrl }} style={styles.previewImage} resizeMode="contain" /> : null}
-        </Pressable>
-      </Modal>
-    </ScreenContainer>
+      <ProfileGallerySliderModal
+        visible={galleryViewerIndex != null}
+        slides={gallerySlides}
+        initialIndex={galleryViewerIndex ?? 0}
+        onClose={() => setGalleryViewerIndex(null)}
+      />
+    </ScrollScreenFrame>
   );
 }
 
 const styles = StyleSheet.create({
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
   header: {
     flexDirection: 'row',
     gap: spacing.md,
@@ -243,16 +278,5 @@ const styles = StyleSheet.create({
   },
   reviewCard: {
     gap: spacing.xs,
-  },
-  previewBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.lg,
-  },
-  previewImage: {
-    width: '100%',
-    height: '80%',
   },
 });

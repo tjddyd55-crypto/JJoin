@@ -24,6 +24,7 @@ import { resolveAppVariant } from '../../../lib/app-variant';
 import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
 import { isClubsUiEnabled } from '../../clubs/clubs-ui-gate';
 import { legalDocumentRoute } from '../../auth/legal';
+import { ProfileEditCtaButton } from '../../profile/components/ProfileEditCtaButton';
 
 function showWithdrawTbd() {
   Alert.alert(t('my.withdraw'), '회원탈퇴 기능은 아직 제공되지 않습니다.');
@@ -71,18 +72,19 @@ export function MyHomeScreen() {
   };
 
   return (
-    <ScrollScreenFrame contentPaddingBottom={theme.layoutSpacing.sectionGap * 2}>
+    <ScrollScreenFrame includeTabBarPadding contentPaddingBottom={theme.layoutSpacing.sectionGap}>
       <Text variant="screenTitle" tone="primary">
         {t('my.home.title')}
       </Text>
 
       <Spacer size="md" />
 
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => router.push(`/user/${profile.id}`)}
-        style={({ pressed }) => [styles.profileHeader, { opacity: pressed ? 0.85 : 1 }]}
-      >
+      <View style={styles.profileHeaderBlock}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push(`/user/${profile.id}`)}
+          style={({ pressed }) => [styles.profileHeaderMain, { opacity: pressed ? 0.85 : 1 }]}
+        >
         <UserAvatar uri={profile.avatarUrl} name={profile.nickname} size="lg" />
         <View style={styles.profileMeta}>
           <Row align="center" gap="sm">
@@ -128,7 +130,9 @@ export function MyHomeScreen() {
           </Row>
         </View>
         <Icon name="chevronRight" tone="tertiary" size="sm" />
-      </Pressable>
+        </Pressable>
+        <ProfileEditCtaButton onPress={() => router.push('/my/edit-profile')} />
+      </View>
 
       <Spacer size="lg" />
 
@@ -400,7 +404,10 @@ export function MyHomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  profileHeader: {
+  profileHeaderBlock: {
+    gap: 12,
+  },
+  profileHeaderMain: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
