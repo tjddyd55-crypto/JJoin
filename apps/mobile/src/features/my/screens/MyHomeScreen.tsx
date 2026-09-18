@@ -72,7 +72,9 @@ export function MyHomeScreen() {
   };
 
   return (
-    <ScrollScreenFrame includeTabBarPadding contentPaddingBottom={theme.layoutSpacing.sectionGap}>
+    <ScrollScreenFrame
+      contentPaddingBottom={theme.layoutSpacing.sectionGap + theme.sizes.bottomNav}
+    >
       <Text variant="screenTitle" tone="primary">
         {t('my.home.title')}
       </Text>
