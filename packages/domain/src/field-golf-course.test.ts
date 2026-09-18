@@ -167,3 +167,23 @@ test('포썸 presets stay on TEAM 2v2 / 3v3', () => {
     { label: '3v3', teamSize: 3, teamCount: 2 },
   ]);
 });
+
+test('same name+address+owner with different 구분/홀/면적 stays distinct', () => {
+  const member = resolveFieldGolfExternalId({
+    name: '가야컨트리클럽',
+    address: '김해시 인제로 495',
+    ownerName: '가야개발',
+    status: '회원제',
+    holeCount: 45,
+    areaSqm: '2822471',
+  });
+  const publicCourse = resolveFieldGolfExternalId({
+    name: '가야컨트리클럽',
+    address: '김해시 인제로 495',
+    ownerName: '가야개발',
+    status: '대중제',
+    holeCount: 9,
+    areaSqm: '164773',
+  });
+  assert.notEqual(member.externalId, publicCourse.externalId);
+});
