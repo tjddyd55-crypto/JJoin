@@ -103,6 +103,12 @@ export class UsersController {
   }
 
   @UseGuards(MockAuthGuard)
+  @Patch('me/profile/photos/:photoId/primary')
+  setPrimaryProfilePhoto(@CurrentUserId() userId: string, @Param('photoId') photoId: string) {
+    return this.service.setPrimaryProfilePhoto(userId, photoId);
+  }
+
+  @UseGuards(MockAuthGuard)
   @Post('me/onboarding/location')
   location(@CurrentUserId() userId: string) {
     return this.service.completeLocationOnboarding(userId);

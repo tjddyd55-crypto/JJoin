@@ -45,7 +45,7 @@ type Props = {
 const FAB_SIZE = 56;
 const FAB_CLEARANCE = FAB_SIZE + spacing.md + spacing.sm;
 
-export function RegionJoinExploreScreen({ embedded = false, onSwitchToMap }: Props) {
+export function RegionJoinExploreScreen({ embedded = false }: Props) {
   const theme = useTheme();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [selectedDate, setSelectedDate] = useState(() => localDayKey(new Date()));

@@ -102,6 +102,12 @@ export function WalletFoundationScreen() {
         variant="secondary"
         onPress={() => router.push('/my/payment-history')}
       />
+      <Spacer size="sm" />
+      <Button
+        label="코인 선물"
+        variant="secondary"
+        onPress={() => router.push('/my/coin-gift')}
+      />
       <Spacer size="md" />
       {(wallet?.recentTransactions.length ?? 0) === 0 ? (
         <Text variant="body" tone="secondary">

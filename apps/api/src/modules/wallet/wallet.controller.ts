@@ -1,4 +1,4 @@
-﻿import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+﻿import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { WalletService } from './wallet.service';
 import { CurrentUserId, MockAuthGuard } from '../../common/mock-auth.guard';
 
@@ -15,6 +15,12 @@ export class WalletController {
   @Get('me/wallet')
   wallet(@CurrentUserId() userId: string) {
     return this.service.getSummary(userId);
+  }
+
+  @UseGuards(MockAuthGuard)
+  @Post('me/wallet/gifts')
+  gift(@CurrentUserId() userId: string, @Body() body: unknown) {
+    return this.service.gift(userId, body);
   }
 
   @UseGuards(MockAuthGuard)

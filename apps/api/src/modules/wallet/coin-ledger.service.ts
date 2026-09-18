@@ -236,6 +236,117 @@ export class CoinLedgerService {
     });
   }
 
+  async applyPeerGift(params: {
+    fromUserId: string;
+    toUserId: string;
+    amount: string;
+    idempotencyKey: string;
+    message?: string | null;
+  }): Promise<{ giftId: string; alreadyExists: boolean }> {
+    const {
+      coinGiftCreditIdempotencyKey,
+      coinGiftDebitIdempotencyKey,
+      normalizeGiftIdempotencyKey,
+      validateCoinGift,
+    } = await import('@jjoin/domain');
+    const giftKey = normalizeGiftIdempotencyKey(params.idempotencyKey, params.fromUserId);
+
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.coinGift.findUnique({ where: { idempotencyKey: giftKey } });
+      if (existing) {
+        return { giftId: existing.id, alreadyExists: true };
+      }
+
+      const { coinAsset } = await ensureFoundation(this.prisma);
+      const senderWallet = await this.getOrCreateWallet(params.fromUserId, coinAsset.id, tx);
+      const receiverWallet = await this.getOrCreateWallet(params.toUserId, coinAsset.id, tx);
+      const [firstId, secondId] =
+        senderWallet.id < receiverWallet.id
+          ? [senderWallet.id, receiverWallet.id]
+          : [receiverWallet.id, senderWallet.id];
+      const first = await this.lockWallet(tx, firstId);
+      const second = await this.lockWallet(tx, secondId);
+      const lockedSender = first.id === senderWallet.id ? first : second;
+      const lockedReceiver = first.id === receiverWallet.id ? first : second;
+
+      const check = validateCoinGift({
+        fromUserId: params.fromUserId,
+        toUserId: params.toUserId,
+        amount: params.amount,
+        availableBalance: String(lockedSender.availableBalance),
+      });
+      if (!check.ok) {
+        if (check.code === 'insufficient_available') throw new InsufficientBalanceError();
+        throw new Error(check.code);
+      }
+
+      const senderAvailable = String(lockedSender.availableBalance);
+      const senderHeld = String(lockedSender.heldBalance);
+      const senderAfter = subCoinAmounts(senderAvailable, params.amount);
+      await tx.wallet.update({
+        where: { id: lockedSender.id },
+        data: {
+          availableBalance: new Prisma.Decimal(senderAfter),
+          heldBalance: new Prisma.Decimal(senderHeld),
+        },
+      });
+      const senderTx = await tx.coinTransaction.create({
+        data: {
+          walletId: lockedSender.id,
+          coinAssetId: coinAsset.id,
+          type: 'COIN_GIFT',
+          direction: 'DEBIT',
+          amount: new Prisma.Decimal(params.amount),
+          balanceAfterAvailable: new Prisma.Decimal(senderAfter),
+          balanceAfterHeld: new Prisma.Decimal(senderHeld),
+          refType: 'COIN_GIFT',
+          refId: giftKey,
+          idempotencyKey: coinGiftDebitIdempotencyKey(giftKey),
+          metadata: { toUserId: params.toUserId, message: params.message ?? null },
+        },
+      });
+
+      const receiverAvailable = String(lockedReceiver.availableBalance);
+      const receiverHeld = String(lockedReceiver.heldBalance);
+      const receiverAfter = addCoinAmounts(receiverAvailable, params.amount);
+      await tx.wallet.update({
+        where: { id: lockedReceiver.id },
+        data: {
+          availableBalance: new Prisma.Decimal(receiverAfter),
+          heldBalance: new Prisma.Decimal(receiverHeld),
+        },
+      });
+      const receiverTx = await tx.coinTransaction.create({
+        data: {
+          walletId: lockedReceiver.id,
+          coinAssetId: coinAsset.id,
+          type: 'COIN_GIFT',
+          direction: 'CREDIT',
+          amount: new Prisma.Decimal(params.amount),
+          balanceAfterAvailable: new Prisma.Decimal(receiverAfter),
+          balanceAfterHeld: new Prisma.Decimal(receiverHeld),
+          refType: 'COIN_GIFT',
+          refId: giftKey,
+          idempotencyKey: coinGiftCreditIdempotencyKey(giftKey),
+          metadata: { fromUserId: params.fromUserId, message: params.message ?? null },
+        },
+      });
+
+      const gift = await tx.coinGift.create({
+        data: {
+          fromUserId: params.fromUserId,
+          toUserId: params.toUserId,
+          amount: new Prisma.Decimal(params.amount),
+          message: params.message ?? null,
+          idempotencyKey: giftKey,
+          senderTxId: senderTx.id,
+          receiverTxId: receiverTx.id,
+        },
+      });
+      return { giftId: gift.id, alreadyExists: false };
+    });
+  }
+
   async applyShopPurchase(
     userId: string,
     params: { amount: string; orderId: string; productId: string; productName: string },
@@ -699,6 +810,18 @@ export class CoinLedgerService {
       }
       if (row.type === 'JOIN_REWARD_TRANSFER' && row.direction === 'CREDIT') {
         available = addCoinAmounts(available, amount);
+        continue;
+      }
+      if (row.type === 'COIN_GIFT' && row.direction === 'DEBIT') {
+        available = subCoinAmounts(available, amount);
+        continue;
+      }
+      if (row.type === 'COIN_GIFT' && row.direction === 'CREDIT') {
+        available = addCoinAmounts(available, amount);
+        continue;
+      }
+      if (row.type === 'SHOP_PURCHASE' && row.direction === 'DEBIT') {
+        available = subCoinAmounts(available, amount);
         continue;
       }
       if (row.type === 'JOIN_REWARD_REFUND' && row.direction === 'CREDIT') {

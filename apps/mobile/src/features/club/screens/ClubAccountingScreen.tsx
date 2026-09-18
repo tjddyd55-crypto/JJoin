@@ -18,7 +18,7 @@ import {
   type ClubAccountingListResponse,
 } from '@jjoin/types';
 import { ClubFormField, ClubFormSection, CLUB_SECTION_GAP } from '../components/ClubFormSection';
-import { clubFormStyles, useClubInputStyle } from '../components/club-form-styles';
+import { useClubInputStyle } from '../components/club-form-styles';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
 import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';

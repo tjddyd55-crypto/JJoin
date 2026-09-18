@@ -23,6 +23,7 @@ import {
   SocialLoginUnavailableError,
 } from '../features/auth/social/social-auth-errors';
 import { pendingActionRoute, requiresIdentityGate, resolveAuthAppState } from '@jjoin/domain';
+import { uploadProfilePhotoMultipart } from '../features/profile/profile-photo-upload';
 import { getApiClient } from '../lib/api';
 import { resolveAppVariant } from '../lib/app-variant';
 import { isInternalToolsEnabled } from '../lib/internal-tools';
@@ -56,6 +57,7 @@ type SessionContextValue = {
   addProfileGalleryPhoto: (file: { uri: string; name?: string; type?: string }) => Promise<void>;
   deleteProfileGalleryPhoto: (photoId: string) => Promise<void>;
   reorderProfileGalleryPhotos: (photoIds: string[]) => Promise<void>;
+  setPrimaryProfilePhoto: (photoId: string) => Promise<void>;
   editProfile: (body: unknown) => Promise<void>;
   completeLocationOnboarding: () => Promise<void>;
   logout: () => Promise<void>;
@@ -228,10 +230,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const uploadProfilePhoto = useCallback(
     async (file: { uri: string; name?: string; type?: string }) => {
-      const next = await api.uploadProfilePhoto(file);
+      const next = await uploadProfilePhotoMultipart(
+        '/me/profile/photo',
+        file,
+        () => store.getToken(),
+      );
       await applyMe(next, true);
     },
-    [api, applyMe],
+    [applyMe],
   );
 
   const deleteProfilePhoto = useCallback(async () => {
@@ -241,10 +247,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const addProfileGalleryPhoto = useCallback(
     async (file: { uri: string; name?: string; type?: string }) => {
-      const next = await api.addProfileGalleryPhoto(file);
+      const next = await uploadProfilePhotoMultipart(
+        '/me/profile/photos',
+        file,
+        () => store.getToken(),
+      );
       await applyMe(next, true);
     },
-    [api, applyMe],
+    [applyMe],
   );
 
   const deleteProfileGalleryPhoto = useCallback(
@@ -258,6 +268,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const reorderProfileGalleryPhotos = useCallback(
     async (photoIds: string[]) => {
       const next = await api.reorderProfileGalleryPhotos(photoIds);
+      await applyMe(next, true);
+    },
+    [api, applyMe],
+  );
+
+  const setPrimaryProfilePhoto = useCallback(
+    async (photoId: string) => {
+      const next = await api.setPrimaryProfilePhoto(photoId);
       await applyMe(next, true);
     },
     [api, applyMe],
@@ -335,6 +353,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     addProfileGalleryPhoto,
     deleteProfileGalleryPhoto,
     reorderProfileGalleryPhotos,
+    setPrimaryProfilePhoto,
     editProfile,
     completeLocationOnboarding,
     logout,

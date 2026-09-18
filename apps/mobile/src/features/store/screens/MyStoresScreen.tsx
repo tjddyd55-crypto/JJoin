@@ -205,6 +205,32 @@ export function MyStoresScreen() {
               }
               fullWidth
             />
+            <Spacer size="sm" />
+            <Button
+              label="매장 프로필"
+              variant="secondary"
+              size="sm"
+              onPress={() =>
+                router.push({
+                  pathname: '/my/store-profile',
+                  params: { ownershipId: store.id },
+                })
+              }
+              fullWidth
+            />
+            <Spacer size="sm" />
+            <Button
+              label="배너 광고 요청"
+              variant="secondary"
+              size="sm"
+              onPress={() =>
+                router.push({
+                  pathname: '/my/store-banner-ads',
+                  params: { ownershipId: store.id },
+                })
+              }
+              fullWidth
+            />
           </Card>
         ))
       )}

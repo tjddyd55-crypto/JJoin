@@ -11,6 +11,8 @@ const COIN_TX_LABEL_KO: Record<string, string> = {
   JOIN_REWARD_REFUND: '조인 종료 잔여 HOLD 반환',
   ADMIN_ADJUSTMENT: '관리자 조정',
   COIN_ISSUANCE: '코인 충전',
+  SHOP_PURCHASE: '몰 구매',
+  COIN_GIFT: '코인 선물',
 };
 
 export function formatCoinTransactionLabelKo(type: string): string {

@@ -99,6 +99,10 @@ export class UsersService {
     return this.profilePhotos.reorderGalleryPhotos(userId, photoIds);
   }
 
+  setPrimaryProfilePhoto(userId: string, photoId: string) {
+    return this.profilePhotos.setPrimaryGalleryPhoto(userId, photoId);
+  }
+
   async completeLocationOnboarding(userId: string): Promise<MeDto> {
     if (mockUserStore.isMemoryOnlyUser(userId)) {
       return mockUserStore.completeLocationOnboarding(userId);

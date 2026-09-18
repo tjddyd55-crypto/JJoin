@@ -187,6 +187,16 @@ export class JoinsController {
     return this.service.resolveShareSlug(shareSlug);
   }
 
+  @Patch(':joinId/team-assignment')
+  @UseGuards(MockAuthGuard)
+  assignTeam(
+    @Param('joinId') joinId: string,
+    @CurrentUserId() userId: string,
+    @Body() body: unknown,
+  ) {
+    return this.service.assignTeam(joinId, userId, body);
+  }
+
   @Patch(':joinId')
   @UseGuards(MockAuthGuard)
   update(

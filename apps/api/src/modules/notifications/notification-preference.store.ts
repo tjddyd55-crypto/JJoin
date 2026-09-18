@@ -22,6 +22,7 @@ export class NotificationPreferenceStore {
       invitationEnabled: row.invitationEnabled,
       attendanceReminderEnabled: row.attendanceReminderEnabled,
       bookmarkUpdatesEnabled: row.bookmarkUpdatesEnabled,
+      profileMatchEnabled: row.profileMatchEnabled,
     };
   }
 
@@ -45,6 +46,7 @@ export class NotificationPreferenceStore {
       invitationEnabled: row.invitationEnabled,
       attendanceReminderEnabled: row.attendanceReminderEnabled,
       bookmarkUpdatesEnabled: row.bookmarkUpdatesEnabled,
+      profileMatchEnabled: row.profileMatchEnabled,
     };
   }
 }

@@ -1,5 +1,5 @@
 import { StyleSheet, View } from 'react-native';
-import { Card, Text, useTheme } from '@jjoin/design-system';
+import { Card, Text } from '@jjoin/design-system';
 import { formatCoinWithLabel, formatNumber } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
 
@@ -29,8 +29,6 @@ export function JoinCreatePricingSummary({
   creatorUserTypeLabel,
   creationCoinEnabled,
 }: JoinCreatePricingSummaryProps) {
-  const theme = useTheme();
-
   if (loading) {
     return (
       <Card variant="elevated" padding="md">

@@ -6,6 +6,7 @@ import type {
   ClubDetailDto,
   ClubSummaryDto,
   DiscoverJoinCardDto,
+  HomeBannerDto,
   RecommendedJoinDto,
 } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
@@ -22,6 +23,7 @@ export type HomeDataState = {
   recommended: RecommendedJoinDto[];
   clubs: ClubSummaryDto[];
   featuredClub: ClubDetailDto | null;
+  banners: HomeBannerDto[];
   initialLoading: boolean;
   isRefreshing: boolean;
   recommendError: string | null;
@@ -35,7 +37,7 @@ function roundCoord(value: number): number {
   return Math.round(value * 1000) / 1000;
 }
 
-export function useHomeData(userId: string | undefined) {
+export function useHomeData(userId: string | undefined, clubsUiEnabled = false) {
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [state, setState] = useState<HomeDataState>({
     todayJoins: [],
@@ -43,6 +45,7 @@ export function useHomeData(userId: string | undefined) {
     recommended: [],
     clubs: [],
     featuredClub: null,
+    banners: [],
     initialLoading: true,
     isRefreshing: false,
     recommendError: null,
@@ -115,12 +118,16 @@ export function useHomeData(userId: string | undefined) {
         }
       })();
 
-      const clubsTask = api.listMyClubs().catch(() => ({ items: [] }));
+      const clubsTask = clubsUiEnabled
+        ? api.listMyClubs().catch(() => ({ items: [] }))
+        : Promise.resolve({ items: [] });
+      const bannersTask = api.listHomeBanners().catch(() => [] as HomeBannerDto[]);
 
-      const [discoverResult, recommendedResult, clubsResult] = await Promise.allSettled([
+      const [discoverResult, recommendedResult, clubsResult, bannersResult] = await Promise.allSettled([
         discoverTask,
         recommendedTask,
         clubsTask,
+        bannersTask,
       ]);
 
       if (seq !== loadSeqRef.current) return;
@@ -131,6 +138,7 @@ export function useHomeData(userId: string | undefined) {
         recommendedResult.status === 'fulfilled' ? recommendedResult.value.items : [];
       const recommendFailed = recommendedResult.status === 'rejected';
       const clubs = clubsResult.status === 'fulfilled' ? clubsResult.value.items : [];
+      const banners = bannersResult.status === 'fulfilled' ? bannersResult.value : [];
 
       const todayJoins = pickTodayDiscoverJoins(discoverRows, 3);
       const urgentJoins = pickUrgentJoins(discoverRows, recommended, 1);
@@ -142,6 +150,7 @@ export function useHomeData(userId: string | undefined) {
         urgentJoins,
         recommended: nextRecommended,
         clubs,
+        banners,
         initialLoading: false,
         isRefreshing: false,
         hasLoadedOnce: true,
@@ -176,7 +185,7 @@ export function useHomeData(userId: string | undefined) {
         setState((prev) => ({ ...prev, featuredClub: null, loadingClub: false }));
       }
     },
-    [api, resolveCoords, userId],
+    [api, clubsUiEnabled, resolveCoords, userId],
   );
 
   const reload = useCallback(() => {

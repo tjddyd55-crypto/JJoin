@@ -31,6 +31,11 @@ const TOGGLES: Array<{ key: ToggleKey; label: string; description: string }> = [
     description: '조인 시작 전 참석 확인',
   },
   { key: 'bookmarkUpdatesEnabled', label: '찜한 조인', description: '상태 변경 알림' },
+  {
+    key: 'profileMatchEnabled',
+    label: '프로필 매칭 알림',
+    description: '조건에 맞는 호스트의 새 조인 (조인 알림과 별도)',
+  },
 ];
 
 export function NotificationSettingsScreen() {

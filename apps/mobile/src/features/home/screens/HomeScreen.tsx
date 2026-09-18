@@ -12,12 +12,13 @@ import { getApiClient } from '../../../lib/api';
 import { trackRecommendationClick } from '../../../lib/product-analytics';
 import { getSecureSessionStore } from '../../../session/SessionContext';
 import { HomeCompactHeader } from '../components/HomeCompactHeader';
-import { HomeHeroBanner } from '../components/HomeHeroBanner';
+import { HomeBannerCarousel } from '../components/HomeBannerCarousel';
 import { HomeQuickMenu } from '../components/HomeQuickMenu';
 import { HomeTodaysJoinSection } from '../components/HomeTodaysJoinSection';
 import { HomeClubSection } from '../components/HomeClubSection';
 import { useHomeData } from '../hooks/useHomeData';
 import { useNotificationUnreadCount } from '../../notifications/useNotificationUnreadCount';
+import { isClubsUiEnabled } from '../../clubs/clubs-ui-gate';
 
 function joinDetailHref(joinId: string): Href {
   return { pathname: '/join/[joinId]', params: { joinId } } as Href;
@@ -32,18 +33,20 @@ export function HomeScreen() {
 
   const { unreadCount } = useNotificationUnreadCount();
 
+  const clubsUiEnabled = isClubsUiEnabled(me?.featureFlags);
   const {
     todayJoins,
     recommended,
     clubs,
     featuredClub,
+    banners,
     initialLoading,
     isRefreshing,
     recommendError,
     hasLoadedOnce,
     loadingClub,
     reload,
-  } = useHomeData(userId);
+  } = useHomeData(userId, clubsUiEnabled);
 
   const openJoin = useCallback(
     (joinId: string, trackRec = false) => {
@@ -66,11 +69,11 @@ export function HomeScreen() {
         onPressNotifications={() => router.push('/my/notifications')}
       />
 
-      <HomeHeroBanner />
+      <HomeBannerCarousel banners={banners} />
 
       <Spacer size="sm" />
 
-      <HomeQuickMenu />
+      <HomeQuickMenu clubsUiEnabled={clubsUiEnabled} />
 
       <View style={styles.section}>
         <SectionHeader
@@ -92,14 +95,16 @@ export function HomeScreen() {
         />
       </View>
 
-      <View style={styles.section}>
-        <SectionHeader
-          title="내 동호회"
-          actionLabel={clubs.length > 0 ? '전체' : undefined}
-          onActionPress={clubs.length > 0 ? () => router.push('/my/clubs' as Href) : undefined}
-        />
-        <HomeClubSection clubs={clubs} featuredClub={featuredClub} loading={loadingClub} />
-      </View>
+      {clubsUiEnabled ? (
+        <View style={styles.section}>
+          <SectionHeader
+            title="내 동호회"
+            actionLabel={clubs.length > 0 ? '전체' : undefined}
+            onActionPress={clubs.length > 0 ? () => router.push('/my/clubs' as Href) : undefined}
+          />
+          <HomeClubSection clubs={clubs} featuredClub={featuredClub} loading={loadingClub} />
+        </View>
+      ) : null}
 
       <Spacer size="md" />
     </ScrollScreenFrame>

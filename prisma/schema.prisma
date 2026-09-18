@@ -124,6 +124,7 @@ enum CoinTxType {
   ADMIN_ADJUSTMENT
   COIN_ISSUANCE
   SHOP_PURCHASE
+  COIN_GIFT
 }
 
 enum MallProductStatus {
@@ -245,6 +246,10 @@ enum NotificationType {
   FRIEND_REQUEST_RECEIVED
   FRIEND_REQUEST_ACCEPTED
   RECURRING_JOIN_OCCURRENCE_FAILED
+  PROFILE_MATCH_JOIN
+  ATTENDANCE_REWARD
+  ACHIEVEMENT_REWARD
+  COIN_GIFT_RECEIVED
 }
 
 /// Pre-game attendance intent — distinct from ParticipationStatus COMPLETED/NO_SHOW.
@@ -421,6 +426,15 @@ model User {
   playerReviewsReceived    PlayerReview[]             @relation("PlayerReviewReviewee")
   profilePhotos            UserProfilePhoto[]
   mallOrders               MallOrder[]
+  profileMatchPreference   ProfileMatchPreference?
+  dailyAttendanceCheckIns  DailyAttendanceCheckIn[]
+  rewardGrants             RewardGrant[]
+  coinGiftsSent            CoinGift[]                 @relation("CoinGiftSender")
+  coinGiftsReceived        CoinGift[]                 @relation("CoinGiftReceiver")
+  storeProfilesEdited      StoreProfile[]             @relation("StoreProfileEditor")
+  storeBannerAdsRequested  StoreBannerAdRequest[]     @relation("StoreBannerAdApplicant")
+  storeBannerAdsReviewed   StoreBannerAdRequest[]     @relation("StoreBannerAdReviewer")
+  homeBannersUpdated       HomeBanner[]               @relation("HomeBannerUpdater")
 
   @@map("users")
 }
@@ -454,6 +468,7 @@ model NotificationPreference {
   invitationEnabled         Boolean  @default(true) @map("invitation_enabled")
   attendanceReminderEnabled Boolean  @default(true) @map("attendance_reminder_enabled")
   bookmarkUpdatesEnabled    Boolean  @default(true) @map("bookmark_updates_enabled")
+  profileMatchEnabled       Boolean  @default(true) @map("profile_match_enabled")
   createdAt                 DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                 DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -566,6 +581,16 @@ model UserProfile {
   regionCode    String?  @map("region_code")
   regionLabel   String?  @map("region_label")
   bio           String?
+  personality   String?
+  age           Int?
+  heightCm      Int?     @map("height_cm")
+  drinking      DrinkingHabit?
+  smoking       SmokingHabit?
+  showAge       Boolean  @default(true) @map("show_age")
+  showHeight    Boolean  @default(true) @map("show_height")
+  showDrinking  Boolean  @default(true) @map("show_drinking")
+  showSmoking   Boolean  @default(true) @map("show_smoking")
+  showHandicap  Boolean  @default(true) @map("show_handicap")
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -647,6 +672,7 @@ model UserProfilePhoto {
   userId    String   @map("user_id") @db.Uuid
   objectKey String   @map("object_key")
   sortOrder Int      @map("sort_order")
+  isPrimary Boolean  @default(false) @map("is_primary")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -692,6 +718,7 @@ model UserSportProfile {
   sportId    String   @map("sport_id") @db.Uuid
   skillLevel String   @map("skill_level")
   screenHandicap Int? @map("screen_handicap")
+  fieldHandicap  Int? @map("field_handicap")
   metadata   Json?
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -842,6 +869,9 @@ model Join {
   gameMemo              String?               @map("game_memo") @db.VarChar(500)
   afterPlan             JoinAfterPlan         @default(NONE) @map("after_plan")
   afterMemo             String?               @map("after_memo") @db.VarChar(500)
+  playFormat            JoinPlayFormat        @default(INDIVIDUAL) @map("play_format")
+  teamSize              Int?                  @map("team_size")
+  teamCount             Int?                  @map("team_count")
   createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -960,6 +990,57 @@ enum JoinAfterPlan {
   DECIDE_ON_SITE
 }
 
+enum JoinPlayFormat {
+  INDIVIDUAL
+  TEAM
+}
+
+enum DrinkingHabit {
+  NONE
+  SOMETIMES
+  NORMAL
+  OFTEN
+}
+
+enum SmokingHabit {
+  NONE
+  CIGARETTE
+  E_CIG
+  BOTH
+}
+
+enum StoreScreenBrand {
+  GOLFZON
+  KAKAO_VX
+  SG_GOLF
+  OTHER
+}
+
+enum StoreProfileVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum StoreBannerAdStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  ACTIVE
+  EXPIRED
+}
+
+enum RewardGrantKind {
+  ATTENDANCE
+  HOST_MILESTONE
+  PARTICIPATION_MILESTONE
+}
+
+enum ProfileMatchPreferredGender {
+  ANY
+  MALE
+  FEMALE
+}
+
 /// User ↔ User golf friend request (MVP).
 model UserFriendship {
   id          String               @id @default(uuid()) @db.Uuid
@@ -1025,6 +1106,8 @@ model StoreOwnership {
   request      StoreOwnershipRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
   joins        Join[]
   recurringSchedules RecurringJoinSchedule[]
+  storeProfile StoreProfile?
+  bannerAdRequests StoreBannerAdRequest[]
 
   @@unique([userId, golfFacilityId])
   @@index([userId, status])
@@ -1144,6 +1227,7 @@ model JoinParticipant {
   attendanceIntent    AttendanceIntent    @default(PENDING) @map("attendance_intent")
   attendanceIntentAt  DateTime?           @map("attendance_intent_at") @db.Timestamptz(6)
   partySize           Int                 @default(1) @map("party_size")
+  teamIndex           Int?                @map("team_index")
   appliedAt           DateTime            @default(now()) @map("applied_at") @db.Timestamptz(6)
   approvedAt          DateTime?           @map("approved_at") @db.Timestamptz(6)
   confirmedAt         DateTime?           @map("confirmed_at") @db.Timestamptz(6)
@@ -2237,4 +2321,193 @@ model MallOrder {
 
   @@index([userId, createdAt])
   @@map("mall_orders")
+}
+
+model FeatureFlagSettings {
+  id                          String   @id @default("default")
+  clubsUiEnabled              Boolean  @default(false) @map("clubs_ui_enabled")
+  profileMatchAlertsEnabled   Boolean  @default(true) @map("profile_match_alerts_enabled")
+  storeProfilesEnabled        Boolean  @default(true) @map("store_profiles_enabled")
+  homeBannersEnabled          Boolean  @default(true) @map("home_banners_enabled")
+  storeBannerAdsEnabled       Boolean  @default(true) @map("store_banner_ads_enabled")
+  coinGiftEnabled             Boolean  @default(true) @map("coin_gift_enabled")
+  attendanceRewardsEnabled    Boolean  @default(true) @map("attendance_rewards_enabled")
+  updatedAt                   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy                   String?  @map("updated_by") @db.Uuid
+
+  @@map("feature_flag_settings")
+}
+
+model ProfileMatchPreference {
+  userId              String                      @id @map("user_id") @db.Uuid
+  enabled             Boolean                     @default(true)
+  preferredGender     ProfileMatchPreferredGender @default(ANY) @map("preferred_gender")
+  minAge              Int?                        @map("min_age")
+  maxAge              Int?                        @map("max_age")
+  minFieldHandicap    Int?                        @map("min_field_handicap")
+  maxFieldHandicap    Int?                        @map("max_field_handicap")
+  minScreenHandicap   Int?                        @map("min_screen_handicap")
+  maxScreenHandicap   Int?                        @map("max_screen_handicap")
+  drinkingHabits      DrinkingHabit[]             @default([]) @map("drinking_habits")
+  smokingHabits       SmokingHabit[]              @default([]) @map("smoking_habits")
+  sido                String?
+  sigungu             String?
+  createdAt           DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([enabled, preferredGender])
+  @@map("profile_match_preferences")
+}
+
+model StoreProfile {
+  id                String                 @id @default(uuid()) @db.Uuid
+  ownershipId       String                 @unique @map("ownership_id") @db.Uuid
+  intro             String?
+  vibe              String?
+  amenities         String[]               @default([])
+  screenBrand       StoreScreenBrand       @default(OTHER) @map("screen_brand")
+  screenBrandOther  String?                @map("screen_brand_other")
+  visibility        StoreProfileVisibility @default(PRIVATE)
+  coverObjectKey    String?                @map("cover_object_key")
+  updatedByUserId   String?                @map("updated_by_user_id") @db.Uuid
+  createdAt         DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  ownership StoreOwnership      @relation(fields: [ownershipId], references: [id], onDelete: Cascade)
+  updatedBy User?               @relation("StoreProfileEditor", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  photos    StoreProfilePhoto[]
+
+  @@index([visibility])
+  @@map("store_profiles")
+}
+
+model StoreProfilePhoto {
+  id        String   @id @default(cuid())
+  profileId String   @map("profile_id") @db.Uuid
+  objectKey String   @map("object_key")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  profile StoreProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, sortOrder])
+  @@map("store_profile_photos")
+}
+
+model HomeBanner {
+  id              String    @id @default(uuid()) @db.Uuid
+  title           String
+  subtitle        String?
+  imageObjectKey  String?   @map("image_object_key")
+  href            String?
+  sortOrder       Int       @default(0) @map("sort_order")
+  active          Boolean   @default(true)
+  startsAt        DateTime? @map("starts_at") @db.Timestamptz(6)
+  endsAt          DateTime? @map("ends_at") @db.Timestamptz(6)
+  updatedByUserId String?   @map("updated_by_user_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  updatedBy User? @relation("HomeBannerUpdater", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([active, sortOrder])
+  @@map("home_banners")
+}
+
+model StoreBannerAdRequest {
+  id                    String              @id @default(uuid()) @db.Uuid
+  ownershipId           String              @map("ownership_id") @db.Uuid
+  requestedByUserId     String              @map("requested_by_user_id") @db.Uuid
+  title                 String
+  subtitle              String?
+  imageObjectKey        String?             @map("image_object_key")
+  href                  String?
+  memo                  String?
+  status                StoreBannerAdStatus @default(REQUESTED)
+  startsAt              DateTime?           @map("starts_at") @db.Timestamptz(6)
+  endsAt                DateTime?           @map("ends_at") @db.Timestamptz(6)
+  adminNote             String?             @map("admin_note")
+  reviewedByAdminUserId String?             @map("reviewed_by_admin_user_id") @db.Uuid
+  reviewedAt            DateTime?           @map("reviewed_at") @db.Timestamptz(6)
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  ownership StoreOwnership @relation(fields: [ownershipId], references: [id], onDelete: Cascade)
+  applicant User           @relation("StoreBannerAdApplicant", fields: [requestedByUserId], references: [id], onDelete: Cascade)
+  reviewer  User?          @relation("StoreBannerAdReviewer", fields: [reviewedByAdminUserId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([ownershipId, createdAt(sort: Desc)])
+  @@map("store_banner_ad_requests")
+}
+
+model CoinGift {
+  id             String   @id @default(uuid()) @db.Uuid
+  fromUserId     String   @map("from_user_id") @db.Uuid
+  toUserId       String   @map("to_user_id") @db.Uuid
+  amount         Decimal  @db.Decimal(18, 4)
+  message        String?
+  idempotencyKey String   @unique @map("idempotency_key")
+  senderTxId     String   @unique @map("sender_tx_id") @db.Uuid
+  receiverTxId   String   @unique @map("receiver_tx_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  sender   User @relation("CoinGiftSender", fields: [fromUserId], references: [id], onDelete: Cascade)
+  receiver User @relation("CoinGiftReceiver", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@index([fromUserId, createdAt(sort: Desc)])
+  @@index([toUserId, createdAt(sort: Desc)])
+  @@map("coin_gifts")
+}
+
+model RewardPolicySettings {
+  id                        String   @id @default("default")
+  attendanceEnabled         Boolean  @default(true) @map("attendance_enabled")
+  attendanceAmount          Decimal  @default(1) @map("attendance_amount") @db.Decimal(18, 4)
+  hostEnabled               Boolean  @default(true) @map("host_enabled")
+  hostThreshold             Int      @default(5) @map("host_threshold")
+  hostAmount                Decimal  @default(10) @map("host_amount") @db.Decimal(18, 4)
+  participationEnabled      Boolean  @default(true) @map("participation_enabled")
+  participationThreshold    Int      @default(5) @map("participation_threshold")
+  participationAmount       Decimal  @default(5) @map("participation_amount") @db.Decimal(18, 4)
+  updatedAt                 DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy                 String?  @map("updated_by") @db.Uuid
+
+  @@map("reward_policy_settings")
+}
+
+model DailyAttendanceCheckIn {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  kstDate   String   @map("kst_date") @db.VarChar(10)
+  amount    Decimal  @db.Decimal(18, 4)
+  grantId   String?  @unique @map("grant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  grant RewardGrant? @relation(fields: [grantId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, kstDate])
+  @@index([kstDate])
+  @@map("daily_attendance_check_ins")
+}
+
+model RewardGrant {
+  id             String          @id @default(uuid()) @db.Uuid
+  userId         String          @map("user_id") @db.Uuid
+  kind           RewardGrantKind
+  milestoneKey   String          @map("milestone_key")
+  amount         Decimal         @db.Decimal(18, 4)
+  issuanceId     String?         @unique @map("issuance_id") @db.Uuid
+  idempotencyKey String          @unique @map("idempotency_key")
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user                  User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attendanceCheckIns    DailyAttendanceCheckIn[]
+
+  @@unique([userId, kind, milestoneKey])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("reward_grants")
 }

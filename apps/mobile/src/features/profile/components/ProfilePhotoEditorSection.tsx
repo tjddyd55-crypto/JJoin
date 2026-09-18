@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import {
   Button,
@@ -8,6 +9,7 @@ import {
 import { MAX_PROFILE_GALLERY_PHOTOS } from '@jjoin/domain';
 import type { ProfilePhotoDto } from '@jjoin/types';
 import { Image, Pressable } from 'react-native';
+import { ProfileGallerySliderModal } from './ProfileGallerySliderModal';
 
 type Props = {
   avatarUrl: string | null;
@@ -19,6 +21,7 @@ type Props = {
   onAddGalleryPhoto: () => void;
   onDeleteGalleryPhoto: (photoId: string) => void;
   onMoveGalleryPhoto: (photoId: string, direction: 'left' | 'right') => void;
+  onSetPrimaryGalleryPhoto?: (photoId: string) => void;
 };
 
 export function ProfilePhotoEditorSection({
@@ -31,9 +34,18 @@ export function ProfilePhotoEditorSection({
   onAddGalleryPhoto,
   onDeleteGalleryPhoto,
   onMoveGalleryPhoto,
+  onSetPrimaryGalleryPhoto,
 }: Props) {
   const hasAvatar = Boolean(avatarUrl);
   const canAddGallery = gallery.length < MAX_PROFILE_GALLERY_PHOTOS;
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const gallerySlides = useMemo(
+    () =>
+      gallery
+        .filter((photo) => Boolean(photo.imageUrl))
+        .map((photo) => ({ id: photo.id, imageUrl: photo.imageUrl as string })),
+    [gallery],
+  );
 
   return (
     <View>
@@ -45,6 +57,8 @@ export function ProfilePhotoEditorSection({
           <Button
             label={hasAvatar ? '사진 변경' : '사진 추가'}
             variant="secondary"
+            size="sm"
+            fullWidth={false}
             loading={loading}
             onPress={onPickAvatar}
           />
@@ -52,6 +66,8 @@ export function ProfilePhotoEditorSection({
             <Button
               label="삭제"
               variant="ghost"
+              size="sm"
+              fullWidth={false}
               loading={loading}
               onPress={onDeleteAvatar}
             />
@@ -61,13 +77,27 @@ export function ProfilePhotoEditorSection({
 
       <Spacer size="md" />
       <Text variant="label" tone="secondary">추가 사진 (선택)</Text>
-      <Text variant="caption" tone="tertiary">최대 {MAX_PROFILE_GALLERY_PHOTOS}장</Text>
+      <Text variant="caption" tone="tertiary">
+        최대 {MAX_PROFILE_GALLERY_PHOTOS}장 · 여러 장 한 번에 선택 가능
+      </Text>
       <Spacer size="sm" />
       <View style={styles.galleryGrid}>
         {gallery.map((photo, index) => (
           <View key={photo.id} style={styles.galleryItem}>
             {photo.imageUrl ? (
-              <Image source={{ uri: photo.imageUrl }} style={styles.galleryImage} />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="사진 크게 보기"
+                disabled={loading}
+                onPress={() => {
+                  const slideIndex = gallerySlides.findIndex((slide) => slide.id === photo.id);
+                  if (slideIndex >= 0) {
+                    setViewerIndex(slideIndex);
+                  }
+                }}
+              >
+                <Image source={{ uri: photo.imageUrl }} style={styles.galleryImage} />
+              </Pressable>
             ) : (
               <View style={styles.galleryFallback} />
             )}
@@ -94,6 +124,17 @@ export function ProfilePhotoEditorSection({
                 <Text variant="caption" tone="link">→</Text>
               </Pressable>
             </View>
+            {onSetPrimaryGalleryPhoto ? (
+              <Pressable
+                accessibilityRole="button"
+                disabled={loading || photo.isPrimary}
+                onPress={() => onSetPrimaryGalleryPhoto(photo.id)}
+              >
+                <Text variant="caption" tone={photo.isPrimary ? 'success' : 'link'}>
+                  {photo.isPrimary ? '대표 사진' : '대표로 설정'}
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         ))}
       </View>
@@ -101,13 +142,22 @@ export function ProfilePhotoEditorSection({
         <>
           <Spacer size="sm" />
           <Button
-            label="추가 사진 등록"
+            label="사진 추가"
             variant="secondary"
+            size="sm"
+            fullWidth={false}
             loading={loading}
             onPress={onAddGalleryPhoto}
           />
         </>
       ) : null}
+
+      <ProfileGallerySliderModal
+        visible={viewerIndex != null}
+        slides={gallerySlides}
+        initialIndex={viewerIndex ?? 0}
+        onClose={() => setViewerIndex(null)}
+      />
     </View>
   );
 }

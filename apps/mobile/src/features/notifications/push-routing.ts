@@ -9,6 +9,7 @@ export type PushRouteTarget =
   | { kind: 'golf-friends' }
   | { kind: 'user'; userId: string }
   | { kind: 'notifications' }
+  | { kind: 'unavailable' }
   | { kind: 'none' };
 
 const UUID_RE = /^[0-9a-f-]{36}$/i;

@@ -81,8 +81,22 @@ export class UserAccountService {
     const me = buildMeFromUser(user, participationCount, this.profileMediaResolver());
     const walletSummary = await this.wallet.getSummary(userId);
     const premiumStatus = await this.premium.getStatus(userId);
+    const featureFlags = await this.prisma.featureFlagSettings.upsert({
+      where: { id: 'default' },
+      create: { id: 'default' },
+      update: {},
+    });
     return {
       ...me,
+      featureFlags: {
+        clubsUiEnabled: featureFlags.clubsUiEnabled,
+        profileMatchAlertsEnabled: featureFlags.profileMatchAlertsEnabled,
+        storeProfilesEnabled: featureFlags.storeProfilesEnabled,
+        homeBannersEnabled: featureFlags.homeBannersEnabled,
+        storeBannerAdsEnabled: featureFlags.storeBannerAdsEnabled,
+        coinGiftEnabled: featureFlags.coinGiftEnabled,
+        attendanceRewardsEnabled: featureFlags.attendanceRewardsEnabled,
+      },
       walletSummary,
       premiumStatus,
       publicProfile: me.publicProfile
@@ -299,9 +313,23 @@ export class UserAccountService {
             ageBand: data.ageBand ?? existing.ageBand,
             regionLabel: data.regionLabel ?? existing.regionLabel,
             bio: data.bio ?? existing.bio,
+            personality: data.personality === undefined ? existing.personality : data.personality,
+            age: data.age === undefined ? existing.age : data.age,
+            heightCm: data.heightCm === undefined ? existing.heightCm : data.heightCm,
+            drinking: data.drinking === undefined ? existing.drinking : data.drinking,
+            smoking: data.smoking === undefined ? existing.smoking : data.smoking,
+            showAge: data.showAge ?? existing.showAge,
+            showHeight: data.showHeight ?? existing.showHeight,
+            showDrinking: data.showDrinking ?? existing.showDrinking,
+            showSmoking: data.showSmoking ?? existing.showSmoking,
+            showHandicap: data.showHandicap ?? existing.showHandicap,
           },
         });
-        if (data.skillLevel || data.screenHandicap !== undefined) {
+        if (
+          data.skillLevel ||
+          data.screenHandicap !== undefined ||
+          data.fieldHandicap !== undefined
+        ) {
           const existingSport = await tx.userSportProfile.findUnique({
             where: { userId_sportId: { userId, sportId: sport.id } },
           });
@@ -312,10 +340,12 @@ export class UserAccountService {
               sportId: sport.id,
               skillLevel: data.skillLevel ?? existingSport?.skillLevel ?? 'BEGINNER',
               screenHandicap: data.screenHandicap ?? null,
+              fieldHandicap: data.fieldHandicap ?? null,
             },
             update: {
               ...(data.skillLevel ? { skillLevel: data.skillLevel } : {}),
               ...(data.screenHandicap !== undefined ? { screenHandicap: data.screenHandicap } : {}),
+              ...(data.fieldHandicap !== undefined ? { fieldHandicap: data.fieldHandicap } : {}),
             },
           });
         }

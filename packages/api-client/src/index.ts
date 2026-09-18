@@ -127,6 +127,22 @@ import {
   type CreateClubAccountingEntryRequest,
   type ClubNoticeListResponse,
   type CreateClubNoticeRequest,
+  type FeatureFlagDto,
+  type HomeBannerDto,
+  type PublicStoreListItemDto,
+  type PublicStoreDetailDto,
+  type StoreProfileDto,
+  type UpsertStoreProfileRequest,
+  type ProfileMatchPreferenceDto,
+  type UpsertProfileMatchPreferenceRequest,
+  type CoinGiftRequest,
+  type CoinGiftDto,
+  type RewardProgressDto,
+  type RewardGrantDto,
+  type AttendanceCheckInDto,
+  type AssignJoinTeamRequest,
+  type StoreBannerAdRequestDto,
+  type CreateStoreBannerAdRequest,
   type ClubNoticeDto,
   type ClubUrgentRecruitPrefillDto,
   type PaymentProductDto,
@@ -2182,6 +2198,136 @@ export class ApiClient {
 
   async listMallOrders(): Promise<MallOrderListResponse> {
     const res = await request(`${this.config.baseUrl}/mall/orders`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getFeatureFlags(): Promise<FeatureFlagDto> {
+    const res = await request(`${this.config.baseUrl}/feature-flags`, {
+      headers: await this.headers(false),
+    });
+    return parseJson(res);
+  }
+
+  async listHomeBanners(): Promise<HomeBannerDto[]> {
+    const res = await request(`${this.config.baseUrl}/home-banners`, {
+      headers: await this.headers(false),
+    });
+    return parseJson(res);
+  }
+
+  async listScreenStores(query?: { sido?: string; sigungu?: string }): Promise<PublicStoreListItemDto[]> {
+    const params = new URLSearchParams();
+    if (query?.sido) params.set('sido', query.sido);
+    if (query?.sigungu) params.set('sigungu', query.sigungu);
+    const qs = params.toString();
+    const res = await request(`${this.config.baseUrl}/screen-stores${qs ? `?${qs}` : ''}`, {
+      headers: await this.headers(false),
+    });
+    return parseJson(res);
+  }
+
+  async getScreenStore(ownershipId: string): Promise<PublicStoreDetailDto> {
+    const res = await request(`${this.config.baseUrl}/screen-stores/${ownershipId}`, {
+      headers: await this.headers(false),
+    });
+    return parseJson(res);
+  }
+
+  async getMyStoreProfile(ownershipId: string): Promise<StoreProfileDto> {
+    const res = await request(`${this.config.baseUrl}/me/stores/${ownershipId}/profile`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async upsertMyStoreProfile(ownershipId: string, body: UpsertStoreProfileRequest): Promise<StoreProfileDto> {
+    const res = await request(`${this.config.baseUrl}/me/stores/${ownershipId}/profile`, {
+      method: 'PUT',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async getProfileMatchPreference(): Promise<ProfileMatchPreferenceDto> {
+    const res = await request(`${this.config.baseUrl}/me/profile-match-preference`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async upsertProfileMatchPreference(
+    body: UpsertProfileMatchPreferenceRequest,
+  ): Promise<ProfileMatchPreferenceDto> {
+    const res = await request(`${this.config.baseUrl}/me/profile-match-preference`, {
+      method: 'PUT',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async sendCoinGift(body: CoinGiftRequest): Promise<CoinGiftDto> {
+    const res = await request(`${this.config.baseUrl}/me/wallet/gifts`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async getRewardProgress(): Promise<RewardProgressDto> {
+    const res = await request(`${this.config.baseUrl}/me/rewards/progress`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async listRewardHistory(): Promise<RewardGrantDto[]> {
+    const res = await request(`${this.config.baseUrl}/me/rewards/history`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async checkInAttendance(): Promise<AttendanceCheckInDto> {
+    const res = await request(`${this.config.baseUrl}/me/rewards/attendance/check-in`, {
+      method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async assignJoinTeam(joinId: string, body: AssignJoinTeamRequest): Promise<JoinDetailDto> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/team-assignment`, {
+      method: 'PATCH',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async listMyStoreBannerAds(): Promise<StoreBannerAdRequestDto[]> {
+    const res = await request(`${this.config.baseUrl}/me/store-banner-ads`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async createStoreBannerAd(body: CreateStoreBannerAdRequest): Promise<StoreBannerAdRequestDto> {
+    const res = await request(`${this.config.baseUrl}/me/store-banner-ads`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async setPrimaryProfilePhoto(photoId: string): Promise<MeDto> {
+    const res = await request(`${this.config.baseUrl}/me/profile/photos/${photoId}/primary`, {
+      method: 'PATCH',
       headers: await this.headers(true),
     });
     return parseJson(res);

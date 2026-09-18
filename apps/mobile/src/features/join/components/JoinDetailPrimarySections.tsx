@@ -13,6 +13,7 @@ import {
   Text,
   useTheme,
 } from '@jjoin/design-system';
+import { formatPlayFormatLabel, formatTeamCapacityLabel } from '@jjoin/domain';
 import type { JoinDetailDto } from '@jjoin/types';
 import { JoinParticipationSlotGrid } from './JoinParticipationSlotGrid';
 import {
@@ -24,7 +25,6 @@ import {
   buildJoinRosterSlots,
   hasJoinBenefits,
   hasJoinGameInfoSection,
-  hasJoinMemberPreferenceLabels,
 } from '../../../ui/join-detail-display';
 import {
   formatJoinScheduleDetailDate,
@@ -122,6 +122,17 @@ function buildScheduleStatTiles(detail: JoinDetailDto) {
     {
       label: '시간',
       value: `${formatJoinScheduleDetailTime(detail.startAt)}~${formatJoinScheduleDetailTime(detail.scheduledEndAt)}`,
+      surface: 'info' as const,
+    },
+    {
+      label: '형식',
+      value:
+        detail.playFormat === 'TEAM'
+          ? formatTeamCapacityLabel({
+              teamSize: detail.teamSize ?? null,
+              teamCount: detail.teamCount ?? null,
+            }) ?? formatPlayFormatLabel('TEAM')
+          : formatPlayFormatLabel(detail.playFormat ?? 'INDIVIDUAL'),
       surface: 'info' as const,
     },
     {

@@ -42,6 +42,7 @@ import {
 } from '../../../src/features/join/attendance-intent-ui';
 import { JoinDetailPrimarySections } from '../../../src/features/join/components/JoinDetailPrimarySections';
 import { JoinHostManagementSection } from '../../../src/features/join/components/JoinHostManagementSection';
+import { JoinTeamAssignmentSection } from '../../../src/features/join/components/JoinTeamAssignmentSection';
 import { canShowJoinChatEntry } from '../../../src/ui/join-detail-display';
 import type { JoinWaitlistResponse } from '@jjoin/types';
 import {
@@ -656,6 +657,14 @@ export default function JoinDetailScreen() {
           onShare={() => void onShare()}
           onOpenHost={() => router.push(`/user/${detail.host.id}`)}
         />
+
+        {detail.playFormat === 'TEAM' ? (
+          <JoinTeamAssignmentSection
+            detail={detail}
+            isHost={isHost}
+            onUpdated={setDetail}
+          />
+        ) : null}
 
         {isHost ? (
           <JoinHostManagementSection

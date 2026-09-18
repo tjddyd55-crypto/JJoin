@@ -5,7 +5,6 @@ import {
   Button,
   Text,
   BottomSheetFrame,
-  Spacer,
   Stack,
   Row,
   Icon,

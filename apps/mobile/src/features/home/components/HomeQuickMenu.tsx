@@ -18,13 +18,17 @@ const ROW_1: QuickMenuItem[] = [
   { label: '스크린', icon: 'golf', href: '/(tabs)/screen' },
 ];
 
-const ROW_2: QuickMenuItem[] = [
-  { label: '동호회', icon: 'people', href: '/my/clubs/discover' as Href },
-  { label: '내 조인', icon: 'people', href: '/(tabs)/my-joins' },
-  { label: '골프친구', icon: 'people', href: '/my/golf-friends' as Href },
-  { label: '알림', icon: 'notification', href: '/my/notifications' },
-  { label: '코인', icon: 'coin', href: '/my/wallet' },
-];
+function buildRow2(clubsUiEnabled: boolean): QuickMenuItem[] {
+  return [
+    clubsUiEnabled
+      ? { label: '동호회', icon: 'people', href: '/my/clubs/discover' as Href }
+      : { label: '스크린 매장', icon: 'golf', href: '/stores' as Href },
+    { label: '내 조인', icon: 'people', href: '/(tabs)/my-joins' },
+    { label: '골프친구', icon: 'people', href: '/my/golf-friends' as Href },
+    { label: '알림', icon: 'notification', href: '/my/notifications' },
+    { label: '코인', icon: 'coin', href: '/my/wallet' },
+  ];
+}
 
 function QuickMenuCell({ item }: { item: QuickMenuItem }) {
   const theme = useTheme();
@@ -66,10 +70,10 @@ function QuickMenuCell({ item }: { item: QuickMenuItem }) {
   );
 }
 
-export function HomeQuickMenu() {
+export function HomeQuickMenu({ clubsUiEnabled = false }: { clubsUiEnabled?: boolean }) {
   return (
     <View style={styles.grid}>
-      {[ROW_1, ROW_2].map((row, rowIndex) => (
+      {[ROW_1, buildRow2(clubsUiEnabled)].map((row, rowIndex) => (
         <View key={rowIndex} style={styles.row}>
           {row.map((item) => (
             <QuickMenuCell key={item.label} item={item} />

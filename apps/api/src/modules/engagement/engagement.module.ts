@@ -19,6 +19,7 @@ import { GolfFriendsController } from './golf-friends.controller';
 import { GolfFriendsService } from './golf-friends.service';
 import { PresenceModule } from '../presence/presence.module';
 import { UsersModule } from '../users/users.module';
+import { ExpansionModule } from '../expansion/expansion.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { UsersModule } from '../users/users.module';
     forwardRef(() => JoinsModule),
     PresenceModule,
     UsersModule,
+    ExpansionModule,
   ],
   controllers: [
     JoinAlertsController,

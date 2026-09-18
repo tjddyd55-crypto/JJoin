@@ -11,7 +11,7 @@ export class MediaUrlService {
   }
 
   mapProfilePhotos(
-    rows: Array<{ id: string; objectKey: string; sortOrder: number }>,
+    rows: Array<{ id: string; objectKey: string; sortOrder: number; isPrimary?: boolean }>,
   ): ProfilePhotoDto[] {
     return rows
       .slice()
@@ -20,6 +20,7 @@ export class MediaUrlService {
         id: row.id,
         imageUrl: this.storage.getPublicUrl(row.objectKey),
         sortOrder: row.sortOrder,
+        isPrimary: Boolean(row.isPrimary),
       }));
   }
 }
