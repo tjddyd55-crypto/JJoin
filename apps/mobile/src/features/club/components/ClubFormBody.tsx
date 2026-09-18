@@ -1,4 +1,4 @@
-import { StyleSheet, TextInput, View } from 'react-native';
+import { TextInput, View } from 'react-native';
 import { AgeRangeSelector, Chip } from '@jjoin/design-system';
 import {
   JOIN_MEMBER_MAX_AGE,

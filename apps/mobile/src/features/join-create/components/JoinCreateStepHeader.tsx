@@ -68,7 +68,6 @@ export function JoinCreateSummaryRow({
   onPress,
   done = true,
 }: JoinCreateSummaryRowProps) {
-  const theme = useTheme();
   return (
     <Pressable
       accessibilityRole={onPress ? 'button' : 'text'}

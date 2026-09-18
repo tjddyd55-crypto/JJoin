@@ -4,7 +4,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { spacing, useTheme, JoinDiscoveryAppBar, JoinListTextTabs } from '@jjoin/design-system';
-import { regionIdentityKey } from '@jjoin/domain';
 import { JoinDiscoveryProvider, useJoinDiscovery } from './JoinDiscoveryContext';
 import { DiscoverListPanel } from './components/DiscoverListPanel';
 import { DiscoveryFilterChrome } from './components/DiscoveryFilterChrome';
@@ -38,7 +37,6 @@ function ExploreDiscoveryBody() {
   const [regionPickerOpen, setRegionPickerOpen] = useState(false);
   const isMap = filter.view === 'MAP';
   const isRegion = filter.view === 'REGION';
-  const isList = !isMap && !isRegion;
   const { unreadCount } = useNotificationUnreadCount();
 
   useEffect(() => {

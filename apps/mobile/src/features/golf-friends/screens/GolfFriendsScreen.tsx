@@ -199,7 +199,7 @@ export function GolfFriendsScreen() {
       return;
     }
     void load();
-  }, [load, tab]);
+  }, [load, searchQuery, tab]);
 
   const patchRelationship = (userId: string, relationship: GolfFriendRelationship) => {
     setItems((prev) =>
