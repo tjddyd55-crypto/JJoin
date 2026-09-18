@@ -25,7 +25,7 @@ test('FIELD create is rejected when the venue is SCREEN', () => {
   }
 });
 
-test('FIELD individual and 포썸 2v2/3v3 stay on the same create schema', () => {
+test('FIELD individual and 포썸 2v2 stay on the same create schema; 3v3 is rejected in v1', () => {
   const venueId = '11111111-1111-4111-8111-111111111111';
   const startAt = '2026-09-20T01:00:00.000Z';
   const individual = createJoinSchema.safeParse({
@@ -58,5 +58,5 @@ test('FIELD individual and 포썸 2v2/3v3 stay on the same create schema', () =>
   });
   assert.equal(individual.success, true);
   assert.equal(foursome2.success, true);
-  assert.equal(foursome3.success, true);
+  assert.equal(foursome3.success, false);
 });

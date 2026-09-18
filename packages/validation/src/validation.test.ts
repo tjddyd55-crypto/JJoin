@@ -222,6 +222,94 @@ test('createJoin accepts SCREEN/FIELD venueType and defaults when omitted', () =
   assert.equal(bad.success, false);
 });
 
+test('FIELD create rejects 6 / 3v3 and SCREEN fieldDetails', () => {
+  const base = {
+    venueId: '11111111-1111-4111-8111-111111111111',
+    startAt: '2026-09-20T01:00:00.000Z',
+    joinMethod: 'OPEN' as const,
+  };
+  const six = createJoinSchema.safeParse({
+    ...base,
+    plannedPlayerCount: 6,
+    venueType: 'FIELD',
+    playFormat: 'INDIVIDUAL',
+  });
+  assert.equal(six.success, false);
+
+  const threeVthree = createJoinSchema.safeParse({
+    ...base,
+    plannedPlayerCount: 6,
+    venueType: 'FIELD',
+    playFormat: 'TEAM',
+    teamSize: 3,
+    teamCount: 2,
+  });
+  assert.equal(threeVthree.success, false);
+
+  const screenFees = createJoinSchema.safeParse({
+    ...base,
+    plannedPlayerCount: 4,
+    venueType: 'SCREEN',
+    fieldDetails: { greenFeePerPerson: 80000 },
+  });
+  assert.equal(screenFees.success, false);
+});
+
+test('FIELD create accepts fees, rejects NO_CADDIE with a positive fee', () => {
+  const ok = createJoinSchema.safeParse({
+    venueId: '11111111-1111-4111-8111-111111111111',
+    startAt: '2026-09-20T01:00:00.000Z',
+    plannedPlayerCount: 4,
+    joinMethod: 'OPEN',
+    venueType: 'FIELD',
+    fieldDetails: {
+      greenFeePerPerson: 90000,
+      greenFeePayer: 'EACH_PERSON',
+      cartFeeTotal: 80000,
+      cartFeePayer: 'EQUAL_SPLIT',
+      caddieMode: 'NO_CADDIE',
+      roundHoles: 18,
+      teeTimeMode: 'CONFIRMED',
+    },
+  });
+  assert.equal(ok.success, true);
+
+  const badCaddie = createJoinSchema.safeParse({
+    venueId: '11111111-1111-4111-8111-111111111111',
+    startAt: '2026-09-20T01:00:00.000Z',
+    plannedPlayerCount: 4,
+    joinMethod: 'OPEN',
+    venueType: 'FIELD',
+    fieldDetails: {
+      caddieMode: 'NO_CADDIE',
+      caddieFeeTotal: 120000,
+    },
+  });
+  assert.equal(badCaddie.success, false);
+});
+
+test('SCREEN create capacities and foursome still pass without fieldDetails', () => {
+  const screenSix = createJoinSchema.safeParse({
+    venueId: '11111111-1111-4111-8111-111111111111',
+    startAt: '2026-09-20T01:00:00.000Z',
+    plannedPlayerCount: 6,
+    joinMethod: 'OPEN',
+    venueType: 'SCREEN',
+  });
+  assert.equal(screenSix.success, true);
+
+  const screenTeam = createJoinSchema.safeParse({
+    venueId: '11111111-1111-4111-8111-111111111111',
+    startAt: '2026-09-20T01:00:00.000Z',
+    plannedPlayerCount: 8,
+    joinMethod: 'OPEN',
+    playFormat: 'TEAM',
+    teamSize: 4,
+    teamCount: 2,
+  });
+  assert.equal(screenTeam.success, true);
+});
+
 test('terms require all mandatory consents', () => {
   const bad = termsConsentSchema.safeParse({
     termsOfService: true,

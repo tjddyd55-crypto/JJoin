@@ -37,7 +37,9 @@ import {
   formatStandardGenderCompositionLabel,
   hasValidKoreaMapCoords,
   parseJoinVenueType,
+  resolveFieldRoundHoles,
 } from '@jjoin/domain';
+import { mapFieldJoinDetailDto } from './field-join-detail.map';
 import {
   JoinKind,
   VenueType,
@@ -136,7 +138,22 @@ type DiscoveryJoinRow = {
   gameStyle?: string | null;
   gameMemo?: string | null;
   afterPlan?: string | null;
-  afterMemo?: string | null;
+    afterMemo?: string | null;
+  fieldDetail?: {
+    greenFeePerPerson: number | null;
+    greenFeePayer: string;
+    cartFeeTotal: number | null;
+    cartFeePayer: string;
+    caddieMode: string;
+    caddieFeeTotal: number | null;
+    caddieFeePayer: string | null;
+    roundHoles: number;
+    teeTimeMode: string;
+    minFieldHandicap: number | null;
+    maxFieldHandicap: number | null;
+    depositRequired: boolean;
+    depositAmount: number | null;
+  } | null;
   venue: {
     id: string;
     name: string;
@@ -563,6 +580,7 @@ export class JoinDiscoveryService {
             user: { select: { profile: { select: { gender: true } } } },
           },
         },
+        fieldDetail: true,
       },
       orderBy: { startAt: 'asc' },
     });
@@ -819,6 +837,10 @@ export class JoinDiscoveryService {
       preferredGender: (row.preferredGender as JoinPreferredGender | null) ?? null,
       minAge: row.minAge ?? null,
       maxAge: row.maxAge ?? null,
+      expectedCostKrw:
+        mapFieldJoinDetailDto(row.fieldDetail, row.plannedPlayerCount)?.cost.participantExpectedKrw ??
+        null,
+      roundHoles: row.fieldDetail ? resolveFieldRoundHoles(row.fieldDetail.roundHoles) : null,
       participantSkillMode:
         (row.participantSkillMode as JoinParticipantSkillMode | null) ??
         JoinParticipantSkillMode.ANY,

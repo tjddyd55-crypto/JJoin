@@ -1089,6 +1089,7 @@ export function ExploreMapScreen({
                       venueId: resolved.venueId,
                       venueName: resolved.name,
                       venueAddress: resolved.address,
+                      venueType: 'SCREEN',
                     },
                   } as Href);
                 } catch {

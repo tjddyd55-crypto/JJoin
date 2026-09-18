@@ -80,6 +80,9 @@ import {
   validateStandardGenderCompositionEdit,
   formatStandardGenderCompositionLabel,
   validateJoinPlayFormat,
+  validateJoinCapacityForTrack,
+  validateFieldJoinDetails,
+  fieldRoundDurationRule,
   validateTeamAssignment,
   assertVenueTypeMatch,
   hasValidKoreaMapCoords,
@@ -122,6 +125,7 @@ import { JoinCreationCoinPolicyService } from './join-creation-coin-policy.servi
 import { JoinWaitlistService } from './join-waitlist.service';
 import { MediaUrlService } from '../storage/media-url.service';
 import type { AttendanceIntent } from '@jjoin/types';
+import { fieldJoinDetailCreateData, mapFieldJoinDetailDto } from './field-join-detail.map';
 
 const ACTIVE_JOIN_STATUSES: JoinStatus[] = [JoinStatus.OPEN, JoinStatus.FULL];
 
@@ -253,6 +257,26 @@ export class JoinsService {
     }
     const playFormat = playFormatResult.value;
     const requestedVenueType = parseJoinVenueType(input.venueType);
+    const trackCapacity = validateJoinCapacityForTrack({
+      playFormat: playFormat.playFormat,
+      plannedPlayerCount: playFormat.plannedPlayerCount,
+      teamSize: playFormat.teamSize,
+      teamCount: playFormat.teamCount,
+      venueType: requestedVenueType,
+    });
+    if (!trackCapacity.ok) {
+      throw joinCreateBadRequest(trackCapacity.code);
+    }
+    const fieldDetailsResult =
+      requestedVenueType === 'FIELD' && input.fieldDetails
+        ? validateFieldJoinDetails({
+            ...input.fieldDetails,
+            participantCount: playFormat.plannedPlayerCount,
+          })
+        : null;
+    if (fieldDetailsResult && !fieldDetailsResult.ok) {
+      throw joinCreateBadRequest(fieldDetailsResult.code);
+    }
     const hostProfile = await this.prisma.user.findUnique({
       where: { id: hostUserId },
       select: { profile: { select: { gender: true } } },
@@ -335,8 +359,15 @@ export class JoinsService {
 
     const scheduledEndAt = estimateEndAt({
       startAt,
-      playerCount: input.plannedPlayerCount,
-      rule: SCREEN_GOLF_DURATION_RULE,
+      playerCount: playFormat.plannedPlayerCount,
+      rule:
+        requestedVenueType === 'FIELD'
+          ? fieldRoundDurationRule(
+              fieldDetailsResult && fieldDetailsResult.ok
+                ? fieldDetailsResult.value.roundHoles
+                : 18,
+            )
+          : SCREEN_GOLF_DURATION_RULE,
     });
 
     const joinId = randomUUID();
@@ -473,6 +504,12 @@ export class JoinsService {
             },
           },
         });
+
+        if (fieldDetailsResult && fieldDetailsResult.ok) {
+          await tx.fieldJoinDetail.create({
+            data: fieldJoinDetailCreateData(joinId, randomUUID(), fieldDetailsResult.value),
+          });
+        }
 
         await this.ledger.applyRoomCreationFee(tx, {
           walletId: wallet.id,
@@ -811,6 +848,7 @@ export class JoinsService {
           orderBy: { appliedAt: 'asc' },
         },
         chatRoom: true,
+        fieldDetail: true,
       },
     });
     if (!join) throw new NotFoundException('join_not_found');
@@ -1847,6 +1885,10 @@ export class JoinsService {
       preferredGender: (join.preferredGender as JoinPreferredGender | null) ?? null,
       minAge: join.minAge ?? null,
       maxAge: join.maxAge ?? null,
+      fieldDetails: mapFieldJoinDetailDto(
+        (join as { fieldDetail?: Parameters<typeof mapFieldJoinDetailDto>[0] }).fieldDetail,
+        join.plannedPlayerCount,
+      ),
       participantSkillMode:
         (join.participantSkillMode as JoinParticipantSkillMode | null) ??
         JoinParticipantSkillMode.ANY,

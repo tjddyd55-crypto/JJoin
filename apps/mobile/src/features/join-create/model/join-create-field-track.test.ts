@@ -14,7 +14,7 @@ test('weekly FIELD create title and template stay on the FIELD track', () => {
   assert.equal(`라데나골프클럽 ${venueType === 'FIELD' ? '필드 조인' : '스크린골프'}`, '라데나골프클럽 필드 조인');
 });
 
-test('FIELD 포썸 2v2 and 3v3 can advance the shared create SSOT', () => {
+test('FIELD 포썸 2v2 advances and 3v3 is rejected in v1', () => {
   assert.equal(
     canAdvanceJoinCreateStep('capacity', {
       venueReady: true,
@@ -23,6 +23,7 @@ test('FIELD 포썸 2v2 and 3v3 can advance the shared create SSOT', () => {
       playFormat: 'TEAM',
       teamSize: FIELD_FOURSOME_PRESETS[0].teamSize,
       teamCount: FIELD_FOURSOME_PRESETS[0].teamCount,
+      venueType: 'FIELD',
     }),
     true,
   );
@@ -34,8 +35,9 @@ test('FIELD 포썸 2v2 and 3v3 can advance the shared create SSOT', () => {
       playFormat: 'TEAM',
       teamSize: FIELD_FOURSOME_PRESETS[1].teamSize,
       teamCount: FIELD_FOURSOME_PRESETS[1].teamCount,
+      venueType: 'FIELD',
     }),
-    true,
+    false,
   );
   assert.equal(formatPlayFormatLabel('TEAM', 'FIELD'), '포썸');
 });

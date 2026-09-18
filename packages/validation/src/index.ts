@@ -108,6 +108,73 @@ export const joinRoomCharacterFieldsSchema = joinRoomCharacterFieldsObjectSchema
   refineJoinRoomCharacterHandicap,
 );
 
+const FIELD_FEE_MAX_KRW = 2_000_000;
+
+export const fieldJoinDetailsObjectSchema = z
+  .object({
+    greenFeePerPerson: z.number().int().min(0).max(FIELD_FEE_MAX_KRW).nullable().optional(),
+    greenFeePayer: z.enum(['EACH_PERSON', 'HOST']).optional(),
+    cartFeeTotal: z.number().int().min(0).max(FIELD_FEE_MAX_KRW).nullable().optional(),
+    cartFeePayer: z.enum(['EQUAL_SPLIT', 'HOST']).optional(),
+    caddieMode: z.enum(['CADDIE', 'NO_CADDIE']).optional(),
+    caddieFeeTotal: z.number().int().min(0).max(FIELD_FEE_MAX_KRW).nullable().optional(),
+    caddieFeePayer: z.enum(['EQUAL_SPLIT', 'HOST']).nullable().optional(),
+    roundHoles: z.union([z.literal(18), z.literal(9)]).optional(),
+    teeTimeMode: z.enum(['CONFIRMED', 'RECRUIT_FIRST', 'SOFT_WINDOW']).optional(),
+    minFieldHandicap: z.number().int().min(SCREEN_HANDICAP_MIN).max(SCREEN_HANDICAP_MAX).nullable().optional(),
+    maxFieldHandicap: z.number().int().min(SCREEN_HANDICAP_MIN).max(SCREEN_HANDICAP_MAX).nullable().optional(),
+    depositRequired: z.boolean().optional(),
+    depositAmount: z.number().int().min(0).max(FIELD_FEE_MAX_KRW).nullable().optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.caddieMode === 'NO_CADDIE' && v.caddieFeeTotal != null && v.caddieFeeTotal !== 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'field_nocaddie_fee_must_be_zero' });
+    }
+    if (v.teeTimeMode && v.teeTimeMode !== 'CONFIRMED') {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'field_tee_time_must_be_confirmed' });
+    }
+    const min = v.minFieldHandicap ?? null;
+    const max = v.maxFieldHandicap ?? null;
+    if ((min != null) !== (max != null)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'field_handicap_range_required' });
+    }
+    if (min != null && max != null && min > max) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'invalid_field_handicap_range' });
+    }
+    if (v.depositRequired === true && (v.depositAmount == null || v.depositAmount <= 0)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'field_deposit_amount_required' });
+    }
+  });
+
+function refineFieldJoinCreate(
+  v: {
+    venueType?: 'SCREEN' | 'FIELD';
+    playFormat?: 'INDIVIDUAL' | 'TEAM';
+    plannedPlayerCount: number;
+    teamSize?: number | null;
+    teamCount?: number | null;
+    fieldDetails?: unknown;
+  },
+  ctx: z.RefinementCtx,
+): void {
+  const venueType = v.venueType ?? 'SCREEN';
+  if (venueType === 'SCREEN' && v.fieldDetails != null) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'field_details_not_allowed' });
+    return;
+  }
+  if (venueType !== 'FIELD') return;
+  const playFormat = v.playFormat ?? 'INDIVIDUAL';
+  if (playFormat === 'INDIVIDUAL' && ![2, 3, 4].includes(v.plannedPlayerCount)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'field_capacity_not_allowed' });
+    return;
+  }
+  if (playFormat === 'TEAM' && (v.teamSize !== 2 || v.teamCount !== 2)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'field_foursome_v1_2v2_only' });
+  }
+}
+
+export const fieldJoinDetailsSchema = fieldJoinDetailsObjectSchema;
+
 export const updateJoinSchema = z
   .object({
     title: z.string().trim().max(80).nullable().optional(),
@@ -177,6 +244,7 @@ export const createJoinSchema = z
     teamSize: z.number().int().min(2).max(6).optional().nullable(),
     teamCount: z.number().int().min(2).max(8).optional().nullable(),
     venueType: z.enum(['SCREEN', 'FIELD']).optional(),
+    fieldDetails: fieldJoinDetailsObjectSchema.optional(),
   })
   .merge(joinRoomCharacterFieldsObjectSchema)
   .superRefine(refineJoinRoomCharacterHandicap)
@@ -204,7 +272,8 @@ export const createJoinSchema = z
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'invalid_team_capacity' });
       }
     }
-  });
+  })
+  .superRefine(refineFieldJoinCreate);
 
 export type CreateJoinInput = z.infer<typeof createJoinSchema>;
 
@@ -387,6 +456,7 @@ export const hostJoinRecurringTemplateSchema = z
     preferredGender: z.enum(['ANY', 'MALE', 'FEMALE']).optional().nullable(),
     minAge: z.number().int().min(18).max(70).optional().nullable(),
     maxAge: z.number().int().min(18).max(70).optional().nullable(),
+    fieldDetails: fieldJoinDetailsObjectSchema.optional(),
   })
   .merge(joinRoomCharacterFieldsObjectSchema.partial())
   .refine((v) => Boolean(v.venueId || v.venue), {

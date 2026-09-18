@@ -63,6 +63,8 @@ export function mapRecommendedToJoinCardProps(
       hostAvatarUrl: item.hostAvatarUrl,
       isUrgent: item.isUrgent,
       title: item.title,
+      venueType: item.venueType,
+      expectedCostKrw: item.expectedCostKrw,
     },
     { ...options, variant: options?.variant ?? 'compact' },
   );
@@ -96,6 +98,7 @@ export function mapDiscoverToJoinCardProps(
         rewardPerParticipant: item.rewardPerParticipant,
         title: item.title,
         venueType: item.venueType,
+        expectedCostKrw: item.expectedCostKrw,
       },
       { ...options, variant: options?.variant ?? 'default' },
     ),
