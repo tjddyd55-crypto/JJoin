@@ -25,7 +25,6 @@ import {
   buildJoinRosterSlots,
   hasJoinBenefits,
   hasJoinGameInfoSection,
-  hasJoinMemberPreferenceLabels,
 } from '../../../ui/join-detail-display';
 import {
   formatJoinScheduleDetailDate,

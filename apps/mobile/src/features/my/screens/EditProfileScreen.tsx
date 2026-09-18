@@ -89,7 +89,7 @@ export function EditProfileScreen() {
   const [screenHandicapText, setScreenHandicapText] = useState(
     golfProfile?.screenHandicap != null ? String(golfProfile.screenHandicap) : '',
   );
-  const [skillLevel, setSkillLevel] = useState<SportSkillLevel>(
+  const [skillLevel] = useState<SportSkillLevel>(
     golfProfile?.skillLevel ?? SportSkillLevel.BEGINNER,
   );
   const [error, setError] = useState<string | null>(null);
