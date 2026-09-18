@@ -19,6 +19,7 @@ export const JOIN_CREATE_CLIENT_MESSAGES: Record<string, string> = {
   invalid_target_composition: '남녀 모집 인원 구성을 확인해주세요.',
   planned_player_count_out_of_range: '모집 인원은 1~4명이어야 합니다.',
   venue_or_venueId_required: '장소를 선택해주세요.',
+  venue_type_mismatch: '선택한 장소가 조인 유형과 맞지 않습니다.',
   unsupported_sport: '지원하지 않는 종목입니다.',
   gender_composition_sum_mismatch: '남녀 모집 인원 구성을 확인해주세요.',
   invalid_gender_composition: '남녀 모집 인원 구성을 확인해주세요.',

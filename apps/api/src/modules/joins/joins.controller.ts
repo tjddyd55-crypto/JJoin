@@ -80,6 +80,7 @@ export class JoinsController {
     @Query('sigungu') sigungu?: string,
     @Query('sort') sort?: string,
     @Query('joinability') joinability?: string,
+    @Query('venueType') venueType?: string,
   ) {
     await this.matchingJoins.reconcileDueMatchingDeadlines(20);
     return this.discovery.discover(userId, {
@@ -92,6 +93,7 @@ export class JoinsController {
       sigungu,
       sort,
       joinability,
+      venueType,
     });
   }
 
@@ -107,6 +109,7 @@ export class JoinsController {
     @Query('radiusMeters') radiusMeters?: string,
     @Query('sido') sido?: string,
     @Query('sigungu') sigungu?: string,
+    @Query('venueType') venueType?: string,
   ) {
     return this.discovery.weeklyCounts(userId, {
       weekStart,
@@ -117,6 +120,7 @@ export class JoinsController {
       radiusMeters: optionalNum(radiusMeters),
       sido,
       sigungu,
+      venueType,
     });
   }
 
@@ -128,12 +132,14 @@ export class JoinsController {
     @Query('joinability') joinability?: string,
     @Query('sido') sido?: string,
     @Query('sigungu') sigungu?: string,
+    @Query('venueType') venueType?: string,
   ) {
     return this.discovery.regionSummary(userId, {
       date,
       joinability,
       sido,
       sigungu,
+      venueType,
     });
   }
 
@@ -150,6 +156,7 @@ export class JoinsController {
     @Query('sido') sido?: string,
     @Query('sigungu') sigungu?: string,
     @Query('sort') sort?: string,
+    @Query('venueType') venueType?: string,
   ) {
     await this.matchingJoins.reconcileDueMatchingDeadlines(20);
     return this.discovery.facilityJoins(userId, {
@@ -162,6 +169,7 @@ export class JoinsController {
       sido,
       sigungu,
       sort,
+      venueType,
     });
   }
 
