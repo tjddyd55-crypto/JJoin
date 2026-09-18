@@ -33,6 +33,24 @@ test('normalize uses official Korean ODCloud columns and does not invent coords'
   assert.equal(row?.phone, null);
 });
 
+test('OAS integer columns 홀 / 면적(제곱미터) are normalized without invented keys', () => {
+  const row = normalizeFieldGolfCourseItem({
+    지역: '강원',
+    이름: '오크밸리',
+    사업자: '오크밸리',
+    소재지: '강원특별자치도 원주시',
+    '면적(제곱미터)': 200000,
+    홀: 18,
+    구분: '회원제',
+  });
+  assert.ok(row);
+  assert.equal(row?.holeCount, 18);
+  assert.equal(row?.areaSqm, '200000');
+  assert.equal(row?.latitude, null);
+  assert.equal(row?.longitude, null);
+  assert.equal(row?.phone, null);
+});
+
 test('English official aliases are accepted when present', () => {
   const row = normalizeFieldGolfCourseItem({
     region: '제주',

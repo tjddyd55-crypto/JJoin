@@ -18,7 +18,32 @@ test('ODCloud URL uses page/perPage/serviceKey and does not invent extra filters
   assert.equal(url.origin + url.pathname, `https://api.odcloud.kr/api${ODCLOUD_FIELD_GOLF_PATH}`);
   assert.equal(url.searchParams.get('page'), '1');
   assert.equal(url.searchParams.get('perPage'), '2');
+  assert.equal(url.searchParams.get('returnType'), 'JSON');
   assert.equal(url.searchParams.get('serviceKey'), 'KEY+1');
+});
+
+test('page fetch sends OAS Authorization header plus serviceKey query', async () => {
+  let seenAuth: string | null = null;
+  await fetchOdcloudFieldGolfPage({
+    serviceKey: 'KEY%2B1',
+    page: 1,
+    perPage: 2,
+    fetchImpl: async (_url, init) => {
+      const headers = new Headers(init?.headers);
+      seenAuth = headers.get('Authorization');
+      return new Response(
+        JSON.stringify({
+          currentCount: 0,
+          page: 1,
+          perPage: 2,
+          totalCount: 0,
+          data: [],
+        }),
+        { status: 200 },
+      );
+    },
+  });
+  assert.equal(seenAuth, 'KEY+1');
 });
 
 test('page parser reads the live ODCloud envelope shape', async () => {

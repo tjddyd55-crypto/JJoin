@@ -1,66 +1,89 @@
 # FIELD 골프장 공개데이터 동기화
 
-SCREEN LOCALDATA 연습장 파이프라인과 같은 Join 엔진을 재사용한다. FIELD는 `Venue.venueType = FIELD` + `FieldGolfCourse` 마스터다.
+Join 엔진은 하나다. `Join.venueId` → `Venue`. 트랙은 `Venue.venueType = SCREEN | FIELD`.
+FIELD 마스터는 `FieldGolfCourse`다. `GolfFacility`는 LOCALDATA 연습장 전용
+(`governmentSourceKey` / `managementNo` / `localGovernmentCode` 필수)이라 확장하지 않는다.
+활성화 경로는 SCREEN과 같다: search → `activate-venue` → Venue → Join create.
 
-## SCREEN cadence (재사용, 신규 스케줄 없음)
+## SCREEN public-data (코드 SSOT, `bc6ed4b` 포함 tip)
 
-증거:
+- Source brand: LOCALDATA golf practice ranges (data.go.kr), **not ODCloud**
+- Client: `apps/api/src/modules/golf-facilities/sync/localdata-golf-client.ts`
+- Default base (code): `https://apis.data.go.kr/1741000/golf_practice_ranges/info`
+- Override env: `LOCALDATA_GOLF_API_BASE_URL`
+- Auth env: `DATA_GO_KR_SERVICE_KEY` (`scripts/run-public-golf-facility-sync.ts` required)
+- Normalize: `facility-normalize.ts` → source `LOCALDATA_GOLF_PRACTICE_RANGE`
+- Sync: `PublicGolfFacilitySyncService`
+- Upsert: `GolfFacility`. Soft-inactive via consecutive miss; never hard-delete
+- Venue bridge: `GolfFacilitiesService.activateVenue` → `LOCALDATA_GOLF_VENUE_PROVIDER`
 
-- `docs/railway-deployment.md`: Railway cron `0 19 * * *` (매일 04:00 KST wake)
-- `scripts/run-public-golf-facility-sync.ts`: `--force` 없으면 KST 1일·16일만 실제 sync
-- `apps/api/src/modules/golf-facilities/sync/public-golf-facility-sync.service.ts` `shouldRunOnKstCalendar()`
-- `prisma/schema.prisma` `PublicGolfFacilitySyncRun` 주석: 15-day / 1·16 KST
+`GolfPracticeRangeService2/getGolfPracticeRangeList2` 문자열은 이 repo tip에 없다.
+Railway에서 다른 LOCALDATA URL을 쓰면 `LOCALDATA_GOLF_API_BASE_URL`로만 덮는다.
 
-FIELD runner `scripts/run-field-golf-course-sync.ts`는 **같은 캘린더 게이트**를 호출한다.
+## SCREEN actual sync cadence (인용)
 
-## ODCloud 소스
+- Gate: `shouldRunOnKstCalendar` → **KST day === 1 OR day === 16** only (unless `force`)
+  - `apps/api/src/modules/golf-facilities/sync/public-golf-facility-sync.service.ts`
+- Runner: `scripts/run-public-golf-facility-sync.ts`
+- Package: `sync:public-golf-facilities` / `sync:public-golf-facilities:force`
+- Runner comment: pair with UTC cron `0 19 * * *` (daily trigger; calendar gate skips non-1/16)
+- Railway: `docs/railway-deployment.md` `public-golf-sync` = `0 19 * * *`
 
-- Dataset: 문화체육관광부_전국 골프장 현황_20241231
-- Base: `https://api.odcloud.kr/api`
-- Path: `/15118920/v1/uddi:0e5b12d2-1cc8-4caf-ba96-c2c7d1ef8d83`
-- Auth: `ODCLOUD_SERVICE_KEY` (없으면 `DATA_GO_KR_SERVICE_KEY`). Railway/server only. Never `EXPO_PUBLIC_*`.
+FIELD는 **같은** 게이트와 cron을 재사용한다. 월 1회 / 2개월 스케줄을 만들지 않는다.
 
-Live probe (key 없이, 2026-09-18):
+## FIELD ODCloud schema (live)
+
+Unauthenticated page probe (2026-09-18):
 
 ```
-GET ...?page=1&perPage=2
+GET https://api.odcloud.kr/api/15118920/v1/uddi:0e5b12d2-1cc8-4caf-ba96-c2c7d1ef8d83?page=1&perPage=2
 HTTP 401 {"code":-401,"msg":"인증키는 필수 항목 입니다."}
 ```
 
-공식 컬럼 (data.go.kr 15118920 페이지):
+Live OAS (no key, 2026-09-18) `https://infuser.odcloud.kr/oas/docs?namespace=15118920/v1`:
 
-| 항목명 | 영문 |
+| query | default |
 |---|---|
-| 지역 | region |
-| 이름 | name |
-| 사업자 | owner |
-| 소재지 | address |
-| 면적(제곱미터) | area |
-| 홀 | number of holes |
-| 구분 | type |
+| page | 1 |
+| perPage | 10 |
+| returnType | JSON |
 
-공식 행 수: **541**. 위도/경도/전화는 컬럼 목록에 없음.
+Auth: header `Authorization` **or** query `serviceKey`.
+
+Envelope: `page`, `perPage`, `totalCount`, `currentCount`, `matchCount`, `data[]`.
+
+`data[]` keys:
+
+| key | type |
+|---|---|
+| 지역 | string |
+| 이름 | string |
+| 사업자 | string |
+| 소재지 | string |
+| 면적(제곱미터) | integer |
+| 홀 | integer |
+| 구분 | string |
+
+공식 데이터셋 행 수: **541**. lat/lng/phone 없음. 인증된 `data[0]` 키 덤프는 키가 있을 때:
+
+```bash
+pnpm dev:field-golf:probe
+```
 
 ## DEV 명령
 
 Production URL이면 즉시 abort.
 
 ```bash
-# 1) DEV migrate
+pnpm dev:field-golf:probe
 pnpm exec tsx scripts/ops/dev-field-golf-migrate.ts
-
-# 2) sample then full import
 pnpm exec tsx scripts/ops/dev-field-golf-import.ts --sample
 pnpm exec tsx scripts/ops/dev-field-golf-import.ts --full --second-sync
-
-# 3) QA report
 pnpm exec tsx scripts/ops/dev-field-golf-qa-report.ts
-
-# cron-compatible (same KST 1/16 gate)
 pnpm exec tsx scripts/run-field-golf-course-sync.ts --force
 ```
 
-Railway (optional, same cron as SCREEN):
+Railway (optional sibling, **same** SCREEN cron):
 
 ```
 startCommand: pnpm exec tsx scripts/run-field-golf-course-sync.ts
