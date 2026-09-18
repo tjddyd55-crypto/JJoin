@@ -99,13 +99,13 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   mediaLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     opacity: 0.62,
   },
   content: {
