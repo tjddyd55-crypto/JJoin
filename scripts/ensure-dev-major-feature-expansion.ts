@@ -43,7 +43,7 @@ function assertDevOnly() {
     /api-production/i.test(url) ||
     url.includes('postgres-production');
   if (!isDev || looksProdUrl || railwayEnv === 'production' || appVariant === 'production') {
-    throw new Error(\ production_forbidden railwayEnv=\ appVariant=\);
+    throw new Error(TAG + ' production_forbidden railwayEnv=' + railwayEnv + ' appVariant=' + appVariant);
   }
 }
 
