@@ -1,6 +1,7 @@
 import {
   addCalendarDays,
   computeJoinDdayLabel,
+  formatFieldExpectedCostLabel,
   formatSignedCoin,
   localDayKey,
   type JoinDdayLabel,
@@ -265,6 +266,7 @@ export function baseJoinCardFields(
     hostNickname?: string | null;
     hostAvatarUrl?: string | null;
     rewardPerParticipant?: string | null;
+    expectedCostKrw?: number | null;
     isUrgent?: boolean;
     sportCode?: string | null;
     venueType?: 'SCREEN' | 'FIELD' | null;
@@ -313,6 +315,7 @@ export function baseJoinCardFields(
     hostNickname: input.hostNickname,
     hostAvatarUrl: input.hostAvatarUrl,
     rewardLabel: buildJoinCardRewardLabel(input.rewardPerParticipant),
+    costLabel: formatFieldExpectedCostLabel(input.expectedCostKrw),
     isUrgent: input.isUrgent,
   };
 }

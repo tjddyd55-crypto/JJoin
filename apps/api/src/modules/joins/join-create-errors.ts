@@ -27,6 +27,19 @@ export const JOIN_CREATE_CLIENT_MESSAGES: Record<string, string> = {
   invalid_age_range: '모집 나이 범위를 확인해주세요.',
   invalid_handicap_range: '핸디 범위를 확인해주세요.',
   handicap_range_required: '핸디 범위를 확인해주세요.',
+  field_capacity_not_allowed: '필드 조인은 2·3·4명만 모집할 수 있습니다.',
+  field_foursome_v1_2v2_only: '필드 포썸은 2대2만 지원합니다.',
+  field_details_not_allowed: '스크린 조인에는 필드 비용 정보를 넣을 수 없습니다.',
+  field_nocaddie_fee_must_be_zero: '노캐디일 때는 캐디피를 0으로 두세요.',
+  field_tee_time_must_be_confirmed: '필드 조인은 확정 티타임이 필요합니다.',
+  invalid_field_green_fee: '그린피를 확인해주세요.',
+  invalid_field_cart_fee: '카트비를 확인해주세요.',
+  invalid_field_caddie_fee: '캐디피를 확인해주세요.',
+  field_fee_exceeds_max: '라운드 비용이 너무 큽니다.',
+  field_participant_count_required: '모집 인원을 확인해주세요.',
+  invalid_field_round_holes: '홀 수는 9홀 또는 18홀만 선택할 수 있습니다.',
+  field_handicap_range_required: '필드 핸디 범위를 확인해주세요.',
+  invalid_field_handicap_range: '필드 핸디 범위를 확인해주세요.',
 };
 
 export function joinCreateClientMessage(code: string, fallback?: string): string {

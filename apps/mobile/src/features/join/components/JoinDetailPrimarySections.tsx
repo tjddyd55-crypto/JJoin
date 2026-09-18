@@ -13,7 +13,17 @@ import {
   Text,
   useTheme,
 } from '@jjoin/design-system';
-import { formatPlayFormatLabel, formatTeamCapacityLabel } from '@jjoin/domain';
+import {
+  formatFieldCaddieModeLabel,
+  formatFieldExpectedCostLabel,
+  formatFieldGreenFeePayerLabel,
+  formatFieldOpenSeatsLabel,
+  formatFieldRoundHolesLabel,
+  formatFieldSplitFeePayerLabel,
+  formatPlayFormatLabel,
+  formatTeamCapacityLabel,
+  computeFieldOpenSeats,
+} from '@jjoin/domain';
 import type { JoinDetailDto } from '@jjoin/types';
 import { JoinParticipationSlotGrid } from './JoinParticipationSlotGrid';
 import {
@@ -117,11 +127,14 @@ function JoinDetailInfoPanel({
 
 function buildScheduleStatTiles(detail: JoinDetailDto) {
   const recruitment = buildJoinRecruitmentBreakdown(detail);
+  const isField = detail.venue.venueType === 'FIELD';
   const tiles = [
     { label: '날짜', value: formatJoinScheduleDetailDate(detail.startAt), surface: 'info' as const },
     {
-      label: '시간',
-      value: `${formatJoinScheduleDetailTime(detail.startAt)}~${formatJoinScheduleDetailTime(detail.scheduledEndAt)}`,
+      label: isField ? '티타임' : '시간',
+      value: isField
+        ? formatJoinScheduleDetailTime(detail.startAt)
+        : `${formatJoinScheduleDetailTime(detail.startAt)}~${formatJoinScheduleDetailTime(detail.scheduledEndAt)}`,
       surface: 'info' as const,
     },
     {
@@ -146,6 +159,13 @@ function buildScheduleStatTiles(detail: JoinDetailDto) {
       surface: 'success' as const,
     },
   ];
+  if (isField && detail.fieldDetails) {
+    tiles.splice(3, 0, {
+      label: '홀',
+      value: formatFieldRoundHolesLabel(detail.fieldDetails.roundHoles),
+      surface: 'info' as const,
+    });
+  }
   const reward = Number(detail.rewardPerParticipant);
   if (Number.isFinite(reward) && reward > 0) {
     tiles.push({
@@ -211,7 +231,12 @@ export function JoinDetailPrimarySections({
     void Linking.openURL(`https://map.kakao.com/link/map/${latitude},${longitude}`);
   };
 
+  const fieldCost = detail.fieldDetails;
+  const fieldSeats = computeFieldOpenSeats(detail.plannedPlayerCount, detail.confirmedPlayerCount);
   const conditionLabels = [...requirements, ...memberPreferenceLabels];
+  if (fieldCost?.minFieldHandicap != null && fieldCost.maxFieldHandicap != null) {
+    conditionLabels.push(`필드 핸디 ${fieldCost.minFieldHandicap}~${fieldCost.maxFieldHandicap}`);
+  }
   if (hasRecruitmentTargets) {
     if ((recruitment.maleTarget ?? 0) > 0) {
       conditionLabels.push(`남성 ${recruitment.maleTarget}명`);
@@ -303,6 +328,11 @@ export function JoinDetailPrimarySections({
 
       <JoinDetailCard>
         <JoinMiniStatGrid items={scheduleTiles} />
+        {detail.venue.venueType === 'FIELD' ? (
+          <Text variant="caption" tone="secondary">
+            {formatFieldOpenSeatsLabel(fieldSeats)}
+          </Text>
+        ) : null}
         <JoinSeatsRemainingBanner
           label={participation.seatsLeftLabel}
           tone={participation.seatsHighlightTone}
@@ -315,6 +345,45 @@ export function JoinDetailPrimarySections({
         ) : null}
         <JoinParticipationSlotGrid slots={rosterSlots} />
       </JoinDetailCard>
+
+      {fieldCost ? (
+        <JoinDetailCard>
+          <JoinDetailInfoPanel
+            title="라운드 비용"
+            rows={[
+              {
+                label: '참가자 예상',
+                value: formatFieldExpectedCostLabel(fieldCost.cost.participantExpectedKrw) ?? '미입력',
+              },
+              {
+                label: '그린피',
+                value:
+                  fieldCost.greenFeePerPerson == null
+                    ? '미입력'
+                    : `${fieldCost.greenFeePerPerson.toLocaleString('ko-KR')}원 · ${formatFieldGreenFeePayerLabel(fieldCost.greenFeePayer)}`,
+              },
+              {
+                label: '카트비',
+                value:
+                  fieldCost.cartFeeTotal == null
+                    ? '미입력'
+                    : `${fieldCost.cartFeeTotal.toLocaleString('ko-KR')}원 · ${formatFieldSplitFeePayerLabel(fieldCost.cartFeePayer)}`,
+              },
+              {
+                label: '캐디',
+                value:
+                  fieldCost.caddieMode === 'NO_CADDIE'
+                    ? formatFieldCaddieModeLabel('NO_CADDIE')
+                    : `${formatFieldCaddieModeLabel('CADDIE')} · ${
+                        fieldCost.caddieFeeTotal == null
+                          ? '금액 미입력'
+                          : `${fieldCost.caddieFeeTotal.toLocaleString('ko-KR')}원 · ${formatFieldSplitFeePayerLabel(fieldCost.caddieFeePayer ?? 'EQUAL_SPLIT')}`
+                      }`,
+              },
+            ]}
+          />
+        </JoinDetailCard>
+      ) : null}
 
       {(conditionLabels.length > 0 || showBenefits) ? (
         <JoinDetailCard>

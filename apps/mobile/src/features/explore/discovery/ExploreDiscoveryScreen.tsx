@@ -15,9 +15,13 @@ import { RegionJoinExploreScreen } from '../region-explore/RegionJoinExploreScre
 import { useNotificationUnreadCount } from '../../notifications/useNotificationUnreadCount';
 import type { MapCoordinate } from '../model/map-types';
 
-export function ExploreDiscoveryScreen() {
+export function ExploreDiscoveryScreen({
+  initialVenueType,
+}: {
+  initialVenueType?: string;
+}) {
   return (
-    <JoinDiscoveryProvider>
+    <JoinDiscoveryProvider initialVenueType={initialVenueType}>
       <ExploreDiscoveryBody />
     </JoinDiscoveryProvider>
   );

@@ -25,25 +25,42 @@ const SKILL_OPTIONS: Array<{
 type Props = {
   value: JoinCreateRoomCharacterState;
   onChange: (next: JoinCreateRoomCharacterState) => void;
+  handicapTrack?: 'SCREEN' | 'FIELD';
+  fieldHandicap?: { min: number | null; max: number | null };
+  onFieldHandicapChange?: (next: { min: number; max: number }) => void;
 };
 
-export function JoinCreateParticipantSkillSection({ value, onChange }: Props) {
+export function JoinCreateParticipantSkillSection({
+  value,
+  onChange,
+  handicapTrack = 'SCREEN',
+  fieldHandicap,
+  onFieldHandicapChange,
+}: Props) {
   const setMode = (mode: JoinParticipantSkillMode) => {
     onChange({
       ...value,
       participantSkillMode: mode,
-      ...(mode === 'HANDICAP_RANGE'
+      ...(mode === 'HANDICAP_RANGE' && handicapTrack !== 'FIELD'
         ? {
             minScreenHandicap: value.minScreenHandicap || DEFAULT_HANDICAP_RANGE_MIN,
             maxScreenHandicap: value.maxScreenHandicap || DEFAULT_HANDICAP_RANGE_MAX,
           }
         : {}),
     });
+    if (handicapTrack === 'FIELD' && mode === 'HANDICAP_RANGE') {
+      onFieldHandicapChange?.({
+        min: fieldHandicap?.min ?? DEFAULT_HANDICAP_RANGE_MIN,
+        max: fieldHandicap?.max ?? DEFAULT_HANDICAP_RANGE_MAX,
+      });
+    }
   };
 
   return (
     <View style={styles.root}>
-      <Text variant="bodyStrong" tone="primary" style={styles.label}>참가 실력</Text>
+      <Text variant="bodyStrong" tone="primary" style={styles.label}>
+        {handicapTrack === 'FIELD' ? '필드 핸디' : '참가 실력'}
+      </Text>
       <View style={styles.row}>
         {SKILL_OPTIONS.map((opt) => (
           <Chip
@@ -58,10 +75,21 @@ export function JoinCreateParticipantSkillSection({ value, onChange }: Props) {
         <HandicapRangeSelector
           minBound={SCREEN_HANDICAP_MIN}
           maxBound={SCREEN_HANDICAP_MAX}
-          value={{ min: value.minScreenHandicap, max: value.maxScreenHandicap }}
-          onChange={(next) =>
-            onChange({ ...value, minScreenHandicap: next.min, maxScreenHandicap: next.max })
+          value={
+            handicapTrack === 'FIELD'
+              ? {
+                  min: fieldHandicap?.min ?? DEFAULT_HANDICAP_RANGE_MIN,
+                  max: fieldHandicap?.max ?? DEFAULT_HANDICAP_RANGE_MAX,
+                }
+              : { min: value.minScreenHandicap, max: value.maxScreenHandicap }
           }
+          onChange={(next) => {
+            if (handicapTrack === 'FIELD') {
+              onFieldHandicapChange?.(next);
+              return;
+            }
+            onChange({ ...value, minScreenHandicap: next.min, maxScreenHandicap: next.max });
+          }}
         />
       ) : null}
     </View>

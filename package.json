@@ -26,6 +26,8 @@
     "sync:field-golf-courses": "pnpm exec tsx scripts/run-field-golf-course-sync.ts",
     "sync:field-golf-courses:force": "pnpm exec tsx scripts/run-field-golf-course-sync.ts --force",
     "dev:field-golf:migrate": "pnpm exec tsx scripts/ops/dev-field-golf-migrate.ts",
+    "dev:field-join-detail:migrate": "pnpm exec tsx scripts/ops/dev-field-join-detail-migrate.ts",
+    "dev:field-join-ux:e2e": "pnpm exec tsx scripts/field-join-real-world-ux-dev-e2e.ts",
     "dev:field-golf:import": "pnpm exec tsx scripts/ops/dev-field-golf-import.ts",
     "dev:field-golf:qa": "pnpm exec tsx scripts/ops/dev-field-golf-qa-report.ts",
     "dev:field-golf:probe": "pnpm exec tsx scripts/ops/probe-field-golf-odcloud.ts",
