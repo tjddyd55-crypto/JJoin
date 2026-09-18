@@ -176,6 +176,7 @@ export const createJoinSchema = z
     playFormat: z.enum(['INDIVIDUAL', 'TEAM']).optional(),
     teamSize: z.number().int().min(2).max(6).optional().nullable(),
     teamCount: z.number().int().min(2).max(8).optional().nullable(),
+    venueType: z.enum(['SCREEN', 'FIELD']).optional(),
   })
   .merge(joinRoomCharacterFieldsObjectSchema)
   .superRefine(refineJoinRoomCharacterHandicap)

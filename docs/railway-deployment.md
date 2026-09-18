@@ -52,6 +52,7 @@ Workers must not use `railway.json` healthcheck — they run `start → work →
 | `premium-renewal-cron` | `*/15 * * * *` | Premium subscription renewal billing |
 | `chat-purge-cron` | `0 * * * *` | Ephemeral join-chat purge (messages/members only; Join history kept) |
 | `public-golf-sync` | `0 19 * * *` | LOCALDATA golf facility sync wake @ 04:00 KST; script gate keeps real sync on KST **1·16** only |
+| `field-golf-sync` (optional sibling) | `0 19 * * *` | Same SCREEN cadence. `pnpm sync:field-golf-courses`. Gate: KST **1·16** only. See `docs/FIELD_GOLF_COURSE_SYNC.md` |
 
 `chat-purge-cron` config file: `railway.chat-purge-cron.json` · start: `pnpm chat-purge` · env: `CHAT_PURGE_HTTP_URL` + `SETTLEMENT_CRON_SECRET` (same secret family as other cron workers).
 

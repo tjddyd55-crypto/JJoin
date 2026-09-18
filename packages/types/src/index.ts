@@ -585,6 +585,15 @@ export const SCREEN_GOLF_CODE = 'SCREEN_GOLF';
 /** Venue.provider for GolfFacility lazy activation (not Kakao). */
 export const LOCALDATA_GOLF_VENUE_PROVIDER = 'LOCALDATA_GOLF_PRACTICE_RANGE';
 
+/** Venue.provider for FIELD golf-course lazy activation (ODCloud national courses). */
+export const ODCLOUD_FIELD_GOLF_VENUE_PROVIDER = 'ODCLOUD_NATIONAL_GOLF_COURSE';
+
+/** Join track discriminator — stored on Venue, not a parallel Join model. */
+export enum VenueType {
+  SCREEN = 'SCREEN',
+  FIELD = 'FIELD',
+}
+
 /** Presence visibility — OS location permission is a separate concept. */
 export enum PresenceVisibility {
   HIDDEN = 'HIDDEN',
@@ -789,6 +798,36 @@ export type GolfFacilitySearchResponse = {
   limit: number;
 };
 
+export type FieldGolfCourseDto = {
+  id: string;
+  name: string;
+  address: string | null;
+  roadAddress: string | null;
+  sido: string | null;
+  sigungu: string | null;
+  regionLabel: string | null;
+  holeCount: number | null;
+  status: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  hasMapCoords: boolean;
+  venueId: string | null;
+};
+
+export type FieldGolfCourseSearchResponse = {
+  items: FieldGolfCourseDto[];
+  page: number;
+  perPage: number;
+  totalCount: number;
+};
+
+export type ActivateFieldGolfCourseVenueResponse = {
+  fieldGolfCourseId: string;
+  venueId: string;
+  venueType: VenueType;
+  created: boolean;
+};
+
 export type ActivateGolfFacilityVenueResponse = {
   golfFacilityId: string;
   venueId: string;
@@ -869,6 +908,8 @@ export type CreateJoinRequest = {
   playFormat?: JoinPlayFormat;
   teamSize?: number | null;
   teamCount?: number | null;
+  /** Track the host is creating. Must match Venue.venueType. Default SCREEN. */
+  venueType?: VenueType;
 } & JoinRoomCharacterFields;
 
 export type UpdateJoinRequest = {
@@ -1098,6 +1139,11 @@ export type JoinDetailDto = {
     regionLabel: string | null;
     latitude: number;
     longitude: number;
+    venueType?: VenueType;
+    sido?: string | null;
+    sigungu?: string | null;
+    holeCount?: number | null;
+    hasMapCoords?: boolean;
   };
   host: PublicUserProfileDto;
   myParticipation: JoinParticipantDto | null;
@@ -1447,6 +1493,9 @@ export type DiscoverJoinCardDto = {
   canJoinState: 'JOINABLE' | 'FULL' | 'ALREADY_JOINED' | 'HOST' | 'UNAVAILABLE';
   ctaLabel: string | null;
   golfFacilityId: string | null;
+  venueType?: VenueType;
+  holeCount?: number | null;
+  hasMapCoords?: boolean;
   preferredGender?: JoinPreferredGender | null;
   minAge?: number | null;
   maxAge?: number | null;

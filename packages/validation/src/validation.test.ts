@@ -155,6 +155,24 @@ test('store profile, banner, and feature flag schemas', () => {
   assert.equal(updateFeatureFlagsSchema.safeParse({ clubsUiEnabled: false }).success, true);
 });
 
+test('createJoin accepts SCREEN/FIELD venueType and defaults when omitted', () => {
+  const base = {
+    venueId: '11111111-1111-4111-8111-111111111111',
+    startAt: '2026-09-20T01:00:00.000Z',
+    plannedPlayerCount: 4,
+    joinMethod: 'OPEN' as const,
+  };
+  const omitted = createJoinSchema.safeParse(base);
+  assert.equal(omitted.success, true);
+  if (omitted.success) assert.equal(omitted.data.venueType, undefined);
+
+  const field = createJoinSchema.safeParse({ ...base, venueType: 'FIELD', playFormat: 'TEAM', teamSize: 2, teamCount: 2 });
+  assert.equal(field.success, true);
+
+  const bad = createJoinSchema.safeParse({ ...base, venueType: 'PARK' });
+  assert.equal(bad.success, false);
+});
+
 test('terms require all mandatory consents', () => {
   const bad = termsConsentSchema.safeParse({
     termsOfService: true,

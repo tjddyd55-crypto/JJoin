@@ -256,6 +256,7 @@ export type JoinDiscoveryFilterState = {
   region: JoinDiscoveryRegion;
   sort: JoinDiscoverySort;
   joinability: JoinDiscoveryJoinability;
+  venueType: 'SCREEN' | 'FIELD';
 };
 
 export type WeekDayCell = {
@@ -538,5 +539,6 @@ export function createDefaultDiscoveryFilter(now = new Date()): JoinDiscoveryFil
     region: { mode: 'ALL', label: '전체' },
     sort: 'TIME',
     joinability: 'ALL',
+    venueType: 'SCREEN',
   };
 }

@@ -730,6 +730,11 @@ model UserSportProfile {
   @@map("user_sport_profiles")
 }
 
+enum VenueType {
+  SCREEN
+  FIELD
+}
+
 model Venue {
   id              String   @id @default(uuid()) @db.Uuid
   sportId         String   @map("sport_id") @db.Uuid
@@ -737,6 +742,10 @@ model Venue {
   providerPlaceId String   @map("provider_place_id")
   /// Optional link to nationwide GolfFacility master (LOCALDATA activation only).
   golfFacilityId  String?  @unique @map("golf_facility_id") @db.Uuid
+  /// Optional link to ODCloud national golf-course master (FIELD activation only).
+  fieldGolfCourseId String? @unique @map("field_golf_course_id") @db.Uuid
+  /// Join track discriminator. Existing rows backfill as SCREEN.
+  venueType       VenueType @default(SCREEN) @map("venue_type")
   name            String
   address         String?
   roadAddress     String?  @map("road_address")
@@ -752,6 +761,7 @@ model Venue {
 
   sport           Sport               @relation(fields: [sportId], references: [id])
   golfFacility    GolfFacility?       @relation(fields: [golfFacilityId], references: [id], onDelete: SetNull)
+  fieldGolfCourse FieldGolfCourse?    @relation(fields: [fieldGolfCourseId], references: [id], onDelete: SetNull)
   joins           Join[]
   userRecents     UserVenueRecent[]
   userFavorites   UserVenueFavorite[]
@@ -761,6 +771,7 @@ model Venue {
 
   @@unique([provider, providerPlaceId])
   @@index([sportId, latitude, longitude])
+  @@index([venueType])
   @@map("venues")
 }
 
@@ -1749,6 +1760,52 @@ model PublicGolfFacilitySyncRun {
   @@index([startedAt])
   @@index([status, startedAt])
   @@map("public_golf_facility_sync_runs")
+}
+
+/// ODCloud 전국 골프장 현황 master (FIELD Join venue source).
+/// Distinct from GolfFacility (LOCALDATA practice/screen ranges). Join still uses Venue.id.
+model FieldGolfCourse {
+  id String @id @default(uuid()) @db.Uuid
+
+  externalSource String @map("external_source")
+  externalId     String @map("external_id")
+
+  name           String
+  normalizedName String @map("normalized_name")
+  address        String?
+  roadAddress    String? @map("road_address")
+  sido           String?
+  sigungu        String?
+  phone          String?
+  ownerName      String? @map("owner_name")
+  areaSqm        String? @map("area_sqm")
+  holeCount      Int?    @map("hole_count")
+  status         String?
+
+  latitude  Decimal? @db.Decimal(10, 7)
+  longitude Decimal? @db.Decimal(10, 7)
+
+  isActive             Boolean @default(true) @map("is_active")
+  consecutiveMissCount Int     @default(0) @map("consecutive_miss_count")
+  exclusionReason      String? @map("exclusion_reason")
+
+  sourceFingerprint String?   @map("source_fingerprint")
+  sourceUpdatedAt   DateTime? @map("source_updated_at") @db.Timestamptz(6)
+  lastSyncedAt      DateTime? @map("last_synced_at") @db.Timestamptz(6)
+  lastSeenAt        DateTime? @map("last_seen_at") @db.Timestamptz(6)
+  sourceRawJson     Json?     @map("source_raw_json")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  venue Venue?
+
+  @@unique([externalSource, externalId])
+  @@index([isActive, name])
+  @@index([sido, sigungu])
+  @@index([normalizedName])
+  @@index([isActive, sido, sigungu])
+  @@map("field_golf_courses")
 }
 
 enum ClubVisibility {
