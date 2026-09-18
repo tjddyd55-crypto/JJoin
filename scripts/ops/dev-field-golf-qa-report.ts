@@ -4,7 +4,7 @@
  *   pnpm exec tsx scripts/ops/dev-field-golf-qa-report.ts
  */
 import { PrismaClient } from '@prisma/client';
-import { ODCLOUD_NATIONAL_GOLF_COURSE_SOURCE } from '@jjoin/domain';
+import { ODCLOUD_NATIONAL_GOLF_COURSE_SOURCE } from '../../packages/domain/src/field-golf-course.ts';
 import { assertDevDatabase } from '../lib/assert-dev-database.ts';
 
 async function main() {

@@ -140,18 +140,26 @@ export function resolveFieldGolfExternalId(input: {
   name: string;
   address: string | null;
   ownerName: string | null;
+  /** 구분 — same venue can list 회원제/대중제 as separate ODCloud rows. */
+  status?: string | null;
+  holeCount?: number | null;
+  areaSqm?: string | null;
 }): { externalId: string; idSource: FieldGolfCourseIdSource } {
   const namePart = normalizeFieldGolfName(input.name);
-  const addressPart = normalizeFieldGolfAddress(input.address ?? '');
+  const addressPart = normalizeFieldGolfAddress(input.address ?? "");
+  const statusPart = normalizeFieldGolfName(input.status ?? "");
+  const holePart = input.holeCount == null ? "" : String(input.holeCount);
+  const areaPart = normalizeFieldGolfAddress(input.areaSqm ?? "");
+  const coursePart = `${statusPart}|${holePart}|${areaPart}`;
   if (input.ownerName) {
     return {
-      externalId: `${namePart}|${addressPart}|${normalizeFieldGolfName(input.ownerName)}`,
-      idSource: 'NAME_ADDRESS_OWNER',
+      externalId: `${namePart}|${addressPart}|${normalizeFieldGolfName(input.ownerName)}|${coursePart}`,
+      idSource: "NAME_ADDRESS_OWNER",
     };
   }
   return {
-    externalId: `${namePart}|${addressPart}`,
-    idSource: 'NAME_ADDRESS',
+    externalId: `${namePart}|${addressPart}|${coursePart}`,
+    idSource: "NAME_ADDRESS",
   };
 }
 
@@ -187,10 +195,14 @@ export function normalizeFieldGolfCourseItem(raw: unknown): NormalizedFieldGolfC
   const areaNumber = readNumber(record, '면적(제곱미터)');
   const holeCount = parseHoleCount(readNumber(record, '홀') ?? readString(record, '홀'));
   const district = parseFieldRegion({ region, address });
+  const areaSqm = areaNumber == null ? null : String(areaNumber);
   const { externalId, idSource } = resolveFieldGolfExternalId({
     name,
     address,
     ownerName,
+    status,
+    holeCount,
+    areaSqm,
   });
 
   const normalized: Omit<NormalizedFieldGolfCourse, 'fingerprint'> = {
