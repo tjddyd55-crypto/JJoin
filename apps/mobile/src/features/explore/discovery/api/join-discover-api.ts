@@ -20,6 +20,7 @@ export type DiscoverQuery = {
   sigungu?: string;
   sort?: JoinDiscoverySort;
   joinability?: JoinDiscoveryJoinability;
+  venueType?: 'SCREEN' | 'FIELD';
 };
 
 export type WeeklyQuery = {
@@ -30,6 +31,7 @@ export type WeeklyQuery = {
   radiusMeters?: number;
   sido?: string;
   sigungu?: string;
+  venueType?: 'SCREEN' | 'FIELD';
 };
 
 export function fetchDiscoverJoins(

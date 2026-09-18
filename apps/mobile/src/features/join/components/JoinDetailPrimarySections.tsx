@@ -131,8 +131,8 @@ function buildScheduleStatTiles(detail: JoinDetailDto) {
           ? formatTeamCapacityLabel({
               teamSize: detail.teamSize ?? null,
               teamCount: detail.teamCount ?? null,
-            }) ?? formatPlayFormatLabel('TEAM')
-          : formatPlayFormatLabel(detail.playFormat ?? 'INDIVIDUAL'),
+            }) ?? formatPlayFormatLabel('TEAM', detail.venue.venueType)
+          : formatPlayFormatLabel(detail.playFormat ?? 'INDIVIDUAL', detail.venue.venueType),
       surface: 'info' as const,
     },
     {
@@ -202,6 +202,9 @@ export function JoinDetailPrimarySections({
     (recruitment.minimumPlayers ?? 0) > 0;
 
   const distanceLabel = detail.venue.regionLabel?.trim() || null;
+  const trackLabel = detail.venue.venueType === 'FIELD' ? '필드 조인' : '스크린 조인';
+  const regionLine = [detail.venue.sido, detail.venue.sigungu].filter(Boolean).join(' ');
+  const canOpenMap = detail.venue.hasMapCoords !== false && Boolean(detail.venue.latitude || detail.venue.longitude);
 
   const openMap = () => {
     const { latitude, longitude } = detail.venue;
@@ -234,6 +237,7 @@ export function JoinDetailPrimarySections({
             {statusBadges.map((badge) => (
               <JoinStatusBadge key={badge.label} label={badge.label} tone={badge.tone} />
             ))}
+            <Badge label={trackLabel} variant="neutral" />
             {detail.recurringScheduleId ? (
               <Badge label="반복 조인" variant="neutral" />
             ) : null}
@@ -290,9 +294,9 @@ export function JoinDetailPrimarySections({
         <SectionDivider />
         <JoinVenueSummary
           venueName={detail.venue.name}
-          address={detail.venue.address}
+          address={[regionLine, detail.venue.address].filter(Boolean).join(' · ') || detail.venue.address}
           distanceLabel={distanceLabel}
-          onOpenMap={openMap}
+          onOpenMap={canOpenMap ? openMap : undefined}
           embedded
         />
       </JoinDetailCard>

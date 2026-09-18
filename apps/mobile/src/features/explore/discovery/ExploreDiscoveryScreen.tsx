@@ -9,6 +9,7 @@ import { DiscoverListPanel } from './components/DiscoverListPanel';
 import { DiscoveryFilterChrome } from './components/DiscoveryFilterChrome';
 import { MapDiscoveryChrome } from './components/MapDiscoveryChrome';
 import { JoinCreateFab } from './components/JoinCreateFab';
+import { FieldJoinMapPanel } from './components/FieldJoinMapPanel';
 import { ExploreMapScreen } from '../screens/ExploreMapScreen';
 import { RegionJoinExploreScreen } from '../region-explore/RegionJoinExploreScreen';
 import { useNotificationUnreadCount } from '../../notifications/useNotificationUnreadCount';
@@ -60,6 +61,10 @@ function ExploreDiscoveryBody() {
     })();
   }, []);
 
+  const trackTabs = [
+    { id: 'SCREEN', label: '스크린 조인' },
+    { id: 'FIELD', label: '필드 조인' },
+  ];
   const listTabs = [
     { id: 'LIST', label: '리스트' },
     { id: 'REGION', label: '지역별' },
@@ -77,6 +82,13 @@ function ExploreDiscoveryBody() {
             unreadCount={unreadCount}
             onRegionPress={() => setRegionPickerOpen(true)}
             onNotificationPress={() => router.push('/my/notifications')}
+          />
+          <JoinListTextTabs
+            tabs={trackTabs}
+            activeId={filter.venueType}
+            onChange={(id: string) =>
+              patchFilter({ venueType: id === 'FIELD' ? 'FIELD' : 'SCREEN' })
+            }
           />
           <JoinListTextTabs
             tabs={listTabs}
@@ -106,11 +118,18 @@ function ExploreDiscoveryBody() {
             deviceLocation={deviceLocation}
           />
           <View style={styles.mapHost}>
-            <ExploreMapScreen
-              discoveryLinked
-              externalLocation={deviceLocation}
-              externalLocationDenied={locationDenied}
-            />
+            {filter.venueType === 'FIELD' ? (
+              <FieldJoinMapPanel
+                deviceLocation={deviceLocation}
+                locationDenied={locationDenied}
+              />
+            ) : (
+              <ExploreMapScreen
+                discoveryLinked
+                externalLocation={deviceLocation}
+                externalLocationDenied={locationDenied}
+              />
+            )}
           </View>
         </>
       ) : (

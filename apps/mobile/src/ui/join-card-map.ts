@@ -95,6 +95,7 @@ export function mapDiscoverToJoinCardProps(
         hostAvatarUrl: item.hostAvatarUrl,
         rewardPerParticipant: item.rewardPerParticipant,
         title: item.title,
+        venueType: item.venueType,
       },
       { ...options, variant: options?.variant ?? 'default' },
     ),

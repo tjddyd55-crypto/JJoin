@@ -20,6 +20,23 @@ test('formatJoinScheduleListLabel uses today label', () => {
   assert.match(label, /^오늘 ·/);
 });
 
+test('FIELD track badge does not reuse the SCREEN sport badge', () => {
+  const field = resolveJoinListStatusBadges({
+    status: JoinStatus.OPEN,
+    sportCode: 'SCREEN_GOLF',
+    venueType: 'FIELD',
+  });
+  assert.ok(field.some((b) => b.label === '필드'));
+  assert.equal(field.some((b) => b.label === '스크린'), false);
+
+  const screen = resolveJoinListStatusBadges({
+    status: JoinStatus.OPEN,
+    sportCode: 'SCREEN_GOLF',
+    venueType: 'SCREEN',
+  });
+  assert.ok(screen.some((b) => b.label === '스크린'));
+});
+
 test('resolveJoinListStatusBadges includes urgent and last seat', () => {
   const badges = resolveJoinListStatusBadges({
     status: JoinStatus.OPEN,

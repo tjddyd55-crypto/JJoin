@@ -82,6 +82,7 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
           date: filter.date,
           sort: filter.sort,
           joinability: filter.joinability,
+          venueType: filter.venueType === 'FIELD' ? 'FIELD' : 'SCREEN',
           ...regionQuery,
         },
         abort.signal,

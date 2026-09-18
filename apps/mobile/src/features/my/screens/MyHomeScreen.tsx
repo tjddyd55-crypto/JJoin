@@ -27,7 +27,7 @@ import { legalDocumentRoute } from '../../auth/legal';
 import { ProfileEditCtaButton } from '../../profile/components/ProfileEditCtaButton';
 
 function showWithdrawTbd() {
-  Alert.alert(t('my.withdraw'), '회원탈퇴 기능은 아직 제공되지 않습니다.');
+  Alert.alert(t('my.withdraw'), '?�원?�퇴 기능?� ?�직 ?�공?��? ?�습?�다.');
 }
 
 export function MyHomeScreen() {
@@ -72,7 +72,7 @@ export function MyHomeScreen() {
   };
 
   return (
-    <ScrollScreenFrame
+<ScrollScreenFrame
       contentPaddingBottom={theme.layoutSpacing.sectionGap + theme.sizes.bottomNav}
     >
       <Text variant="screenTitle" tone="primary">
@@ -109,25 +109,25 @@ export function MyHomeScreen() {
             ) : null}
             {profile.completedJoinCount != null || profile.noShowCount != null ? (
               <Badge
-                label={`참석 ${profile.completedJoinCount ?? 0} · 노쇼 ${profile.noShowCount ?? 0}`}
+                label={`참석 ${profile.completedJoinCount ?? 0} · ?�쇼 ${profile.noShowCount ?? 0}`}
                 variant="neutral"
               />
             ) : null}
             {profile.attendanceRatePercent != null ? (
-              <Badge label={`참석률 ${profile.attendanceRatePercent}%`} variant="gold" />
+              <Badge label={`참석�?${profile.attendanceRatePercent}%`} variant="gold" />
             ) : null}
             {profile.reviewCount != null && profile.reviewCount > 0 && profile.averageRatingDisplay ? (
               <Badge
-                label={`★ ${profile.averageRatingDisplay} · 후기 ${profile.reviewCount}`}
+                label={`??${profile.averageRatingDisplay} · ?�기 ${profile.reviewCount}`}
                 variant="gold"
               />
             ) : (
-              <Badge label="평가 없음" variant="neutral" />
+              <Badge label="?��? ?�음" variant="neutral" />
             )}
             {profile.verifiedBadge ? (
               <Badge label={t('profile.verified')} variant="success" />
             ) : (
-              <Badge label="미인증" variant="warning" />
+              <Badge label="미인�? variant="warning" />
             )}
           </Row>
         </View>
@@ -170,7 +170,7 @@ export function MyHomeScreen() {
             onPress={() => router.push('/my/coin-charge')}
           />
           <ListRow
-            label="결제 내역"
+            label="결제 ?�역"
             icon="calendar"
             onPress={() => router.push('/my/payment-history')}
             showSeparator={false}
@@ -178,31 +178,31 @@ export function MyHomeScreen() {
         </Card>
       </Section>
 
-      <Section title="프리미엄 회원">
+      <Section title="?�리미엄 ?�원">
         <Card variant="elevated" padding="md">
           {me?.premiumStatus.active ? (
             <>
               <Row align="center" gap="sm">
                 <Badge label="PREMIUM" variant="gold" />
-                <Text variant="bodyStrong">프리미엄 이용 중</Text>
+                <Text variant="bodyStrong">?�리미엄 ?�용 �?/Text>
               </Row>
               <Spacer size="xs" />
               <Text variant="meta" tone="secondary">
                 {me.premiumStatus.expiresAt
-                  ? `${new Date(me.premiumStatus.expiresAt).toLocaleDateString('ko-KR')}까지`
+                  ? `${new Date(me.premiumStatus.expiresAt).toLocaleDateString('ko-KR')}까�?`
                   : ''}
               </Text>
             </>
           ) : (
             <>
               <Text variant="body" tone="secondary">
-                더 자유롭게 조인을 만들어보세요.
+                ???�유�?�� 조인??만들?�보?�요.
               </Text>
             </>
           )}
           <Spacer size="sm" />
           <ListRow
-            label={me?.premiumStatus.active ? '이용기간 연장' : '프리미엄 알아보기'}
+            label={me?.premiumStatus.active ? '?�용기간 ?�장' : '?�리미엄 ?�아보기'}
             icon="verified"
             onPress={() => router.push('/my/premium')}
             showSeparator={false}
@@ -210,23 +210,23 @@ export function MyHomeScreen() {
         </Card>
       </Section>
 
-      <Section title="매장 운영">
+      <Section title="매장 ?�영">
         <Card variant="base" padding="none" style={styles.settingsCard}>
           <View style={styles.settingsInner}>
             <ListRow
-              label="스크린골프 매장 인증"
+              label="?�크린골??매장 ?�증"
               icon="verified"
               onPress={() => router.push('/my/store-verification')}
             />
             <ListRow
-              label="내 매장"
+              label="??매장"
               icon="location"
               onPress={() => router.push('/my/stores')}
               showSeparator={hasActiveStores}
             />
             {hasActiveStores ? (
               <ListRow
-                label="모집 조인 만들기"
+                label="모집 조인 만들�?
                 icon="calendar"
                 onPress={() => router.push('/my/create-store-join')}
                 showSeparator={false}
@@ -237,12 +237,12 @@ export function MyHomeScreen() {
       </Section>
 
       {clubsUiEnabled ? (
-        <Section title="동호회">
+        <Section title="?�호??>
           <Card variant="base" padding="none" style={styles.settingsCard}>
             <View style={styles.settingsInner}>
               <ListRow
-                label="동호회"
-                subtitle="내 동호회 · 동호회 찾기"
+                label="?�호??
+                subtitle="???�호??· ?�호??찾기"
                 icon="people"
                 onPress={() => router.push('/my/clubs' as Href)}
                 showSeparator={false}
@@ -256,31 +256,31 @@ export function MyHomeScreen() {
         <Card variant="base" padding="none" style={styles.settingsCard}>
           <View style={styles.settingsInner}>
             <ListRow
-              label="스크린 매장"
-              subtitle="공개 매장 둘러보기"
+              label="?�크�?매장"
+              subtitle="공개 매장 ?�러보기"
               icon="golf"
               onPress={() => router.push('/stores' as Href)}
             />
             {flags?.attendanceRewardsEnabled !== false ? (
               <ListRow
-                label="출석 · 업적 보상"
-                subtitle="오늘 출석과 성사 보상"
+                label="출석 · ?�적 보상"
+                subtitle="?�늘 출석�??�사 보상"
                 icon="coin"
                 onPress={() => router.push('/my/rewards' as Href)}
               />
             ) : null}
             {flags?.coinGiftEnabled !== false ? (
               <ListRow
-                label="코인 선물"
-                subtitle="다른 사용자에게 코인 보내기"
+                label="코인 ?�물"
+                subtitle="?�른 ?�용?�에�?코인 보내�?
                 icon="coin"
                 onPress={() => router.push('/my/coin-gift' as Href)}
               />
             ) : null}
             {flags?.profileMatchAlertsEnabled !== false ? (
               <ListRow
-                label="프로필 매칭 알림"
-                subtitle="조건에 맞는 호스트 조인"
+                label="?�로??매칭 ?�림"
+                subtitle="조건??맞는 ?�스??조인"
                 icon="notification"
                 onPress={() => router.push('/my/profile-match' as Href)}
                 showSeparator={false}
@@ -290,11 +290,11 @@ export function MyHomeScreen() {
         </Card>
       </Section>
 
-      <Section title="활동">
+      <Section title="?�동">
         <Card variant="base" padding="none" style={styles.settingsCard}>
           <View style={styles.settingsInner}>
             <ListRow
-              label="조인 알림"
+              label="조인 ?�림"
               icon="notification"
               onPress={() => router.push('/my/join-alerts' as Href)}
             />
@@ -304,7 +304,7 @@ export function MyHomeScreen() {
               onPress={() => router.push('/my/bookmarks' as Href)}
             />
             <ListRow
-              label="팔로우한 매장"
+              label="?�로?�한 매장"
               icon="location"
               onPress={() => router.push('/my/followed-stores' as Href)}
             />
@@ -319,7 +319,7 @@ export function MyHomeScreen() {
               onPress={() => router.push('/my/recurring-joins' as Href)}
             />
             <ListRow
-              label="함께 친 사람"
+              label="?�께 �??�람"
               icon="people"
               onPress={() => router.push('/my/played-together' as Href)}
               showSeparator={false}
@@ -328,7 +328,7 @@ export function MyHomeScreen() {
         </Card>
       </Section>
 
-      <Section title="설정">
+      <Section title="?�정">
         <Card variant="base" padding="none" style={styles.settingsCard}>
           <View style={styles.settingsInner}>
             <ListRow
@@ -391,11 +391,11 @@ export function MyHomeScreen() {
         <Section title="Internal tools" subtitle="APP_VARIANT=development only">
           {isIdentityVerificationBypassEnabled(resolveAppVariant()) ? (
             <Text variant="caption" tone="secondary" style={{ marginBottom: 8 }}>
-              DEV: 본인인증 우회 중
+              DEV: 본인?�증 ?�회 �?
             </Text>
           ) : null}
           <Button
-            label="QA: 4인 Join 상세"
+            label="QA: 4??Join ?�세"
             variant="secondary"
             onPress={() => router.push('/dev/qa-four-join' as Href)}
           />

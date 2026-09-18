@@ -15,6 +15,7 @@ import { getApiClient } from '../../../../lib/api';
 import { DiscoverJoinCard } from '../../discovery/components/DiscoverJoinCard';
 import { CompactTextAction } from '../../discovery/components/CompactTextAction';
 import { fetchDiscoverJoins } from '../../discovery/api/join-discover-api';
+import { useJoinDiscoveryOptional } from '../../discovery/JoinDiscoveryContext';
 
 function joinDetailHref(joinId: string): Href {
   return { pathname: '/join/[joinId]', params: { joinId } } as Href;
@@ -43,6 +44,7 @@ export function RegionJoinListPanel({
 }: Props) {
   const theme = useTheme();
   const router = useRouter();
+  const venueType = useJoinDiscoveryOptional()?.filter.venueType ?? 'SCREEN';
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [data, setData] = useState<DiscoverJoinsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -85,6 +87,7 @@ export function RegionJoinListPanel({
           date,
           joinability: 'JOINABLE',
           sort: regionMode === 'NEARBY' ? 'DISTANCE' : 'TIME',
+          venueType,
           ...regionQuery,
         },
         abort.signal,
@@ -106,6 +109,7 @@ export function RegionJoinListPanel({
     regionMode,
     sido,
     sigungu,
+    venueType,
   ]);
 
   useEffect(() => {

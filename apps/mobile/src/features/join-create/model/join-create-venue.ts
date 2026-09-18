@@ -1,12 +1,15 @@
 /** Join Create — single venue selection SSOT. */
-export type JoinCreateVenueSource = 'VENUE' | 'GOLF_FACILITY' | 'CUSTOM';
+export type JoinCreateVenueSource = 'VENUE' | 'GOLF_FACILITY' | 'CUSTOM' | 'FIELD_GOLF_COURSE';
 
 export type JoinCreateVenueSelection = {
   /** Activated JJOIN Venue id — used in createJoin payload when present. */
   venueId?: string;
   golfFacilityId?: string;
+  fieldGolfCourseId?: string;
   name: string;
   address: string;
+  sido?: string | null;
+  sigungu?: string | null;
   phone?: string | null;
   latitude?: number;
   longitude?: number;

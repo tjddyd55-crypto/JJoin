@@ -24,6 +24,7 @@ import { RegionSummaryList } from './components/RegionSummaryList';
 import { RegionJoinListPanel } from './components/RegionJoinListPanel';
 import { WeekStrip } from '../discovery/components/WeekStrip';
 import { fetchFacilityJoins, fetchRegionSummary } from './api/region-explore-api';
+import { useJoinDiscoveryOptional } from '../discovery/JoinDiscoveryContext';
 
 type ExploreView =
   | { kind: 'root' }
@@ -47,6 +48,8 @@ const FAB_CLEARANCE = FAB_SIZE + spacing.md + spacing.sm;
 
 export function RegionJoinExploreScreen({ embedded = false }: Props) {
   const theme = useTheme();
+  const discovery = useJoinDiscoveryOptional();
+  const venueType = discovery?.filter.venueType ?? 'SCREEN';
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [selectedDate, setSelectedDate] = useState(() => localDayKey(new Date()));
   const [weekAnchorDate, setWeekAnchorDate] = useState(() =>
@@ -164,7 +167,7 @@ export function RegionJoinExploreScreen({ embedded = false }: Props) {
 
       const res = await fetchRegionSummary(
         api,
-        { date: selectedDate, joinability: 'JOINABLE', sido, sigungu },
+        { date: selectedDate, joinability: 'JOINABLE', sido, sigungu, venueType },
         abort.signal,
       );
       if (seq !== requestSeq.current) return;
@@ -176,7 +179,7 @@ export function RegionJoinExploreScreen({ embedded = false }: Props) {
     } finally {
       if (seq === requestSeq.current) setSummaryLoading(false);
     }
-  }, [api, selectedDate, currentView]);
+  }, [api, selectedDate, currentView, venueType]);
 
   const loadNearbyCount = useCallback(async () => {
     if (!deviceLocation) {
@@ -192,12 +195,13 @@ export function RegionJoinExploreScreen({ embedded = false }: Props) {
         lng: deviceLocation.longitude,
         radiusMeters: DEFAULT_NEARBY_RADIUS_METERS,
         sort: 'DISTANCE',
+        venueType,
       });
       setNearbyCount(res.totalJoinCount);
     } catch {
       setNearbyCount(null);
     }
-  }, [api, selectedDate, deviceLocation]);
+  }, [api, selectedDate, deviceLocation, venueType]);
 
   useEffect(() => {
     if (currentView.kind === 'root' || currentView.kind === 'regions') {

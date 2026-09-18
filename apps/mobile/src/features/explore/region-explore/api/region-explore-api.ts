@@ -13,6 +13,7 @@ export function fetchRegionSummary(
     joinability?: 'JOINABLE' | 'ALL';
     sido?: string;
     sigungu?: string;
+    venueType?: 'SCREEN' | 'FIELD';
   },
   signal?: AbortSignal,
 ): Promise<DiscoverRegionSummaryResponse> {
@@ -31,6 +32,7 @@ export function fetchFacilityJoins(
     sido?: string;
     sigungu?: string;
     sort?: JoinDiscoverySort;
+    venueType?: 'SCREEN' | 'FIELD';
   },
   signal?: AbortSignal,
 ): Promise<DiscoverFacilityJoinsResponse> {
@@ -46,6 +48,7 @@ export function fetchVenueJoins(
     sigungu: string;
     joinability?: 'JOINABLE' | 'ALL';
     sort?: JoinDiscoverySort;
+    venueType?: 'SCREEN' | 'FIELD';
   },
   signal?: AbortSignal,
 ): Promise<DiscoverJoinsResponse> {
