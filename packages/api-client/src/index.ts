@@ -16,6 +16,9 @@ import {
   type GolfFacilityBoundsResponse,
   type GolfFacilityMapDto,
   type GolfFacilitySearchResponse,
+  type FieldGolfCourseSearchResponse,
+  type ActivateFieldGolfCourseVenueResponse,
+  type VenueType,
   type JoinCoinPreviewDto,
   type JoinCoinPreviewRequest,
   type JoinDetailDto,
@@ -661,6 +664,7 @@ export class ApiClient {
       sigungu?: string;
       sort?: JoinDiscoverySort;
       joinability?: JoinDiscoveryJoinability;
+      venueType?: VenueType | 'SCREEN' | 'FIELD';
     },
     signal?: AbortSignal,
   ): Promise<DiscoverJoinsResponse> {
@@ -684,6 +688,7 @@ export class ApiClient {
       radiusMeters?: number;
       sido?: string;
       sigungu?: string;
+      venueType?: VenueType | 'SCREEN' | 'FIELD';
     },
     signal?: AbortSignal,
   ): Promise<DiscoverWeeklyCountsResponse> {
@@ -704,6 +709,7 @@ export class ApiClient {
       joinability?: JoinDiscoveryJoinability;
       sido?: string;
       sigungu?: string;
+      venueType?: VenueType | 'SCREEN' | 'FIELD';
     },
     signal?: AbortSignal,
   ): Promise<DiscoverRegionSummaryResponse> {
@@ -729,6 +735,7 @@ export class ApiClient {
       sido?: string;
       sigungu?: string;
       sort?: JoinDiscoverySort;
+      venueType?: VenueType | 'SCREEN' | 'FIELD';
     },
     signal?: AbortSignal,
   ): Promise<DiscoverFacilityJoinsResponse> {
@@ -773,6 +780,34 @@ export class ApiClient {
       method: 'DELETE',
       headers: await this.headers(true),
     });
+    return parseJson(res);
+  }
+
+  async searchFieldGolfCourses(query: {
+    name?: string;
+    sido?: string;
+    sigungu?: string;
+    page?: number;
+    perPage?: number;
+  }): Promise<FieldGolfCourseSearchResponse> {
+    const params = new URLSearchParams();
+    Object.entries(query).forEach(([k, v]) => {
+      if (v != null && v !== '') params.set(k, String(v));
+    });
+    const res = await request(
+      `${this.config.baseUrl}/field-golf-courses/search?${params.toString()}`,
+      { headers: await this.headers(true) },
+    );
+    return parseJson(res);
+  }
+
+  async activateFieldGolfCourseVenue(
+    fieldGolfCourseId: string,
+  ): Promise<ActivateFieldGolfCourseVenueResponse> {
+    const res = await request(
+      `${this.config.baseUrl}/field-golf-courses/${fieldGolfCourseId}/activate-venue`,
+      { method: 'POST', headers: await this.headers(true) },
+    );
     return parseJson(res);
   }
 

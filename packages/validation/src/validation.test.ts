@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   coinGiftSchema,
   createJoinSchema,
+  hostJoinRecurringTemplateSchema,
   createStoreBannerAdSchema,
   createStoreMatchingJoinSchema,
   firstZodIssueCode,
@@ -153,6 +154,43 @@ test('store profile, banner, and feature flag schemas', () => {
     true,
   );
   assert.equal(updateFeatureFlagsSchema.safeParse({ clubsUiEnabled: false }).success, true);
+});
+
+test('recurring FIELD template keeps venueType and 포썸 TEAM fields', () => {
+  const parsed = hostJoinRecurringTemplateSchema.safeParse({
+    sportCode: 'SCREEN_GOLF',
+    venueId: '11111111-1111-4111-8111-111111111111',
+    venueType: 'FIELD',
+    plannedPlayerCount: 4,
+    playFormat: 'TEAM',
+    teamSize: 2,
+    teamCount: 2,
+    joinMethod: 'OPEN',
+  });
+  assert.equal(parsed.success, true);
+  if (parsed.success) {
+    assert.equal(parsed.data.venueType, 'FIELD');
+    assert.equal(parsed.data.playFormat, 'TEAM');
+    assert.equal(parsed.data.teamSize, 2);
+  }
+});
+
+test('createJoin accepts SCREEN/FIELD venueType and defaults when omitted', () => {
+  const base = {
+    venueId: '11111111-1111-4111-8111-111111111111',
+    startAt: '2026-09-20T01:00:00.000Z',
+    plannedPlayerCount: 4,
+    joinMethod: 'OPEN' as const,
+  };
+  const omitted = createJoinSchema.safeParse(base);
+  assert.equal(omitted.success, true);
+  if (omitted.success) assert.equal(omitted.data.venueType, undefined);
+
+  const field = createJoinSchema.safeParse({ ...base, venueType: 'FIELD', playFormat: 'TEAM', teamSize: 2, teamCount: 2 });
+  assert.equal(field.success, true);
+
+  const bad = createJoinSchema.safeParse({ ...base, venueType: 'PARK' });
+  assert.equal(bad.success, false);
 });
 
 test('terms require all mandatory consents', () => {

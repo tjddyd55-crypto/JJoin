@@ -1030,6 +1030,40 @@ export {
 } from './attendance-rewards';
 
 export {
+  DEFAULT_JOIN_VENUE_TYPE,
+  JOIN_VENUE_TYPES,
+  assertVenueTypeMatch,
+  formatJoinVenueTypeLabel,
+  formatJoinVenueTypeShortLabel,
+  hasValidKoreaMapCoords,
+  isJoinVenueType,
+  parseJoinVenueType,
+  type JoinVenueType,
+} from './venue-type';
+
+export {
+  FIELD_FOURSOME_PRESETS,
+  ODCLOUD_FIELD_GOLF_ROW_KEYS,
+  ODCLOUD_FIELD_GOLF_ROW_KEY_ESCAPES,
+  ODCLOUD_NATIONAL_GOLF_COURSE_SOURCE,
+  decodeOdcloudFieldGolfKeyEscape,
+  fieldGolfSourceFingerprint,
+  normalizeFieldGolfAddress,
+  normalizeFieldGolfCourseItem,
+  normalizeFieldGolfName,
+  matchesFieldDistrict,
+  normalizeFieldGolfSearchQuery,
+  parseFieldRegion,
+  parseHoleCount,
+  resolveFieldGolfExternalId,
+  resolveFieldGolfUpsertAction,
+  shouldAbortFieldMissProcessing,
+  type FieldGolfCourseIdSource,
+  type FieldGolfSearchQuery,
+  type NormalizedFieldGolfCourse,
+} from './field-golf-course';
+
+export {
   ANDROID_MOBILE_RELEASE_SETTINGS_ID,
   MOBILE_ANDROID_RELEASE_LIMITS,
   isPublishableAndroidRelease,

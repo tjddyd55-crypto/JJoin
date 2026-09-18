@@ -63,6 +63,7 @@ const CODE_MESSAGES: Record<string, string> = {
   invalid_create_join: '입력 정보를 확인해주세요. 장소·인원·시간을 다시 확인해 주세요.',
   invalid_store_matching_join: '입력 정보를 확인해주세요. 매장·인원·시간을 다시 확인해 주세요.',
   venue_or_venueId_required: '장소를 선택해주세요.',
+  venue_type_mismatch: '선택한 장소가 조인 유형과 맞지 않습니다.',
   VENUE_NOT_FOUND: '장소 정보를 확인할 수 없습니다. 다시 선택해 주세요.',
   VENUE_NOT_ACTIVATED: '장소 정보를 확인할 수 없습니다. 다시 선택해 주세요.',
   FACILITY_NOT_FOUND: '매장 시설 정보를 확인할 수 없습니다.',

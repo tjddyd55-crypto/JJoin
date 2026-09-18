@@ -272,6 +272,7 @@ test('createDefaultDiscoveryFilter uses nationwide ALL region', () => {
   assert.equal(filter.region.mode, 'ALL');
   assert.equal(filter.region.label, '전체');
   assert.equal(filter.joinability, 'ALL');
+  assert.equal(filter.venueType, 'SCREEN');
 });
 
 test('regionIdentityKey includes ALL', () => {

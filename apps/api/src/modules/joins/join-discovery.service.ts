@@ -16,6 +16,7 @@ import {
   kstDayBoundsUtc,
   listRegionExploreNodes,
   listTopLevelSido,
+  matchesFieldDistrict,
   matchesRegionScope,
   normalizeSido,
   regionExploreHasChildren,
@@ -34,9 +35,12 @@ import {
   isJoinVisibleInDiscoveryList,
   sundayOfWeek,
   formatStandardGenderCompositionLabel,
+  hasValidKoreaMapCoords,
+  parseJoinVenueType,
 } from '@jjoin/domain';
 import {
   JoinKind,
+  VenueType,
   type AdminDistrictCatalogResponse,
   type DiscoverJoinCardDto,
   type DiscoverJoinsResponse,
@@ -69,6 +73,7 @@ export type DiscoverJoinsQuery = {
   sigungu?: string;
   sort?: string;
   joinability?: string;
+  venueType?: string;
 };
 
 export type DiscoverWeeklyCountsQuery = {
@@ -80,6 +85,7 @@ export type DiscoverWeeklyCountsQuery = {
   radiusMeters?: number;
   sido?: string;
   sigungu?: string;
+  venueType?: string;
 };
 
 export type DiscoverRegionSummaryQuery = {
@@ -87,6 +93,7 @@ export type DiscoverRegionSummaryQuery = {
   joinability?: string;
   sido?: string;
   sigungu?: string;
+  venueType?: string;
 };
 
 export type DiscoverFacilityJoinsQuery = {
@@ -99,6 +106,7 @@ export type DiscoverFacilityJoinsQuery = {
   sido?: string;
   sigungu?: string;
   sort?: string;
+  venueType?: string;
 };
 
 type DiscoveryJoinRow = {
@@ -135,10 +143,17 @@ type DiscoveryJoinRow = {
     region: string | null;
     latitude: Prisma.Decimal;
     longitude: Prisma.Decimal;
+    venueType?: string;
     golfFacility: {
       id: string;
       sido: string | null;
       sigungu: string | null;
+    } | null;
+    fieldGolfCourse: {
+      id: string;
+      sido: string | null;
+      sigungu: string | null;
+      holeCount: number | null;
     } | null;
   };
   host: {
@@ -183,12 +198,14 @@ export class JoinDiscoveryService {
     const sort = this.resolveSort(query.sort);
     const joinability = this.resolveJoinability(query.joinability);
     const region = this.resolveRegion(query);
+    const venueType = this.resolveVenueType(query.venueType);
 
     const { start: dayStart, end: dayEnd } = kstDayBoundsUtc(date);
     const rows = await this.findDiscoveryJoins({
       startAtGte: dayStart,
       startAtLt: dayEnd,
       now,
+      venueType,
     });
 
     const discoverable = rows.filter((row) => this.isDiscoverable(row, now));
@@ -240,6 +257,7 @@ export class JoinDiscoveryService {
       startAtGte: rangeStart,
       startAtLt: rangeEndExclusive,
       now,
+      venueType: this.resolveVenueType(query.venueType),
     });
 
     const discoverable = rows.filter((row) => this.isDiscoverable(row, now));
@@ -277,7 +295,13 @@ export class JoinDiscoveryService {
     const now = new Date();
     const date = this.resolveDateKey(query.date, now);
     const joinability = this.resolveJoinability(query.joinability ?? 'JOINABLE');
-    const cards = await this.loadJoinableCardsForDate(userId, date, now, joinability);
+    const cards = await this.loadJoinableCardsForDate(
+      userId,
+      date,
+      now,
+      joinability,
+      this.resolveVenueType(query.venueType),
+    );
 
     const parentSido = query.sido?.trim();
     const parentSigungu = query.sigungu?.trim();
@@ -360,7 +384,13 @@ export class JoinDiscoveryService {
       sigungu: query.sigungu,
     });
 
-    const cards = await this.loadJoinableCardsForDate(userId, date, now, joinability);
+    const cards = await this.loadJoinableCardsForDate(
+      userId,
+      date,
+      now,
+      joinability,
+      this.resolveVenueType(query.venueType),
+    );
     const scoped = this.filterCardsByResolvedRegion(cards, region);
     const sorted = [...scoped].sort((a, b) =>
       compareDiscoverJoinOrder(a, b, { sort, now }),
@@ -409,12 +439,14 @@ export class JoinDiscoveryService {
     date: string,
     now: Date,
     joinability: JoinDiscoveryJoinability,
+    venueType: VenueType = VenueType.SCREEN,
   ): Promise<DiscoverJoinCardDto[]> {
     const { start: dayStart, end: dayEnd } = kstDayBoundsUtc(date);
     const rows = await this.findDiscoveryJoins({
       startAtGte: dayStart,
       startAtLt: dayEnd,
       now,
+      venueType,
     });
     const discoverable = rows.filter((row) => this.isDiscoverable(row, now));
     const region: ResolvedRegion = {
@@ -489,21 +521,28 @@ export class JoinDiscoveryService {
     );
   }
 
+  private resolveVenueType(raw?: string): VenueType {
+    return raw === 'FIELD' ? VenueType.FIELD : VenueType.SCREEN;
+  }
+
   private async findDiscoveryJoins(input: {
     startAtGte: Date;
     startAtLt: Date;
     now: Date;
+    venueType: VenueType;
   }): Promise<DiscoveryJoinRow[]> {
     return this.prisma.join.findMany({
       where: {
         status: { in: [...DISCOVERY_JOIN_STATUSES] },
         startAt: { gte: input.startAtGte, lt: input.startAtLt },
         scheduledEndAt: { gt: input.now },
+        venue: { venueType: input.venueType },
       },
       include: {
         venue: {
           include: {
             golfFacility: { select: { id: true, sido: true, sigungu: true } },
+            fieldGolfCourse: { select: { id: true, sido: true, sigungu: true, holeCount: true } },
           },
         },
         host: {
@@ -557,8 +596,17 @@ export class JoinDiscoveryService {
     sigungu: string,
   ): boolean {
     const gf = row.venue.golfFacility;
+    const field = row.venue.fieldGolfCourse;
     if (gf) {
       return gf.sido === sido && gf.sigungu === sigungu;
+    }
+    if (field) {
+      return matchesFieldDistrict({
+        fieldSido: field.sido,
+        fieldSigungu: field.sigungu,
+        targetSido: sido,
+        targetSigungu: sigungu,
+      });
     }
     const region = row.venue.region ?? '';
     return region.includes(sigungu) || region.includes(sido);
@@ -748,10 +796,13 @@ export class JoinDiscoveryService {
       venueId: row.venue.id,
       venueName: row.venue.name,
       regionLabel: row.venue.region,
-      sido: gf?.sido ?? null,
-      sigungu: gf?.sigungu ?? null,
+      sido: row.venue.fieldGolfCourse?.sido ?? gf?.sido ?? null,
+      sigungu: row.venue.fieldGolfCourse?.sigungu ?? gf?.sigungu ?? null,
       latitude,
       longitude,
+      venueType: parseJoinVenueType(row.venue.venueType) as VenueType,
+      holeCount: row.venue.fieldGolfCourse?.holeCount ?? null,
+      hasMapCoords: hasValidKoreaMapCoords(latitude, longitude),
       distanceMeters,
       currentParticipants: row.confirmedPlayerCount,
       maxParticipants: row.plannedPlayerCount,

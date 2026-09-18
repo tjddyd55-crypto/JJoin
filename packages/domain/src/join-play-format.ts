@@ -116,8 +116,14 @@ export function validateTeamAssignment(input: {
   return { ok: true, teamIndex: input.teamIndex };
 }
 
-export function formatPlayFormatLabel(playFormat: JoinPlayFormat): string {
-  return playFormat === 'TEAM' ? '팀전' : '개인전';
+export function formatPlayFormatLabel(
+  playFormat: JoinPlayFormat,
+  venueType: 'SCREEN' | 'FIELD' = 'SCREEN',
+): string {
+  if (playFormat === 'TEAM') {
+    return venueType === 'FIELD' ? '포썸' : '팀전';
+  }
+  return '개인전';
 }
 
 export function formatTeamCapacityLabel(input: {

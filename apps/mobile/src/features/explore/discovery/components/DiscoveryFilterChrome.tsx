@@ -118,7 +118,11 @@ export function DiscoveryFilterChrome({
         }
         const weekly = await fetchDiscoverWeeklyCounts(
           api,
-          { weekStart: sundayOfWeek(filter.weekAnchorDate), ...regionQuery },
+          {
+            weekStart: sundayOfWeek(filter.weekAnchorDate),
+            venueType: filter.venueType,
+            ...regionQuery,
+          },
           abort.signal,
         );
         const counts: Record<string, number> = {};
@@ -129,7 +133,7 @@ export function DiscoveryFilterChrome({
       }
     })();
     return () => abort.abort();
-  }, [api, filter.region, filter.weekAnchorDate, deviceLocation]);
+  }, [api, filter.region, filter.weekAnchorDate, filter.venueType, deviceLocation]);
 
   return (
     <View>

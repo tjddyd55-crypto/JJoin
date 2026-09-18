@@ -165,6 +165,7 @@ export function resolveJoinDdayForCard(input: {
 export function resolveJoinListStatusBadges(input: {
   status: JoinStatus | string;
   sportCode?: string | null;
+  venueType?: 'SCREEN' | 'FIELD' | null;
   isUrgent?: boolean;
   seatsLeft?: number;
   scheduledEndAt?: string;
@@ -174,7 +175,9 @@ export function resolveJoinListStatusBadges(input: {
   const badges: JoinCardStatusBadge[] = [];
   const now = input.now ?? new Date();
 
-  if (input.sportCode === 'SCREEN_GOLF' || input.sportCode === 'SCREEN') {
+  if (input.venueType === 'FIELD') {
+    badges.push({ label: '필드', tone: 'neutral' });
+  } else if (input.sportCode === 'SCREEN_GOLF' || input.sportCode === 'SCREEN') {
     badges.push({ label: '스크린', tone: 'neutral' });
   }
 
@@ -264,6 +267,7 @@ export function baseJoinCardFields(
     rewardPerParticipant?: string | null;
     isUrgent?: boolean;
     sportCode?: string | null;
+    venueType?: 'SCREEN' | 'FIELD' | null;
     title?: string | null;
   },
   options?: JoinCardMapperOptions,
@@ -299,6 +303,7 @@ export function baseJoinCardFields(
     statusBadges: resolveJoinListStatusBadges({
       status: input.status,
       sportCode: input.sportCode,
+      venueType: input.venueType,
       isUrgent: input.isUrgent,
       seatsLeft: input.seatsLeft,
       scheduledEndAt: input.scheduledEndAt,

@@ -29,6 +29,7 @@ export type DiscoveryFilterPatch = Partial<{
   region: JoinDiscoveryRegion;
   sort: JoinDiscoverySort;
   joinability: JoinDiscoveryJoinability;
+  venueType: 'SCREEN' | 'FIELD';
   view: ExploreDiscoveryView;
   weekAnchorDate: string;
 }>;

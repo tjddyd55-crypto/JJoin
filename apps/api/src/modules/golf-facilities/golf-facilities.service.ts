@@ -364,6 +364,7 @@ export class GolfFacilitiesService {
           provider,
           providerPlaceId,
           golfFacilityId: facility.id,
+          venueType: 'SCREEN',
           // Service display values (override-aware), not raw source*
           name: facility.displayName,
           address,

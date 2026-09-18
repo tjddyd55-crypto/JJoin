@@ -28,6 +28,7 @@ import {
   JoinParticipantSkillMode,
   JoinGameStyle,
   JoinAfterPlan,
+  VenueType,
   type UpdateJoinRequest,
   type MatchingJoinExtras,
   type MyJoinsResponse,
@@ -80,6 +81,9 @@ import {
   formatStandardGenderCompositionLabel,
   validateJoinPlayFormat,
   validateTeamAssignment,
+  assertVenueTypeMatch,
+  hasValidKoreaMapCoords,
+  parseJoinVenueType,
   type MatchingGender,
 } from '@jjoin/domain';
 import { createJoinSchema, joinCoinPreviewSchema, updateJoinSchema } from '@jjoin/validation';
@@ -248,6 +252,7 @@ export class JoinsService {
       throw joinCreateBadRequest(playFormatResult.code);
     }
     const playFormat = playFormatResult.value;
+    const requestedVenueType = parseJoinVenueType(input.venueType);
     const hostProfile = await this.prisma.user.findUnique({
       where: { id: hostUserId },
       select: { profile: { select: { gender: true } } },
@@ -380,6 +385,7 @@ export class JoinsService {
               sportId: sport.id,
               provider: input.venue.provider,
               providerPlaceId: input.venue.providerPlaceId,
+              venueType: requestedVenueType,
               name: input.venue.name,
               address: input.venue.address ?? null,
               region: input.venue.regionLabel ?? null,
@@ -397,6 +403,16 @@ export class JoinsService {
         }
 
         createdVenueId = venue.id;
+        const venueType = parseJoinVenueType(
+          (venue as { venueType?: string }).venueType,
+        );
+        const typeMatch = assertVenueTypeMatch({
+          requested: requestedVenueType,
+          venueType,
+        });
+        if (!typeMatch.ok) {
+          throw joinCreateBadRequest(typeMatch.code);
+        }
 
         const wallet = await this.ledger.getOrCreateWallet(hostUserId, coinAsset.id, tx);
         const locked = await this.ledger.lockWallet(tx, wallet.id);
@@ -780,7 +796,14 @@ export class JoinsService {
     const join = await this.prisma.join.findUnique({
       where: { id: joinId },
       include: {
-        venue: true,
+        venue: {
+          include: {
+            golfFacility: { select: { sido: true, sigungu: true } },
+            fieldGolfCourse: {
+              select: { sido: true, sigungu: true, holeCount: true, address: true, name: true },
+            },
+          },
+        },
         sport: true,
         host: { include: { profile: true, sportProfiles: { include: { sport: true } } } },
         participants: {
@@ -1582,6 +1605,15 @@ export class JoinsService {
         region: string | null;
         latitude: Prisma.Decimal;
         longitude: Prisma.Decimal;
+        venueType?: string;
+        golfFacility?: { sido: string | null; sigungu: string | null } | null;
+        fieldGolfCourse?: {
+          sido: string | null;
+          sigungu: string | null;
+          holeCount: number | null;
+          address: string | null;
+          name: string;
+        } | null;
       };
       host: {
         id: string;
@@ -1791,6 +1823,20 @@ export class JoinsService {
         regionLabel: join.venue.region,
         latitude: Number(join.venue.latitude),
         longitude: Number(join.venue.longitude),
+        venueType: parseJoinVenueType((join.venue as { venueType?: string }).venueType) as VenueType,
+        sido:
+          join.venue.fieldGolfCourse?.sido ??
+          join.venue.golfFacility?.sido ??
+          null,
+        sigungu:
+          join.venue.fieldGolfCourse?.sigungu ??
+          join.venue.golfFacility?.sigungu ??
+          null,
+        holeCount: join.venue.fieldGolfCourse?.holeCount ?? null,
+        hasMapCoords: hasValidKoreaMapCoords(
+          Number(join.venue.latitude),
+          Number(join.venue.longitude),
+        ),
       },
       host: hostProfile,
       myParticipation: mine,

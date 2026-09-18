@@ -23,13 +23,15 @@ import {
   computeCoinShortfall,
   computeRewardEligibleSlots,
   formatNumber,
+  FIELD_FOURSOME_PRESETS,
   formatPlayFormatLabel,
   formatTeamCapacityLabel,
+  parseJoinVenueType,
   requiresIdentityGate,
   resolvePlannedPlayerCount,
 } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
-import { IdentityStatus, JoinMethod, JoinPlayFormat, SCREEN_GOLF_CODE } from '@jjoin/types';
+import { IdentityStatus, JoinMethod, JoinPlayFormat, SCREEN_GOLF_CODE, VenueType } from '@jjoin/types';
 import { RewardCoinInput } from '../../src/ui/patterns/RewardCoinInput';
 import { useJoinCoinPreview } from '../../src/features/create/useJoinCoinPreview';
 import { resolveJoinCreateFooterState } from '../../src/features/join-create/model/join-create-footer-state';
@@ -42,6 +44,7 @@ import { getSecureSessionStore, useSession } from '../../src/session/SessionCont
 import { getApiClient } from '../../src/lib/api';
 import { resolveAppVariant } from '../../src/lib/app-variant';
 import { JoinCreateVenueSection } from '../../src/features/join-create/components/JoinCreateVenueSection';
+import { JoinCreateFieldVenueSection } from '../../src/features/join-create/components/JoinCreateFieldVenueSection';
 import { JoinCreateStepHeader, JoinCreateSummaryRow } from '../../src/features/join-create/components/JoinCreateStepHeader';
 import { JoinCreatePricingSummary } from '../../src/features/join-create/components/JoinCreatePricingSummary';
 import {
@@ -129,7 +132,11 @@ export default function CreateScreen() {
     title?: string;
     inviteeUserId?: string;
     inviteeNickname?: string;
+    venueType?: string;
   }>();
+  const venueType = parseJoinVenueType(
+    typeof params.venueType === 'string' ? params.venueType : undefined,
+  );
   const routeVenueId =
     typeof params.venueId === 'string' && params.venueId.trim()
       ? params.venueId.trim()
@@ -440,17 +447,18 @@ export default function CreateScreen() {
           ...(recurrenceUseEndDate
             ? { recurrenceEndDate }
             : { maxOccurrences }),
-          title: routeTitle ?? `${selectedVenue.name} 스크린골프`,
+          title: routeTitle ?? `${selectedVenue.name} ${venueType === 'FIELD' ? '필드 조인' : '스크린골프'}`,
           description: description.trim() || null,
           joinTemplate: {
             sportCode: SCREEN_GOLF_CODE,
             venueId,
+            venueType: venueType === 'FIELD' ? VenueType.FIELD : VenueType.SCREEN,
             plannedPlayerCount: players,
             playFormat,
             teamSize: playFormat === JoinPlayFormat.TEAM ? teamSize : null,
             teamCount: playFormat === JoinPlayFormat.TEAM ? teamCount : null,
             joinMethod,
-            title: routeTitle ?? `${selectedVenue.name} 스크린골프`,
+            title: routeTitle ?? `${selectedVenue.name} ${venueType === 'FIELD' ? '필드 조인' : '스크린골프'}`,
             description: description.trim() || null,
             rewardPerParticipant,
             ...memberPreferencesPayload(memberPrefs),
@@ -472,9 +480,10 @@ export default function CreateScreen() {
         teamSize: playFormat === JoinPlayFormat.TEAM ? teamSize : null,
         teamCount: playFormat === JoinPlayFormat.TEAM ? teamCount : null,
         joinMethod,
-        title: routeTitle ?? `${selectedVenue.name} 스크린골프`,
+        title: routeTitle ?? `${selectedVenue.name} ${venueType === 'FIELD' ? '필드 조인' : '스크린골프'}`,
         description: description.trim() || null,
         rewardPerParticipant,
+        venueType: venueType === 'FIELD' ? VenueType.FIELD : VenueType.SCREEN,
         idempotencyKey: newIdempotencyKey(),
         clubId: routeClubId,
         clubEventId: routeClubEventId,
@@ -678,12 +687,20 @@ export default function CreateScreen() {
 
         {step === 'venue' ? (
           <>
-            <JoinCreateVenueSection
-              api={api}
-              selected={selectedVenue}
-              onChange={setSelectedVenue}
-              onPickFromMap={onPickFromMap}
-            />
+            {venueType === 'FIELD' ? (
+              <JoinCreateFieldVenueSection
+                api={api}
+                selected={selectedVenue}
+                onChange={setSelectedVenue}
+              />
+            ) : (
+              <JoinCreateVenueSection
+                api={api}
+                selected={selectedVenue}
+                onChange={setSelectedVenue}
+                onPickFromMap={onPickFromMap}
+              />
+            )}
             <KstDatePickerField label="날짜" dateYmd={gameDate} onChange={setGameDate} />
             <KstTimePickerField label="시작 시간" valueHm={startTime} onChange={setStartTime} />
             {!startAtValid && venueReady ? (
@@ -699,15 +716,21 @@ export default function CreateScreen() {
               {([JoinPlayFormat.INDIVIDUAL, JoinPlayFormat.TEAM] as const).map((format) => (
                 <Chip
                   key={format}
-                  label={formatPlayFormatLabel(format)}
+                  label={formatPlayFormatLabel(format, venueType)}
                   selected={playFormat === format}
                   onPress={() => {
                     setPlayFormat(format);
                     if (format === JoinPlayFormat.TEAM) {
+                      const nextSize = venueType === 'FIELD' ? 2 : teamSize;
+                      const nextCount = venueType === 'FIELD' ? 2 : teamCount;
+                      if (venueType === 'FIELD') {
+                        setTeamSize(nextSize);
+                        setTeamCount(nextCount);
+                      }
                       const nextPlayers = resolvePlannedPlayerCount({
                         playFormat: 'TEAM',
-                        teamSize,
-                        teamCount,
+                        teamSize: nextSize,
+                        teamCount: nextCount,
                       });
                       setPlayers(nextPlayers);
                       setGenderComposition(defaultJoinGenderComposition(nextPlayers));
@@ -718,10 +741,30 @@ export default function CreateScreen() {
             </View>
             {playFormat === JoinPlayFormat.TEAM ? (
               <>
-                <Text variant="sectionTitle" tone="primary">팀 구성</Text>
+                <Text variant="sectionTitle" tone="primary">
+                  {venueType === 'FIELD' ? '포썸 구성' : '팀 구성'}
+                </Text>
                 <Text variant="caption" tone="secondary">
                   {formatTeamCapacityLabel({ teamSize, teamCount }) ?? '팀 수를 선택하세요'}
                 </Text>
+                {venueType === 'FIELD' ? (
+                  <View style={styles.row}>
+                    {FIELD_FOURSOME_PRESETS.map((preset) => (
+                      <Chip
+                        key={preset.label}
+                        label={preset.label}
+                        selected={teamSize === preset.teamSize && teamCount === preset.teamCount}
+                        onPress={() => {
+                          setTeamSize(preset.teamSize);
+                          setTeamCount(preset.teamCount);
+                          const nextPlayers = preset.teamSize * preset.teamCount;
+                          setPlayers(nextPlayers);
+                          setGenderComposition(defaultJoinGenderComposition(nextPlayers));
+                        }}
+                      />
+                    ))}
+                  </View>
+                ) : null}
                 <Text variant="caption" tone="secondary">팀당 인원</Text>
                 <View style={styles.row}>
                   {Array.from({ length: TEAM_SIZE_MAX - TEAM_SIZE_MIN + 1 }, (_, i) => i + TEAM_SIZE_MIN).map((n) => (

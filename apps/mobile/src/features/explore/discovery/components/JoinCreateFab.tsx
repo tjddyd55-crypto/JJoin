@@ -6,6 +6,7 @@ import { useJoinCoinPreview } from '../../../create/useJoinCoinPreview';
 import { getApiClient } from '../../../../lib/api';
 import { getSecureSessionStore, useSession } from '../../../../session/SessionContext';
 import { shouldShowJoinCreateFab } from '../model/join-create-fab-visibility';
+import { useJoinDiscoveryOptional } from '../JoinDiscoveryContext';
 
 const FAB_SIZE = 56;
 const DEFAULT_PLAYERS = 4;
@@ -15,6 +16,7 @@ const DEFAULT_REWARD = '0';
 export function JoinCreateFab() {
   const router = useRouter();
   const theme = useTheme();
+  const venueType = useJoinDiscoveryOptional()?.filter.venueType ?? 'SCREEN';
   const { me } = useSession();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const { preview } = useJoinCoinPreview(
@@ -34,7 +36,9 @@ export function JoinCreateFab() {
   return (
     <View pointerEvents="box-none" style={[styles.host, { bottom }]}>
       <Pressable
-        onPress={() => router.push('/(tabs)/create')}
+        onPress={() =>
+          router.push({ pathname: '/(tabs)/create', params: { venueType } })
+        }
         accessibilityRole="button"
         accessibilityLabel="조인 만들기"
         style={[
