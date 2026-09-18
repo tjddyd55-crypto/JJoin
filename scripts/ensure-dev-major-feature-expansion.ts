@@ -15,25 +15,35 @@ const TAG = '[QA-MAJOR-FEATURE-EXPANSION]';
 const FIXTURE_PREFIX = 'qa-expansion-store-';
 
 const STORES = [
-  { name: '강남 스크린 라운지', sido: '서울특별시', sigungu: '강남구', brand: 'GOLFZON' as const, blurb: '야간 라운딩 맛집' },
-  { name: '분당 카카오VX 스튜디오', sido: '경기도', sigungu: '성남시', brand: 'KAKAO_VX' as const, blurb: '조용한 연습 공간' },
-  { name: '수원 SG 파크', sido: '경기도', sigungu: '수원시', brand: 'SG_GOLF' as const, blurb: '가족 라운드 추천' },
-  { name: '마포 미드나잇 스크린', sido: '서울특별시', sigungu: '마포구', brand: 'OTHER' as const, other: '자체 시뮬레이터', blurb: '심야 오픈' },
-  { name: '송파 골프존 클럽', sido: '서울특별시', sigungu: '송파구', brand: 'GOLFZON' as const, blurb: '주차·샤워 완비' },
+  { name: '강남 ?�크�??�운지', sido: '?�울?�별??, sigungu: '강남�?, brand: 'GOLFZON' as const, blurb: '?�간 ?�운??맛집' },
+  { name: '분당 카카?�VX ?�튜?�오', sido: '경기??, sigungu: '?�남??, brand: 'KAKAO_VX' as const, blurb: '조용???�습 공간' },
+  { name: '?�원 SG ?�크', sido: '경기??, sigungu: '?�원??, brand: 'SG_GOLF' as const, blurb: '가�??�운??추천' },
+  { name: '마포 미드?�잇 ?�크�?, sido: '?�울?�별??, sigungu: '마포�?, brand: 'OTHER' as const, other: '?�체 ?��??�이??, blurb: '?�야 ?�픈' },
+  { name: '?�파 골프�??�럽', sido: '?�울?�별??, sigungu: '?�파�?, brand: 'GOLFZON' as const, blurb: '주차·?�워 ?�비' },
 ];
 
 const BANNERS = [
-  { title: '오늘 맞는 조인 찾기', subtitle: '나와 잘 맞는 라운딩', href: '/(tabs)/joins', sortOrder: 1 },
-  { title: '스크린 매장 둘러보기', subtitle: '검증된 매장에서 조인 만들기', href: '/stores', sortOrder: 2 },
-  { title: '출석하고 코인 받기', subtitle: '하루 한 번 출석 보상', href: '/my/rewards', sortOrder: 3 },
+  { title: '?�늘 맞는 조인 찾기', subtitle: '?��? ??맞는 ?�운??, href: '/(tabs)/joins', sortOrder: 1 },
+  { title: '?�크�?매장 ?�러보기', subtitle: '검증된 매장?�서 조인 만들�?, href: '/stores', sortOrder: 2 },
+  { title: '출석?�고 코인 받기', subtitle: '?�루 ??�?출석 보상', href: '/my/rewards', sortOrder: 3 },
 ];
 
 function assertDevOnly() {
   const url = process.env.DATABASE_URL ?? '';
-  const env = `${process.env.RAILWAY_ENVIRONMENT ?? ''} ${process.env.NODE_ENV ?? ''}`.toLowerCase();
   if (!url) throw new Error('DATABASE_URL required');
-  if (env.includes('production') || url.includes('prod') || process.env.APP_ENV === 'production') {
-    throw new Error(`${TAG} production_forbidden`);
+  const railwayEnv = (process.env.RAILWAY_ENVIRONMENT_NAME ?? process.env.RAILWAY_ENVIRONMENT ?? '').toLowerCase();
+  const appVariant = (process.env.JJOIN_APP_VARIANT ?? process.env.APP_ENV ?? '').toLowerCase();
+  const isDev =
+    railwayEnv === 'development' ||
+    appVariant === 'development' ||
+    appVariant === 'dev';
+  // NODE_ENV is often "production" on Railway even for development ? do not use it as the gate.
+  const looksProdUrl =
+    /production|prod-/i.test(url) ||
+    /api-production/i.test(url) ||
+    url.includes('postgres-production');
+  if (!isDev || looksProdUrl || railwayEnv === 'production' || appVariant === 'production') {
+    throw new Error(`${TAG} production_forbidden railwayEnv=${railwayEnv} appVariant=${appVariant}`);
   }
 }
 
@@ -114,7 +124,7 @@ async function main() {
           id: randomUUID(),
           ownershipId: ownership.id,
           intro: store.blurb,
-          vibe: '밝고 편한 분위기',
+          vibe: '밝고 ?�한 분위�?,
           amenities: ['PARKING', 'LOUNGE'],
           screenBrand: store.brand,
           screenBrandOther: 'other' in store ? store.other : null,
@@ -152,3 +162,4 @@ async function main() {
 }
 
 void main();
+
