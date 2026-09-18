@@ -15,17 +15,17 @@ const TAG = '[QA-MAJOR-FEATURE-EXPANSION]';
 const FIXTURE_PREFIX = 'qa-expansion-store-';
 
 const STORES = [
-  { name: '媛뺣궓 ?ㅽ겕由??쇱슫吏', sido: '?쒖슱?밸퀎??, sigungu: '媛뺣궓援?, brand: 'GOLFZON' as const, blurb: '?쇨컙 ?쇱슫??留쏆쭛' },
-  { name: '遺꾨떦 移댁뭅?짿X ?ㅽ뒠?붿삤', sido: '寃쎄린??, sigungu: '?깅궓??, brand: 'KAKAO_VX' as const, blurb: '議곗슜???곗뒿 怨듦컙' },
-  { name: '?섏썝 SG ?뚰겕', sido: '寃쎄린??, sigungu: '?섏썝??, brand: 'SG_GOLF' as const, blurb: '媛議??쇱슫??異붿쿇' },
-  { name: '留덊룷 誘몃뱶?섏엲 ?ㅽ겕由?, sido: '?쒖슱?밸퀎??, sigungu: '留덊룷援?, brand: 'OTHER' as const, other: '?먯껜 ?쒕??덉씠??, blurb: '?ъ빞 ?ㅽ뵂' },
-  { name: '?≫뙆 怨⑦봽議??대읇', sido: '?쒖슱?밸퀎??, sigungu: '?≫뙆援?, brand: 'GOLFZON' as const, blurb: '二쇱감쨌?ㅼ썙 ?꾨퉬' },
+  { name: '강남 스크린 라운지', sido: '서울특별시', sigungu: '강남구', brand: 'GOLFZON' as const, blurb: '야간 라운딩 맛집' },
+  { name: '분당 카카오VX 스튜디오', sido: '경기도', sigungu: '성남시', brand: 'KAKAO_VX' as const, blurb: '조용한 연습 공간' },
+  { name: '수원 SG 파크', sido: '경기도', sigungu: '수원시', brand: 'SG_GOLF' as const, blurb: '가족 라운드 추천' },
+  { name: '마포 미드나잇 스크린', sido: '서울특별시', sigungu: '마포구', brand: 'OTHER' as const, other: '자체 시뮬레이터', blurb: '심야 오픈' },
+  { name: '송파 골프존 클럽', sido: '서울특별시', sigungu: '송파구', brand: 'GOLFZON' as const, blurb: '주차·샤워 완비' },
 ];
 
 const BANNERS = [
-  { title: '?ㅻ뒛 留욌뒗 議곗씤 李얘린', subtitle: '?섏? ??留욌뒗 ?쇱슫??, href: '/(tabs)/joins', sortOrder: 1 },
-  { title: '?ㅽ겕由?留ㅼ옣 ?섎윭蹂닿린', subtitle: '寃利앸맂 留ㅼ옣?먯꽌 議곗씤 留뚮뱾湲?, href: '/stores', sortOrder: 2 },
-  { title: '異쒖꽍?섍퀬 肄붿씤 諛쏄린', subtitle: '?섎（ ??踰?異쒖꽍 蹂댁긽', href: '/my/rewards', sortOrder: 3 },
+  { title: '오늘 맞는 조인 찾기', subtitle: '나와 잘 맞는 라운딩', href: '/(tabs)/joins', sortOrder: 1 },
+  { title: '스크린 매장 둘러보기', subtitle: '검증된 매장에서 조인 만들기', href: '/stores', sortOrder: 2 },
+  { title: '출석하고 코인 받기', subtitle: '하루 한 번 출석 보상', href: '/my/rewards', sortOrder: 3 },
 ];
 
 function assertDevOnly() {
@@ -43,10 +43,9 @@ function assertDevOnly() {
     /api-production/i.test(url) ||
     url.includes('postgres-production');
   if (!isDev || looksProdUrl || railwayEnv === 'production' || appVariant === 'production') {
-    throw new Error(`${TAG} production_forbidden railwayEnv=${railwayEnv} appVariant=${appVariant}`);
+    throw new Error(\ production_forbidden railwayEnv=\ appVariant=\);
   }
 }
-
 
 async function main() {
   assertDevOnly();
@@ -125,7 +124,7 @@ async function main() {
           id: randomUUID(),
           ownershipId: ownership.id,
           intro: store.blurb,
-          vibe: '諛앷퀬 ?명븳 遺꾩쐞湲?,
+          vibe: '밝고 편한 분위기',
           amenities: ['PARKING', 'LOUNGE'],
           screenBrand: store.brand,
           screenBrandOther: 'other' in store ? store.other : null,
