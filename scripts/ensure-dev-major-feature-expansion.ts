@@ -15,17 +15,17 @@ const TAG = '[QA-MAJOR-FEATURE-EXPANSION]';
 const FIXTURE_PREFIX = 'qa-expansion-store-';
 
 const STORES = [
-  { name: '강남 ?�크�??�운지', sido: '?�울?�별??, sigungu: '강남�?, brand: 'GOLFZON' as const, blurb: '?�간 ?�운??맛집' },
-  { name: '분당 카카?�VX ?�튜?�오', sido: '경기??, sigungu: '?�남??, brand: 'KAKAO_VX' as const, blurb: '조용???�습 공간' },
-  { name: '?�원 SG ?�크', sido: '경기??, sigungu: '?�원??, brand: 'SG_GOLF' as const, blurb: '가�??�운??추천' },
-  { name: '마포 미드?�잇 ?�크�?, sido: '?�울?�별??, sigungu: '마포�?, brand: 'OTHER' as const, other: '?�체 ?��??�이??, blurb: '?�야 ?�픈' },
-  { name: '?�파 골프�??�럽', sido: '?�울?�별??, sigungu: '?�파�?, brand: 'GOLFZON' as const, blurb: '주차·?�워 ?�비' },
+  { name: '媛뺣궓 ?ㅽ겕由??쇱슫吏', sido: '?쒖슱?밸퀎??, sigungu: '媛뺣궓援?, brand: 'GOLFZON' as const, blurb: '?쇨컙 ?쇱슫??留쏆쭛' },
+  { name: '遺꾨떦 移댁뭅?짿X ?ㅽ뒠?붿삤', sido: '寃쎄린??, sigungu: '?깅궓??, brand: 'KAKAO_VX' as const, blurb: '議곗슜???곗뒿 怨듦컙' },
+  { name: '?섏썝 SG ?뚰겕', sido: '寃쎄린??, sigungu: '?섏썝??, brand: 'SG_GOLF' as const, blurb: '媛議??쇱슫??異붿쿇' },
+  { name: '留덊룷 誘몃뱶?섏엲 ?ㅽ겕由?, sido: '?쒖슱?밸퀎??, sigungu: '留덊룷援?, brand: 'OTHER' as const, other: '?먯껜 ?쒕??덉씠??, blurb: '?ъ빞 ?ㅽ뵂' },
+  { name: '?≫뙆 怨⑦봽議??대읇', sido: '?쒖슱?밸퀎??, sigungu: '?≫뙆援?, brand: 'GOLFZON' as const, blurb: '二쇱감쨌?ㅼ썙 ?꾨퉬' },
 ];
 
 const BANNERS = [
-  { title: '?�늘 맞는 조인 찾기', subtitle: '?��? ??맞는 ?�운??, href: '/(tabs)/joins', sortOrder: 1 },
-  { title: '?�크�?매장 ?�러보기', subtitle: '검증된 매장?�서 조인 만들�?, href: '/stores', sortOrder: 2 },
-  { title: '출석?�고 코인 받기', subtitle: '?�루 ??�?출석 보상', href: '/my/rewards', sortOrder: 3 },
+  { title: '?ㅻ뒛 留욌뒗 議곗씤 李얘린', subtitle: '?섏? ??留욌뒗 ?쇱슫??, href: '/(tabs)/joins', sortOrder: 1 },
+  { title: '?ㅽ겕由?留ㅼ옣 ?섎윭蹂닿린', subtitle: '寃利앸맂 留ㅼ옣?먯꽌 議곗씤 留뚮뱾湲?, href: '/stores', sortOrder: 2 },
+  { title: '異쒖꽍?섍퀬 肄붿씤 諛쏄린', subtitle: '?섎（ ??踰?異쒖꽍 蹂댁긽', href: '/my/rewards', sortOrder: 3 },
 ];
 
 function assertDevOnly() {
@@ -37,7 +37,7 @@ function assertDevOnly() {
     railwayEnv === 'development' ||
     appVariant === 'development' ||
     appVariant === 'dev';
-  // NODE_ENV is often "production" on Railway even for development ? do not use it as the gate.
+  // NODE_ENV is often "production" on Railway even for development — do not use it as the gate.
   const looksProdUrl =
     /production|prod-/i.test(url) ||
     /api-production/i.test(url) ||
@@ -46,6 +46,7 @@ function assertDevOnly() {
     throw new Error(`${TAG} production_forbidden railwayEnv=${railwayEnv} appVariant=${appVariant}`);
   }
 }
+
 
 async function main() {
   assertDevOnly();
@@ -124,7 +125,7 @@ async function main() {
           id: randomUUID(),
           ownershipId: ownership.id,
           intro: store.blurb,
-          vibe: '밝고 ?�한 분위�?,
+          vibe: '諛앷퀬 ?명븳 遺꾩쐞湲?,
           amenities: ['PARKING', 'LOUNGE'],
           screenBrand: store.brand,
           screenBrandOther: 'other' in store ? store.other : null,
@@ -162,4 +163,3 @@ async function main() {
 }
 
 void main();
-
