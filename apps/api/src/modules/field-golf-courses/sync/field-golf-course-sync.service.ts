@@ -6,6 +6,7 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 import {
   ODCLOUD_NATIONAL_GOLF_COURSE_SOURCE,
   normalizeFieldGolfCourseItem,
+  shouldAbortFieldMissProcessing,
   type NormalizedFieldGolfCourse,
 } from '@jjoin/domain';
 import { shouldRunOnKstCalendar } from '../../golf-facilities/sync/public-golf-facility-sync.service';
@@ -162,6 +163,30 @@ export class FieldGolfCourseSyncService {
       }
 
       const upserted = await this.upsertAll(fetched.items, now);
+      const normalizedCount = upserted.inserted + upserted.updated + upserted.unchanged;
+      if (
+        shouldAbortFieldMissProcessing({
+          fetchedCount: fetched.items.length,
+          normalizedCount,
+          sample: Boolean(options.maxPages),
+        })
+      ) {
+        await this.finishRun(run.id, {
+          status: 'ABORTED_GUARD',
+          fetchedPages: fetched.pages,
+          fetchedCount: fetched.items.length,
+          insertedCount: upserted.inserted,
+          updatedCount: upserted.updated,
+          unchangedCount: upserted.unchanged,
+          failedCount: upserted.failed,
+          errorSummary: `ABORTED_GUARD:normalize_coverage=${normalizedCount}/${fetched.items.length}`,
+        });
+        return this.emptyReport('ABORTED_GUARD', started, {
+          runId: run.id,
+          errorSummary: `ABORTED_GUARD:normalize_coverage=${normalizedCount}/${fetched.items.length}`,
+          meta: { apiTotalCount: fetched.totalCount, normalizedCount },
+        });
+      }
       const inactiveCount = options.maxPages ? 0 : await this.markMisses(upserted.seenKeys, now);
       const durationMs = Date.now() - started;
       await this.finishRun(run.id, {
@@ -336,6 +361,8 @@ export class FieldGolfCourseSyncService {
           lastSeenAt: now,
           lastSyncedAt: now,
           consecutiveMissCount: 0,
+          isActive: true,
+          exclusionReason: null,
           sourceRawJson: raw as Prisma.InputJsonValue,
         },
       });

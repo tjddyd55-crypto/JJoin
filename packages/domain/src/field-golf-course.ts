@@ -4,7 +4,7 @@
  *
  * data[]: 구분, 면적(제곱미터), 사업자, 소재지, 이름, 지역, 홀
  */
-import { normalizeSido } from './region-explore-catalog';
+import { matchesRegionScope, normalizeSido } from './region-explore-catalog';
 
 export const ODCLOUD_NATIONAL_GOLF_COURSE_SOURCE = 'ODCLOUD_NATIONAL_GOLF_COURSE' as const;
 
@@ -281,3 +281,39 @@ export const FIELD_FOURSOME_PRESETS = [
   { label: '2v2', teamSize: 2, teamCount: 2 },
   { label: '3v3', teamSize: 3, teamCount: 2 },
 ] as const;
+
+/**
+ * ODCloud FIELD sigungu is often the city (용인시) while explore chips are
+ * districts (용인시 처인구). Match both catalog scope and city/district prefix.
+ */
+export function matchesFieldDistrict(input: {
+  fieldSido: string | null | undefined;
+  fieldSigungu: string | null | undefined;
+  targetSido: string;
+  targetSigungu: string;
+}): boolean {
+  if (
+    matchesRegionScope(input.fieldSido, input.fieldSigungu, input.targetSido, input.targetSigungu)
+  ) {
+    return true;
+  }
+  const fieldSido = normalizeSido(input.fieldSido);
+  const targetSido = normalizeSido(input.targetSido);
+  if (!fieldSido || fieldSido !== targetSido) return false;
+  const field = (input.fieldSigungu ?? '').trim();
+  const target = input.targetSigungu.trim();
+  if (!field || !target) return false;
+  return field === target || target.startsWith(field) || field.startsWith(target);
+}
+
+/** Skip markMisses when almost no rows normalized — avoid mass-inactivating the catalog. */
+export function shouldAbortFieldMissProcessing(input: {
+  fetchedCount: number;
+  normalizedCount: number;
+  sample?: boolean;
+}): boolean {
+  if (input.sample) return false;
+  if (input.fetchedCount <= 0) return true;
+  if (input.normalizedCount <= 0) return true;
+  return input.normalizedCount / input.fetchedCount < 0.5;
+}

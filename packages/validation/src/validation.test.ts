@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   coinGiftSchema,
   createJoinSchema,
+  hostJoinRecurringTemplateSchema,
   createStoreBannerAdSchema,
   createStoreMatchingJoinSchema,
   firstZodIssueCode,
@@ -153,6 +154,25 @@ test('store profile, banner, and feature flag schemas', () => {
     true,
   );
   assert.equal(updateFeatureFlagsSchema.safeParse({ clubsUiEnabled: false }).success, true);
+});
+
+test('recurring FIELD template keeps venueType and 포썸 TEAM fields', () => {
+  const parsed = hostJoinRecurringTemplateSchema.safeParse({
+    sportCode: 'SCREEN_GOLF',
+    venueId: '11111111-1111-4111-8111-111111111111',
+    venueType: 'FIELD',
+    plannedPlayerCount: 4,
+    playFormat: 'TEAM',
+    teamSize: 2,
+    teamCount: 2,
+    joinMethod: 'OPEN',
+  });
+  assert.equal(parsed.success, true);
+  if (parsed.success) {
+    assert.equal(parsed.data.venueType, 'FIELD');
+    assert.equal(parsed.data.playFormat, 'TEAM');
+    assert.equal(parsed.data.teamSize, 2);
+  }
 });
 
 test('createJoin accepts SCREEN/FIELD venueType and defaults when omitted', () => {

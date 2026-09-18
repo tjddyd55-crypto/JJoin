@@ -8,9 +8,11 @@ import {
   normalizeFieldGolfCourseItem,
   normalizeFieldGolfSearchQuery,
   parseFieldRegion,
+  matchesFieldDistrict,
   parseHoleCount,
   resolveFieldGolfExternalId,
   resolveFieldGolfUpsertAction,
+  shouldAbortFieldMissProcessing,
 } from './field-golf-course';
 
 /** HEX-verified ensure_ascii JSON row from the DEV probe. totalCount=541. */
@@ -158,6 +160,51 @@ test('missing source rows are never hard-deleted — callers only mark inactive'
   assert.equal(
     resolveFieldGolfUpsertAction({ existingFingerprint: null, nextFingerprint: 'x' }),
     'INSERT',
+  );
+});
+
+test('FIELD district matches city rows against catalog 구 chips', () => {
+  assert.equal(
+    matchesFieldDistrict({
+      fieldSido: '경기도',
+      fieldSigungu: '용인시',
+      targetSido: '경기도',
+      targetSigungu: '용인시 처인구',
+    }),
+    true,
+  );
+  assert.equal(
+    matchesFieldDistrict({
+      fieldSido: '강원특별자치도',
+      fieldSigungu: '춘천시',
+      targetSido: '강원특별자치도',
+      targetSigungu: '춘천시',
+    }),
+    true,
+  );
+  assert.equal(
+    matchesFieldDistrict({
+      fieldSido: '경기도',
+      fieldSigungu: '용인시',
+      targetSido: '서울특별시',
+      targetSigungu: '강남구',
+    }),
+    false,
+  );
+});
+
+test('miss processing aborts when normalize coverage collapses', () => {
+  assert.equal(
+    shouldAbortFieldMissProcessing({ fetchedCount: 541, normalizedCount: 0 }),
+    true,
+  );
+  assert.equal(
+    shouldAbortFieldMissProcessing({ fetchedCount: 541, normalizedCount: 541 }),
+    false,
+  );
+  assert.equal(
+    shouldAbortFieldMissProcessing({ fetchedCount: 541, normalizedCount: 0, sample: true }),
+    false,
   );
 });
 

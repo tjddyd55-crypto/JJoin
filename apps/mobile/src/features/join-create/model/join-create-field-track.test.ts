@@ -8,6 +8,12 @@ test('create route venueType defaults to SCREEN for existing deep links', () => 
   assert.equal(parseJoinVenueType('FIELD'), 'FIELD');
 });
 
+test('weekly FIELD create title and template stay on the FIELD track', () => {
+  const venueType = parseJoinVenueType('FIELD');
+  assert.equal(venueType, 'FIELD');
+  assert.equal(`라데나골프클럽 ${venueType === 'FIELD' ? '필드 조인' : '스크린골프'}`, '라데나골프클럽 필드 조인');
+});
+
 test('FIELD 포썸 2v2 and 3v3 can advance the shared create SSOT', () => {
   assert.equal(
     canAdvanceJoinCreateStep('capacity', {

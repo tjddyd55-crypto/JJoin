@@ -447,11 +447,12 @@ export default function CreateScreen() {
           ...(recurrenceUseEndDate
             ? { recurrenceEndDate }
             : { maxOccurrences }),
-          title: routeTitle ?? `${selectedVenue.name} 스크린골프`,
+          title: routeTitle ?? `${selectedVenue.name} ${venueType === 'FIELD' ? '필드 조인' : '스크린골프'}`,
           description: description.trim() || null,
           joinTemplate: {
             sportCode: SCREEN_GOLF_CODE,
             venueId,
+            venueType: venueType === 'FIELD' ? VenueType.FIELD : VenueType.SCREEN,
             plannedPlayerCount: players,
             playFormat,
             teamSize: playFormat === JoinPlayFormat.TEAM ? teamSize : null,

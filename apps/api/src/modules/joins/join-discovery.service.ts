@@ -16,6 +16,7 @@ import {
   kstDayBoundsUtc,
   listRegionExploreNodes,
   listTopLevelSido,
+  matchesFieldDistrict,
   matchesRegionScope,
   normalizeSido,
   regionExploreHasChildren,
@@ -600,7 +601,12 @@ export class JoinDiscoveryService {
       return gf.sido === sido && gf.sigungu === sigungu;
     }
     if (field) {
-      return field.sido === sido && (field.sigungu === sigungu || Boolean(field.sigungu?.includes(sigungu)));
+      return matchesFieldDistrict({
+        fieldSido: field.sido,
+        fieldSigungu: field.sigungu,
+        targetSido: sido,
+        targetSigungu: sigungu,
+      });
     }
     const region = row.venue.region ?? '';
     return region.includes(sigungu) || region.includes(sido);

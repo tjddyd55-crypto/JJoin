@@ -373,6 +373,10 @@ export const hostJoinRecurringTemplateSchema = z
       })
       .optional(),
     plannedPlayerCount: z.number().int().min(2).max(8),
+    venueType: z.enum(['SCREEN', 'FIELD']).optional(),
+    playFormat: z.enum(['INDIVIDUAL', 'TEAM']).optional(),
+    teamSize: z.number().int().min(2).max(6).nullable().optional(),
+    teamCount: z.number().int().min(2).max(8).nullable().optional(),
     joinMethod: z.enum(['OPEN', 'APPROVAL']),
     title: z.string().trim().max(80).nullable().optional(),
     description: z.string().trim().max(500).nullable().optional(),
