@@ -8,7 +8,27 @@ import { normalizeSido } from './region-explore-catalog';
 
 export const ODCLOUD_NATIONAL_GOLF_COURSE_SOURCE = 'ODCLOUD_NATIONAL_GOLF_COURSE' as const;
 
-/** Exact Korean keys from the authenticated DEV page probe. */
+/**
+ * HEX-verified unicode_escape of live data[] keys.
+ * Keep these escapes as SSOT so a mistyped Hangul key cannot slip in.
+ */
+export const ODCLOUD_FIELD_GOLF_ROW_KEY_ESCAPES = [
+  '\\uad6c\\ubd84',
+  '\\uba74\\uc801(\\uc81c\\uacf1\\ubbf8\\ud130)',
+  '\\uc0ac\\uc5c5\\uc790',
+  '\\uc18c\\uc7ac\\uc9c0',
+  '\\uc774\\ub984',
+  '\\uc9c0\\uc5ed',
+  '\\ud640',
+] as const;
+
+export function decodeOdcloudFieldGolfKeyEscape(value: string): string {
+  return value.replace(/\\u([0-9a-fA-F]{4})/g, (_match, hex: string) =>
+    String.fromCharCode(Number.parseInt(hex, 16)),
+  );
+}
+
+/** Exact Korean keys from the HEX-verified DEV page probe. */
 export const ODCLOUD_FIELD_GOLF_ROW_KEYS = [
   '구분',
   '면적(제곱미터)',

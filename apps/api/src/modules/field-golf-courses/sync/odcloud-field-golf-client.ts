@@ -1,20 +1,30 @@
 /**
  * ODCloud file-data client — 문화체육관광부_전국 골프장 현황 (15118920).
  *
- * Live DEV machine probe (coordinator, 2026-09-18):
+ * HEX-verified DEV probe (coordinator, 2026-09-18):
  *   GET https://api.odcloud.kr/api/15118920/v1/uddi:0e5b12d2-1cc8-4caf-ba96-c2c7d1ef8d83
+ *   UDDI ascii: uddi:0e5b12d2-1cc8-4caf-ba96-c2c7d1ef8d83
  *   Auth that worked: query serviceKey = DATA_GO_KR_SERVICE_KEY
  *   Authorization header alone → HTTP 401
  *   Params: page, perPage
  *   Envelope: currentCount, data, matchCount, page, perPage, totalCount
  *   totalCount = 541
- *   data[] keys: 구분, 면적(제곱미터), 사업자, 소재지, 이름, 지역, 홀
+ *   data[] unicode_escape keys:
+ *     \uad6c\ubd84 구분
+ *     \uba74\uc801(\uc81c\uacf1\ubbf8\ud130) 면적(제곱미터)
+ *     \uc0ac\uc5c5\uc790 사업자
+ *     \uc18c\uc7ac\uc9c0 소재지
+ *     \uc774\ub984 이름
+ *     \uc9c0\uc5ed 지역
+ *     \ud640 홀
  *   No lat/lng. Do not add returnType or invented filters.
  */
 
 export const ODCLOUD_FIELD_GOLF_DEFAULT_BASE = 'https://api.odcloud.kr/api';
-export const ODCLOUD_FIELD_GOLF_PATH =
-  '/15118920/v1/uddi:0e5b12d2-1cc8-4caf-ba96-c2c7d1ef8d83';
+/** HEX-verified UDDI — ignore any earlier mistyped identifier. */
+export const ODCLOUD_FIELD_GOLF_UDDI = 'uddi:0e5b12d2-1cc8-4caf-ba96-c2c7d1ef8d83';
+export const ODCLOUD_FIELD_GOLF_PATH = `/15118920/v1/${ODCLOUD_FIELD_GOLF_UDDI}`;
+export const ODCLOUD_FIELD_GOLF_LIVE_TOTAL_COUNT = 541;
 
 export type OdcloudFieldGolfRawItem = Record<string, unknown>;
 

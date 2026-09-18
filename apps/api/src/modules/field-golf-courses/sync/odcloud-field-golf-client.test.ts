@@ -1,11 +1,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  ODCLOUD_FIELD_GOLF_LIVE_TOTAL_COUNT,
   ODCLOUD_FIELD_GOLF_PATH,
+  ODCLOUD_FIELD_GOLF_UDDI,
   buildOdcloudFieldGolfUrl,
   fetchAllOdcloudFieldGolfCourses,
   fetchOdcloudFieldGolfPage,
 } from './odcloud-field-golf-client';
+
+test('UDDI is the HEX-verified ascii identifier', () => {
+  assert.equal(ODCLOUD_FIELD_GOLF_UDDI, 'uddi:0e5b12d2-1cc8-4caf-ba96-c2c7d1ef8d83');
+  assert.equal(ODCLOUD_FIELD_GOLF_PATH, `/15118920/v1/${ODCLOUD_FIELD_GOLF_UDDI}`);
+  assert.equal(ODCLOUD_FIELD_GOLF_LIVE_TOTAL_COUNT, 541);
+  assert.match(ODCLOUD_FIELD_GOLF_UDDI, /^uddi:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/);
+});
 
 test('ODCloud URL uses only page/perPage/serviceKey from the live probe', () => {
   const url = new URL(

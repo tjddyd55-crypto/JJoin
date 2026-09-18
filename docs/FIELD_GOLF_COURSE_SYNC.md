@@ -35,17 +35,25 @@ Params confirmed: `page`, `perPage`.
 Envelope: `currentCount`, `data`, `matchCount`, `page`, `perPage`, `totalCount`.  
 **totalCount = 541**.
 
-Each `data[]` row (exact Korean names):
+UDDI ascii (HEX-verified): `uddi:0e5b12d2-1cc8-4caf-ba96-c2c7d1ef8d83`
 
-| key | type | example |
-|---|---|---|
-| 구분 | string | 회원제 |
-| 면적(제곱미터) | number | 1533823 |
-| 사업자 | string | operator |
-| 소재지 | string | address |
-| 이름 | string | course name |
-| 지역 | string | 강원 |
-| 홀 | number | 27 |
+Each `data[]` row (unicode_escape / Korean):
+
+| unicode_escape | key | type | example |
+|---|---|---|---|
+| `\uad6c\ubd84` | 구분 | string | 회원제 |
+| `\uba74\uc801(\uc81c\uacf1\ubbf8\ud130)` | 면적(제곱미터) | number | 1533823 |
+| `\uc0ac\uc5c5\uc790` | 사업자 | string | 두산큐벡스㈜(문희종) |
+| `\uc18c\uc7ac\uc9c0` | 소재지 | string | 춘천시 신동면 칠전동길 72 |
+| `\uc774\ub984` | 이름 | string | 라데나골프클럽 |
+| `\uc9c0\uc5ed` | 지역 | string | 강원 |
+| `\ud640` | 홀 | number | 27 |
+
+Sample ensure_ascii JSON row:
+
+```json
+{"구분": "회원제", "면적(제곱미터)": 1533823, "사업자": "두산큐벡스㈜(문희종)", "소재지": "춘천시 신동면 칠전동길 72", "이름": "라데나골프클럽", "지역": "강원", "홀": 27}
+```
 
 Normalize **only** these plus sync metadata (`sido`/`sigungu` derived, fingerprint, lastSyncedAt).  
 No lat/lng/phone/license id in the payload. Map must fallback when coords are missing.

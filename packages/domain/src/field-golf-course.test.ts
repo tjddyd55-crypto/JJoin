@@ -3,6 +3,8 @@ import test from 'node:test';
 import {
   FIELD_FOURSOME_PRESETS,
   ODCLOUD_FIELD_GOLF_ROW_KEYS,
+  ODCLOUD_FIELD_GOLF_ROW_KEY_ESCAPES,
+  decodeOdcloudFieldGolfKeyEscape,
   normalizeFieldGolfCourseItem,
   normalizeFieldGolfSearchQuery,
   parseFieldRegion,
@@ -11,19 +13,14 @@ import {
   resolveFieldGolfUpsertAction,
 } from './field-golf-course';
 
-/** Live DEV probe row shape (coordinator, 2026-09-18). totalCount=541. */
-const SAMPLE_LIVE = {
-  구분: '회원제',
-  '면적(제곱미터)': 1533823,
-  사업자: '한국공항(주)',
-  소재지: '강원특별자치도 원주시 지정면',
-  이름: '오크밸리',
-  지역: '강원',
-  홀: 27,
-};
+/** HEX-verified ensure_ascii JSON row from the DEV probe. totalCount=541. */
+const SAMPLE_LIVE = JSON.parse(
+  '{"구분":"회원제","면적(제곱미터)":1533823,"사업자":"두산큐벡스㈜(문희종)","소재지":"춘천시 신동면 칠전동길 72","이름":"라데나골프클럽","지역":"강원","홀":27}',
+) as Record<string, unknown>;
 
-test('live row keys stay the seven Korean names from the DEV probe', () => {
-  assert.deepEqual([...ODCLOUD_FIELD_GOLF_ROW_KEYS], [
+test('live row keys match HEX-verified unicode_escape names', () => {
+  const decoded = ODCLOUD_FIELD_GOLF_ROW_KEY_ESCAPES.map(decodeOdcloudFieldGolfKeyEscape);
+  assert.deepEqual(decoded, [
     '구분',
     '면적(제곱미터)',
     '사업자',
@@ -32,17 +29,18 @@ test('live row keys stay the seven Korean names from the DEV probe', () => {
     '지역',
     '홀',
   ]);
+  assert.deepEqual([...ODCLOUD_FIELD_GOLF_ROW_KEYS], decoded);
 });
 
-test('normalize maps only live Korean keys and never invents coords/phone', () => {
+test('normalize maps the HEX-verified sample row and never invents coords/phone', () => {
   const row = normalizeFieldGolfCourseItem(SAMPLE_LIVE);
   assert.ok(row);
-  assert.equal(row?.name, '오크밸리');
-  assert.equal(row?.address, '강원특별자치도 원주시 지정면');
+  assert.equal(row?.name, '라데나골프클럽');
+  assert.equal(row?.address, '춘천시 신동면 칠전동길 72');
   assert.equal(row?.region, '강원');
   assert.equal(row?.sido, '강원특별자치도');
-  assert.equal(row?.sigungu, '원주시');
-  assert.equal(row?.ownerName, '한국공항(주)');
+  assert.equal(row?.sigungu, '춘천시');
+  assert.equal(row?.ownerName, '두산큐벡스㈜(문희종)');
   assert.equal(row?.holeCount, 27);
   assert.equal(row?.areaSqm, '1533823');
   assert.equal(row?.status, '회원제');
