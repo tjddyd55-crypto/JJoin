@@ -23,12 +23,13 @@ export function assertDevDatabase(tag = '[DEV-FIELD-GOLF]'): void {
 }
 
 export function resolveFieldOdcloudServiceKey(): string {
+  // Live DEV probe: query serviceKey = DATA_GO_KR_SERVICE_KEY. Header-only auth 401s.
   const key =
-    process.env.ODCLOUD_SERVICE_KEY?.trim() ||
     process.env.DATA_GO_KR_SERVICE_KEY?.trim() ||
+    process.env.ODCLOUD_SERVICE_KEY?.trim() ||
     '';
   if (!key) {
-    throw new Error('ODCLOUD_SERVICE_KEY or DATA_GO_KR_SERVICE_KEY missing');
+    throw new Error('DATA_GO_KR_SERVICE_KEY or ODCLOUD_SERVICE_KEY missing');
   }
   return key;
 }

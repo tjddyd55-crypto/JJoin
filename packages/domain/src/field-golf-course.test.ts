@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   FIELD_FOURSOME_PRESETS,
+  ODCLOUD_FIELD_GOLF_ROW_KEYS,
   normalizeFieldGolfCourseItem,
   normalizeFieldGolfSearchQuery,
   parseFieldRegion,
@@ -10,85 +11,112 @@ import {
   resolveFieldGolfUpsertAction,
 } from './field-golf-course';
 
-const SAMPLE_KO = {
-  지역: '경기',
-  이름: '스카이72 골프클럽',
-  사업자: '한국공항(주)',
-  소재지: '인천광역시 중구 운서동 1730',
-  '면적(제곱미터)': '123456',
-  홀: '18홀',
+/** Live DEV probe row shape (coordinator, 2026-09-18). totalCount=541. */
+const SAMPLE_LIVE = {
   구분: '회원제',
+  '면적(제곱미터)': 1533823,
+  사업자: '한국공항(주)',
+  소재지: '강원특별자치도 원주시 지정면',
+  이름: '오크밸리',
+  지역: '강원',
+  홀: 27,
 };
 
-test('normalize uses official Korean ODCloud columns and does not invent coords', () => {
-  const row = normalizeFieldGolfCourseItem(SAMPLE_KO);
-  assert.ok(row);
-  assert.equal(row?.name, '스카이72 골프클럽');
-  assert.equal(row?.address, '인천광역시 중구 운서동 1730');
-  assert.equal(row?.sido, '경기도');
-  assert.equal(row?.ownerName, '한국공항(주)');
-  assert.equal(row?.holeCount, 18);
-  assert.equal(row?.status, '회원제');
-  assert.equal(row?.latitude, null);
-  assert.equal(row?.phone, null);
+test('live row keys stay the seven Korean names from the DEV probe', () => {
+  assert.deepEqual([...ODCLOUD_FIELD_GOLF_ROW_KEYS], [
+    '구분',
+    '면적(제곱미터)',
+    '사업자',
+    '소재지',
+    '이름',
+    '지역',
+    '홀',
+  ]);
 });
 
-test('OAS integer columns 홀 / 면적(제곱미터) are normalized without invented keys', () => {
-  const row = normalizeFieldGolfCourseItem({
-    지역: '강원',
-    이름: '오크밸리',
-    사업자: '오크밸리',
-    소재지: '강원특별자치도 원주시',
-    '면적(제곱미터)': 200000,
-    홀: 18,
-    구분: '회원제',
-  });
+test('normalize maps only live Korean keys and never invents coords/phone', () => {
+  const row = normalizeFieldGolfCourseItem(SAMPLE_LIVE);
   assert.ok(row);
-  assert.equal(row?.holeCount, 18);
-  assert.equal(row?.areaSqm, '200000');
+  assert.equal(row?.name, '오크밸리');
+  assert.equal(row?.address, '강원특별자치도 원주시 지정면');
+  assert.equal(row?.region, '강원');
+  assert.equal(row?.sido, '강원특별자치도');
+  assert.equal(row?.sigungu, '원주시');
+  assert.equal(row?.ownerName, '한국공항(주)');
+  assert.equal(row?.holeCount, 27);
+  assert.equal(row?.areaSqm, '1533823');
+  assert.equal(row?.status, '회원제');
   assert.equal(row?.latitude, null);
   assert.equal(row?.longitude, null);
   assert.equal(row?.phone, null);
+  assert.equal(row?.roadAddress, null);
+  assert.equal(row?.sourceUpdatedAt, null);
 });
 
-test('English official aliases are accepted when present', () => {
-  const row = normalizeFieldGolfCourseItem({
-    region: '제주',
-    name: '핀크스 골프클럽',
-    owner: '핀크스',
-    address: '제주특별자치도 서귀포시 안덕면',
-    area: '1000',
-    'number of holes': '27',
-    type: '대중제',
-  });
-  assert.ok(row);
-  assert.equal(row?.sido, '제주특별자치도');
-  assert.equal(row?.holeCount, 27);
-  assert.equal(row?.status, '대중제');
-});
-
-test('rows without a name are dropped rather than invented', () => {
-  assert.equal(normalizeFieldGolfCourseItem({ 소재지: '서울' }), null);
-});
-
-test('dedupe prefers source id, then license, then name+address', () => {
-  assert.equal(resolveFieldGolfExternalId({ 관리번호: 'A-1', 이름: 'A' }).idSource, 'SOURCE_ID');
+test('English or license aliases are ignored — live payload has no those keys', () => {
   assert.equal(
-    resolveFieldGolfExternalId({ 사업자등록번호: '123-45-67890', 이름: 'A' }).idSource,
-    'LICENSE_OR_BUSINESS',
+    normalizeFieldGolfCourseItem({
+      name: '핀크스 골프클럽',
+      address: '제주특별자치도 서귀포시',
+      owner: '핀크스',
+      region: '제주',
+      type: '대중제',
+    }),
+    null,
   );
-  assert.equal(resolveFieldGolfExternalId({ 이름: '한 골프장', 소재지: '경기 용인' }).idSource, 'NAME_ADDRESS');
 });
 
-test('same name+address yields a stable external id', () => {
-  const a = resolveFieldGolfExternalId({ 이름: '한 골프장', 소재지: '경기 용인시' });
-  const b = resolveFieldGolfExternalId({ 이름: '한골프장', 소재지: '경기용인시' });
+test('rows without 이름 are dropped', () => {
+  assert.equal(normalizeFieldGolfCourseItem({ 소재지: '서울', 지역: '서울' }), null);
+});
+
+test('dedupe prefers 이름+소재지+사업자, then 이름+소재지', () => {
+  const withOwner = resolveFieldGolfExternalId({
+    name: '한 골프장',
+    address: '경기 용인시',
+    ownerName: '한골프',
+  });
+  const withoutOwner = resolveFieldGolfExternalId({
+    name: '한 골프장',
+    address: '경기 용인시',
+    ownerName: null,
+  });
+  assert.equal(withOwner.idSource, 'NAME_ADDRESS_OWNER');
+  assert.equal(withoutOwner.idSource, 'NAME_ADDRESS');
+  assert.notEqual(withOwner.externalId, withoutOwner.externalId);
+});
+
+test('same 이름+소재지+사업자 yields a stable external id', () => {
+  const a = resolveFieldGolfExternalId({
+    name: '한 골프장',
+    address: '경기 용인시',
+    ownerName: '한골프',
+  });
+  const b = resolveFieldGolfExternalId({
+    name: '한골프장',
+    address: '경기용인시',
+    ownerName: '한 골프',
+  });
   assert.equal(a.externalId, b.externalId);
 });
 
-test('region parser canonicalizes short sido names', () => {
-  assert.deepEqual(parseFieldRegion({ region: '서울', address: null, sido: null, sigungu: null }), {
-    sido: '서울특별시',
+test('different 사업자 on the same 이름+소재지 is a different course', () => {
+  const a = resolveFieldGolfExternalId({
+    name: '한 골프장',
+    address: '경기 용인시',
+    ownerName: 'A운영',
+  });
+  const b = resolveFieldGolfExternalId({
+    name: '한 골프장',
+    address: '경기 용인시',
+    ownerName: 'B운영',
+  });
+  assert.notEqual(a.externalId, b.externalId);
+});
+
+test('region parser canonicalizes short 지역 values like 강원', () => {
+  assert.deepEqual(parseFieldRegion({ region: '강원', address: null }), {
+    sido: '강원특별자치도',
     sigungu: null,
   });
 });
@@ -101,14 +129,15 @@ test('search pagination is bounded and 1-indexed', () => {
   assert.equal(q.skip, 50);
 });
 
-test('hole parser accepts 18홀 style values', () => {
+test('hole parser accepts live number 27 and string 18홀', () => {
+  assert.equal(parseHoleCount(27), 27);
   assert.equal(parseHoleCount('18홀'), 18);
   assert.equal(parseHoleCount('abc'), null);
 });
 
-test('second sync with the same fingerprint is UNCHANGED (idempotent)', () => {
-  const first = normalizeFieldGolfCourseItem(SAMPLE_KO);
-  const second = normalizeFieldGolfCourseItem(SAMPLE_KO);
+test('second sync with the same live row is UNCHANGED (idempotent)', () => {
+  const first = normalizeFieldGolfCourseItem(SAMPLE_LIVE);
+  const second = normalizeFieldGolfCourseItem(SAMPLE_LIVE);
   assert.ok(first && second);
   assert.equal(first?.fingerprint, second?.fingerprint);
   assert.equal(

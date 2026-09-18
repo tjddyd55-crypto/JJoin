@@ -1,19 +1,15 @@
 /**
  * ODCloud file-data client — 문화체육관광부_전국 골프장 현황 (15118920).
  *
- * Live data probe without a key (2026-09-18):
- *   GET /15118920/v1/uddi:0e5b12d2-1cc8-4caf-ba96-c2c7d1ef8d83?page=1&perPage=2
- *   HTTP 401 {"code":-401,"msg":"인증키는 필수 항목 입니다."}
- *
- * Live OAS (no key, 2026-09-18):
- *   GET https://infuser.odcloud.kr/oas/docs?namespace=15118920/v1
- *   Query: page (default 1), perPage (default 10), returnType (JSON|XML)
- *   Auth: header Authorization OR query serviceKey
- *   Envelope: page, perPage, totalCount, currentCount, matchCount, data[]
- *   data[] keys (do not invent others):
- *     지역:string, 이름:string, 사업자:string, 소재지:string,
- *     면적(제곱미터):integer, 홀:integer, 구분:string
- * Official dataset page row count: 541. No lat/lng/phone in OAS.
+ * Live DEV machine probe (coordinator, 2026-09-18):
+ *   GET https://api.odcloud.kr/api/15118920/v1/uddi:0e5b12d2-1cc8-4caf-ba96-c2c7d1ef8d83
+ *   Auth that worked: query serviceKey = DATA_GO_KR_SERVICE_KEY
+ *   Authorization header alone → HTTP 401
+ *   Params: page, perPage
+ *   Envelope: currentCount, data, matchCount, page, perPage, totalCount
+ *   totalCount = 541
+ *   data[] keys: 구분, 면적(제곱미터), 사업자, 소재지, 이름, 지역, 홀
+ *   No lat/lng. Do not add returnType or invented filters.
  */
 
 export const ODCLOUD_FIELD_GOLF_DEFAULT_BASE = 'https://api.odcloud.kr/api';
@@ -56,7 +52,6 @@ export function buildOdcloudFieldGolfUrl(input: {
   const url = new URL(`${base}${ODCLOUD_FIELD_GOLF_PATH}`);
   url.searchParams.set('page', String(input.page));
   url.searchParams.set('perPage', String(input.perPage));
-  url.searchParams.set('returnType', 'JSON');
   url.searchParams.set('serviceKey', decodeOdcloudServiceKey(input.serviceKey));
   return url.toString();
 }
@@ -87,15 +82,9 @@ export async function fetchOdcloudFieldGolfPage(input: {
     baseUrl: input.baseUrl,
   });
   const fetchImpl = input.fetchImpl ?? fetch;
-  const serviceKey = decodeOdcloudServiceKey(input.serviceKey);
   let res: Response;
   try {
-    res = await fetchImpl(url, {
-      headers: {
-        Accept: 'application/json',
-        Authorization: serviceKey,
-      },
-    });
+    res = await fetchImpl(url, { headers: { Accept: 'application/json' } });
   } catch (e) {
     const cause = e instanceof Error ? e.message : String(e);
     throw new Error(`ODCLOUD_FIELD_FETCH_FAILED:${cause}`);
@@ -107,7 +96,7 @@ export async function fetchOdcloudFieldGolfPage(input: {
   if (!Array.isArray(json.data)) {
     throw new Error('ODCLOUD_FIELD_EMPTY_DATA');
   }
-  const totalCount = Number(json.totalCount ?? json.matchCount ?? 0);
+  const totalCount = Number(json.totalCount ?? 0);
   if (!Number.isFinite(totalCount) || totalCount < 0) {
     throw new Error('ODCLOUD_FIELD_INVALID_TOTAL');
   }

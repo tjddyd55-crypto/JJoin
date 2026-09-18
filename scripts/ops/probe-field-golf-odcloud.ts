@@ -1,8 +1,9 @@
 /**
  * Live FIELD ODCloud schema probe.
  * 1) Always fetches public OAS (no secret) and prints data[] keys.
- * 2) If ODCLOUD_SERVICE_KEY or DATA_GO_KR_SERVICE_KEY is set, fetches page=1&perPage=2
- *    and prints totalCount + Object.keys(data[0]). Never prints the key.
+ * 2) If DATA_GO_KR_SERVICE_KEY (working DEV auth) or ODCLOUD_SERVICE_KEY is set,
+ *    fetches page=1&perPage=2 via query serviceKey and prints totalCount + Object.keys(data[0]).
+ *    Never prints the key. Do not send Authorization-only.
  */
 import dns from 'node:dns';
 import fs from 'node:fs';
@@ -38,8 +39,8 @@ function loadEnvFiles() {
 
 function resolveKey(): string | null {
   const key =
-    process.env.ODCLOUD_SERVICE_KEY?.trim() ||
     process.env.DATA_GO_KR_SERVICE_KEY?.trim() ||
+    process.env.ODCLOUD_SERVICE_KEY?.trim() ||
     '';
   return key || null;
 }
