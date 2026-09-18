@@ -3,15 +3,20 @@ import { Switch, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Button, Chip, Input, ScrollScreenFrame, Spacer, Text } from '@jjoin/design-system';
 import { DRINKING_HABITS, SMOKING_HABITS, formatDrinkingHabitLabel, formatSmokingHabitLabel } from '@jjoin/domain';
-import type { DrinkingHabit, ProfileMatchPreferenceDto, SmokingHabit } from '@jjoin/types';
+import {
+  ProfileMatchPreferredGender,
+  type DrinkingHabit,
+  type ProfileMatchPreferenceDto,
+  type SmokingHabit,
+} from '@jjoin/types';
 import { getApiClient } from '../../src/lib/api';
 import { getSecureSessionStore } from '../../src/session/SessionContext';
 import { NESTED_SCREEN_EDGES } from '../../src/ui/nested-screen';
 
 const GENDERS = [
-  { value: 'ANY', label: '전체' },
-  { value: 'MALE', label: '남성 호스트' },
-  { value: 'FEMALE', label: '여성 호스트' },
+  { value: ProfileMatchPreferredGender.ANY, label: '전체' },
+  { value: ProfileMatchPreferredGender.MALE, label: '남성 호스트' },
+  { value: ProfileMatchPreferredGender.FEMALE, label: '여성 호스트' },
 ] as const;
 
 export default function ProfileMatchScreen() {
@@ -48,22 +53,24 @@ export default function ProfileMatchScreen() {
   }
 
   async function save() {
+    if (!pref) return;
+    const current = pref;
     setBusy(true);
     try {
       setPref(
         await api.upsertProfileMatchPreference({
-          enabled: pref.enabled,
-          preferredGender: pref.preferredGender,
-          minAge: pref.minAge,
-          maxAge: pref.maxAge,
-          minFieldHandicap: pref.minFieldHandicap,
-          maxFieldHandicap: pref.maxFieldHandicap,
-          minScreenHandicap: pref.minScreenHandicap,
-          maxScreenHandicap: pref.maxScreenHandicap,
-          drinkingHabits: pref.drinkingHabits,
-          smokingHabits: pref.smokingHabits,
-          sido: pref.sido,
-          sigungu: pref.sigungu,
+          enabled: current.enabled,
+          preferredGender: current.preferredGender,
+          minAge: current.minAge,
+          maxAge: current.maxAge,
+          minFieldHandicap: current.minFieldHandicap,
+          maxFieldHandicap: current.maxFieldHandicap,
+          minScreenHandicap: current.minScreenHandicap,
+          maxScreenHandicap: current.maxScreenHandicap,
+          drinkingHabits: current.drinkingHabits,
+          smokingHabits: current.smokingHabits,
+          sido: current.sido,
+          sigungu: current.sigungu,
         }),
       );
       setError(null);

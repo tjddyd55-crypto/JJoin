@@ -1606,6 +1606,7 @@ export class JoinsService {
         approvedAt: Date | null;
         offeredAt?: Date | null;
         offerExpiresAt?: Date | null;
+        teamIndex?: number | null;
         user: { profile: { nickname: string; gender?: string | null } | null; identityStatus?: string };
       }>;
       chatRoom?: {

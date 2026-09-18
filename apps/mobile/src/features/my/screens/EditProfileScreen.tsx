@@ -249,7 +249,7 @@ export function EditProfileScreen() {
             key={habit}
             label={formatDrinkingHabitLabel(habit) ?? habit}
             selected={drinking === habit}
-            onPress={() => setDrinking(habit)}
+            onPress={() => setDrinking(habit as DrinkingHabit)}
           />
         ))}
       </View>
@@ -262,7 +262,7 @@ export function EditProfileScreen() {
             key={habit}
             label={formatSmokingHabitLabel(habit) ?? habit}
             selected={smoking === habit}
-            onPress={() => setSmoking(habit)}
+            onPress={() => setSmoking(habit as SmokingHabit)}
           />
         ))}
       </View>

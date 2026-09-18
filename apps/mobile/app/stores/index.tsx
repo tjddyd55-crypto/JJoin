@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { Screen, Text, spacing, useTheme } from '@jjoin/design-system';
+import { ScrollScreenFrame, Text, spacing, useTheme } from '@jjoin/design-system';
 import type { PublicStoreListItemDto } from '@jjoin/types';
 import { getApiClient } from '../../src/lib/api';
 import { getSecureSessionStore } from '../../src/session/SessionContext';
@@ -28,7 +28,7 @@ export default function ScreenStoresListScreen() {
   }, [load]);
 
   return (
-    <Screen>
+    <ScrollScreenFrame>
       <Stack.Screen options={{ title: '스크린 매장' }} />
       <View style={styles.filters}>
         {[
@@ -73,7 +73,7 @@ export default function ScreenStoresListScreen() {
           </Pressable>
         ))
       )}
-    </Screen>
+    </ScrollScreenFrame>
   );
 }
 

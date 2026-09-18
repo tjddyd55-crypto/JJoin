@@ -1,11 +1,11 @@
 import { StyleSheet, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { Button, Screen, Text, spacing } from '@jjoin/design-system';
+import { Button, ScrollScreenFrame, Text, spacing } from '@jjoin/design-system';
 
 export default function UnavailableScreen() {
   const router = useRouter();
   return (
-    <Screen>
+    <ScrollScreenFrame>
       <Stack.Screen options={{ title: '이용 불가' }} />
       <View style={styles.wrap}>
         <Text variant="screenTitle">이 기능은 현재 이용할 수 없습니다</Text>
@@ -14,7 +14,7 @@ export default function UnavailableScreen() {
         </Text>
         <Button label="홈으로" onPress={() => router.replace('/(tabs)')} />
       </View>
-    </Screen>
+    </ScrollScreenFrame>
   );
 }
 

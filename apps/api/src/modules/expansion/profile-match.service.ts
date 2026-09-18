@@ -151,8 +151,8 @@ export class ProfileMatchService {
       maxFieldHandicap: number | null;
       minScreenHandicap: number | null;
       maxScreenHandicap: number | null;
-      drinkingHabits: DrinkingHabit[];
-      smokingHabits: SmokingHabit[];
+      drinkingHabits: string[];
+      smokingHabits: string[];
       sido: string | null;
       sigungu: string | null;
       updatedAt: Date;
@@ -168,8 +168,8 @@ export class ProfileMatchService {
       maxFieldHandicap: row?.maxFieldHandicap ?? null,
       minScreenHandicap: row?.minScreenHandicap ?? null,
       maxScreenHandicap: row?.maxScreenHandicap ?? null,
-      drinkingHabits: row?.drinkingHabits ?? [],
-      smokingHabits: row?.smokingHabits ?? [],
+      drinkingHabits: (row?.drinkingHabits ?? []) as DrinkingHabit[],
+      smokingHabits: (row?.smokingHabits ?? []) as SmokingHabit[],
       sido: row?.sido ?? null,
       sigungu: row?.sigungu ?? null,
       updatedAt: (row?.updatedAt ?? new Date()).toISOString(),

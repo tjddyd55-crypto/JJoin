@@ -2027,6 +2027,9 @@ export type HostJoinRecurringTemplate = {
   venueId?: string;
   venue?: JoinVenueRefInput;
   plannedPlayerCount: number;
+  playFormat?: JoinPlayFormat;
+  teamSize?: number | null;
+  teamCount?: number | null;
   joinMethod: JoinMethod;
   title?: string | null;
   description?: string | null;

@@ -190,7 +190,7 @@ export class RewardsService {
     });
     return rows.map((row) => ({
       id: row.id,
-      kind: row.kind,
+      kind: row.kind as RewardGrantDto['kind'],
       amount: String(row.amount),
       milestoneKey: row.milestoneKey,
       createdAt: row.createdAt.toISOString(),

@@ -180,7 +180,7 @@ export class StoreBannerAdsService {
           endsAt: row.endsAt,
         },
         new Date(),
-      ),
+      ) as StoreBannerAdRequestDto['status'],
       startsAt: row.startsAt?.toISOString() ?? null,
       endsAt: row.endsAt?.toISOString() ?? null,
       adminNote: row.adminNote,

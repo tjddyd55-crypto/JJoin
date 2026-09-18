@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Button, Screen, Text, spacing } from '@jjoin/design-system';
+import { Button, ScrollScreenFrame, Text, spacing } from '@jjoin/design-system';
 import { formatStoreAmenityLabel, formatStoreScreenBrandLabel } from '@jjoin/domain';
 import type { PublicStoreDetailDto } from '@jjoin/types';
 import { getApiClient } from '../../src/lib/api';
 import { getSecureSessionStore } from '../../src/session/SessionContext';
-import { saveJoinCreateDraft } from '../../src/features/join-create/model/join-create-session';
+import { saveJoinCreateDraft } from '../../src/features/join-create/model/join-create-draft';
 
 export default function ScreenStoreDetailScreen() {
   const { ownershipId } = useLocalSearchParams<{ ownershipId: string }>();
@@ -23,15 +23,15 @@ export default function ScreenStoreDetailScreen() {
 
   if (!store) {
     return (
-      <Screen>
+      <ScrollScreenFrame>
         <Stack.Screen options={{ title: '매장' }} />
         <Text>매장 정보를 불러오는 중이거나 비공개입니다.</Text>
-      </Screen>
+      </ScrollScreenFrame>
     );
   }
 
   return (
-    <Screen>
+    <ScrollScreenFrame>
       <Stack.Screen options={{ title: store.name }} />
       <View style={styles.section}>
         <Text variant="screenTitle">{store.name}</Text>
@@ -56,7 +56,8 @@ export default function ScreenStoreDetailScreen() {
                 selectedVenue: {
                   venueId: store.venue.venueId,
                   name: store.venue.name,
-                  address: store.venue.address,
+                  address: store.venue.address ?? '',
+                  source: 'VENUE',
                 },
               });
             }
@@ -71,7 +72,7 @@ export default function ScreenStoreDetailScreen() {
           }}
         />
       </View>
-    </Screen>
+    </ScrollScreenFrame>
   );
 }
 

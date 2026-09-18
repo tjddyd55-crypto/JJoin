@@ -27,10 +27,9 @@ import {
   formatTeamCapacityLabel,
   requiresIdentityGate,
   resolvePlannedPlayerCount,
-  type JoinPlayFormat,
 } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
-import { JoinMethod, SCREEN_GOLF_CODE, IdentityStatus } from '@jjoin/types';
+import { IdentityStatus, JoinMethod, JoinPlayFormat, SCREEN_GOLF_CODE } from '@jjoin/types';
 import { RewardCoinInput } from '../../src/ui/patterns/RewardCoinInput';
 import { useJoinCoinPreview } from '../../src/features/create/useJoinCoinPreview';
 import { resolveJoinCreateFooterState } from '../../src/features/join-create/model/join-create-footer-state';
@@ -167,7 +166,7 @@ export default function CreateScreen() {
   const [selectedVenue, setSelectedVenue] = useState<JoinCreateVenueSelection | null>(null);
   const [gameDate, setGameDate] = useState(defaultParts.dateYmd);
   const [startTime, setStartTime] = useState(defaultParts.timeHm);
-  const [playFormat, setPlayFormat] = useState<JoinPlayFormat>('INDIVIDUAL');
+  const [playFormat, setPlayFormat] = useState<JoinPlayFormat>(JoinPlayFormat.INDIVIDUAL);
   const [teamSize, setTeamSize] = useState(4);
   const [teamCount, setTeamCount] = useState(2);
   const [players, setPlayers] = useState(() =>
@@ -448,8 +447,8 @@ export default function CreateScreen() {
             venueId,
             plannedPlayerCount: players,
             playFormat,
-            teamSize: playFormat === 'TEAM' ? teamSize : null,
-            teamCount: playFormat === 'TEAM' ? teamCount : null,
+            teamSize: playFormat === JoinPlayFormat.TEAM ? teamSize : null,
+            teamCount: playFormat === JoinPlayFormat.TEAM ? teamCount : null,
             joinMethod,
             title: routeTitle ?? `${selectedVenue.name} 스크린골프`,
             description: description.trim() || null,
@@ -470,8 +469,8 @@ export default function CreateScreen() {
         startAt: startAtIso,
         plannedPlayerCount: players,
         playFormat,
-        teamSize: playFormat === 'TEAM' ? teamSize : null,
-        teamCount: playFormat === 'TEAM' ? teamCount : null,
+        teamSize: playFormat === JoinPlayFormat.TEAM ? teamSize : null,
+        teamCount: playFormat === JoinPlayFormat.TEAM ? teamCount : null,
         joinMethod,
         title: routeTitle ?? `${selectedVenue.name} 스크린골프`,
         description: description.trim() || null,
@@ -556,8 +555,8 @@ export default function CreateScreen() {
     startAtValid,
     players,
     playFormat,
-    teamSize: playFormat === 'TEAM' ? teamSize : null,
-    teamCount: playFormat === 'TEAM' ? teamCount : null,
+    teamSize: playFormat === JoinPlayFormat.TEAM ? teamSize : null,
+    teamCount: playFormat === JoinPlayFormat.TEAM ? teamCount : null,
   });
 
   const goNext = () => {
@@ -697,14 +696,14 @@ export default function CreateScreen() {
           <>
             <Text variant="sectionTitle" tone="primary">플레이 형식</Text>
             <View style={styles.row}>
-              {(['INDIVIDUAL', 'TEAM'] as const).map((format) => (
+              {([JoinPlayFormat.INDIVIDUAL, JoinPlayFormat.TEAM] as const).map((format) => (
                 <Chip
                   key={format}
                   label={formatPlayFormatLabel(format)}
                   selected={playFormat === format}
                   onPress={() => {
                     setPlayFormat(format);
-                    if (format === 'TEAM') {
+                    if (format === JoinPlayFormat.TEAM) {
                       const nextPlayers = resolvePlannedPlayerCount({
                         playFormat: 'TEAM',
                         teamSize,
@@ -717,7 +716,7 @@ export default function CreateScreen() {
                 />
               ))}
             </View>
-            {playFormat === 'TEAM' ? (
+            {playFormat === JoinPlayFormat.TEAM ? (
               <>
                 <Text variant="sectionTitle" tone="primary">팀 구성</Text>
                 <Text variant="caption" tone="secondary">
@@ -772,7 +771,7 @@ export default function CreateScreen() {
                 </View>
               </>
             )}
-            {playFormat === 'INDIVIDUAL' ? (
+            {playFormat === JoinPlayFormat.INDIVIDUAL ? (
               <JoinCreateGenderCompositionSection
                 totalCapacity={players}
                 value={genderComposition}
@@ -872,7 +871,7 @@ export default function CreateScreen() {
               <JoinCreateSummaryRow
                 label="형식"
                 value={
-                  playFormat === 'TEAM'
+                  playFormat === JoinPlayFormat.TEAM
                     ? `${formatPlayFormatLabel(playFormat)} · ${formatTeamCapacityLabel({ teamSize, teamCount }) ?? `${players}명`}`
                     : `${formatPlayFormatLabel(playFormat)} · ${players}명`
                 }

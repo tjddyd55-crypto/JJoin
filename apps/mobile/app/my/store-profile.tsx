@@ -42,18 +42,20 @@ export default function StoreProfileEditScreen() {
     );
   }
 
+  const current = profile;
+
   async function save() {
     if (!ownershipId) return;
     setBusy(true);
     try {
       setProfile(
         await api.upsertMyStoreProfile(ownershipId, {
-          intro: profile.intro,
-          vibe: profile.vibe,
-          amenities: profile.amenities,
-          screenBrand: profile.screenBrand,
-          screenBrandOther: profile.screenBrandOther,
-          visibility: profile.visibility,
+          intro: current.intro,
+          vibe: current.vibe,
+          amenities: current.amenities,
+          screenBrand: current.screenBrand,
+          screenBrandOther: current.screenBrandOther,
+          visibility: current.visibility,
         }),
       );
       setError(null);
@@ -66,10 +68,10 @@ export default function StoreProfileEditScreen() {
 
   function toggleAmenity(code: string) {
     setProfile({
-      ...profile,
-      amenities: profile.amenities.includes(code)
-        ? profile.amenities.filter((item) => item !== code)
-        : [...profile.amenities, code],
+      ...current,
+      amenities: current.amenities.includes(code)
+        ? current.amenities.filter((item) => item !== code)
+        : [...current.amenities, code],
     });
   }
 
