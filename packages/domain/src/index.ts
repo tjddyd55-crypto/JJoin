@@ -893,6 +893,143 @@ export {
   type ServiceOperatorTemplateContext,
 } from './service-operator-profile';
 export {
+  DEFAULT_FEATURE_FLAGS,
+  FEATURE_FLAG_SETTINGS_ID,
+  isClubDeepLinkAvailable,
+  isClubsUiEnabled,
+  normalizeFeatureFlags,
+  type FeatureFlagSnapshot,
+} from './feature-flags';
+
+export {
+  EntitlementKey,
+  canUseProfileMatchAlerts,
+  isEntitlementGranted,
+  type EntitlementContext,
+} from './entitlements';
+
+export {
+  INDIVIDUAL_MAX_PLAYERS,
+  INDIVIDUAL_MIN_PLAYERS,
+  JOIN_PLAY_FORMATS,
+  TEAM_COUNT_MAX,
+  TEAM_COUNT_MIN,
+  TEAM_MAX_PLAYERS,
+  TEAM_SIZE_MAX,
+  TEAM_SIZE_MIN,
+  formatPlayFormatLabel,
+  formatTeamCapacityLabel,
+  isJoinPlayFormat,
+  resolvePlannedPlayerCount,
+  validateJoinPlayFormat,
+  validateTeamAssignment,
+  type JoinPlayFormat,
+  type JoinPlayFormatInput,
+  type NormalizedJoinPlayFormat,
+} from './join-play-format';
+
+export {
+  DEFAULT_PROFILE_PRIVACY,
+  DRINKING_HABITS,
+  FIELD_HANDICAP_MAX,
+  FIELD_HANDICAP_MIN,
+  PROFILE_AGE_MAX,
+  PROFILE_AGE_MIN,
+  PROFILE_HEIGHT_CM_MAX,
+  PROFILE_HEIGHT_CM_MIN,
+  PROFILE_PERSONALITY_MAX,
+  SMOKING_HABITS,
+  applyProfilePrivacy,
+  formatDrinkingHabitLabel,
+  formatFieldHandicap,
+  formatSmokingHabitLabel,
+  isDrinkingHabit,
+  isSmokingHabit,
+  resolvePrimaryPhotoId,
+  validateFieldHandicap,
+  validateProfileAge,
+  validateProfileHeightCm,
+  type DrinkingHabit,
+  type ProfilePrivacyToggles,
+  type SmokingHabit,
+} from './profile-lifestyle';
+
+export {
+  matchesProfileMatchPreference,
+  profileMatchNotificationEventKey,
+  validateProfileMatchPreference,
+  type ProfileMatchCandidate,
+  type ProfileMatchPreferenceInput,
+  type ProfileMatchPreferredGender,
+} from './profile-match';
+
+export {
+  STORE_AMENITY_PRESETS,
+  STORE_BRAND_OTHER_MAX,
+  STORE_INTRO_MAX,
+  STORE_MAX_PHOTOS,
+  STORE_PROFILE_VISIBILITIES,
+  STORE_SCREEN_BRANDS,
+  STORE_VIBE_MAX,
+  buildStoreProfileObjectKey,
+  canEditStoreProfile,
+  canPublishStoreProfile,
+  formatStoreAmenityLabel,
+  formatStoreScreenBrandLabel,
+  validateStoreScreenBrand,
+  type StoreAmenityPreset,
+  type StoreProfileVisibility,
+  type StoreScreenBrand,
+} from './store-profile';
+
+export {
+  HOME_BANNER_AUTO_SLIDE_MS,
+  HOME_BANNER_SUBTITLE_MAX,
+  HOME_BANNER_TITLE_MAX,
+  isHomeBannerVisible,
+  selectVisibleHomeBanners,
+  sortHomeBanners,
+  type HomeBannerLike,
+} from './home-banner';
+
+export {
+  STORE_BANNER_AD_STATUSES,
+  canApproveStoreBannerAd,
+  canRejectStoreBannerAd,
+  canScheduleStoreBannerAd,
+  isStoreBannerAdPublic,
+  resolveStoreBannerAdStatus,
+  validateBannerSchedule,
+  type StoreBannerAdStatus,
+} from './store-banner-ad';
+
+export {
+  COIN_GIFT_LEDGER_TYPE,
+  COIN_GIFT_REF_TYPE,
+  coinGiftCreditIdempotencyKey,
+  coinGiftDebitIdempotencyKey,
+  normalizeGiftIdempotencyKey,
+  validateCoinGift,
+} from './coin-gift';
+
+export {
+  DEFAULT_REWARD_POLICY,
+  REWARD_GRANT_KINDS,
+  REWARD_POLICY_SETTINGS_ID,
+  attendanceGrantIdempotencyKey,
+  attendanceKstDateKey,
+  isSuccessfulHostedJoin,
+  isSuccessfulParticipationStatus,
+  milestoneGrantIdempotencyKey,
+  milestoneProgress,
+  shouldGrantDailyAttendance,
+  shouldGrantMilestone,
+  validateRewardPolicy,
+  type RewardGrantKind,
+  type RewardPolicySnapshot,
+} from './attendance-rewards';
+
+export {
   ANDROID_MOBILE_RELEASE_SETTINGS_ID,
   MOBILE_ANDROID_RELEASE_LIMITS,
   isPublishableAndroidRelease,

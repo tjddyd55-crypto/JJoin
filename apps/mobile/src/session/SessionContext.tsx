@@ -56,6 +56,7 @@ type SessionContextValue = {
   addProfileGalleryPhoto: (file: { uri: string; name?: string; type?: string }) => Promise<void>;
   deleteProfileGalleryPhoto: (photoId: string) => Promise<void>;
   reorderProfileGalleryPhotos: (photoIds: string[]) => Promise<void>;
+  setPrimaryProfilePhoto: (photoId: string) => Promise<void>;
   editProfile: (body: unknown) => Promise<void>;
   completeLocationOnboarding: () => Promise<void>;
   logout: () => Promise<void>;
@@ -263,6 +264,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     [api, applyMe],
   );
 
+  const setPrimaryProfilePhoto = useCallback(
+    async (photoId: string) => {
+      const next = await api.setPrimaryProfilePhoto(photoId);
+      await applyMe(next, true);
+    },
+    [api, applyMe],
+  );
+
   const editProfile = useCallback(
     async (body: unknown) => {
       const next = await api.editProfile(body);
@@ -335,6 +344,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     addProfileGalleryPhoto,
     deleteProfileGalleryPhoto,
     reorderProfileGalleryPhotos,
+    setPrimaryProfilePhoto,
     editProfile,
     completeLocationOnboarding,
     logout,

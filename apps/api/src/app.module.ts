@@ -27,6 +27,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { PlatformModule } from './modules/platform/platform.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { MallModule } from './modules/mall/mall.module';
+import { ExpansionModule } from './modules/expansion/expansion.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -60,6 +61,7 @@ import { PrismaModule } from './prisma/prisma.module';
     PaymentsModule,
     PlatformModule,
     MallModule,
+    ExpansionModule,
   ],
 })
 export class AppModule {}

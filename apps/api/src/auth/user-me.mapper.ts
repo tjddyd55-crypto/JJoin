@@ -1,6 +1,8 @@
 import {
   AgeBand,
+  DrinkingHabit,
   IdentityStatus,
+  SmokingHabit,
   SocialLinkStatus,
   SocialProvider,
   SportSkillLevel,
@@ -8,7 +10,12 @@ import {
   type ProfilePhotoDto,
   type PublicUserProfileDto,
 } from '@jjoin/types';
-import { addCoinAmounts, mapGenderDisplay, resolveOnboardingStep } from '@jjoin/domain';
+import {
+  addCoinAmounts,
+  applyProfilePrivacy,
+  mapGenderDisplay,
+  resolveOnboardingStep,
+} from '@jjoin/domain';
 import type { ConsentType, Prisma } from '@prisma/client';
 import { TERMS_VERSION, REQUIRED_CONSENT_TYPES } from './consent-policy';
 
@@ -27,7 +34,7 @@ export type UserWithRelations = Prisma.UserGetPayload<{
 export type ProfileMediaResolver = {
   avatarUrl: (storageKey: string | null | undefined) => string | null;
   profilePhotos: (
-    rows: Array<{ id: string; objectKey: string; sortOrder: number }>,
+    rows: Array<{ id: string; objectKey: string; sortOrder: number; isPrimary?: boolean }>,
   ) => ProfilePhotoDto[];
 };
 
@@ -67,6 +74,24 @@ export function buildMeFromUser(
   const avatarUrl = media?.avatarUrl(profile?.avatarAsset?.storageKey ?? null) ?? null;
   const profilePhotos = media?.profilePhotos(user.profilePhotos ?? []) ?? [];
 
+  const lifestyle = applyProfilePrivacy(
+    {
+      age: profile?.age ?? null,
+      heightCm: profile?.heightCm ?? null,
+      drinking: (profile?.drinking as DrinkingHabit | null) ?? null,
+      smoking: (profile?.smoking as SmokingHabit | null) ?? null,
+      fieldHandicap: user.sportProfiles[0]?.fieldHandicap ?? null,
+      screenHandicap: user.sportProfiles[0]?.screenHandicap ?? null,
+    },
+    {
+      showAge: profile?.showAge ?? true,
+      showHeight: profile?.showHeight ?? true,
+      showDrinking: profile?.showDrinking ?? true,
+      showSmoking: profile?.showSmoking ?? true,
+      showHandicap: profile?.showHandicap ?? true,
+    },
+    true,
+  );
   const publicProfile: PublicUserProfileDto | null = profile
     ? {
         id: user.id,
@@ -78,10 +103,23 @@ export function buildMeFromUser(
         ageBand: (profile.ageBand as AgeBand | null) ?? null,
         regionLabel: profile.regionLabel,
         bio: profile.bio,
+        personality: profile.personality ?? null,
+        age: lifestyle.age,
+        heightCm: lifestyle.heightCm,
+        drinking: lifestyle.drinking,
+        smoking: lifestyle.smoking,
+        privacy: {
+          showAge: profile.showAge,
+          showHeight: profile.showHeight,
+          showDrinking: profile.showDrinking,
+          showSmoking: profile.showSmoking,
+          showHandicap: profile.showHandicap,
+        },
         sportProfiles: user.sportProfiles.map((sp) => ({
           sportCode: sp.sport.code,
           skillLevel: sp.skillLevel as SportSkillLevel,
-          screenHandicap: sp.screenHandicap ?? null,
+          screenHandicap: lifestyle.screenHandicap,
+          fieldHandicap: lifestyle.fieldHandicap,
         })),
         participationCount,
       }
@@ -149,8 +187,39 @@ export function buildPublicProfileFromUser(
   user: UserWithRelations,
   participationCount: number,
   media?: ProfileMediaResolver,
+  isOwner = false,
 ): PublicUserProfileDto {
   const me = buildMeFromUser(user, participationCount, media);
   if (!me.publicProfile) throw new Error('profile_missing');
-  return me.publicProfile;
+  const profile = user.profile;
+  const hidden = applyProfilePrivacy(
+    {
+      age: me.publicProfile.age ?? null,
+      heightCm: me.publicProfile.heightCm ?? null,
+      drinking: me.publicProfile.drinking ?? null,
+      smoking: me.publicProfile.smoking ?? null,
+      fieldHandicap: me.publicProfile.sportProfiles[0]?.fieldHandicap ?? null,
+      screenHandicap: me.publicProfile.sportProfiles[0]?.screenHandicap ?? null,
+    },
+    {
+      showAge: profile?.showAge ?? true,
+      showHeight: profile?.showHeight ?? true,
+      showDrinking: profile?.showDrinking ?? true,
+      showSmoking: profile?.showSmoking ?? true,
+      showHandicap: profile?.showHandicap ?? true,
+    },
+    isOwner,
+  );
+  return {
+    ...me.publicProfile,
+    age: hidden.age,
+    heightCm: hidden.heightCm,
+    drinking: hidden.drinking,
+    smoking: hidden.smoking,
+    sportProfiles: me.publicProfile.sportProfiles.map((sp) => ({
+      ...sp,
+      fieldHandicap: hidden.fieldHandicap,
+      screenHandicap: hidden.screenHandicap,
+    })),
+  };
 }

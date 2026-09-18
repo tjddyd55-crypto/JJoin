@@ -39,6 +39,16 @@ test('friend request routes to user profile when userId present', () => {
   );
 });
 
+test('club routes stay mapped so the UI gate can send them to unavailable', () => {
+  assert.deepEqual(
+    resolveNotificationRoute({
+      type: 'CLUB_JOIN_APPROVED',
+      data: { clubId: '22222222-2222-4222-8222-222222222222' },
+    }),
+    { kind: 'club', clubId: '22222222-2222-4222-8222-222222222222' },
+  );
+});
+
 test('friend accepted falls back to golf friends list', () => {
   assert.deepEqual(
     resolveNotificationRoute({

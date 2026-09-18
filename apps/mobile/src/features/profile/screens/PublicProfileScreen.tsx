@@ -9,7 +9,12 @@ import {
   StatusBadge,
   spacing,
 } from '@jjoin/design-system';
-import { formatScreenHandicap } from '@jjoin/domain';
+import {
+  formatDrinkingHabitLabel,
+  formatFieldHandicap,
+  formatScreenHandicap,
+  formatSmokingHabitLabel,
+} from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
 import type { PlayerReviewPublicDto, PublicUserProfileDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
@@ -128,6 +133,23 @@ export function PublicProfileScreen() {
             .join(' · ') || '-'}
         </AppText>
         {profile.bio ? <AppText variant="body">{profile.bio}</AppText> : null}
+        {profile.personality ? <AppText variant="body">{profile.personality}</AppText> : null}
+        {profile.age != null ? <AppText variant="body">나이 {profile.age}</AppText> : null}
+        {profile.heightCm != null ? (
+          <AppText variant="body">키 {profile.heightCm}cm</AppText>
+        ) : null}
+        {formatDrinkingHabitLabel(profile.drinking) ? (
+          <AppText variant="body">{formatDrinkingHabitLabel(profile.drinking)}</AppText>
+        ) : null}
+        {formatSmokingHabitLabel(profile.smoking) ? (
+          <AppText variant="body">{formatSmokingHabitLabel(profile.smoking)}</AppText>
+        ) : null}
+        <AppText variant="label" color="textSecondary">
+          필드 핸디
+        </AppText>
+        <AppText variant="body">
+          {formatFieldHandicap(skill?.fieldHandicap ?? null) ?? '미설정'}
+        </AppText>
         <AppText variant="label" color="textSecondary">
           스크린 핸디
         </AppText>

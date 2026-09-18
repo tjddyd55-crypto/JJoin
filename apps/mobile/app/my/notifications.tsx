@@ -11,12 +11,15 @@ import {
 import type { AppNotificationDto } from '@jjoin/types';
 import { getApiClient } from '../../src/lib/api';
 import { getSecureSessionStore } from '../../src/session/SessionContext';
+import { applyClubsUiGateToPushRoute } from '../../src/features/clubs/clubs-ui-gate';
 import { resolveNotificationRoute } from '../../src/features/notifications/push-routing';
+import { useSession } from '../../src/session/SessionContext';
 import { NESTED_SCREEN_EDGES } from '../../src/ui/nested-screen';
 
 export default function NotificationsScreen() {
   const router = useRouter();
   const theme = useTheme();
+  const { me } = useSession();
   const api = getApiClient(getSecureSessionStore());
   const [items, setItems] = useState<AppNotificationDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,10 +48,17 @@ export default function NotificationsScreen() {
     } catch {
       // still navigate
     }
-    const target = resolveNotificationRoute({
-      type: item.type,
-      data: item.data as Record<string, unknown> | null,
-    });
+    const target = applyClubsUiGateToPushRoute(
+      resolveNotificationRoute({
+        type: item.type,
+        data: item.data as Record<string, unknown> | null,
+      }),
+      me?.featureFlags,
+    );
+    if (target.kind === 'unavailable') {
+      router.push('/unavailable');
+      return;
+    }
     if (target.kind === 'join') {
       router.push(`/join/${target.joinId}`);
       return;

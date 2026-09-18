@@ -1,3 +1,5 @@
+import { validateJoinPlayFormat, type JoinPlayFormat } from '@jjoin/domain';
+
 export type JoinCreateStepId =
   | 'venue'
   | 'capacity'
@@ -23,13 +25,21 @@ export function canAdvanceJoinCreateStep(
     venueReady: boolean;
     startAtValid: boolean;
     players: number;
+    playFormat?: JoinPlayFormat;
+    teamSize?: number | null;
+    teamCount?: number | null;
   },
 ): boolean {
   switch (step) {
     case 'venue':
       return args.venueReady && args.startAtValid;
     case 'capacity':
-      return args.players >= 2 && args.players <= 4;
+      return validateJoinPlayFormat({
+        playFormat: args.playFormat ?? 'INDIVIDUAL',
+        plannedPlayerCount: args.players,
+        teamSize: args.teamSize,
+        teamCount: args.teamCount,
+      }).ok;
     case 'members':
     case 'options':
       return true;

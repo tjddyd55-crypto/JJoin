@@ -13,7 +13,22 @@ import {
   layoutSpacing,
   stickyActionBottomPadding,
 } from '@jjoin/design-system';
-import { computeCoinShortfall, computeRewardEligibleSlots, formatNumber, requiresIdentityGate } from '@jjoin/domain';
+import {
+  INDIVIDUAL_MAX_PLAYERS,
+  INDIVIDUAL_MIN_PLAYERS,
+  TEAM_COUNT_MAX,
+  TEAM_COUNT_MIN,
+  TEAM_SIZE_MAX,
+  TEAM_SIZE_MIN,
+  computeCoinShortfall,
+  computeRewardEligibleSlots,
+  formatNumber,
+  formatPlayFormatLabel,
+  formatTeamCapacityLabel,
+  requiresIdentityGate,
+  resolvePlannedPlayerCount,
+  type JoinPlayFormat,
+} from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
 import { JoinMethod, SCREEN_GOLF_CODE, IdentityStatus } from '@jjoin/types';
 import { RewardCoinInput } from '../../src/ui/patterns/RewardCoinInput';
@@ -152,6 +167,9 @@ export default function CreateScreen() {
   const [selectedVenue, setSelectedVenue] = useState<JoinCreateVenueSelection | null>(null);
   const [gameDate, setGameDate] = useState(defaultParts.dateYmd);
   const [startTime, setStartTime] = useState(defaultParts.timeHm);
+  const [playFormat, setPlayFormat] = useState<JoinPlayFormat>('INDIVIDUAL');
+  const [teamSize, setTeamSize] = useState(4);
+  const [teamCount, setTeamCount] = useState(2);
   const [players, setPlayers] = useState(() =>
     resolveJoinCreatePlayersFromParams(
       typeof params.players === 'string' ? params.players : undefined,
@@ -429,6 +447,9 @@ export default function CreateScreen() {
             sportCode: SCREEN_GOLF_CODE,
             venueId,
             plannedPlayerCount: players,
+            playFormat,
+            teamSize: playFormat === 'TEAM' ? teamSize : null,
+            teamCount: playFormat === 'TEAM' ? teamCount : null,
             joinMethod,
             title: routeTitle ?? `${selectedVenue.name} 스크린골프`,
             description: description.trim() || null,
@@ -448,6 +469,9 @@ export default function CreateScreen() {
         venueId,
         startAt: startAtIso,
         plannedPlayerCount: players,
+        playFormat,
+        teamSize: playFormat === 'TEAM' ? teamSize : null,
+        teamCount: playFormat === 'TEAM' ? teamCount : null,
         joinMethod,
         title: routeTitle ?? `${selectedVenue.name} 스크린골프`,
         description: description.trim() || null,
@@ -503,7 +527,10 @@ export default function CreateScreen() {
     memberPrefs,
     genderComposition,
     hostGender,
+    playFormat,
     players,
+    teamCount,
+    teamSize,
     prefilledInvitees,
     recurrenceEndDate,
     recurrenceMode,
@@ -528,6 +555,9 @@ export default function CreateScreen() {
     venueReady,
     startAtValid,
     players,
+    playFormat,
+    teamSize: playFormat === 'TEAM' ? teamSize : null,
+    teamCount: playFormat === 'TEAM' ? teamCount : null,
   });
 
   const goNext = () => {
@@ -665,21 +695,91 @@ export default function CreateScreen() {
 
         {step === 'capacity' ? (
           <>
-            <Text variant="sectionTitle" tone="primary">모집 인원 {players}명</Text>
-            <Text variant="caption" tone="secondary">
-              {t('create.players.hint')} · 보상 대상 {rewardEligibleSlots}명
-            </Text>
+            <Text variant="sectionTitle" tone="primary">플레이 형식</Text>
             <View style={styles.row}>
-              {[2, 3, 4].map((n) => (
-                <Chip key={n} label={`${n}명`} selected={players === n} onPress={() => setPlayers(n)} />
+              {(['INDIVIDUAL', 'TEAM'] as const).map((format) => (
+                <Chip
+                  key={format}
+                  label={formatPlayFormatLabel(format)}
+                  selected={playFormat === format}
+                  onPress={() => {
+                    setPlayFormat(format);
+                    if (format === 'TEAM') {
+                      const nextPlayers = resolvePlannedPlayerCount({
+                        playFormat: 'TEAM',
+                        teamSize,
+                        teamCount,
+                      });
+                      setPlayers(nextPlayers);
+                      setGenderComposition(defaultJoinGenderComposition(nextPlayers));
+                    }
+                  }}
+                />
               ))}
             </View>
-            <JoinCreateGenderCompositionSection
-              totalCapacity={players}
-              value={genderComposition}
-              hostGender={hostGender}
-              onChange={setGenderComposition}
-            />
+            {playFormat === 'TEAM' ? (
+              <>
+                <Text variant="sectionTitle" tone="primary">팀 구성</Text>
+                <Text variant="caption" tone="secondary">
+                  {formatTeamCapacityLabel({ teamSize, teamCount }) ?? '팀 수를 선택하세요'}
+                </Text>
+                <Text variant="caption" tone="secondary">팀당 인원</Text>
+                <View style={styles.row}>
+                  {Array.from({ length: TEAM_SIZE_MAX - TEAM_SIZE_MIN + 1 }, (_, i) => i + TEAM_SIZE_MIN).map((n) => (
+                    <Chip
+                      key={`size-${n}`}
+                      label={`${n}명`}
+                      selected={teamSize === n}
+                      onPress={() => {
+                        setTeamSize(n);
+                        const nextPlayers = n * teamCount;
+                        setPlayers(nextPlayers);
+                        setGenderComposition(defaultJoinGenderComposition(nextPlayers));
+                      }}
+                    />
+                  ))}
+                </View>
+                <Text variant="caption" tone="secondary">팀 수</Text>
+                <View style={styles.row}>
+                  {Array.from({ length: TEAM_COUNT_MAX - TEAM_COUNT_MIN + 1 }, (_, i) => i + TEAM_COUNT_MIN).map((n) => (
+                    <Chip
+                      key={`count-${n}`}
+                      label={`${n}팀`}
+                      selected={teamCount === n}
+                      onPress={() => {
+                        setTeamCount(n);
+                        const nextPlayers = teamSize * n;
+                        setPlayers(nextPlayers);
+                        setGenderComposition(defaultJoinGenderComposition(nextPlayers));
+                      }}
+                    />
+                  ))}
+                </View>
+              </>
+            ) : (
+              <>
+                <Text variant="sectionTitle" tone="primary">모집 인원 {players}명</Text>
+                <Text variant="caption" tone="secondary">
+                  {t('create.players.hint')} · 보상 대상 {rewardEligibleSlots}명
+                </Text>
+                <View style={styles.row}>
+                  {Array.from(
+                    { length: INDIVIDUAL_MAX_PLAYERS - INDIVIDUAL_MIN_PLAYERS + 1 },
+                    (_, i) => i + INDIVIDUAL_MIN_PLAYERS,
+                  ).map((n) => (
+                    <Chip key={n} label={`${n}명`} selected={players === n} onPress={() => setPlayers(n)} />
+                  ))}
+                </View>
+              </>
+            )}
+            {playFormat === 'INDIVIDUAL' ? (
+              <JoinCreateGenderCompositionSection
+                totalCapacity={players}
+                value={genderComposition}
+                hostGender={hostGender}
+                onChange={setGenderComposition}
+              />
+            ) : null}
             <RewardCoinInput
               onChange={setRewardPerParticipant}
               rewardEligibleSlots={rewardEligibleSlots}
@@ -769,6 +869,14 @@ export default function CreateScreen() {
             <Card variant="elevated" padding="md">
               <JoinCreateSummaryRow label="장소" value={selectedVenue ? venueSelectionLabel(selectedVenue) : '—'} />
               <JoinCreateSummaryRow label="일정" value={scheduleSummary} />
+              <JoinCreateSummaryRow
+                label="형식"
+                value={
+                  playFormat === 'TEAM'
+                    ? `${formatPlayFormatLabel(playFormat)} · ${formatTeamCapacityLabel({ teamSize, teamCount }) ?? `${players}명`}`
+                    : `${formatPlayFormatLabel(playFormat)} · ${players}명`
+                }
+              />
               <JoinCreateSummaryRow label="인원" value={`${players}명`} />
               <JoinCreateSummaryRow
                 label="성별 구성"

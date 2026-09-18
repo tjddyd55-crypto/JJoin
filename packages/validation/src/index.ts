@@ -26,14 +26,25 @@ export const profileEditSchema = z.object({
   nickname: nicknameSchema.optional(),
   regionLabel: z.string().trim().min(1).max(80).optional(),
   bio: z.string().trim().max(200).optional().or(z.literal('')),
+  personality: z.string().trim().max(80).nullable().optional(),
   gender: z.enum(['MALE', 'FEMALE', 'UNSPECIFIED', 'OTHER']).optional(),
   ageBand: z
     .enum(['TEENS', 'TWENTIES', 'THIRTIES', 'FORTIES', 'FIFTIES_PLUS', 'UNSPECIFIED'])
     .optional(),
+  age: z.number().int().min(18).max(80).nullable().optional(),
+  heightCm: z.number().int().min(120).max(220).nullable().optional(),
+  drinking: z.enum(['NONE', 'SOMETIMES', 'NORMAL', 'OFTEN']).nullable().optional(),
+  smoking: z.enum(['NONE', 'CIGARETTE', 'E_CIG', 'BOTH']).nullable().optional(),
   skillLevel: z.enum(['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'PRO']).optional(),
   screenHandicap: z.number().int().min(SCREEN_HANDICAP_MIN).max(SCREEN_HANDICAP_MAX).nullable().optional(),
+  fieldHandicap: z.number().int().min(SCREEN_HANDICAP_MIN).max(SCREEN_HANDICAP_MAX).nullable().optional(),
   sportCode: z.string().default('SCREEN_GOLF'),
   avatarUrl: z.string().url().nullable().optional(),
+  showAge: z.boolean().optional(),
+  showHeight: z.boolean().optional(),
+  showDrinking: z.boolean().optional(),
+  showSmoking: z.boolean().optional(),
+  showHandicap: z.boolean().optional(),
 });
 
 export type ProfileEditInput = z.infer<typeof profileEditSchema>;
@@ -162,6 +173,9 @@ export const createJoinSchema = z
     genderCompositionMode: z.enum(['ANY', 'FIXED']).optional(),
     targetMaleCount: z.number().int().min(0).max(8).optional().nullable(),
     targetFemaleCount: z.number().int().min(0).max(8).optional().nullable(),
+    playFormat: z.enum(['INDIVIDUAL', 'TEAM']).optional(),
+    teamSize: z.number().int().min(2).max(6).optional().nullable(),
+    teamCount: z.number().int().min(2).max(8).optional().nullable(),
   })
   .merge(joinRoomCharacterFieldsObjectSchema)
   .superRefine(refineJoinRoomCharacterHandicap)
@@ -176,7 +190,20 @@ export const createJoinSchema = z
       return true;
     },
     { message: 'invalid_age_range' },
-  );
+  )
+  .superRefine((v, ctx) => {
+    const playFormat = v.playFormat ?? 'INDIVIDUAL';
+    if (playFormat === 'TEAM') {
+      if (v.teamSize == null || v.teamCount == null) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'team_size_and_count_required' });
+        return;
+      }
+      const capacity = v.teamSize * v.teamCount;
+      if (capacity > 16) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'invalid_team_capacity' });
+      }
+    }
+  });
 
 export type CreateJoinInput = z.infer<typeof createJoinSchema>;
 
@@ -214,6 +241,7 @@ export const notificationPreferenceSchema = z.object({
   invitationEnabled: z.boolean().optional(),
   attendanceReminderEnabled: z.boolean().optional(),
   bookmarkUpdatesEnabled: z.boolean().optional(),
+  profileMatchEnabled: z.boolean().optional(),
 });
 
 export type NotificationPreferenceInput = z.infer<typeof notificationPreferenceSchema>;
@@ -813,3 +841,110 @@ export function firstZodIssueCode(
   if (path === 'venueId' || path === 'venue') return 'venue_or_venueId_required';
   return fallback;
 }
+
+export const assignJoinTeamSchema = z.object({
+  participantId: z.string().uuid(),
+  teamIndex: z.number().int().min(0).max(7).nullable(),
+});
+
+export const profileMatchPreferenceSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    preferredGender: z.enum(['ANY', 'MALE', 'FEMALE']).optional(),
+    minAge: z.number().int().min(18).max(80).nullable().optional(),
+    maxAge: z.number().int().min(18).max(80).nullable().optional(),
+    minFieldHandicap: z.number().int().min(SCREEN_HANDICAP_MIN).max(SCREEN_HANDICAP_MAX).nullable().optional(),
+    maxFieldHandicap: z.number().int().min(SCREEN_HANDICAP_MIN).max(SCREEN_HANDICAP_MAX).nullable().optional(),
+    minScreenHandicap: z.number().int().min(SCREEN_HANDICAP_MIN).max(SCREEN_HANDICAP_MAX).nullable().optional(),
+    maxScreenHandicap: z.number().int().min(SCREEN_HANDICAP_MIN).max(SCREEN_HANDICAP_MAX).nullable().optional(),
+    drinkingHabits: z.array(z.enum(['NONE', 'SOMETIMES', 'NORMAL', 'OFTEN'])).optional(),
+    smokingHabits: z.array(z.enum(['NONE', 'CIGARETTE', 'E_CIG', 'BOTH'])).optional(),
+    sido: z.string().trim().max(40).nullable().optional(),
+    sigungu: z.string().trim().max(40).nullable().optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.minAge != null && v.maxAge != null && v.minAge > v.maxAge) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'invalid_age_range' });
+    }
+    if (
+      v.minFieldHandicap != null &&
+      v.maxFieldHandicap != null &&
+      v.minFieldHandicap > v.maxFieldHandicap
+    ) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'invalid_field_handicap_range' });
+    }
+    if (
+      v.minScreenHandicap != null &&
+      v.maxScreenHandicap != null &&
+      v.minScreenHandicap > v.maxScreenHandicap
+    ) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'invalid_screen_handicap_range' });
+    }
+  });
+
+export const upsertStoreProfileSchema = z.object({
+  intro: z.string().trim().max(400).nullable().optional(),
+  vibe: z.string().trim().max(80).nullable().optional(),
+  amenities: z.array(z.string().trim().min(1).max(40)).max(12).optional(),
+  screenBrand: z.enum(['GOLFZON', 'KAKAO_VX', 'SG_GOLF', 'OTHER']).optional(),
+  screenBrandOther: z.string().trim().max(40).nullable().optional(),
+  visibility: z.enum(['PUBLIC', 'PRIVATE']).optional(),
+});
+
+export const upsertHomeBannerSchema = z.object({
+  title: z.string().trim().min(1).max(60),
+  subtitle: z.string().trim().max(120).nullable().optional(),
+  imageUrl: z.string().trim().max(500).nullable().optional(),
+  href: z.string().trim().max(200).nullable().optional(),
+  sortOrder: z.number().int().min(0).max(99).optional(),
+  active: z.boolean().optional(),
+  startsAt: z.string().datetime().nullable().optional(),
+  endsAt: z.string().datetime().nullable().optional(),
+});
+
+export const createStoreBannerAdSchema = z.object({
+  ownershipId: z.string().uuid(),
+  title: z.string().trim().min(1).max(60),
+  subtitle: z.string().trim().max(120).nullable().optional(),
+  imageUrl: z.string().trim().max(500).nullable().optional(),
+  href: z.string().trim().max(200).nullable().optional(),
+  memo: z.string().trim().max(300).nullable().optional(),
+});
+
+export const reviewStoreBannerAdSchema = z.object({
+  action: z.enum(['APPROVE', 'REJECT']),
+  adminNote: z.string().trim().max(300).nullable().optional(),
+});
+
+export const scheduleStoreBannerAdSchema = z.object({
+  startsAt: z.string().datetime(),
+  endsAt: z.string().datetime(),
+});
+
+export const coinGiftSchema = z.object({
+  toUserId: z.string().uuid(),
+  amount: z.string().regex(/^\d+(\.\d{1,4})?$/),
+  idempotencyKey: z.string().trim().min(8).max(120),
+  message: z.string().trim().max(80).nullable().optional(),
+});
+
+export const updateRewardPolicySchema = z.object({
+  attendanceEnabled: z.boolean().optional(),
+  attendanceAmount: z.string().regex(/^\d+(\.\d{1,4})?$/).optional(),
+  hostEnabled: z.boolean().optional(),
+  hostThreshold: z.number().int().min(1).max(500).optional(),
+  hostAmount: z.string().regex(/^\d+(\.\d{1,4})?$/).optional(),
+  participationEnabled: z.boolean().optional(),
+  participationThreshold: z.number().int().min(1).max(500).optional(),
+  participationAmount: z.string().regex(/^\d+(\.\d{1,4})?$/).optional(),
+});
+
+export const updateFeatureFlagsSchema = z.object({
+  clubsUiEnabled: z.boolean().optional(),
+  profileMatchAlertsEnabled: z.boolean().optional(),
+  storeProfilesEnabled: z.boolean().optional(),
+  homeBannersEnabled: z.boolean().optional(),
+  storeBannerAdsEnabled: z.boolean().optional(),
+  coinGiftEnabled: z.boolean().optional(),
+  attendanceRewardsEnabled: z.boolean().optional(),
+});

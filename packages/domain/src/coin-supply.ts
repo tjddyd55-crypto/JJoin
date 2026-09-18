@@ -39,6 +39,7 @@ export function classifyCoinSupplyEffect(
   if (type === 'JOIN_REWARD_HOLD' && direction === 'DEBIT') return 'HOLD';
   if (type === 'JOIN_REWARD_RELEASE' && direction === 'DEBIT') return 'RELEASE';
   if (type === 'JOIN_REWARD_TRANSFER' && direction === 'CREDIT') return 'TRANSFER';
+  if (type === 'COIN_GIFT') return 'TRANSFER';
   if (type === 'JOIN_REWARD_REFUND' && direction === 'CREDIT') return 'REFUND';
   return 'IGNORE';
 }

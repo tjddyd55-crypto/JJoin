@@ -1,9 +1,15 @@
-import { Stack } from 'expo-router';
+import { Redirect, Stack } from 'expo-router';
 import { useTheme } from '@jjoin/design-system';
+import { isClubsUiEnabled } from '../../../src/features/clubs/clubs-ui-gate';
+import { useSession } from '../../../src/session/SessionContext';
 import { StackHeaderBackButton } from '../../../src/ui/stack-header-back';
 
 export default function ClubsLayout() {
   const theme = useTheme();
+  const { me } = useSession();
+  if (!isClubsUiEnabled(me?.featureFlags)) {
+    return <Redirect href="/unavailable" />;
+  }
   return (
     <Stack
       screenOptions={({ navigation }) => ({

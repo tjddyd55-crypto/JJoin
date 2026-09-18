@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AuthAppState } from '@jjoin/types';
+import { applyClubsUiGateToPushRoute } from '../clubs/clubs-ui-gate';
 import { getApiClient } from '../../lib/api';
 import { getSecureSessionStore, useSessionOptional } from '../../session/SessionContext';
 import {
@@ -24,6 +25,7 @@ export function usePushRegistration() {
   const api = getApiClient(getSecureSessionStore());
   const appState = session?.appState;
   const userId = session?.me?.userId;
+  const featureFlags = session?.me?.featureFlags;
 
   useEffect(() => {
     void configureNotificationHandler();
@@ -60,13 +62,21 @@ export function usePushRegistration() {
     let cancelled = false;
     void (async () => {
       const sub = await addNotificationResponseListener((data) => {
-        const target = resolvePushRoute(data);
+        const target = applyClubsUiGateToPushRoute(resolvePushRoute(data), featureFlags);
         if (target.kind === 'join') {
           router.push(`/join/${target.joinId}`);
         } else if (target.kind === 'golf-friends') {
           router.push('/my/golf-friends');
         } else if (target.kind === 'user') {
           router.push(`/user/${target.userId}`);
+        } else if (target.kind === 'wallet' || target.kind === 'wallet-transactions') {
+          router.push('/my/wallet');
+        } else if (target.kind === 'unavailable') {
+          router.push('/unavailable');
+        } else if (target.kind === 'club') {
+          router.push(`/my/clubs/${target.clubId}`);
+        } else if (target.kind === 'club-notice') {
+          router.push(`/my/clubs/${target.clubId}/notices`);
         } else if (target.kind === 'notifications') {
           router.push('/my/notifications');
         }
@@ -81,7 +91,7 @@ export function usePushRegistration() {
       cancelled = true;
       remove?.();
     };
-  }, [router]);
+  }, [featureFlags, router]);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {

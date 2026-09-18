@@ -9,6 +9,7 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationEventService } from '../notifications/notification-event.service';
 import { ProductEventsService } from '../analytics/product-events.service';
+import { ProfileMatchService } from '../expansion/profile-match.service';
 
 export type BookmarkJoinNotifyKind = 'closing' | 'spot_left' | 'updated' | 'cancelled';
 
@@ -50,6 +51,7 @@ export class JoinEngagementNotifyService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationEventService,
     private readonly analytics: ProductEventsService,
+    private readonly profileMatch: ProfileMatchService,
   ) {}
 
   async notifyNewJoinableJoin(joinId: string): Promise<void> {
@@ -174,6 +176,7 @@ export class JoinEngagementNotifyService {
         });
       }
     }
+    await this.profileMatch.notifyMatchingJoin(join.id);
   }
 
   private async notifyBookmarkJoinEventInner(

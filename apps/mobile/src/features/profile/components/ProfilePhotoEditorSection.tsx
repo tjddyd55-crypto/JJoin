@@ -19,6 +19,7 @@ type Props = {
   onAddGalleryPhoto: () => void;
   onDeleteGalleryPhoto: (photoId: string) => void;
   onMoveGalleryPhoto: (photoId: string, direction: 'left' | 'right') => void;
+  onSetPrimaryGalleryPhoto?: (photoId: string) => void;
 };
 
 export function ProfilePhotoEditorSection({
@@ -31,6 +32,7 @@ export function ProfilePhotoEditorSection({
   onAddGalleryPhoto,
   onDeleteGalleryPhoto,
   onMoveGalleryPhoto,
+  onSetPrimaryGalleryPhoto,
 }: Props) {
   const hasAvatar = Boolean(avatarUrl);
   const canAddGallery = gallery.length < MAX_PROFILE_GALLERY_PHOTOS;
@@ -94,6 +96,17 @@ export function ProfilePhotoEditorSection({
                 <Text variant="caption" tone="link">→</Text>
               </Pressable>
             </View>
+            {onSetPrimaryGalleryPhoto ? (
+              <Pressable
+                accessibilityRole="button"
+                disabled={loading || photo.isPrimary}
+                onPress={() => onSetPrimaryGalleryPhoto(photo.id)}
+              >
+                <Text variant="caption" tone={photo.isPrimary ? 'success' : 'link'}>
+                  {photo.isPrimary ? '대표 사진' : '대표로 설정'}
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         ))}
       </View>

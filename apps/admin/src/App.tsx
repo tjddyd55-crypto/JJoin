@@ -36,6 +36,11 @@ import { COIN_KRW_RATE, coinToKrw, formatKoreanPhoneDisplay, formatNumber } from
 import { ServiceOperatorProfilePage } from './ServiceOperatorProfilePage';
 import { MobileAndroidReleasePage } from './MobileAndroidReleasePage';
 import { MallAdminEditPage, MallAdminListPage } from './MallAdminPages';
+import { FeatureFlagsPage } from './FeatureFlagsPage';
+import { RewardPolicyPage } from './RewardPolicyPage';
+import { HomeBannerEditPage, HomeBannersListPage } from './HomeBannersAdminPages';
+import { StoreBannerAdDetailPage, StoreBannerAdsListPage } from './StoreBannerAdsAdminPages';
+import { StoreProfileEditPage } from './StoreProfileEditPage';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:3000';
 const TOKEN_KEY = 'jjoin_admin_token';
@@ -165,6 +170,10 @@ function Shell({ children }: { children: React.ReactNode }) {
   const serviceOperatorActive = loc.pathname.startsWith('/service-operator-profile');
   const mobileReleaseActive = loc.pathname.startsWith('/mobile-release');
   const mallActive = loc.pathname.startsWith('/mall');
+  const featureFlagsActive = loc.pathname.startsWith('/feature-flags');
+  const rewardPolicyActive = loc.pathname.startsWith('/reward-policy');
+  const homeBannersActive = loc.pathname.startsWith('/home-banners');
+  const storeBannerAdsActive = loc.pathname.startsWith('/store-banner-ads');
   if (!token) {
     return (
       <div className="layout layout-wide">
@@ -205,6 +214,18 @@ function Shell({ children }: { children: React.ReactNode }) {
         </Link>
         <Link to="/join-coin-policy" className={joinCoinPolicyActive ? 'nav-active' : undefined}>
           조인 생성 코인
+        </Link>
+        <Link to="/feature-flags" className={featureFlagsActive ? 'nav-active' : undefined}>
+          기능 플래그
+        </Link>
+        <Link to="/reward-policy" className={rewardPolicyActive ? 'nav-active' : undefined}>
+          보상 정책
+        </Link>
+        <Link to="/home-banners" className={homeBannersActive ? 'nav-active' : undefined}>
+          홈 배너
+        </Link>
+        <Link to="/store-banner-ads" className={storeBannerAdsActive ? 'nav-active' : undefined}>
+          매장 배너 광고
         </Link>
         <Link to="/mall/products" className={mallActive ? 'nav-active' : undefined}>
           쪼인몰 관리
@@ -1173,6 +1194,9 @@ function ApprovedStoreDetailPage() {
         ← 목록
       </button>
       <h1>{o.facilityName}</h1>
+      <p>
+        <Link to={`/stores/${ownershipId}/profile`}>매장 프로필 편집</Link>
+      </p>
       <select
         value={period}
         onChange={(e) => setPeriod(e.target.value as AdminStoreKpiPeriod)}
@@ -1760,6 +1784,16 @@ export function App() {
         <Route path="/store-verifications/:requestId" element={<StoreVerificationDetailPage />} />
         <Route path="/stores" element={<ApprovedStoresPage />} />
         <Route path="/stores/:ownershipId" element={<ApprovedStoreDetailPage />} />
+        <Route
+          path="/stores/:ownershipId/profile"
+          element={<StoreProfileEditPage api={api} />}
+        />
+        <Route path="/feature-flags" element={<FeatureFlagsPage api={api} />} />
+        <Route path="/reward-policy" element={<RewardPolicyPage api={api} />} />
+        <Route path="/home-banners" element={<HomeBannersListPage api={api} />} />
+        <Route path="/home-banners/:id" element={<HomeBannerEditPage api={api} />} />
+        <Route path="/store-banner-ads" element={<StoreBannerAdsListPage api={api} />} />
+        <Route path="/store-banner-ads/:id" element={<StoreBannerAdDetailPage api={api} />} />
         <Route path="/analytics" element={<GrowthAnalyticsPage />} />
         <Route path="/payment-settings" element={<PaymentSettingsPage />} />
         <Route path="/payments" element={<PaymentsAdminListPage />} />

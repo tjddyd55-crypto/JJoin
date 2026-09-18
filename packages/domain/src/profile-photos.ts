@@ -109,6 +109,19 @@ export function isPublicReadableObjectKey(params: {
     return rest.split('/').length === 3;
   }
 
+  const storePrefix = `${env}/stores/`;
+  if (key.startsWith(storePrefix)) {
+    const rest = key.slice(storePrefix.length);
+    const [, kind] = rest.split('/');
+    if (kind !== 'cover' && kind !== 'gallery') return false;
+    return rest.split('/').length === 3;
+  }
+
+  const bannerPrefix = `${env}/banners/`;
+  if (key.startsWith(bannerPrefix)) {
+    return restOrLeafCount(key.slice(bannerPrefix.length)) === 2;
+  }
+
   const profilePrefix = `${env}/profiles/`;
   if (key.startsWith(profilePrefix)) {
     const rest = key.slice(profilePrefix.length);
@@ -118,4 +131,8 @@ export function isPublicReadableObjectKey(params: {
   }
 
   return false;
+}
+
+function restOrLeafCount(rest: string): number {
+  return rest.split('/').filter(Boolean).length;
 }

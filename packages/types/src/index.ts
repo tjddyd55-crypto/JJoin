@@ -179,6 +179,8 @@ export enum CoinTxType {
   /** New Coin mint — must pair with CoinIssuance (balance SSOT remains CoinTransaction). */
   COIN_ISSUANCE = 'COIN_ISSUANCE',
   SHOP_PURCHASE = 'SHOP_PURCHASE',
+  /** Peer gift: DEBIT sender available + CREDIT receiver available. Supply-neutral TRANSFER. */
+  COIN_GIFT = 'COIN_GIFT',
 }
 
 /** Why new Coin entered supply. Transfer/hold/refund must NEVER use these. */
@@ -210,12 +212,76 @@ export type SportProfileDto = {
   skillLevel: SportSkillLevel;
   /** Screen golf numeric handicap; null when unset. */
   screenHandicap?: number | null;
+  /** Field handicap; same numeric scale as screen. Null when unset. */
+  fieldHandicap?: number | null;
 };
 
 export type ProfilePhotoDto = {
   id: string;
   imageUrl: string | null;
   sortOrder: number;
+  isPrimary?: boolean;
+};
+
+export enum DrinkingHabit {
+  NONE = 'NONE',
+  SOMETIMES = 'SOMETIMES',
+  NORMAL = 'NORMAL',
+  OFTEN = 'OFTEN',
+}
+
+export enum SmokingHabit {
+  NONE = 'NONE',
+  CIGARETTE = 'CIGARETTE',
+  E_CIG = 'E_CIG',
+  BOTH = 'BOTH',
+}
+
+export enum JoinPlayFormat {
+  INDIVIDUAL = 'INDIVIDUAL',
+  TEAM = 'TEAM',
+}
+
+export enum StoreScreenBrand {
+  GOLFZON = 'GOLFZON',
+  KAKAO_VX = 'KAKAO_VX',
+  SG_GOLF = 'SG_GOLF',
+  OTHER = 'OTHER',
+}
+
+export enum StoreProfileVisibility {
+  PUBLIC = 'PUBLIC',
+  PRIVATE = 'PRIVATE',
+}
+
+export enum StoreBannerAdStatus {
+  REQUESTED = 'REQUESTED',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  ACTIVE = 'ACTIVE',
+  EXPIRED = 'EXPIRED',
+}
+
+export enum RewardGrantKind {
+  ATTENDANCE = 'ATTENDANCE',
+  HOST_MILESTONE = 'HOST_MILESTONE',
+  PARTICIPATION_MILESTONE = 'PARTICIPATION_MILESTONE',
+}
+
+export enum ProfileMatchPreferredGender {
+  ANY = 'ANY',
+  MALE = 'MALE',
+  FEMALE = 'FEMALE',
+}
+
+export type FeatureFlagDto = {
+  clubsUiEnabled: boolean;
+  profileMatchAlertsEnabled: boolean;
+  storeProfilesEnabled: boolean;
+  homeBannersEnabled: boolean;
+  storeBannerAdsEnabled: boolean;
+  coinGiftEnabled: boolean;
+  attendanceRewardsEnabled: boolean;
 };
 
 export type PublicUserProfileDto = {
@@ -228,6 +294,18 @@ export type PublicUserProfileDto = {
   ageBand: AgeBand | null;
   regionLabel: string | null;
   bio: string | null;
+  personality?: string | null;
+  age?: number | null;
+  heightCm?: number | null;
+  drinking?: DrinkingHabit | null;
+  smoking?: SmokingHabit | null;
+  privacy?: {
+    showAge: boolean;
+    showHeight: boolean;
+    showDrinking: boolean;
+    showSmoking: boolean;
+    showHandicap: boolean;
+  };
   sportProfiles: SportProfileDto[];
   participationCount: number;
   /** Objective attendance stats (COMPLETED / NO_SHOW). */
@@ -456,6 +534,7 @@ export type MeDto = {
   socialLinks: SocialAccountLinkDto[];
   walletSummary: WalletSummaryDto;
   premiumStatus: PremiumStatusDto;
+  featureFlags?: FeatureFlagDto;
 };
 
 export type AuthSessionDto = {
@@ -787,6 +866,9 @@ export type CreateJoinRequest = {
   genderCompositionMode?: 'ANY' | 'FIXED';
   targetMaleCount?: number | null;
   targetFemaleCount?: number | null;
+  playFormat?: JoinPlayFormat;
+  teamSize?: number | null;
+  teamCount?: number | null;
 } & JoinRoomCharacterFields;
 
 export type UpdateJoinRequest = {
@@ -824,6 +906,7 @@ export type JoinParticipantDto = {
   waitlistPosition?: number | null;
   /** Present for STORE_MATCHING attendance/settlement preview. */
   gender?: 'MALE' | 'FEMALE' | 'UNSPECIFIED' | 'OTHER' | null;
+  teamIndex?: number | null;
   /** Objective attendance stats (COMPLETED / NO_SHOW). */
   completedJoinCount?: number;
   noShowCount?: number;
@@ -986,6 +1069,9 @@ export type JoinDetailDto = {
   startAt: string;
   scheduledEndAt: string;
   plannedPlayerCount: number;
+  playFormat?: JoinPlayFormat;
+  teamSize?: number | null;
+  teamCount?: number | null;
   confirmedPlayerCount: number;
   availableSlots: number;
   rewardPerParticipant: string;
@@ -1169,6 +1255,9 @@ export type JoinListItemDto = {
   startAt: string;
   scheduledEndAt: string;
   plannedPlayerCount: number;
+  playFormat?: JoinPlayFormat;
+  teamSize?: number | null;
+  teamCount?: number | null;
   confirmedPlayerCount: number;
   availableSlots: number;
   rewardPerParticipant: string;
@@ -1487,6 +1576,10 @@ export enum NotificationType {
   WAITLIST_PROMOTED = 'WAITLIST_PROMOTED',
   FRIEND_REQUEST_RECEIVED = 'FRIEND_REQUEST_RECEIVED',
   FRIEND_REQUEST_ACCEPTED = 'FRIEND_REQUEST_ACCEPTED',
+  PROFILE_MATCH_JOIN = 'PROFILE_MATCH_JOIN',
+  ATTENDANCE_REWARD = 'ATTENDANCE_REWARD',
+  ACHIEVEMENT_REWARD = 'ACHIEVEMENT_REWARD',
+  COIN_GIFT_RECEIVED = 'COIN_GIFT_RECEIVED',
 }
 
 export enum JoinAlertDateMode {
@@ -1559,6 +1652,7 @@ export type NotificationPreferenceDto = {
   invitationEnabled: boolean;
   attendanceReminderEnabled: boolean;
   bookmarkUpdatesEnabled: boolean;
+  profileMatchEnabled: boolean;
 };
 
 export type ProductEventType =
@@ -2854,3 +2948,246 @@ export type CreateAdminMallProductRequest = {
 };
 
 export type UpdateAdminMallProductRequest = Partial<CreateAdminMallProductRequest>;
+
+export type UpdateProfileRequest = {
+  nickname?: string;
+  regionLabel?: string;
+  bio?: string | null;
+  personality?: string | null;
+  gender?: Gender;
+  ageBand?: AgeBand;
+  age?: number | null;
+  heightCm?: number | null;
+  drinking?: DrinkingHabit | null;
+  smoking?: SmokingHabit | null;
+  skillLevel?: SportSkillLevel;
+  screenHandicap?: number | null;
+  fieldHandicap?: number | null;
+  sportCode?: string;
+  showAge?: boolean;
+  showHeight?: boolean;
+  showDrinking?: boolean;
+  showSmoking?: boolean;
+  showHandicap?: boolean;
+};
+
+export type SetPrimaryProfilePhotoRequest = {
+  photoId: string;
+};
+
+export type AssignJoinTeamRequest = {
+  participantId: string;
+  teamIndex: number | null;
+};
+
+export type ProfileMatchPreferenceDto = {
+  enabled: boolean;
+  preferredGender: ProfileMatchPreferredGender;
+  minAge: number | null;
+  maxAge: number | null;
+  minFieldHandicap: number | null;
+  maxFieldHandicap: number | null;
+  minScreenHandicap: number | null;
+  maxScreenHandicap: number | null;
+  drinkingHabits: DrinkingHabit[];
+  smokingHabits: SmokingHabit[];
+  sido: string | null;
+  sigungu: string | null;
+  updatedAt: string;
+};
+
+export type UpsertProfileMatchPreferenceRequest = {
+  enabled?: boolean;
+  preferredGender?: ProfileMatchPreferredGender;
+  minAge?: number | null;
+  maxAge?: number | null;
+  minFieldHandicap?: number | null;
+  maxFieldHandicap?: number | null;
+  minScreenHandicap?: number | null;
+  maxScreenHandicap?: number | null;
+  drinkingHabits?: DrinkingHabit[];
+  smokingHabits?: SmokingHabit[];
+  sido?: string | null;
+  sigungu?: string | null;
+};
+
+export type StoreProfilePhotoDto = {
+  id: string;
+  imageUrl: string | null;
+  sortOrder: number;
+};
+
+export type StoreProfileDto = {
+  ownershipId: string;
+  golfFacilityId: string;
+  venueId: string | null;
+  name: string;
+  regionLabel: string | null;
+  sido: string | null;
+  sigungu: string | null;
+  intro: string | null;
+  vibe: string | null;
+  amenities: string[];
+  screenBrand: StoreScreenBrand;
+  screenBrandOther: string | null;
+  visibility: StoreProfileVisibility;
+  coverImageUrl: string | null;
+  photos: StoreProfilePhotoDto[];
+  canEdit: boolean;
+};
+
+export type PublicStoreListItemDto = {
+  ownershipId: string;
+  name: string;
+  regionLabel: string | null;
+  sido: string | null;
+  sigungu: string | null;
+  screenBrand: StoreScreenBrand;
+  screenBrandLabel: string;
+  blurb: string | null;
+  coverImageUrl: string | null;
+};
+
+export type PublicStoreDetailDto = StoreProfileDto & {
+  venue: {
+    venueId: string | null;
+    name: string;
+    address: string | null;
+  };
+};
+
+export type UpsertStoreProfileRequest = {
+  intro?: string | null;
+  vibe?: string | null;
+  amenities?: string[];
+  screenBrand?: StoreScreenBrand;
+  screenBrandOther?: string | null;
+  visibility?: StoreProfileVisibility;
+};
+
+export type HomeBannerDto = {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  imageUrl: string | null;
+  href: string | null;
+  sortOrder: number;
+  active: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+};
+
+export type UpsertHomeBannerRequest = {
+  title: string;
+  subtitle?: string | null;
+  imageUrl?: string | null;
+  href?: string | null;
+  sortOrder?: number;
+  active?: boolean;
+  startsAt?: string | null;
+  endsAt?: string | null;
+};
+
+export type StoreBannerAdRequestDto = {
+  id: string;
+  ownershipId: string;
+  storeName: string;
+  title: string;
+  subtitle: string | null;
+  imageUrl: string | null;
+  href: string | null;
+  memo: string | null;
+  status: StoreBannerAdStatus;
+  startsAt: string | null;
+  endsAt: string | null;
+  adminNote: string | null;
+  createdAt: string;
+};
+
+export type CreateStoreBannerAdRequest = {
+  ownershipId: string;
+  title: string;
+  subtitle?: string | null;
+  imageUrl?: string | null;
+  href?: string | null;
+  memo?: string | null;
+};
+
+export type ReviewStoreBannerAdRequest = {
+  action: 'APPROVE' | 'REJECT';
+  adminNote?: string | null;
+};
+
+export type ScheduleStoreBannerAdRequest = {
+  startsAt: string;
+  endsAt: string;
+};
+
+export type CoinGiftRequest = {
+  toUserId: string;
+  amount: string;
+  idempotencyKey: string;
+  message?: string | null;
+};
+
+export type CoinGiftDto = {
+  id: string;
+  fromUserId: string;
+  toUserId: string;
+  amount: string;
+  message: string | null;
+  createdAt: string;
+};
+
+export type RewardPolicyDto = {
+  attendanceEnabled: boolean;
+  attendanceAmount: string;
+  hostEnabled: boolean;
+  hostThreshold: number;
+  hostAmount: string;
+  participationEnabled: boolean;
+  participationThreshold: number;
+  participationAmount: string;
+};
+
+export type UpdateRewardPolicyRequest = Partial<RewardPolicyDto>;
+
+export type RewardProgressDto = {
+  checkedInToday: boolean;
+  attendanceAmount: string;
+  attendanceEnabled: boolean;
+  host: {
+    currentCount: number;
+    threshold: number;
+    remaining: number;
+    reached: boolean;
+    granted: boolean;
+    enabled: boolean;
+    amount: string;
+  };
+  participation: {
+    currentCount: number;
+    threshold: number;
+    remaining: number;
+    reached: boolean;
+    granted: boolean;
+    enabled: boolean;
+    amount: string;
+  };
+};
+
+export type RewardGrantDto = {
+  id: string;
+  kind: RewardGrantKind;
+  amount: string;
+  milestoneKey: string;
+  createdAt: string;
+};
+
+export type AttendanceCheckInDto = {
+  kstDate: string;
+  granted: boolean;
+  alreadyCheckedIn: boolean;
+  amount: string;
+  progress: RewardProgressDto;
+};

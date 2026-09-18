@@ -1,15 +1,21 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import {
   CoinTxType,
+  type CoinGiftDto,
   type WalletSummaryDto,
   type WalletTransactionDto,
   type WalletTransactionsResponse,
 } from '@jjoin/types';
 import { addCoinAmounts, formatCoinTransactionLabelKo, zeroCoinAmount } from '@jjoin/domain';
+import { coinGiftSchema } from '@jjoin/validation';
+import { NotificationType } from '@prisma/client';
+import { NotificationEventService } from '../notifications/notification-event.service';
+import { InsufficientBalanceError } from './coin-ledger.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ensureFoundation } from '../../foundation/ensure-foundation';
 import { CoinLedgerService } from './coin-ledger.service';
@@ -22,6 +28,8 @@ const TX_LABELS: Record<string, string> = {
   JOIN_REWARD_REFUND: formatCoinTransactionLabelKo('JOIN_REWARD_REFUND'),
   ADMIN_ADJUSTMENT: formatCoinTransactionLabelKo('ADMIN_ADJUSTMENT'),
   COIN_ISSUANCE: formatCoinTransactionLabelKo('COIN_ISSUANCE'),
+  SHOP_PURCHASE: formatCoinTransactionLabelKo('SHOP_PURCHASE'),
+  COIN_GIFT: formatCoinTransactionLabelKo('COIN_GIFT'),
 };
 
 @Injectable()
@@ -29,6 +37,7 @@ export class WalletService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ledger: CoinLedgerService,
+    private readonly notifications: NotificationEventService,
   ) {}
 
   ping() {
@@ -110,6 +119,59 @@ export class WalletService {
   /** Guard: no public mutation API for ledger rows. */
   assertLedgerImmutable(): { updateRoute: false; deleteRoute: false } {
     return { updateRoute: false, deleteRoute: false };
+  }
+
+  async gift(fromUserId: string, body: unknown): Promise<CoinGiftDto> {
+    const flags = await this.prisma.featureFlagSettings.findUnique({ where: { id: 'default' } });
+    if (flags && flags.coinGiftEnabled === false) throw new BadRequestException('coin_gift_disabled');
+    const parsed = coinGiftSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException({ code: 'coin_gift_invalid', issues: parsed.error.issues });
+    }
+    if (parsed.data.toUserId === fromUserId) {
+      throw new BadRequestException('self_gift_forbidden');
+    }
+    const recipient = await this.prisma.user.findUnique({ where: { id: parsed.data.toUserId } });
+    if (!recipient) throw new NotFoundException('gift_recipient_not_found');
+    try {
+      const result = await this.ledger.applyPeerGift({
+        fromUserId,
+        toUserId: parsed.data.toUserId,
+        amount: parsed.data.amount,
+        idempotencyKey: parsed.data.idempotencyKey,
+        message: parsed.data.message ?? null,
+      });
+      const gift = await this.prisma.coinGift.findUniqueOrThrow({ where: { id: result.giftId } });
+      if (!result.alreadyExists) {
+        await this.notifications.enqueueSafe({
+          userId: parsed.data.toUserId,
+          type: NotificationType.COIN_GIFT_RECEIVED,
+          title: '코인을 선물 받았습니다',
+          body: `${parsed.data.amount} 코인을 선물 받았습니다.`,
+          data: { type: NotificationType.COIN_GIFT_RECEIVED, fromUserId },
+          eventKey: `coin-gift-received:${gift.id}`,
+        });
+      }
+      return {
+        id: gift.id,
+        fromUserId: gift.fromUserId,
+        toUserId: gift.toUserId,
+        amount: String(gift.amount),
+        message: gift.message,
+        createdAt: gift.createdAt.toISOString(),
+      };
+    } catch (e) {
+      if (e instanceof InsufficientBalanceError) {
+        throw new BadRequestException('insufficient_available');
+      }
+      if (e instanceof Error && e.message === 'self_gift_forbidden') {
+        throw new BadRequestException('self_gift_forbidden');
+      }
+      if (e instanceof Error && e.message === 'invalid_gift_amount') {
+        throw new BadRequestException('invalid_gift_amount');
+      }
+      throw e;
+    }
   }
 
   async reconcileForUser(userId: string) {

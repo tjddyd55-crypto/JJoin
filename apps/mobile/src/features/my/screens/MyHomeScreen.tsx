@@ -22,6 +22,7 @@ import { getApiClient } from '../../../lib/api';
 import { isInternalToolsEnabled } from '../../../lib/internal-tools';
 import { resolveAppVariant } from '../../../lib/app-variant';
 import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
+import { isClubsUiEnabled } from '../../clubs/clubs-ui-gate';
 import { legalDocumentRoute } from '../../auth/legal';
 
 function showWithdrawTbd() {
@@ -35,6 +36,8 @@ export function MyHomeScreen() {
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [hasActiveStores, setHasActiveStores] = useState(false);
   const profile = me?.publicProfile;
+  const clubsUiEnabled = isClubsUiEnabled(me?.featureFlags);
+  const flags = me?.featureFlags;
 
   useFocusEffect(
     useCallback(() => {
@@ -227,16 +230,56 @@ export function MyHomeScreen() {
         </Card>
       </Section>
 
-      <Section title="동호회">
+      {clubsUiEnabled ? (
+        <Section title="동호회">
+          <Card variant="base" padding="none" style={styles.settingsCard}>
+            <View style={styles.settingsInner}>
+              <ListRow
+                label="동호회"
+                subtitle="내 동호회 · 동호회 찾기"
+                icon="people"
+                onPress={() => router.push('/my/clubs' as Href)}
+                showSeparator={false}
+              />
+            </View>
+          </Card>
+        </Section>
+      ) : null}
+
+      <Section title="매장 · 보상">
         <Card variant="base" padding="none" style={styles.settingsCard}>
           <View style={styles.settingsInner}>
             <ListRow
-              label="동호회"
-              subtitle="내 동호회 · 동호회 찾기"
-              icon="people"
-              onPress={() => router.push('/my/clubs' as Href)}
-              showSeparator={false}
+              label="스크린 매장"
+              subtitle="공개 매장 둘러보기"
+              icon="golf"
+              onPress={() => router.push('/stores' as Href)}
             />
+            {flags?.attendanceRewardsEnabled !== false ? (
+              <ListRow
+                label="출석 · 업적 보상"
+                subtitle="오늘 출석과 성사 보상"
+                icon="coin"
+                onPress={() => router.push('/my/rewards' as Href)}
+              />
+            ) : null}
+            {flags?.coinGiftEnabled !== false ? (
+              <ListRow
+                label="코인 선물"
+                subtitle="다른 사용자에게 코인 보내기"
+                icon="coin"
+                onPress={() => router.push('/my/coin-gift' as Href)}
+              />
+            ) : null}
+            {flags?.profileMatchAlertsEnabled !== false ? (
+              <ListRow
+                label="프로필 매칭 알림"
+                subtitle="조건에 맞는 호스트 조인"
+                icon="notification"
+                onPress={() => router.push('/my/profile-match' as Href)}
+                showSeparator={false}
+              />
+            ) : null}
           </View>
         </Card>
       </Section>

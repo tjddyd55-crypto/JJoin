@@ -78,6 +78,8 @@ import {
   countStandardGenderRoster,
   validateStandardGenderCompositionEdit,
   formatStandardGenderCompositionLabel,
+  validateJoinPlayFormat,
+  validateTeamAssignment,
   type MatchingGender,
 } from '@jjoin/domain';
 import { createJoinSchema, joinCoinPreviewSchema, updateJoinSchema } from '@jjoin/validation';
@@ -236,6 +238,16 @@ export class JoinsService {
       throw joinCreateBadRequest(roomCharacterValidation.code);
     }
     const roomCharacter = normalizeJoinRoomCharacter(input);
+    const playFormatResult = validateJoinPlayFormat({
+      playFormat: input.playFormat,
+      plannedPlayerCount: input.plannedPlayerCount,
+      teamSize: input.teamSize,
+      teamCount: input.teamCount,
+    });
+    if (!playFormatResult.ok) {
+      throw joinCreateBadRequest(playFormatResult.code);
+    }
+    const playFormat = playFormatResult.value;
     const hostProfile = await this.prisma.user.findUnique({
       where: { id: hostUserId },
       select: { profile: { select: { gender: true } } },
@@ -245,7 +257,7 @@ export class JoinsService {
       genderCompositionMode: input.genderCompositionMode,
       targetMaleCount: input.targetMaleCount,
       targetFemaleCount: input.targetFemaleCount,
-      plannedPlayerCount: input.plannedPlayerCount,
+      plannedPlayerCount: playFormat.plannedPlayerCount,
     });
     if (
       hasFixedGenderComposition(
@@ -254,7 +266,7 @@ export class JoinsService {
       )
     ) {
       const compositionValidation = validateFixedGenderComposition({
-        totalCapacity: input.plannedPlayerCount,
+        totalCapacity: playFormat.plannedPlayerCount,
         targetMaleCount: genderComposition.targetMaleCount!,
         targetFemaleCount: genderComposition.targetFemaleCount!,
         hostGender,
@@ -311,7 +323,7 @@ export class JoinsService {
     }
     const roomCreationFee = creationSnapshot.creationCoinCost;
     const requirement = computeJoinCoinRequirement({
-      plannedPlayerCount: input.plannedPlayerCount,
+      plannedPlayerCount: playFormat.plannedPlayerCount,
       rewardPerParticipant,
       roomCreationFee,
     });
@@ -406,7 +418,10 @@ export class JoinsService {
             joinMethod: input.joinMethod,
             startAt,
             scheduledEndAt,
-            plannedPlayerCount: input.plannedPlayerCount,
+            plannedPlayerCount: playFormat.plannedPlayerCount,
+            playFormat: playFormat.playFormat,
+            teamSize: playFormat.teamSize,
+            teamCount: playFormat.teamCount,
             confirmedPlayerCount: 1,
             rewardPerParticipant: new Prisma.Decimal(requirement.rewardPerParticipant),
             coinAssetId: coinAsset.id,
@@ -1650,6 +1665,7 @@ export class JoinsService {
         offerExpiresAt: p.offerExpiresAt?.toISOString() ?? null,
         waitlistPosition,
         gender: (p.user.profile?.gender as JoinParticipantDto['gender']) ?? null,
+        teamIndex: p.teamIndex ?? null,
         completedJoinCount: reliability?.completedCount,
         noShowCount: reliability?.noShowCount,
         attendanceRatePercent: reliability?.attendanceRatePercent ?? null,
@@ -1750,6 +1766,9 @@ export class JoinsService {
       startAt: join.startAt.toISOString(),
       scheduledEndAt: join.scheduledEndAt.toISOString(),
       plannedPlayerCount: join.plannedPlayerCount,
+      playFormat: ((join as { playFormat?: string }).playFormat ?? 'INDIVIDUAL') as JoinDetailDto['playFormat'],
+      teamSize: (join as { teamSize?: number | null }).teamSize ?? null,
+      teamCount: (join as { teamCount?: number | null }).teamCount ?? null,
       confirmedPlayerCount: join.confirmedPlayerCount,
       availableSlots: Math.max(0, join.plannedPlayerCount - join.confirmedPlayerCount),
       rewardPerParticipant: String(join.rewardPerParticipant),
@@ -2088,5 +2107,32 @@ export class JoinsService {
       noShowCount: reliability?.noShowCount,
       attendanceRatePercent: reliability?.attendanceRatePercent ?? null,
     };
+  }
+
+  async assignTeam(joinId: string, hostUserId: string, body: unknown): Promise<JoinDetailDto> {
+    const { assignJoinTeamSchema } = await import('@jjoin/validation');
+    const parsed = assignJoinTeamSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException({ code: 'invalid_team_assignment', issues: parsed.error.issues });
+    }
+    const join = await this.prisma.join.findUnique({
+      where: { id: joinId },
+      include: { participants: true },
+    });
+    if (!join) throw new NotFoundException('join_not_found');
+    if (join.hostUserId !== hostUserId) throw new ForbiddenException('host_only');
+    const assignment = validateTeamAssignment({
+      playFormat: (join.playFormat ?? 'INDIVIDUAL') as 'INDIVIDUAL' | 'TEAM',
+      teamCount: join.teamCount,
+      teamIndex: parsed.data.teamIndex,
+    });
+    if (!assignment.ok) throw new BadRequestException(assignment.code);
+    const participant = join.participants.find((p) => p.id === parsed.data.participantId);
+    if (!participant) throw new NotFoundException('participant_not_found');
+    await this.prisma.joinParticipant.update({
+      where: { id: participant.id },
+      data: { teamIndex: assignment.teamIndex },
+    });
+    return this.getDetail(joinId, hostUserId);
   }
 }

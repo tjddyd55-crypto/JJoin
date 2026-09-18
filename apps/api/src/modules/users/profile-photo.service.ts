@@ -115,6 +115,7 @@ export class ProfilePhotoService {
             userId,
             objectKey,
             sortOrder: nextSort,
+            isPrimary: count === 0,
           },
         });
       });
@@ -173,7 +174,24 @@ export class ProfilePhotoService {
     return this.accounts.getMe(userId);
   }
 
-  mapGalleryRows(rows: Array<{ id: string; objectKey: string; sortOrder: number }>): ProfilePhotoDto[] {
+  async setPrimaryGalleryPhoto(userId: string, photoId: string): Promise<MeDto> {
+    const photo = await this.prisma.userProfilePhoto.findUnique({ where: { id: photoId } });
+    if (!photo) throw new NotFoundException('profile_photo_not_found');
+    if (photo.userId !== userId) throw new ForbiddenException('profile_photo_forbidden');
+    await this.prisma.$transaction(async (tx) => {
+      await tx.userProfilePhoto.updateMany({
+        where: { userId },
+        data: { isPrimary: false },
+      });
+      await tx.userProfilePhoto.update({
+        where: { id: photoId },
+        data: { isPrimary: true, sortOrder: 0 },
+      });
+    });
+    return this.accounts.getMe(userId);
+  }
+
+  mapGalleryRows(rows: Array<{ id: string; objectKey: string; sortOrder: number; isPrimary?: boolean }>): ProfilePhotoDto[] {
     return this.mediaUrls.mapProfilePhotos(rows);
   }
 

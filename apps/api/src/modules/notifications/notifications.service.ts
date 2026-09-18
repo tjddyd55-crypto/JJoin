@@ -107,6 +107,7 @@ export class NotificationsService {
       'invitationEnabled',
       'attendanceReminderEnabled',
       'bookmarkUpdatesEnabled',
+      'profileMatchEnabled',
     ] as const;
     const patch: Partial<Record<(typeof granularKeys)[number], boolean>> = {};
     for (const key of granularKeys) {
