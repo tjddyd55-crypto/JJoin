@@ -13,6 +13,7 @@ import type { FieldJoinMemberCardModel } from '../model/field-join-member-card';
 type Props = {
   model: FieldJoinMemberCardModel;
   onOpenProfile: () => void;
+  memberActions?: ReactNode;
   actions?: ReactNode;
 };
 
@@ -35,7 +36,12 @@ function MetricChip({ label }: { label: string }) {
   );
 }
 
-export function FieldJoinMemberProfileCard({ model, onOpenProfile, actions }: Props) {
+export function FieldJoinMemberProfileCard({
+  model,
+  onOpenProfile,
+  memberActions,
+  actions,
+}: Props) {
   return (
     <Card variant="base" padding="md" style={styles.card}>
       <View style={styles.header}>
@@ -89,6 +95,7 @@ export function FieldJoinMemberProfileCard({ model, onOpenProfile, actions }: Pr
           fullWidth={false}
           onPress={onOpenProfile}
         />
+        {memberActions}
       </View>
       {actions ? <View style={styles.actions}>{actions}</View> : null}
     </Card>
@@ -132,6 +139,9 @@ const styles = StyleSheet.create({
   },
   footer: {
     flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
   },
   actions: {
     flexDirection: 'row',

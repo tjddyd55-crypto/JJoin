@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   buildFieldJoinMemberCardModel,
   formatFieldJoinMemberAgeLabel,
+  resolveFieldJoinMemberActionInput,
 } from './field-join-member-card';
 import { ParticipantRole, ParticipationStatus, type JoinParticipantDto } from '@jjoin/types';
 
@@ -81,4 +82,46 @@ test('gender is localized and never shown as raw MALE', () => {
   assert.equal(model.genderLabel, '여성');
   assert.equal(model.identityLine?.includes('MALE'), false);
   assert.equal(model.identityLine?.includes('FEMALE'), false);
+});
+
+test('avgScore is shown only when the existing placeholder field is present', () => {
+  const withAvg = buildFieldJoinMemberCardModel(member({ fieldHandicap: 12, avgScore: 88 }));
+  assert.deepEqual(withAvg.metrics.slice(0, 2), ['필드 핸디 12', '평균타 88']);
+  const withoutAvg = buildFieldJoinMemberCardModel(member({ fieldHandicap: 12, avgScore: null }));
+  assert.equal(withoutAvg.metrics.some((item) => item.includes('평균타')), false);
+});
+
+test('member actions hide message and gift on own profile', () => {
+  assert.equal(
+    resolveFieldJoinMemberActionInput({
+      targetUserId: 'u1',
+      nickname: '나',
+      viewerUserId: 'u1',
+    }),
+    null,
+  );
+  const other = resolveFieldJoinMemberActionInput({
+    targetUserId: 'u2',
+    nickname: '상대',
+    viewerUserId: 'u1',
+  });
+  assert.deepEqual(other, {
+    targetUserId: 'u2',
+    nickname: '상대',
+    viewerUserId: 'u1',
+    coinGiftEnabled: true,
+    messagingEnabled: true,
+  });
+});
+
+test('member actions honor feature flags without inventing DM or gift logic', () => {
+  const hidden = resolveFieldJoinMemberActionInput({
+    targetUserId: 'u2',
+    nickname: '상대',
+    viewerUserId: 'u1',
+    coinGiftEnabled: false,
+    messagingEnabled: false,
+  });
+  assert.equal(hidden?.coinGiftEnabled, false);
+  assert.equal(hidden?.messagingEnabled, false);
 });

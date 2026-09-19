@@ -5,11 +5,16 @@ import {
 import type { JoinDetailDto, JoinParticipantDto } from '@jjoin/types';
 
 export const FIELD_JOIN_DETAIL_OPS_ORDER = [
-  'core',
+  'header',
+  'round_info',
+  'recruit_conditions',
+  'participant_benefits',
+  'host_memo',
   'confirmed_members',
   'applicants',
   'host_management',
   'chat',
+  'sticky_cta',
 ] as const;
 
 export type FieldJoinDetailOpsSection = (typeof FIELD_JOIN_DETAIL_OPS_ORDER)[number];

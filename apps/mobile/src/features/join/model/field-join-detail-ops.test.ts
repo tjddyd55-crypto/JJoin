@@ -25,13 +25,18 @@ function participant(
   } as JoinParticipantDto;
 }
 
-test('FIELD ops section order is core → members → applicants → host → chat', () => {
+test('FIELD ops section order is header → round → recruit → benefits → memo → members → applicants → host → chat → CTA', () => {
   assert.deepEqual([...FIELD_JOIN_DETAIL_OPS_ORDER], [
-    'core',
+    'header',
+    'round_info',
+    'recruit_conditions',
+    'participant_benefits',
+    'host_memo',
     'confirmed_members',
     'applicants',
     'host_management',
     'chat',
+    'sticky_cta',
   ]);
 });
 

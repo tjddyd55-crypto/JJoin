@@ -63,6 +63,19 @@ test('join detail keeps bookmark and share compact header actions', () => {
   assert.match(sections, /minWidth: 44/);
 });
 
+test('FIELD core surface keeps section titles and omits team or urgent copy', () => {
+  const fieldSummary = readFileSync(fieldSummaryPath, 'utf8');
+  const ops = readFileSync(opsPath, 'utf8');
+  assert.match(fieldSummary, /라운딩 정보|FIELD_DETAIL_SECTION_TITLES\[0\]/);
+  assert.match(ops, /'header'/);
+  assert.match(ops, /'round_info'/);
+  assert.match(ops, /'recruit_conditions'/);
+  assert.match(ops, /'participant_benefits'/);
+  assert.match(ops, /'host_memo'/);
+  assert.match(ops, /'sticky_cta'/);
+  assert.doesNotMatch(fieldSummary, /팀전|2팀 × 2명|포지션|긴급 모집/);
+});
+
 test('FIELD detail core info is a single surface without nested scan card', () => {
   const sections = readFileSync(sectionsPath, 'utf8');
   const fieldSummary = readFileSync(fieldSummaryPath, 'utf8');
@@ -113,4 +126,15 @@ test('FIELD detail shows members and applicants before compact host ops and chat
   assert.match(roster, /프로필 보기|onOpenProfile/);
   assert.match(memberCard, /프로필 보기/);
   assert.match(source, /onOpenChat=\{!isFieldJoin && showChatEntry/);
+});
+
+test('FIELD roster wires shared MemberActionMenu instead of local DM or gift', () => {
+  const roster = readFileSync(rosterPath, 'utf8');
+  const memberCard = readFileSync(memberCardPath, 'utf8');
+  assert.match(roster, /from '\.\.\/\.\.\/member\/components\/MemberActionMenu'/);
+  assert.match(roster, /resolveFieldJoinMemberActionInput/);
+  assert.match(roster, /<MemberActionMenu/);
+  assert.match(memberCard, /memberActions/);
+  assert.doesNotMatch(roster, /createDirectConversation|memberGiftHref|\/gift\/\[userId\]/);
+  assert.doesNotMatch(memberCard, /메시지 보내기|코인 선물하기|createDirectConversation/);
 });

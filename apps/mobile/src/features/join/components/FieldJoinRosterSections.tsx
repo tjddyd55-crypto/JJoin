@@ -1,11 +1,16 @@
 import { Button, Section, Text } from '@jjoin/design-system';
 import type { JoinDetailDto, JoinParticipantDto } from '@jjoin/types';
+import { MemberActionMenu } from '../../member/components/MemberActionMenu';
+import { useSession } from '../../../session/SessionContext';
 import {
   formatFieldConfirmedMemberSectionTitle,
   listFieldApplicants,
   listFieldConfirmedMembers,
 } from '../model/field-join-detail-ops';
-import { buildFieldJoinMemberCardModel } from '../model/field-join-member-card';
+import {
+  buildFieldJoinMemberCardModel,
+  resolveFieldJoinMemberActionInput,
+} from '../model/field-join-member-card';
 import { FieldJoinMemberProfileCard } from './FieldJoinMemberProfileCard';
 
 type HostApplicantActions = {
@@ -55,6 +60,33 @@ function ApplicantActions({
   );
 }
 
+function FieldMemberActions({
+  userId,
+  nickname,
+}: {
+  userId: string;
+  nickname: string;
+}) {
+  const { me } = useSession();
+  const input = resolveFieldJoinMemberActionInput({
+    targetUserId: userId,
+    nickname,
+    viewerUserId: me?.userId ?? me?.publicProfile?.id,
+    coinGiftEnabled: me?.featureFlags?.coinGiftEnabled,
+    messagingEnabled: me?.messagePolicy?.enabled,
+  });
+  if (!input) return null;
+  return (
+    <MemberActionMenu
+      targetUserId={input.targetUserId}
+      nickname={input.nickname}
+      viewerUserId={input.viewerUserId}
+      coinGiftEnabled={input.coinGiftEnabled}
+      messagingEnabled={input.messagingEnabled}
+    />
+  );
+}
+
 function ConfirmedMemberCards({
   members,
   onOpenProfile,
@@ -71,6 +103,9 @@ function ConfirmedMemberCards({
             key={member.participantId}
             model={model}
             onOpenProfile={() => onOpenProfile(member.userId)}
+            memberActions={
+              <FieldMemberActions userId={member.userId} nickname={member.nickname} />
+            }
           />
         );
       })}
@@ -112,6 +147,12 @@ export function FieldJoinRosterSections({
                 key={applicant.participantId}
                 model={buildFieldJoinMemberCardModel(applicant)}
                 onOpenProfile={() => onOpenProfile(applicant.userId)}
+                memberActions={
+                  <FieldMemberActions
+                    userId={applicant.userId}
+                    nickname={applicant.nickname}
+                  />
+                }
                 actions={
                   hostActions ? (
                     <ApplicantActions

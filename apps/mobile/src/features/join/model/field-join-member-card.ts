@@ -5,6 +5,7 @@ import {
   mapGenderDisplay,
 } from '@jjoin/domain';
 import type { JoinParticipantDto } from '@jjoin/types';
+import { isOwnMemberProfile } from '../../member/model/member-actions';
 
 export type FieldJoinMemberCardRole = '방장' | '참가자';
 
@@ -27,6 +28,36 @@ export type FieldJoinMemberCardModel = {
   conditionHint: string | null;
   faceLabel: string | null;
 };
+
+export type FieldJoinMemberActionInput = {
+  targetUserId: string;
+  nickname: string;
+  viewerUserId: string | null;
+  coinGiftEnabled: boolean;
+  messagingEnabled: boolean;
+};
+
+/**
+ * Shared MemberActionMenu props for FIELD roster cards.
+ * Hides message/gift on own profile; never reimplements DM or gift.
+ */
+export function resolveFieldJoinMemberActionInput(input: {
+  targetUserId: string;
+  nickname: string;
+  viewerUserId?: string | null;
+  coinGiftEnabled?: boolean | null;
+  messagingEnabled?: boolean | null;
+}): FieldJoinMemberActionInput | null {
+  const viewerUserId = input.viewerUserId ?? null;
+  if (isOwnMemberProfile(viewerUserId, input.targetUserId)) return null;
+  return {
+    targetUserId: input.targetUserId,
+    nickname: input.nickname,
+    viewerUserId,
+    coinGiftEnabled: input.coinGiftEnabled !== false,
+    messagingEnabled: input.messagingEnabled !== false,
+  };
+}
 
 const AGE_BAND_LABEL: Record<string, string> = {
   TEENS: '10대',
@@ -74,6 +105,10 @@ export function buildFieldJoinMemberCardModel(
   const genderLabel = mapGenderDisplay(participant.gender) ?? null;
   const identityLine = [ageLabel, genderLabel].filter(Boolean).join(' · ') || null;
   const fieldSkillLabel = formatFieldHandicap(participant.fieldHandicap ?? null);
+  const avgScoreLabel =
+    participant.avgScore != null && Number.isFinite(participant.avgScore)
+      ? `평균타 ${participant.avgScore}`
+      : null;
   const screenSkillLabel = formatScreenHandicap(participant.screenHandicap ?? null);
   const participationLabel =
     participant.completedJoinCount != null ? `참석 ${participant.completedJoinCount}회` : null;
@@ -99,6 +134,7 @@ export function buildFieldJoinMemberCardModel(
     trustLabel,
     metrics: compactMetrics([
       fieldSkillLabel,
+      avgScoreLabel,
       screenSkillLabel,
       participationLabel,
       attendanceLabel,
