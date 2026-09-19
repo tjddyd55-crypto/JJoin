@@ -22,14 +22,13 @@ export function defaultFieldJoinCreateCost(): FieldJoinCreateCostState {
 export function fieldJoinCostPayload(value: FieldJoinCreateCostState): FieldJoinDetailsInput {
   return {
     greenFeePerPerson: value.greenFeePerPerson,
-    greenFeePayer: value.greenFeePayer as FieldGreenFeePayer,
-    cartFeeTotal: value.cartFeeTotal,
-    cartFeePayer: value.cartFeePayer as FieldCartFeePayer,
-    caddieMode: value.caddieMode as FieldCaddieMode,
-    caddieFeeTotal: value.caddieMode === 'NO_CADDIE' ? null : value.caddieFeeTotal,
-    caddieFeePayer:
-      value.caddieMode === 'NO_CADDIE' ? null : (value.caddieFeePayer as FieldCaddieFeePayer | null),
-    roundHoles: value.roundHoles,
+    greenFeePayer: FieldGreenFeePayer.EACH_PERSON,
+    cartFeeTotal: null,
+    cartFeePayer: FieldCartFeePayer.EQUAL_SPLIT,
+    caddieMode: FieldCaddieMode.NO_CADDIE,
+    caddieFeeTotal: null,
+    caddieFeePayer: null,
+    roundHoles: 18,
     teeTimeMode: FieldTeeTimeMode.CONFIRMED,
     minFieldHandicap: value.minFieldHandicap,
     maxFieldHandicap: value.maxFieldHandicap,

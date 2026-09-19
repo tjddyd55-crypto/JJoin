@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { canAdvanceJoinCreateStep } from './join-create-steps';
+import {
+  canAdvanceJoinCreateStep,
+  joinCreateStepsForTrack,
+} from './join-create-steps';
 
 test('individual capacity stays 2–8 and team capacity uses size × count', () => {
   assert.equal(
@@ -43,19 +46,14 @@ test('individual capacity stays 2–8 and team capacity uses size × count', () 
   );
 });
 
-test('FIELD create uses a cost step and rejects 6-player singles', () => {
-  assert.equal(
-    canAdvanceJoinCreateStep('capacity', {
-      venueReady: true,
-      startAtValid: true,
-      players: 6,
-      playFormat: 'INDIVIDUAL',
-      venueType: 'FIELD',
-    }),
-    false,
+test('FIELD create is a single quick-create step and still rejects 6-player singles', () => {
+  assert.deepEqual(
+    joinCreateStepsForTrack('FIELD').map((step) => step.id),
+    ['venue'],
   );
+  assert.equal(joinCreateStepsForTrack('FIELD')[0]?.label, '빠른 생성');
   assert.equal(
-    canAdvanceJoinCreateStep('cost', {
+    canAdvanceJoinCreateStep('venue', {
       venueReady: true,
       startAtValid: true,
       players: 4,
@@ -65,12 +63,23 @@ test('FIELD create uses a cost step and rejects 6-player singles', () => {
     true,
   );
   assert.equal(
-    canAdvanceJoinCreateStep('benefits', {
+    canAdvanceJoinCreateStep('venue', {
       venueReady: true,
       startAtValid: true,
       players: 4,
       venueType: 'FIELD',
+      costValid: false,
     }),
-    true,
+    false,
+  );
+  assert.equal(
+    canAdvanceJoinCreateStep('capacity', {
+      venueReady: true,
+      startAtValid: true,
+      players: 6,
+      playFormat: 'INDIVIDUAL',
+      venueType: 'FIELD',
+    }),
+    false,
   );
 });

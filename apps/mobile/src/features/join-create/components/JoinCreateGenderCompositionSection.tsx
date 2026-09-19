@@ -13,6 +13,7 @@ type Props = {
   totalCapacity: number;
   value: JoinGenderCompositionState;
   hostGender?: MatchingGender | null;
+  caption?: string;
   onChange: (next: JoinGenderCompositionState) => void;
 };
 
@@ -25,6 +26,7 @@ export function JoinCreateGenderCompositionSection({
   totalCapacity,
   value,
   hostGender,
+  caption,
   onChange,
 }: Props) {
   const setMode = (mode: JoinGenderCompositionMode) => {
@@ -74,7 +76,7 @@ export function JoinCreateGenderCompositionSection({
     <View style={styles.root}>
       <Text variant="sectionTitle" tone="primary">성별 구성</Text>
       <Text variant="caption" tone="secondary" style={styles.hint}>
-        방장은 총 인원과 성별 구성에 포함됩니다.
+        {caption ?? '방장은 총 인원과 성별 구성에 포함됩니다.'}
       </Text>
       <View style={styles.row}>
         {MODE_OPTIONS.map((opt) => (

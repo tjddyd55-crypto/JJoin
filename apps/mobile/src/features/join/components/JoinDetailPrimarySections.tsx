@@ -14,14 +14,12 @@ import {
   useTheme,
 } from '@jjoin/design-system';
 import {
-  formatFieldGreenFeeLabel,
   formatFieldRecruitSummary,
-  formatFieldRoundHolesLabel,
-  formatFieldSelectedBenefitsLabel,
   formatPlayFormatLabel,
   formatTeamCapacityLabel,
   computeFieldOpenSeats,
 } from '@jjoin/domain';
+import { buildFieldJoinScanRows } from '../model/field-join-detail-scan';
 import type { JoinDetailDto } from '@jjoin/types';
 import { JoinParticipationSlotGrid } from './JoinParticipationSlotGrid';
 import {
@@ -157,13 +155,6 @@ function buildScheduleStatTiles(detail: JoinDetailDto) {
       surface: 'success' as const,
     },
   ];
-  if (isField && detail.fieldDetails) {
-    tiles.splice(3, 0, {
-      label: '홀',
-      value: formatFieldRoundHolesLabel(detail.fieldDetails.roundHoles),
-      surface: 'info' as const,
-    });
-  }
   const reward = Number(detail.rewardPerParticipant);
   if (Number.isFinite(reward) && reward > 0) {
     tiles.push({
@@ -324,9 +315,12 @@ export function JoinDetailPrimarySections({
         />
       </JoinDetailCard>
 
-      <JoinDetailCard>
-        <JoinMiniStatGrid items={scheduleTiles} />
-        {detail.venue.venueType === 'FIELD' ? (
+      {detail.venue.venueType === 'FIELD' ? (
+        <JoinDetailCard>
+          <JoinDetailInfoPanel
+            title="한눈에 보기"
+            rows={buildFieldJoinScanRows(detail)}
+          />
           <Text variant="caption" tone="secondary">
             {formatFieldRecruitSummary({
               recruitCount: detail.recruitCount ?? Math.max(0, fieldSeats.total - 1),
@@ -334,9 +328,10 @@ export function JoinDetailPrimarySections({
               confirmedCount: detail.confirmedApplicantCount ?? Math.max(0, fieldSeats.confirmed - 1),
             })}
           </Text>
-        ) : null}
-        {detail.venue.venueType === 'FIELD' ? null : (
-        <>
+        </JoinDetailCard>
+      ) : (
+      <JoinDetailCard>
+        <JoinMiniStatGrid items={scheduleTiles} />
         <JoinSeatsRemainingBanner
           label={participation.seatsLeftLabel}
           tone={participation.seatsHighlightTone}
@@ -348,37 +343,10 @@ export function JoinDetailPrimarySections({
           <Text variant="caption" tone="secondary">{genderSummary}</Text>
         ) : null}
         <JoinParticipationSlotGrid slots={rosterSlots} />
-        </>
-        )}
       </JoinDetailCard>
+      )}
 
-      {fieldCost ? (
-        <JoinDetailCard>
-          <JoinDetailInfoPanel
-            title="그린피 · 혜택"
-            rows={[
-              {
-                label: '그린피',
-                value: formatFieldGreenFeeLabel(fieldCost.greenFeePerPerson) ?? '미입력',
-              },
-              {
-                label: '혜택',
-                value:
-                  formatFieldSelectedBenefitsLabel({
-                    benefits: {
-                      benefitGreenFee: fieldCost.benefitGreenFee,
-                      benefitCart: fieldCost.benefitCart,
-                      benefitCaddie: fieldCost.benefitCaddie,
-                    },
-                    rewardPerParticipant: detail.rewardPerParticipant,
-                  }) ?? '없음',
-              },
-            ]}
-          />
-        </JoinDetailCard>
-      ) : null}
-
-      {(conditionLabels.length > 0 || showBenefits) ? (
+      {detail.venue.venueType !== 'FIELD' && (conditionLabels.length > 0 || showBenefits) ? (
         <JoinDetailCard>
           {conditionLabels.length > 0 ? (
             <JoinRequirementChips labels={conditionLabels} />
@@ -395,7 +363,7 @@ export function JoinDetailPrimarySections({
         </JoinDetailCard>
       ) : null}
 
-      {showGameInfo ? (
+      {showGameInfo && detail.venue.venueType !== 'FIELD' ? (
         <JoinDetailCard>
           <Text variant="caption" tone="secondary" style={styles.eyebrow}>
             게임 · 애프터
@@ -420,7 +388,7 @@ export function JoinDetailPrimarySections({
         </JoinDetailCard>
       ) : null}
 
-      {detail.description?.trim() ? (
+      {detail.venue.venueType !== 'FIELD' && detail.description?.trim() ? (
         <JoinDetailCard>
           <Text variant="caption" tone="secondary" style={styles.eyebrow}>
             추가 안내

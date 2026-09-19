@@ -23,12 +23,7 @@ export const JOIN_CREATE_STEPS: Array<{ id: JoinCreateStepId; label: string }> =
 ];
 
 export const FIELD_JOIN_CREATE_STEPS: Array<{ id: JoinCreateStepId; label: string }> = [
-  { id: 'venue', label: '코스·티타임' },
-  { id: 'capacity', label: '모집 조건' },
-  { id: 'cost', label: '그린피' },
-  { id: 'benefits', label: '혜택' },
-  { id: 'options', label: '코인·옵션' },
-  { id: 'confirm', label: '확인' },
+  { id: 'venue', label: '빠른 생성' },
 ];
 
 export function joinCreateStepsForTrack(
@@ -59,6 +54,9 @@ export function canAdvanceJoinCreateStep(
 ): boolean {
   switch (step) {
     case 'venue':
+      if (args.venueType === 'FIELD') {
+        return args.venueReady && args.startAtValid && args.costValid !== false;
+      }
       return args.venueReady && args.startAtValid;
     case 'capacity':
       return validateJoinCapacityForTrack({
@@ -76,7 +74,7 @@ export function canAdvanceJoinCreateStep(
     case 'options':
       return true;
     case 'confirm':
-      return args.venueReady && args.startAtValid;
+      return args.venueReady && args.startAtValid && args.costValid !== false;
     default:
       return false;
   }
