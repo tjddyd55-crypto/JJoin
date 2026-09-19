@@ -46,7 +46,7 @@ export function computeFieldOpenSeats(plannedPlayerCount: number, confirmedPlaye
 }
 
 export function formatFieldOpenSeatsLabel(seats: FieldOpenSeats): string {
-  return `모집 ${seats.total} · 확정 ${seats.confirmed} · 남은 자리 ${seats.recruiting}`;
+  return `모집 ${Math.max(0, seats.total - 1)} · 확정 ${Math.max(0, seats.confirmed - 1)}`;
 }
 
 export function formatFieldTeeTimeModeLabel(mode: FieldTeeTimeMode): string {

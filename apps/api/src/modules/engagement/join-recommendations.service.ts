@@ -287,7 +287,7 @@ export class JoinRecommendationsService {
           mapFieldJoinDetailDto(
             (join as { fieldDetail?: Parameters<typeof mapFieldJoinDetailDto>[0] }).fieldDetail,
             join.plannedPlayerCount,
-          )?.cost.participantExpectedKrw ?? null,
+          )?.greenFeePerPerson ?? null,
       };
       if (includeDebug) {
         dto.debug = { score: r.score, signals: r.signals };

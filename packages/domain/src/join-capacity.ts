@@ -1,7 +1,9 @@
 /**
  * Track-specific join capacity SSOT.
  * SCREEN keeps the existing 2–8 / TEAM 2–16 rules.
- * FIELD v1 is singles 2/3/4 or foursome 2v2 (total 4). 6 / 3v3 is future multi-group.
+ * FIELD user-facing size is recruitCount 1/2/3 (see field-join-recruit).
+ * Engine plannedPlayerCount remains recruit+host (2/3/4). Foursome 2v2 stays
+ * backward-compatible for existing rows; FIELD create UX hides playFormat.
  */
 
 import {

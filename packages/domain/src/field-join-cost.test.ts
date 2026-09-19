@@ -136,10 +136,10 @@ test('default details are confirmed 18-hole NO_CADDIE with no fees', () => {
   assert.equal(defaults.greenFeePerPerson, null);
 });
 
-test('open seats count host in confirmed and keep recruiting = total - confirmed', () => {
+test('open seats keep engine totals; label is recruit/confirmed applicants', () => {
   const seats = computeFieldOpenSeats(4, 1);
   assert.deepEqual(seats, { total: 4, confirmed: 1, recruiting: 3 });
-  assert.equal(formatFieldOpenSeatsLabel(seats), '모집 4 · 확정 1 · 남은 자리 3');
+  assert.equal(formatFieldOpenSeatsLabel(seats), '모집 3 · 확정 0');
 });
 
 test('round holes duration is fixed minutes and 9 ≠ course holeCount', () => {

@@ -709,6 +709,10 @@ export type FieldJoinDetailDto = {
   maxFieldHandicap?: number | null;
   depositRequired?: boolean;
   depositAmount?: number | null;
+  benefitGreenFee?: boolean;
+  benefitCart?: boolean;
+  benefitCaddie?: boolean;
+  applicationsClosed?: boolean;
   cost: FieldJoinCostBreakdownDto;
 };
 
@@ -726,6 +730,9 @@ export type FieldJoinDetailsInput = {
   maxFieldHandicap?: number | null;
   depositRequired?: boolean;
   depositAmount?: number | null;
+  benefitGreenFee?: boolean;
+  benefitCart?: boolean;
+  benefitCaddie?: boolean;
 };
 
 /** Presence visibility — OS location permission is a separate concept. */
@@ -939,6 +946,8 @@ export type FieldGolfCourseDto = {
   roadAddress: string | null;
   sido: string | null;
   sigungu: string | null;
+  cityCounty?: string | null;
+  shortAddress?: string | null;
   regionLabel: string | null;
   holeCount: number | null;
   status: string | null;
@@ -1042,11 +1051,17 @@ export type CreateJoinRequest = {
   playFormat?: JoinPlayFormat;
   teamSize?: number | null;
   teamCount?: number | null;
+  /** FIELD-only user-facing recruit size (1/2/3). Host counted separately. */
+  recruitCount?: number;
   /** Track the host is creating. Must match Venue.venueType. Default SCREEN. */
   venueType?: VenueType;
   /** FIELD-only 1:1 cost/round payload. Ignored/rejected on SCREEN. */
   fieldDetails?: FieldJoinDetailsInput;
 } & JoinRoomCharacterFields;
+
+export type ApplyJoinRequest = {
+  note?: string | null;
+};
 
 export type UpdateJoinRequest = {
   title?: string | null;
@@ -1088,6 +1103,14 @@ export type JoinParticipantDto = {
   completedJoinCount?: number;
   noShowCount?: number;
   attendanceRatePercent?: number | null;
+  applicationNote?: string | null;
+  hostReviewStatus?: 'ON_HOLD' | 'REJECTED' | null;
+  /** FIELD host-selection face label. */
+  fieldFaceLabel?: '신청' | '확정' | '보류' | '미선정' | '신청 취소';
+  fieldGenderHint?: '조건 일치' | '남성 자리 남음' | '여성 자리 남음' | '해당 성별 자리 마감' | null;
+  age?: number | null;
+  fieldHandicap?: number | null;
+  avgScore?: number | null;
 };
 
 export type SettlementParticipantDto = {
@@ -1298,6 +1321,10 @@ export type JoinDetailDto = {
   maxAge?: number | null;
   /** Present when a FieldJoinDetail row exists. Null-safe for legacy FIELD joins. */
   fieldDetails?: FieldJoinDetailDto | null;
+  /** FIELD user-facing recruit size (plannedPlayerCount - 1). */
+  recruitCount?: number;
+  applicationCount?: number;
+  confirmedApplicantCount?: number;
 } & JoinRoomCharacterFields & MatchingJoinExtras;
 
 export type ActivateUrgentVacancyRequest = {
@@ -1639,6 +1666,9 @@ export type DiscoverJoinCardDto = {
   maxAge?: number | null;
   expectedCostKrw?: number | null;
   roundHoles?: FieldRoundHoles | null;
+  recruitCount?: number;
+  applicationCount?: number;
+  benefitLabels?: string[];
 } & JoinRoomCharacterFields & MatchingJoinExtras;
 
 export type DiscoverJoinsResponse = {
@@ -2362,6 +2392,9 @@ export type RecommendedJoinDto = {
   hostReviewCount?: number | null;
   venueType?: VenueType;
   expectedCostKrw?: number | null;
+  recruitCount?: number;
+  applicationCount?: number;
+  benefitLabels?: string[];
   debug?: { score: number; signals: RecommendReasonCode[] };
 };
 

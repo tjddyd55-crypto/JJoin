@@ -29,6 +29,10 @@ export type FieldJoinDetailRow = {
   maxFieldHandicap: number | null;
   depositRequired: boolean;
   depositAmount: number | null;
+  benefitGreenFee?: boolean;
+  benefitCart?: boolean;
+  benefitCaddie?: boolean;
+  applicationsClosed?: boolean;
 };
 
 export function mapFieldJoinDetailDto(
@@ -64,6 +68,10 @@ export function mapFieldJoinDetailDto(
     maxFieldHandicap: row.maxFieldHandicap,
     depositRequired: row.depositRequired,
     depositAmount: row.depositAmount,
+    benefitGreenFee: row.benefitGreenFee === true,
+    benefitCart: row.benefitCart === true,
+    benefitCaddie: row.benefitCaddie === true,
+    applicationsClosed: row.applicationsClosed === true,
     cost,
   };
 }
@@ -85,6 +93,9 @@ export function fieldJoinDetailCreateData(
     maxFieldHandicap: number | null;
     depositRequired: boolean;
     depositAmount: number | null;
+    benefitGreenFee?: boolean;
+    benefitCart?: boolean;
+    benefitCaddie?: boolean;
   },
 ) {
   return {
@@ -103,5 +114,8 @@ export function fieldJoinDetailCreateData(
     maxFieldHandicap: value.maxFieldHandicap,
     depositRequired: value.depositRequired,
     depositAmount: value.depositAmount,
+    benefitGreenFee: value.benefitGreenFee === true,
+    benefitCart: value.benefitCart === true,
+    benefitCaddie: value.benefitCaddie === true,
   };
 }

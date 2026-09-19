@@ -1,8 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Button, Card, Text, spacing, useTheme } from '@jjoin/design-system';
 import type { ApiClient } from '@jjoin/api-client';
-import type { AdminSidoGroupDto, FieldGolfCourseDto } from '@jjoin/types';
+import type { FieldGolfCourseDto } from '@jjoin/types';
+import {
+  formatFieldCourseRegionLabel,
+  formatFieldCourseShortAddress,
+} from '@jjoin/domain';
+import { FieldRegionPicker } from '../../explore/discovery/components/FieldRegionPicker';
 import {
   type JoinCreateVenueSelection,
   venueSelectionHasPlace,
@@ -16,7 +21,6 @@ type Props = {
 
 export function JoinCreateFieldVenueSection({ api, selected, onChange }: Props) {
   const theme = useTheme();
-  const [groups, setGroups] = useState<AdminSidoGroupDto[]>([]);
   const [sido, setSido] = useState<string | null>(null);
   const [sigungu, setSigungu] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -24,15 +28,6 @@ export function JoinCreateFieldVenueSection({ api, selected, onChange }: Props) 
   const [loading, setLoading] = useState(false);
   const [activatingId, setActivatingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    void api.getRegionDistricts().then((res) => setGroups(res.groups)).catch(() => setGroups([]));
-  }, [api]);
-
-  const districts = useMemo(
-    () => groups.find((g) => g.sido === sido)?.districts ?? [],
-    [groups, sido],
-  );
 
   const search = useCallback(async () => {
     setLoading(true);
@@ -56,6 +51,11 @@ export function JoinCreateFieldVenueSection({ api, selected, onChange }: Props) 
       setLoading(false);
     }
   }, [api, name, sido, sigungu]);
+
+  useEffect(() => {
+    if (!sido || !sigungu) return;
+    void search();
+  }, [sido, sigungu, search]);
 
   const selectCourse = useCallback(
     async (course: FieldGolfCourseDto) => {
@@ -87,65 +87,31 @@ export function JoinCreateFieldVenueSection({ api, selected, onChange }: Props) 
     <View style={styles.root}>
       <Text variant="sectionTitle" tone="primary">필드 골프장</Text>
       <Text variant="caption" tone="secondary">
-        지역을 고른 뒤 골프장 이름으로 검색하세요. 모바일은 공공데이터 API를 직접 호출하지 않습니다.
+        시/도 → 시/군을 고른 뒤 그 지역의 골프장을 보거나 이름으로 찾으세요.
       </Text>
       {venueSelectionHasPlace(selected) ? (
         <Card>
           <Text variant="bodyStrong" tone="primary">{selected.name}</Text>
           <Text variant="caption" tone="secondary">
-            {[selected.sido, selected.sigungu].filter(Boolean).join(' ') || selected.address}
+            {formatFieldCourseRegionLabel({ sido: selected.sido, sigungu: selected.sigungu }) ||
+              selected.address}
           </Text>
           <Button label="다시 선택" variant="secondary" onPress={() => onChange(null)} />
         </Card>
       ) : null}
 
-      <View style={styles.chipRow}>
-        {groups.map((group) => (
-          <Pressable
-            key={group.sido}
-            onPress={() => {
-              setSido(group.sido);
-              setSigungu(null);
-            }}
-            style={[
-              styles.chip,
-              {
-                borderColor: theme.colors.border.subtle,
-                backgroundColor:
-                  sido === group.sido ? theme.colors.surface.elevated : theme.colors.surface.card,
-              },
-            ]}
-          >
-            <Text variant="caption" tone={sido === group.sido ? 'primary' : 'secondary'}>
-              {group.label}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-      {districts.length > 0 ? (
-        <View style={styles.chipRow}>
-          {districts.map((district) => (
-            <Pressable
-              key={`${district.sido}-${district.sigungu}`}
-              onPress={() => setSigungu(district.sigungu)}
-              style={[
-                styles.chip,
-                {
-                  borderColor: theme.colors.border.subtle,
-                  backgroundColor:
-                    sigungu === district.sigungu
-                      ? theme.colors.surface.elevated
-                      : theme.colors.surface.card,
-                },
-              ]}
-            >
-              <Text variant="caption" tone={sigungu === district.sigungu ? 'primary' : 'secondary'}>
-                {district.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
+      <FieldRegionPicker
+        province={sido}
+        cityCounty={sigungu}
+        onSelectProvince={(next) => {
+          setSido(next);
+          setSigungu(null);
+        }}
+        onSelectCity={(city) => {
+          setSido(city.province);
+          setSigungu(city.cityCounty);
+        }}
+      />
 
       <TextInput
         value={name}
@@ -171,8 +137,12 @@ export function JoinCreateFieldVenueSection({ api, selected, onChange }: Props) 
         >
           <Text variant="bodyStrong" tone="primary">{course.name}</Text>
           <Text variant="caption" tone="secondary">
-            {course.regionLabel ?? course.address ?? '지역 정보 없음'}
-            {course.holeCount ? ` · ${course.holeCount}홀` : ''}
+            {[
+              formatFieldCourseRegionLabel({ sido: course.sido, sigungu: course.sigungu }),
+              formatFieldCourseShortAddress(course.roadAddress ?? course.address),
+            ]
+              .filter(Boolean)
+              .join(' · ') || '지역 정보 없음'}
           </Text>
         </Pressable>
       ))}

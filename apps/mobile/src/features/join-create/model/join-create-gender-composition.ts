@@ -63,6 +63,17 @@ export function genderCompositionPayload(
   };
 }
 
+/** FIELD gender quotas are recruit-only and do not consume the host seat. */
+export function fieldGenderCompositionPayload(
+  state: JoinGenderCompositionState,
+  recruitCount: number,
+): Pick<
+  CreateJoinRequest & UpdateJoinRequest,
+  'genderCompositionMode' | 'targetMaleCount' | 'targetFemaleCount'
+> {
+  return genderCompositionPayload(state, recruitCount);
+}
+
 export function resolveHostGenderFromDisplay(
   genderDisplay: string | null | undefined,
 ): MatchingGender | null {

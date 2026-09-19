@@ -20,13 +20,12 @@ import {
   TEAM_COUNT_MIN,
   TEAM_SIZE_MAX,
   TEAM_SIZE_MIN,
-  FIELD_ALLOWED_INDIVIDUAL_CAPACITIES,
-  FIELD_V1_FOURSOME,
+  FIELD_ALLOWED_RECRUIT_COUNTS,
   computeCoinShortfall,
-  computeFieldOpenSeats,
   computeRewardEligibleSlots,
-  formatFieldOpenSeatsLabel,
   formatFieldRoundHolesLabel,
+  plannedPlayerCountToRecruitCount,
+  recruitCountToPlannedPlayerCount,
   formatNumber,
   formatPlayFormatLabel,
   formatTeamCapacityLabel,
@@ -52,6 +51,7 @@ import { JoinCreateFieldVenueSection } from '../../src/features/join-create/comp
 import { JoinCreateStepHeader, JoinCreateSummaryRow } from '../../src/features/join-create/components/JoinCreateStepHeader';
 import { JoinCreatePricingSummary } from '../../src/features/join-create/components/JoinCreatePricingSummary';
 import { FieldJoinCreateCostSection } from '../../src/features/join-create/components/FieldJoinCreateCostSection';
+import { FieldJoinBenefitsSection } from '../../src/features/join-create/components/FieldJoinBenefitsSection';
 import { FieldJoinCreateConfirmSummary } from '../../src/features/join-create/components/FieldJoinCreateConfirmSummary';
 import {
   JoinCreateMemberPreferencesSection,
@@ -64,6 +64,7 @@ import { JoinCreateGenderCompositionSection } from '../../src/features/join-crea
 import {
   defaultJoinGenderComposition,
   genderCompositionPayload,
+  fieldGenderCompositionPayload,
   genderCompositionSummaryLabel,
   resolveHostGenderFromDisplay,
   validateJoinGenderCompositionClient,
@@ -209,6 +210,7 @@ export default function CreateScreen() {
   );
   const [roomCharacter, setRoomCharacter] = useState(() => defaultJoinCreateRoomCharacter());
   const [fieldCost, setFieldCost] = useState(() => defaultFieldJoinCreateCost());
+  const [fieldCoinBenefit, setFieldCoinBenefit] = useState(false);
   const createSteps = joinCreateStepsForTrack(venueType);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -227,12 +229,20 @@ export default function CreateScreen() {
     [me?.publicProfile?.genderDisplay],
   );
 
+  const fieldRecruitCount =
+    venueType === 'FIELD' ? plannedPlayerCountToRecruitCount(players) : players;
+
   useEffect(() => {
+    const capacity = venueType === 'FIELD' ? plannedPlayerCountToRecruitCount(players) : players;
     setGenderComposition((prev) => ({
       ...prev,
-      maleCapacity: clampMaleCapacity(prev.maleCapacity, players, hostGender),
+      maleCapacity: clampMaleCapacity(
+        prev.maleCapacity,
+        capacity,
+        venueType === 'FIELD' ? null : hostGender,
+      ),
     }));
-  }, [players, hostGender]);
+  }, [players, hostGender, venueType]);
 
   const startAtIso = useMemo(() => {
     try {
@@ -481,7 +491,9 @@ export default function CreateScreen() {
                 ? { ...roomCharacter, participantSkillMode: 'ANY' }
                 : roomCharacter,
             ),
-            ...genderCompositionPayload(genderComposition, players),
+            ...(venueType === 'FIELD'
+              ? fieldGenderCompositionPayload(genderComposition, plannedPlayerCountToRecruitCount(players))
+              : genderCompositionPayload(genderComposition, players)),
             ...(venueType === 'FIELD'
               ? {
                   fieldDetails: {
@@ -511,13 +523,14 @@ export default function CreateScreen() {
         venueId,
         startAt: startAtIso,
         plannedPlayerCount: players,
-        playFormat,
-        teamSize: playFormat === JoinPlayFormat.TEAM ? teamSize : null,
-        teamCount: playFormat === JoinPlayFormat.TEAM ? teamCount : null,
-        joinMethod,
+        playFormat: venueType === 'FIELD' ? JoinPlayFormat.INDIVIDUAL : playFormat,
+        teamSize: venueType === 'FIELD' || playFormat !== JoinPlayFormat.TEAM ? null : teamSize,
+        teamCount: venueType === 'FIELD' || playFormat !== JoinPlayFormat.TEAM ? null : teamCount,
+        joinMethod: venueType === 'FIELD' ? JoinMethod.APPROVAL : joinMethod,
         title: routeTitle ?? `${selectedVenue.name} ${venueType === 'FIELD' ? '필드 조인' : '스크린골프'}`,
         description: description.trim() || null,
-        rewardPerParticipant,
+        rewardPerParticipant: venueType === 'FIELD' && !fieldCoinBenefit ? '0' : rewardPerParticipant,
+        recruitCount: venueType === 'FIELD' ? plannedPlayerCountToRecruitCount(players) : undefined,
         venueType: venueType === 'FIELD' ? VenueType.FIELD : VenueType.SCREEN,
         idempotencyKey: newIdempotencyKey(),
         clubId: routeClubId,
@@ -528,7 +541,12 @@ export default function CreateScreen() {
             ? { ...roomCharacter, participantSkillMode: 'ANY' }
             : roomCharacter,
         ),
-        ...genderCompositionPayload(genderComposition, players),
+        ...(venueType === 'FIELD'
+          ? fieldGenderCompositionPayload(
+              genderComposition,
+              plannedPlayerCountToRecruitCount(players),
+            )
+          : genderCompositionPayload(genderComposition, players)),
         ...(venueType === 'FIELD'
           ? {
               fieldDetails: fieldJoinCostPayload({
@@ -795,6 +813,48 @@ export default function CreateScreen() {
 
         {step === 'capacity' ? (
           <>
+            {venueType === 'FIELD' ? (
+              <>
+                <Text variant="sectionTitle" tone="primary">몇 명을 모집하시나요?</Text>
+                <Text variant="caption" tone="secondary">
+                  방장은 별도입니다. 최종 인원은 최대 4명입니다.
+                </Text>
+                <View style={styles.row}>
+                  {FIELD_ALLOWED_RECRUIT_COUNTS.map((n) => (
+                    <Chip
+                      key={n}
+                      label={`${n}명`}
+                      selected={fieldRecruitCount === n}
+                      onPress={() => setPlayers(recruitCountToPlannedPlayerCount(n))}
+                    />
+                  ))}
+                </View>
+                <JoinCreateGenderCompositionSection
+                  totalCapacity={fieldRecruitCount}
+                  value={genderComposition}
+                  hostGender={null}
+                  onChange={setGenderComposition}
+                />
+                <JoinCreateMemberPreferencesSection value={memberPrefs} onChange={setMemberPrefs} />
+                <JoinCreateParticipantSkillSection
+                  value={roomCharacter}
+                  onChange={setRoomCharacter}
+                  handicapTrack="FIELD"
+                  fieldHandicap={{
+                    min: fieldCost.minFieldHandicap,
+                    max: fieldCost.maxFieldHandicap,
+                  }}
+                  onFieldHandicapChange={(next) =>
+                    setFieldCost((prev) => ({
+                      ...prev,
+                      minFieldHandicap: next.min,
+                      maxFieldHandicap: next.max,
+                    }))
+                  }
+                />
+              </>
+            ) : (
+            <>
             <Text variant="sectionTitle" tone="primary">플레이 형식</Text>
             <View style={styles.row}>
               {([JoinPlayFormat.INDIVIDUAL, JoinPlayFormat.TEAM] as const).map((format) => (
@@ -805,16 +865,10 @@ export default function CreateScreen() {
                   onPress={() => {
                     setPlayFormat(format);
                     if (format === JoinPlayFormat.TEAM) {
-                      const nextSize = venueType === 'FIELD' ? 2 : teamSize;
-                      const nextCount = venueType === 'FIELD' ? 2 : teamCount;
-                      if (venueType === 'FIELD') {
-                        setTeamSize(nextSize);
-                        setTeamCount(nextCount);
-                      }
                       const nextPlayers = resolvePlannedPlayerCount({
                         playFormat: 'TEAM',
-                        teamSize: nextSize,
-                        teamCount: nextCount,
+                        teamSize,
+                        teamCount,
                       });
                       setPlayers(nextPlayers);
                       setGenderComposition(defaultJoinGenderComposition(nextPlayers));
@@ -825,28 +879,11 @@ export default function CreateScreen() {
             </View>
             {playFormat === JoinPlayFormat.TEAM ? (
               <>
-                <Text variant="sectionTitle" tone="primary">
-                  {venueType === 'FIELD' ? '포썸 구성' : '팀 구성'}
-                </Text>
+                <Text variant="sectionTitle" tone="primary">팀 구성</Text>
                 <Text variant="caption" tone="secondary">
                   {formatTeamCapacityLabel({ teamSize, teamCount }) ?? '팀 수를 선택하세요'}
                 </Text>
-                {venueType === 'FIELD' ? (
-                  <View style={styles.row}>
-                    <Chip
-                      label={FIELD_V1_FOURSOME.label}
-                      selected={teamSize === FIELD_V1_FOURSOME.teamSize && teamCount === FIELD_V1_FOURSOME.teamCount}
-                      onPress={() => {
-                        setTeamSize(FIELD_V1_FOURSOME.teamSize);
-                        setTeamCount(FIELD_V1_FOURSOME.teamCount);
-                        setPlayers(FIELD_V1_FOURSOME.plannedPlayerCount);
-                        setGenderComposition(defaultJoinGenderComposition(FIELD_V1_FOURSOME.plannedPlayerCount));
-                      }}
-                    />
-                  </View>
-                ) : null}
-                {venueType === 'FIELD' ? null : (
-                  <>
+                <>
                 <Text variant="caption" tone="secondary">팀당 인원</Text>
                 <View style={styles.row}>
                   {Array.from({ length: TEAM_SIZE_MAX - TEAM_SIZE_MIN + 1 }, (_, i) => i + TEAM_SIZE_MIN).map((n) => (
@@ -879,8 +916,7 @@ export default function CreateScreen() {
                     />
                   ))}
                 </View>
-                  </>
-                )}
+                </>
               </>
             ) : (
               <>
@@ -889,21 +925,13 @@ export default function CreateScreen() {
                   {t('create.players.hint')} · 보상 대상 {rewardEligibleSlots}명
                 </Text>
                 <View style={styles.row}>
-                  {(venueType === 'FIELD'
-                    ? [...FIELD_ALLOWED_INDIVIDUAL_CAPACITIES]
-                    : Array.from(
-                        { length: INDIVIDUAL_MAX_PLAYERS - INDIVIDUAL_MIN_PLAYERS + 1 },
-                        (_, i) => i + INDIVIDUAL_MIN_PLAYERS,
-                      )
+                  {Array.from(
+                    { length: INDIVIDUAL_MAX_PLAYERS - INDIVIDUAL_MIN_PLAYERS + 1 },
+                    (_, i) => i + INDIVIDUAL_MIN_PLAYERS,
                   ).map((n) => (
                     <Chip key={n} label={`${n}명`} selected={players === n} onPress={() => setPlayers(n)} />
                   ))}
                 </View>
-                {venueType === 'FIELD' ? (
-                  <Text variant="caption" tone="secondary">
-                    {formatFieldOpenSeatsLabel(computeFieldOpenSeats(players, 1))} · 호스트 1명 포함
-                  </Text>
-                ) : null}
               </>
             )}
             {playFormat === JoinPlayFormat.INDIVIDUAL ? (
@@ -914,8 +942,6 @@ export default function CreateScreen() {
                 onChange={setGenderComposition}
               />
             ) : null}
-            {venueType === 'FIELD' ? null : (
-              <>
             <RewardCoinInput
               onChange={setRewardPerParticipant}
               rewardEligibleSlots={rewardEligibleSlots}
@@ -933,7 +959,7 @@ export default function CreateScreen() {
               creatorUserTypeLabel={preview?.creatorUserTypeLabel}
               creationCoinEnabled={preview?.creationCoinEnabled}
             />
-              </>
+            </>
             )}
           </>
         ) : null}
@@ -941,18 +967,37 @@ export default function CreateScreen() {
         {step === 'cost' && venueType === 'FIELD' ? (
           <FieldJoinCreateCostSection
             value={fieldCost}
-            participantCount={players}
             onChange={setFieldCost}
           />
         ) : null}
 
-        {step === 'members' ? (
+        {step === 'benefits' && venueType === 'FIELD' ? (
+          <FieldJoinBenefitsSection
+            value={{
+              benefitGreenFee: fieldCost.benefitGreenFee,
+              benefitCart: fieldCost.benefitCart,
+              benefitCaddie: fieldCost.benefitCaddie,
+            }}
+            coinSelected={fieldCoinBenefit}
+            onChange={(next) =>
+              setFieldCost((prev) => ({
+                ...prev,
+                benefitGreenFee: next.benefitGreenFee,
+                benefitCart: next.benefitCart,
+                benefitCaddie: next.benefitCaddie,
+              }))
+            }
+            onCoinChange={setFieldCoinBenefit}
+          />
+        ) : null}
+
+        {step === 'members' && venueType !== 'FIELD' ? (
           <>
             <JoinCreateMemberPreferencesSection value={memberPrefs} onChange={setMemberPrefs} />
             <JoinCreateParticipantSkillSection
               value={roomCharacter}
               onChange={setRoomCharacter}
-              handicapTrack={venueType === 'FIELD' ? 'FIELD' : 'SCREEN'}
+              handicapTrack="SCREEN"
               fieldHandicap={{
                 min: fieldCost.minFieldHandicap,
                 max: fieldCost.maxFieldHandicap,
@@ -970,7 +1015,7 @@ export default function CreateScreen() {
 
         {step === 'options' ? (
           <>
-            {venueType === 'FIELD' ? (
+            {venueType === 'FIELD' && fieldCoinBenefit ? (
               <>
                 <RewardCoinInput
                   onChange={setRewardPerParticipant}
@@ -992,6 +1037,8 @@ export default function CreateScreen() {
               </>
             ) : null}
             <JoinCreateGameAfterSection value={roomCharacter} onChange={setRoomCharacter} />
+            {venueType === 'FIELD' ? null : (
+            <>
             <Text variant="sectionTitle" tone="primary">승인 방식</Text>
             <View style={styles.row}>
               <Chip
@@ -1005,6 +1052,8 @@ export default function CreateScreen() {
                 onPress={() => setJoinMethod(JoinMethod.OPEN)}
               />
             </View>
+            </>
+            )}
             <Text variant="sectionTitle" tone="primary" style={styles.optionsTitle}>
               무료 초대
             </Text>
@@ -1052,10 +1101,7 @@ export default function CreateScreen() {
               <FieldJoinCreateConfirmSummary
                 venueLabel={selectedVenue ? venueSelectionLabel(selectedVenue) : '—'}
                 scheduleLabel={scheduleSummary}
-                playFormat={playFormat}
                 players={players}
-                teamSize={teamSize}
-                teamCount={teamCount}
                 cost={fieldCost}
                 memberLabel={memberPreferencesSummaryLabel(memberPrefs)}
                 skillLabel={
@@ -1067,12 +1113,16 @@ export default function CreateScreen() {
                       ? '초보 가능'
                       : '실력 상관없음'
                 }
-                joinMethodLabel={joinMethod === JoinMethod.OPEN ? '참가 즉시 확정' : '승인 후 참가'}
-                rewardLabel={Number(rewardPerParticipant) > 0 ? `${rewardPerParticipant} 코인` : '없음'}
+                genderLabel={genderCompositionSummaryLabel(genderComposition, fieldRecruitCount)}
+                rewardLabel={
+                  fieldCoinBenefit && Number(rewardPerParticipant) > 0
+                    ? `${rewardPerParticipant} 코인`
+                    : '없음'
+                }
                 onPressVenue={() => setStep('venue')}
                 onPressCapacity={() => setStep('capacity')}
                 onPressCost={() => setStep('cost')}
-                onPressMembers={() => setStep('members')}
+                onPressBenefits={() => setStep('benefits')}
                 onPressOptions={() => setStep('options')}
               />
             ) : (

@@ -125,6 +125,9 @@ export const fieldJoinDetailsObjectSchema = z
     maxFieldHandicap: z.number().int().min(SCREEN_HANDICAP_MIN).max(SCREEN_HANDICAP_MAX).nullable().optional(),
     depositRequired: z.boolean().optional(),
     depositAmount: z.number().int().min(0).max(FIELD_FEE_MAX_KRW).nullable().optional(),
+    benefitGreenFee: z.boolean().optional(),
+    benefitCart: z.boolean().optional(),
+    benefitCaddie: z.boolean().optional(),
   })
   .superRefine((v, ctx) => {
     if (v.caddieMode === 'NO_CADDIE' && v.caddieFeeTotal != null && v.caddieFeeTotal !== 0) {
@@ -151,6 +154,10 @@ function refineFieldJoinCreate(
     venueType?: 'SCREEN' | 'FIELD';
     playFormat?: 'INDIVIDUAL' | 'TEAM';
     plannedPlayerCount: number;
+    recruitCount?: number | null;
+    genderCompositionMode?: 'ANY' | 'FIXED';
+    targetMaleCount?: number | null;
+    targetFemaleCount?: number | null;
     teamSize?: number | null;
     teamCount?: number | null;
     fieldDetails?: unknown;
@@ -163,6 +170,15 @@ function refineFieldJoinCreate(
     return;
   }
   if (venueType !== 'FIELD') return;
+  const recruitCount = v.recruitCount ?? v.plannedPlayerCount - 1;
+  if (![1, 2, 3].includes(recruitCount)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'field_recruit_count_not_allowed' });
+    return;
+  }
+  if (v.plannedPlayerCount !== recruitCount + 1) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'field_recruit_planned_mismatch' });
+    return;
+  }
   const playFormat = v.playFormat ?? 'INDIVIDUAL';
   if (playFormat === 'INDIVIDUAL' && ![2, 3, 4].includes(v.plannedPlayerCount)) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'field_capacity_not_allowed' });
@@ -170,6 +186,14 @@ function refineFieldJoinCreate(
   }
   if (playFormat === 'TEAM' && (v.teamSize !== 2 || v.teamCount !== 2)) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'field_foursome_v1_2v2_only' });
+  }
+  if (
+    v.genderCompositionMode === 'FIXED' &&
+    v.targetMaleCount != null &&
+    v.targetFemaleCount != null &&
+    v.targetMaleCount + v.targetFemaleCount !== recruitCount
+  ) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'field_gender_recruit_sum_mismatch' });
   }
 }
 
@@ -218,6 +242,8 @@ export const createJoinSchema = z
       .optional(),
     startAt: z.string().min(1),
     plannedPlayerCount: z.number().int().min(2).max(8),
+    /** FIELD-only user-facing recruit size (1/2/3). Host is counted separately. */
+    recruitCount: z.number().int().min(1).max(3).optional(),
     joinMethod: z.enum(['OPEN', 'APPROVAL']),
     title: z.string().trim().max(80).nullable().optional(),
     description: z.string().trim().max(500).nullable().optional(),
@@ -276,6 +302,20 @@ export const createJoinSchema = z
   .superRefine(refineFieldJoinCreate);
 
 export type CreateJoinInput = z.infer<typeof createJoinSchema>;
+
+export const applyJoinSchema = z.object({
+  note: z.string().trim().max(80).nullable().optional(),
+});
+
+export type ApplyJoinInput = z.infer<typeof applyJoinSchema>;
+
+export const fieldHostReviewActionSchema = z.object({
+  action: z.enum(['HOLD', 'REJECT', 'CONFIRM']).optional(),
+});
+
+export const fieldApplicationsCloseSchema = z.object({
+  closed: z.boolean(),
+});
 
 export const joinCoinPreviewSchema = z.object({
   plannedPlayerCount: z.number().int().min(2).max(8),

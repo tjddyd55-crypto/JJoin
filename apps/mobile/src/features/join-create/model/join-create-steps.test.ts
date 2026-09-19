@@ -64,4 +64,13 @@ test('FIELD create uses a cost step and rejects 6-player singles', () => {
     }),
     true,
   );
+  assert.equal(
+    canAdvanceJoinCreateStep('benefits', {
+      venueReady: true,
+      startAtValid: true,
+      players: 4,
+      venueType: 'FIELD',
+    }),
+    true,
+  );
 });

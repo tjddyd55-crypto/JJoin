@@ -35,6 +35,9 @@ export function fieldJoinCostPayload(value: FieldJoinCreateCostState): FieldJoin
     maxFieldHandicap: value.maxFieldHandicap,
     depositRequired: false,
     depositAmount: null,
+    benefitGreenFee: value.benefitGreenFee,
+    benefitCart: value.benefitCart,
+    benefitCaddie: value.benefitCaddie,
   };
 }
 

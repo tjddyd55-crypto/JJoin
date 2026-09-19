@@ -71,8 +71,8 @@ test('FIELD create rejects invalid capacity and invalid fees with client message
   assert.equal(six.success, false);
   if (!six.success) {
     const code = firstZodIssueCode(six.error, 'invalid_create_join');
-    assert.equal(code, 'field_capacity_not_allowed');
-    assert.match(joinCreateClientMessage(code), /2·3·4/);
+    assert.equal(code, 'field_recruit_count_not_allowed');
+    assert.match(joinCreateClientMessage(code), /1·2·3/);
   }
 
   const badFee = createJoinSchema.safeParse({

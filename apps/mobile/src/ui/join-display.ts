@@ -1,7 +1,9 @@
 import {
   addCalendarDays,
   computeJoinDdayLabel,
+  formatFieldCardRecruitLine,
   formatFieldExpectedCostLabel,
+  formatFieldGreenFeeLabel,
   formatSignedCoin,
   localDayKey,
   type JoinDdayLabel,
@@ -212,12 +214,12 @@ export function resolveJoinListStatusBadges(input: {
     return badges;
   }
 
-  if (input.status === JoinStatus.FULL || (input.seatsLeft != null && input.seatsLeft <= 0)) {
+  if (input.venueType !== 'FIELD' && (input.status === JoinStatus.FULL || (input.seatsLeft != null && input.seatsLeft <= 0))) {
     badges.push({ label: '모집 완료', tone: 'full' });
     return badges;
   }
 
-  if (input.seatsLeft === 1) {
+  if (input.venueType !== 'FIELD' && input.seatsLeft === 1) {
     badges.push({ label: '마감 임박', tone: 'urgent' });
   }
 
@@ -271,6 +273,9 @@ export function baseJoinCardFields(
     sportCode?: string | null;
     venueType?: 'SCREEN' | 'FIELD' | null;
     title?: string | null;
+    recruitCount?: number;
+    applicationCount?: number;
+    benefitLabels?: string[];
   },
   options?: JoinCardMapperOptions,
 ): Omit<JoinCardProps, 'onPress'> {
@@ -298,9 +303,15 @@ export function baseJoinCardFields(
       input.distanceMeters,
     ),
     scheduleLabel: formatJoinScheduleListLabel(input.startAt, options?.now),
-    countLabel: capacity.countLabel,
-    seatsHighlight: capacity.seatsHighlight,
-    seatsHighlightTone: capacity.seatsHighlightTone,
+    countLabel:
+      input.venueType === 'FIELD' && input.recruitCount != null
+        ? formatFieldCardRecruitLine({
+            recruitCount: input.recruitCount,
+            applicationCount: input.applicationCount ?? 0,
+          })
+        : capacity.countLabel,
+    seatsHighlight: input.venueType === 'FIELD' ? null : capacity.seatsHighlight,
+    seatsHighlightTone: input.venueType === 'FIELD' ? 'available' : capacity.seatsHighlightTone,
     ddayLabel: dday?.label ?? null,
     statusBadges: resolveJoinListStatusBadges({
       status: input.status,
@@ -315,7 +326,12 @@ export function baseJoinCardFields(
     hostNickname: input.hostNickname,
     hostAvatarUrl: input.hostAvatarUrl,
     rewardLabel: buildJoinCardRewardLabel(input.rewardPerParticipant),
-    costLabel: formatFieldExpectedCostLabel(input.expectedCostKrw),
+    costLabel:
+      input.venueType === 'FIELD'
+        ? [formatFieldGreenFeeLabel(input.expectedCostKrw), ...(input.benefitLabels ?? [])]
+            .filter(Boolean)
+            .join(' · ') || null
+        : formatFieldExpectedCostLabel(input.expectedCostKrw),
     isUrgent: input.isUrgent,
   };
 }

@@ -9,6 +9,7 @@ export type JoinCreateStepId =
   | 'venue'
   | 'capacity'
   | 'cost'
+  | 'benefits'
   | 'members'
   | 'options'
   | 'confirm';
@@ -23,9 +24,9 @@ export const JOIN_CREATE_STEPS: Array<{ id: JoinCreateStepId; label: string }> =
 
 export const FIELD_JOIN_CREATE_STEPS: Array<{ id: JoinCreateStepId; label: string }> = [
   { id: 'venue', label: '코스·티타임' },
-  { id: 'capacity', label: '인원·형식' },
-  { id: 'cost', label: '라운드 비용' },
-  { id: 'members', label: '멤버 조건' },
+  { id: 'capacity', label: '모집 조건' },
+  { id: 'cost', label: '그린피' },
+  { id: 'benefits', label: '혜택' },
   { id: 'options', label: '코인·옵션' },
   { id: 'confirm', label: '확인' },
 ];
@@ -69,6 +70,8 @@ export function canAdvanceJoinCreateStep(
       }).ok;
     case 'cost':
       return args.costValid !== false;
+    case 'benefits':
+      return true;
     case 'members':
     case 'options':
       return true;

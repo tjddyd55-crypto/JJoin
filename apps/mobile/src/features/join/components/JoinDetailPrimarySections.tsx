@@ -14,12 +14,10 @@ import {
   useTheme,
 } from '@jjoin/design-system';
 import {
-  formatFieldCaddieModeLabel,
-  formatFieldExpectedCostLabel,
-  formatFieldGreenFeePayerLabel,
-  formatFieldOpenSeatsLabel,
+  formatFieldGreenFeeLabel,
+  formatFieldRecruitSummary,
   formatFieldRoundHolesLabel,
-  formatFieldSplitFeePayerLabel,
+  formatFieldSelectedBenefitsLabel,
   formatPlayFormatLabel,
   formatTeamCapacityLabel,
   computeFieldOpenSeats,
@@ -330,9 +328,15 @@ export function JoinDetailPrimarySections({
         <JoinMiniStatGrid items={scheduleTiles} />
         {detail.venue.venueType === 'FIELD' ? (
           <Text variant="caption" tone="secondary">
-            {formatFieldOpenSeatsLabel(fieldSeats)}
+            {formatFieldRecruitSummary({
+              recruitCount: detail.recruitCount ?? Math.max(0, fieldSeats.total - 1),
+              applicationCount: detail.applicationCount ?? 0,
+              confirmedCount: detail.confirmedApplicantCount ?? Math.max(0, fieldSeats.confirmed - 1),
+            })}
           </Text>
         ) : null}
+        {detail.venue.venueType === 'FIELD' ? null : (
+        <>
         <JoinSeatsRemainingBanner
           label={participation.seatsLeftLabel}
           tone={participation.seatsHighlightTone}
@@ -344,41 +348,30 @@ export function JoinDetailPrimarySections({
           <Text variant="caption" tone="secondary">{genderSummary}</Text>
         ) : null}
         <JoinParticipationSlotGrid slots={rosterSlots} />
+        </>
+        )}
       </JoinDetailCard>
 
       {fieldCost ? (
         <JoinDetailCard>
           <JoinDetailInfoPanel
-            title="라운드 비용"
+            title="그린피 · 혜택"
             rows={[
               {
-                label: '참가자 예상',
-                value: formatFieldExpectedCostLabel(fieldCost.cost.participantExpectedKrw) ?? '미입력',
-              },
-              {
                 label: '그린피',
-                value:
-                  fieldCost.greenFeePerPerson == null
-                    ? '미입력'
-                    : `${fieldCost.greenFeePerPerson.toLocaleString('ko-KR')}원 · ${formatFieldGreenFeePayerLabel(fieldCost.greenFeePayer)}`,
+                value: formatFieldGreenFeeLabel(fieldCost.greenFeePerPerson) ?? '미입력',
               },
               {
-                label: '카트비',
+                label: '혜택',
                 value:
-                  fieldCost.cartFeeTotal == null
-                    ? '미입력'
-                    : `${fieldCost.cartFeeTotal.toLocaleString('ko-KR')}원 · ${formatFieldSplitFeePayerLabel(fieldCost.cartFeePayer)}`,
-              },
-              {
-                label: '캐디',
-                value:
-                  fieldCost.caddieMode === 'NO_CADDIE'
-                    ? formatFieldCaddieModeLabel('NO_CADDIE')
-                    : `${formatFieldCaddieModeLabel('CADDIE')} · ${
-                        fieldCost.caddieFeeTotal == null
-                          ? '금액 미입력'
-                          : `${fieldCost.caddieFeeTotal.toLocaleString('ko-KR')}원 · ${formatFieldSplitFeePayerLabel(fieldCost.caddieFeePayer ?? 'EQUAL_SPLIT')}`
-                      }`,
+                  formatFieldSelectedBenefitsLabel({
+                    benefits: {
+                      benefitGreenFee: fieldCost.benefitGreenFee,
+                      benefitCart: fieldCost.benefitCart,
+                      benefitCaddie: fieldCost.benefitCaddie,
+                    },
+                    rewardPerParticipant: detail.rewardPerParticipant,
+                  }) ?? '없음',
               },
             ]}
           />

@@ -181,6 +181,18 @@ export function normalizeSido(raw: string | null | undefined): string | null {
   return SIDO_ALIASES[trimmed] ?? trimmed;
 }
 
+/** Canonical + alias spellings that may appear in stored sido columns. */
+export function listSidoSpellings(raw: string | null | undefined): string[] {
+  const canonical = normalizeSido(raw);
+  if (!canonical) return [];
+  const variants = new Set<string>([canonical]);
+  if (raw?.trim()) variants.add(raw.trim());
+  for (const [alias, mapped] of Object.entries(SIDO_ALIASES)) {
+    if (mapped === canonical) variants.add(alias);
+  }
+  return [...variants];
+}
+
 export function findSidoGroup(sido: string): AdminSidoGroup | null {
   const canonical = normalizeSido(sido);
   if (!canonical) return null;

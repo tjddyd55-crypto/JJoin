@@ -967,6 +967,12 @@ model FieldJoinDetail {
   /// Schema-only v1 extension. No payment UI.
   depositRequired   Boolean            @default(false) @map("deposit_required")
   depositAmount     Int?               @map("deposit_amount")
+  /// Informational host promises. Never enter the Coin ledger or Toss settlement.
+  benefitGreenFee   Boolean            @default(false) @map("benefit_green_fee")
+  benefitCart       Boolean            @default(false) @map("benefit_cart")
+  benefitCaddie     Boolean            @default(false) @map("benefit_caddie")
+  /// Host-only close. Confirmed-full does not auto-close applications.
+  applicationsClosed Boolean           @default(false) @map("applications_closed")
   createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -1304,6 +1310,10 @@ model JoinParticipant {
   cancelledAt         DateTime?           @map("cancelled_at") @db.Timestamptz(6)
   offeredAt           DateTime?           @map("offered_at") @db.Timestamptz(6)
   offerExpiresAt      DateTime?           @map("offer_expires_at") @db.Timestamptz(6)
+  /// Optional apply note to the host. Not a comment thread.
+  applicationNote     String?             @map("application_note") @db.VarChar(80)
+  /// FIELD host review overlay: ON_HOLD | REJECTED. Null for pending/user-cancel.
+  hostReviewStatus    String?             @map("host_review_status") @db.VarChar(20)
 
   join       Join              @relation(fields: [joinId], references: [id], onDelete: Cascade)
   user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)

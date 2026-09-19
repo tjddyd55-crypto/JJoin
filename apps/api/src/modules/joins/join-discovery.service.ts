@@ -17,6 +17,10 @@ import {
   listRegionExploreNodes,
   listTopLevelSido,
   matchesFieldDistrict,
+  matchesFieldCityCounty,
+  countFieldApplications,
+  plannedPlayerCountToRecruitCount,
+  formatFieldSelectedBenefitsLabel,
   matchesRegionScope,
   normalizeSido,
   regionExploreHasChildren,
@@ -153,6 +157,10 @@ type DiscoveryJoinRow = {
     maxFieldHandicap: number | null;
     depositRequired: boolean;
     depositAmount: number | null;
+    benefitGreenFee?: boolean;
+    benefitCart?: boolean;
+    benefitCaddie?: boolean;
+    applicationsClosed?: boolean;
   } | null;
   venue: {
     id: string;
@@ -619,6 +627,14 @@ export class JoinDiscoveryService {
       return gf.sido === sido && gf.sigungu === sigungu;
     }
     if (field) {
+      if (parseJoinVenueType(row.venue.venueType) === 'FIELD') {
+        return matchesFieldCityCounty({
+          rowSido: field.sido,
+          rowSigungu: field.sigungu,
+          targetProvince: sido,
+          targetCityCounty: sigungu,
+        });
+      }
       return matchesFieldDistrict({
         fieldSido: field.sido,
         fieldSigungu: field.sigungu,
@@ -798,6 +814,20 @@ export class JoinDiscoveryService {
       ctaLabel = '대기 신청';
     }
 
+    const venueType = parseJoinVenueType(row.venue.venueType);
+    const fieldDto = mapFieldJoinDetailDto(row.fieldDetail, row.plannedPlayerCount);
+    if (
+      venueType === 'FIELD' &&
+      !isHost &&
+      !isParticipant &&
+      fieldDto?.applicationsClosed !== true &&
+      (canJoinResult.state === 'FULL' || row.status === 'FULL')
+    ) {
+      canJoin = true;
+      canJoinState = 'JOINABLE';
+      ctaLabel = '참가 신청';
+    }
+
     const gf = row.venue.golfFacility;
     const availableSlots = Math.max(
       0,
@@ -837,10 +867,30 @@ export class JoinDiscoveryService {
       preferredGender: (row.preferredGender as JoinPreferredGender | null) ?? null,
       minAge: row.minAge ?? null,
       maxAge: row.maxAge ?? null,
-      expectedCostKrw:
-        mapFieldJoinDetailDto(row.fieldDetail, row.plannedPlayerCount)?.cost.participantExpectedKrw ??
-        null,
+      expectedCostKrw: fieldDto?.greenFeePerPerson ?? null,
       roundHoles: row.fieldDetail ? resolveFieldRoundHoles(row.fieldDetail.roundHoles) : null,
+      recruitCount:
+        venueType === 'FIELD' ? plannedPlayerCountToRecruitCount(row.plannedPlayerCount) : undefined,
+      applicationCount:
+        venueType === 'FIELD'
+          ? countFieldApplications(
+              row.participants.map((p) => ({
+                role: p.role,
+                participationStatus: p.participationStatus,
+              })),
+            )
+          : undefined,
+      benefitLabels:
+        venueType === 'FIELD'
+          ? formatFieldSelectedBenefitsLabel({
+              benefits: {
+                benefitGreenFee: fieldDto?.benefitGreenFee,
+                benefitCart: fieldDto?.benefitCart,
+                benefitCaddie: fieldDto?.benefitCaddie,
+              },
+              rewardPerParticipant: String(row.rewardPerParticipant),
+            })?.split(' · ')
+          : undefined,
       participantSkillMode:
         (row.participantSkillMode as JoinParticipantSkillMode | null) ??
         JoinParticipantSkillMode.ANY,

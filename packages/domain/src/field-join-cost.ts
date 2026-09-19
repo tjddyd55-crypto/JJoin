@@ -64,6 +64,9 @@ export type FieldJoinDetailsInput = {
   maxFieldHandicap?: number | null;
   depositRequired?: boolean | null;
   depositAmount?: number | null;
+  benefitGreenFee?: boolean | null;
+  benefitCart?: boolean | null;
+  benefitCaddie?: boolean | null;
 };
 
 export type FieldJoinDetailsNormalized = {
@@ -80,6 +83,9 @@ export type FieldJoinDetailsNormalized = {
   maxFieldHandicap: number | null;
   depositRequired: boolean;
   depositAmount: number | null;
+  benefitGreenFee: boolean;
+  benefitCart: boolean;
+  benefitCaddie: boolean;
 };
 
 function isPresentFee(value: number | null | undefined): value is number {
@@ -314,6 +320,9 @@ export function validateFieldJoinDetails(
     maxFieldHandicap: maxHandicap,
     depositRequired,
     depositAmount: depositRequired ? deposit.value : null,
+    benefitGreenFee: input.benefitGreenFee === true,
+    benefitCart: input.benefitCart === true,
+    benefitCaddie: input.benefitCaddie === true,
   };
 
   const estimate = estimateFieldJoinCost({
@@ -345,5 +354,8 @@ export function defaultFieldJoinDetails(): FieldJoinDetailsNormalized {
     maxFieldHandicap: null,
     depositRequired: false,
     depositAmount: null,
+    benefitGreenFee: false,
+    benefitCart: false,
+    benefitCaddie: false,
   };
 }
