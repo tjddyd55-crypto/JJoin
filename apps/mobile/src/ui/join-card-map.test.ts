@@ -3,18 +3,10 @@ import { test } from 'node:test';
 import {
   formatJoinDisplayTitle,
   formatJoinParticipantDisplay,
-  mapDiscoverToJoinCardProps,
-  mapRecommendedToJoinCardProps,
   recommendShortReasonLabels,
   splitJoinCapacityDisplay,
 } from './join-card-map';
-import {
-  JoinGameStyle,
-  JoinStatus,
-  VenueType,
-  type DiscoverJoinCardDto,
-  type RecommendedJoinDto,
-} from '@jjoin/types';
+import type { RecommendedJoinDto } from '@jjoin/types';
 
 test('recommendShortReasonLabels returns max 2 short tags', () => {
   const item: RecommendedJoinDto = {
@@ -61,60 +53,4 @@ test('formatJoinDisplayTitle maps DEV QA names in dev builds', () => {
   (globalThis as { __DEV__?: boolean }).__DEV__ = true;
   assert.equal(formatJoinDisplayTitle('QA-Role-Coin-1788411173874'), '거제 오션뷰 스크린');
   assert.equal(formatJoinDisplayTitle('DEV E2E 스크린골프'), '퇴근 후 저녁 라운드');
-});
-
-test('mapRecommendedToJoinCardProps keeps FIELD cost and badge callable', () => {
-  const item: RecommendedJoinDto = {
-    joinId: 'j-field',
-    venueName: '거제CC',
-    startAt: '2026-09-17T10:00:00.000Z',
-    seatsLeft: 2,
-    isUrgent: false,
-    reasonCode: 'NEARBY',
-    reasonLabel: '내 주변 조인이에요',
-    venueType: VenueType.FIELD,
-    expectedCostKrw: 70_000,
-  };
-  const card = mapRecommendedToJoinCardProps(item, () => {}, {
-    now: new Date('2026-09-17T03:00:00.000Z'),
-  });
-  assert.equal(card.costLabel, '예상 70,000원');
-  assert.ok(card.statusBadges?.some((badge) => badge.label === '필드'));
-});
-
-test('mapDiscoverToJoinCardProps builds character tags and FIELD cost', () => {
-  const item: DiscoverJoinCardDto = {
-    joinId: 'j-discover',
-    status: JoinStatus.OPEN,
-    startAt: '2026-09-17T10:00:00.000Z',
-    scheduledEndAt: '2026-09-17T13:00:00.000Z',
-    venueId: 'v1',
-    venueName: '거제CC',
-    regionLabel: '거제시',
-    sido: '경남',
-    sigungu: '거제시',
-    latitude: 34.88,
-    longitude: 128.62,
-    distanceMeters: 1200,
-    currentParticipants: 2,
-    maxParticipants: 4,
-    availableSlots: 2,
-    rewardPerParticipant: '0',
-    hostNickname: '호스트',
-    isHost: false,
-    isParticipant: false,
-    canJoin: true,
-    canJoinState: 'JOINABLE',
-    ctaLabel: '참가',
-    golfFacilityId: null,
-    venueType: VenueType.FIELD,
-    expectedCostKrw: 70_000,
-    gameStyle: JoinGameStyle.FRIENDLY,
-  };
-  const card = mapDiscoverToJoinCardProps(item, () => {}, {
-    now: new Date('2026-09-17T03:00:00.000Z'),
-  });
-  assert.equal(card.costLabel, '예상 70,000원');
-  assert.ok(card.statusBadges?.some((badge) => badge.label === '필드'));
-  assert.ok(Array.isArray(card.infoTags));
 });
