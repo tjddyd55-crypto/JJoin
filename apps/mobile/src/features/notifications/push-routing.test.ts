@@ -49,6 +49,16 @@ test('club routes stay mapped so the UI gate can send them to unavailable', () =
   );
 });
 
+test('direct message routes to conversation thread', () => {
+  assert.deepEqual(
+    resolveNotificationRoute({
+      type: 'DIRECT_MESSAGE_RECEIVED',
+      data: { conversationId: '55555555-5555-4555-8555-555555555555' },
+    }),
+    { kind: 'conversation', conversationId: '55555555-5555-4555-8555-555555555555' },
+  );
+});
+
 test('friend accepted falls back to golf friends list', () => {
   assert.deepEqual(
     resolveNotificationRoute({

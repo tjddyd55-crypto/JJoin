@@ -21,6 +21,7 @@ import { getApiClient } from '../../../lib/api';
 import { createExpoSecureSessionStore } from '../../../session/expo-secure-session-store';
 import { useSession } from '../../../session/SessionContext';
 import { StarRatingDisplay } from '../../../ui/patterns/StarRating';
+import { MemberActionMenu } from '../../member/components/MemberActionMenu';
 import { ProfileEditCtaButton } from '../components/ProfileEditCtaButton';
 import { ProfileGallerySliderModal } from '../components/ProfileGallerySliderModal';
 
@@ -131,6 +132,14 @@ export function PublicProfileScreen() {
             ) : null}
           </Stack>
         </View>
+        <MemberActionMenu
+          targetUserId={profile.id}
+          nickname={profile.nickname}
+          viewerUserId={me?.userId ?? me?.publicProfile?.id}
+          variant="cta"
+          coinGiftEnabled={me?.featureFlags?.coinGiftEnabled !== false}
+          messagingEnabled={me?.messagePolicy?.enabled !== false}
+        />
         {gallery.length > 0 ? (
           <View style={styles.gallerySection}>
             <AppText variant="label" color="textSecondary">사진</AppText>

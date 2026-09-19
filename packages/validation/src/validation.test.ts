@@ -13,7 +13,10 @@ import {
   reviewStoreBannerAdSchema,
   scheduleStoreBannerAdSchema,
   termsConsentSchema,
+  createDirectConversationSchema,
+  postDirectMessageSchema,
   updateFeatureFlagsSchema,
+  updateMessagePolicySchema,
   updateRewardPolicySchema,
   upsertHomeBannerSchema,
   upsertStoreProfileSchema,
@@ -111,6 +114,32 @@ test('profile match preference rejects inverted ranges', () => {
     maxAge: 20,
   });
   assert.equal(parsed.success, false);
+});
+
+test('message policy and direct message schemas', () => {
+  assert.equal(
+    updateMessagePolicySchema.safeParse({
+      enabled: true,
+      premiumOnly: false,
+      coinCostPerMessage: 0,
+      friendsOnly: false,
+    }).success,
+    true,
+  );
+  assert.equal(
+    updateMessagePolicySchema.safeParse({ coinCostPerMessage: -1 }).success,
+    false,
+  );
+  assert.equal(
+    createDirectConversationSchema.safeParse({
+      peerUserId: '11111111-1111-4111-8111-111111111111',
+    }).success,
+    true,
+  );
+  assert.equal(
+    postDirectMessageSchema.safeParse({ body: '안녕', idempotencyKey: 'msg-key-01' }).success,
+    true,
+  );
 });
 
 test('coin gift and reward policy schemas', () => {

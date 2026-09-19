@@ -38,6 +38,7 @@ import { MobileAndroidReleasePage } from './MobileAndroidReleasePage';
 import { MallAdminEditPage, MallAdminListPage } from './MallAdminPages';
 import { FeatureFlagsPage } from './FeatureFlagsPage';
 import { RewardPolicyPage } from './RewardPolicyPage';
+import { MemberMessagePolicyPage } from './MemberMessagePolicyPage';
 import { HomeBannerEditPage, HomeBannersListPage } from './HomeBannersAdminPages';
 import { StoreBannerAdDetailPage, StoreBannerAdsListPage } from './StoreBannerAdsAdminPages';
 import { StoreProfileEditPage } from './StoreProfileEditPage';
@@ -172,6 +173,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   const mallActive = loc.pathname.startsWith('/mall');
   const featureFlagsActive = loc.pathname.startsWith('/feature-flags');
   const rewardPolicyActive = loc.pathname.startsWith('/reward-policy');
+  const messagePolicyActive = loc.pathname.startsWith('/member-message-policy');
   const homeBannersActive = loc.pathname.startsWith('/home-banners');
   const storeBannerAdsActive = loc.pathname.startsWith('/store-banner-ads');
   if (!token) {
@@ -220,6 +222,12 @@ function Shell({ children }: { children: React.ReactNode }) {
         </Link>
         <Link to="/reward-policy" className={rewardPolicyActive ? 'nav-active' : undefined}>
           보상 정책
+        </Link>
+        <Link
+          to="/member-message-policy"
+          className={messagePolicyActive ? 'nav-active' : undefined}
+        >
+          회원 메시지 정책
         </Link>
         <Link to="/home-banners" className={homeBannersActive ? 'nav-active' : undefined}>
           홈 배너
@@ -1790,6 +1798,7 @@ export function App() {
         />
         <Route path="/feature-flags" element={<FeatureFlagsPage api={api} />} />
         <Route path="/reward-policy" element={<RewardPolicyPage api={api} />} />
+        <Route path="/member-message-policy" element={<MemberMessagePolicyPage api={api} />} />
         <Route path="/home-banners" element={<HomeBannersListPage api={api} />} />
         <Route path="/home-banners/:id" element={<HomeBannerEditPage api={api} />} />
         <Route path="/store-banner-ads" element={<StoreBannerAdsListPage api={api} />} />

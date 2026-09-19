@@ -140,6 +140,14 @@ import {
   type UpsertProfileMatchPreferenceRequest,
   type CoinGiftRequest,
   type CoinGiftDto,
+  type MessagePolicyDto,
+  type DirectConversationDto,
+  type DirectConversationsResponse,
+  type DirectMessagesResponse,
+  type DirectMessageDto,
+  type DirectUnreadCountDto,
+  type CreateDirectConversationRequest,
+  type PostDirectMessageRequest,
   type RewardProgressDto,
   type RewardGrantDto,
   type AttendanceCheckInDto,
@@ -2309,6 +2317,86 @@ export class ApiClient {
       method: 'POST',
       headers: await this.headers(true),
       body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async getMessagePolicy(): Promise<MessagePolicyDto> {
+    const res = await request(`${this.config.baseUrl}/message-policy`, {
+      headers: await this.headers(false),
+    });
+    return parseJson(res);
+  }
+
+  async listDirectConversations(): Promise<DirectConversationsResponse> {
+    const res = await request(`${this.config.baseUrl}/me/messages/conversations`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async createDirectConversation(
+    body: CreateDirectConversationRequest,
+  ): Promise<DirectConversationDto> {
+    const res = await request(`${this.config.baseUrl}/me/messages/conversations`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async getDirectConversation(conversationId: string): Promise<DirectConversationDto> {
+    const res = await request(`${this.config.baseUrl}/me/messages/conversations/${conversationId}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async listDirectMessages(
+    conversationId: string,
+    opts?: { cursor?: string; limit?: number },
+  ): Promise<DirectMessagesResponse> {
+    const query = new URLSearchParams();
+    if (opts?.cursor) query.set('cursor', opts.cursor);
+    if (opts?.limit) query.set('limit', String(opts.limit));
+    const suffix = query.toString() ? `?${query.toString()}` : '';
+    const res = await request(
+      `${this.config.baseUrl}/me/messages/conversations/${conversationId}/messages${suffix}`,
+      { headers: await this.headers(true) },
+    );
+    return parseJson(res);
+  }
+
+  async postDirectMessage(
+    conversationId: string,
+    body: PostDirectMessageRequest,
+  ): Promise<DirectMessageDto> {
+    const res = await request(
+      `${this.config.baseUrl}/me/messages/conversations/${conversationId}/messages`,
+      {
+        method: 'POST',
+        headers: await this.headers(true),
+        body: JSON.stringify(body),
+      },
+    );
+    return parseJson(res);
+  }
+
+  async markDirectConversationRead(conversationId: string): Promise<DirectConversationDto> {
+    const res = await request(
+      `${this.config.baseUrl}/me/messages/conversations/${conversationId}/read`,
+      {
+        method: 'POST',
+        headers: await this.headers(true),
+      },
+    );
+    return parseJson(res);
+  }
+
+  async getDirectUnreadCount(): Promise<DirectUnreadCountDto> {
+    const res = await request(`${this.config.baseUrl}/me/messages/unread-count`, {
+      headers: await this.headers(true),
     });
     return parseJson(res);
   }

@@ -21,6 +21,8 @@ import { useJoinDiscoveryOptional } from '../discovery/JoinDiscoveryContext';
 import { localDayKey } from '@jjoin/domain';
 import type { ExploreFilterId } from '../model/map-types';
 import { FacilityFollowWeeklySection } from '../../engagement/FacilityFollowWeeklySection';
+import { MemberActionMenu } from '../../member/components/MemberActionMenu';
+import { useSession } from '../../../session/SessionContext';
 
 function PresenceStatusBlock({ presence }: { presence: PresenceVisibility }) {
   const on = presence === PresenceVisibilityEnum.AVAILABLE;
@@ -75,6 +77,7 @@ export function ExploreBottomSheetBody(props: {
   peekSubtitle?: string;
 }) {
   const theme = useTheme();
+  const { me } = useSession();
   const showPresence = props.showPresence !== false;
   const mapFilter = props.mapFilter ?? 'ALL';
   const venueListLimit = props.venueListLimit ?? props.venues.length;
@@ -280,6 +283,14 @@ export function ExploreBottomSheetBody(props: {
             </Text>
           </Stack>
           <Button label="프로필 보기" onPress={props.onOpenProfile} />
+          <MemberActionMenu
+            targetUserId={u.userId}
+            nickname={u.nickname}
+            viewerUserId={me?.userId}
+            variant="cta"
+            coinGiftEnabled={me?.featureFlags?.coinGiftEnabled !== false}
+            messagingEnabled={me?.messagePolicy?.enabled !== false}
+          />
         </Stack>
       </BottomSheetFrame>
     );

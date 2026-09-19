@@ -423,6 +423,46 @@ export class CoinLedgerService {
     });
   }
 
+  async applyDirectMessageFee(
+    tx: PrismaTx,
+    params: {
+      userId: string;
+      amount: string;
+      conversationId: string;
+      idempotencyKey: string;
+    },
+  ) {
+    if (!isCoinAmountPositive(params.amount)) {
+      return null;
+    }
+    const existing = await tx.coinTransaction.findUnique({
+      where: { idempotencyKey: params.idempotencyKey },
+    });
+    if (existing) return existing;
+
+    const { coinAsset } = await ensureFoundation(this.prisma);
+    const wallet = await this.getOrCreateWallet(params.userId, coinAsset.id, tx);
+    const locked = await this.lockWallet(tx, wallet.id);
+    const available = String(locked.availableBalance);
+    const held = String(locked.heldBalance);
+    if (compareCoinAmounts(available, params.amount) < 0) {
+      throw new InsufficientBalanceError();
+    }
+    return this.appendDebit(tx, {
+      walletId: locked.id,
+      coinAssetId: coinAsset.id,
+      type: 'DIRECT_MESSAGE_FEE',
+      amount: params.amount,
+      availableBefore: available,
+      heldBefore: held,
+      moveToHeld: false,
+      idempotencyKey: params.idempotencyKey,
+      refType: 'DIRECT_MESSAGE',
+      refId: params.conversationId,
+      metadata: { conversationId: params.conversationId },
+    });
+  }
+
   async applyJoinRewardHold(
     tx: PrismaTx,
     params: {
@@ -795,7 +835,10 @@ export class CoinLedgerService {
         available = addCoinAmounts(available, amount);
         continue;
       }
-      if (row.type === 'ROOM_CREATION_FEE' && row.direction === 'DEBIT') {
+      if (
+        (row.type === 'ROOM_CREATION_FEE' || row.type === 'DIRECT_MESSAGE_FEE') &&
+        row.direction === 'DEBIT'
+      ) {
         available = subCoinAmounts(available, amount);
         continue;
       }
@@ -894,7 +937,7 @@ export class CoinLedgerService {
     params: {
       walletId: string;
       coinAssetId: string;
-      type: 'ROOM_CREATION_FEE' | 'JOIN_REWARD_HOLD' | 'SHOP_PURCHASE';
+      type: 'ROOM_CREATION_FEE' | 'DIRECT_MESSAGE_FEE' | 'JOIN_REWARD_HOLD' | 'SHOP_PURCHASE';
       amount: string;
       availableBefore: string;
       heldBefore: string;

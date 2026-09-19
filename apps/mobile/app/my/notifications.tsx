@@ -81,6 +81,10 @@ export default function NotificationsScreen() {
     }
     if (target.kind === 'user') {
       router.push(`/user/${target.userId}`);
+      return;
+    }
+    if (target.kind === 'conversation') {
+      router.push(`/messages/${target.conversationId}`);
     }
   };
 

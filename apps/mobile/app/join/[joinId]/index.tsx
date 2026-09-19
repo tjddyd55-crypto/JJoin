@@ -43,6 +43,7 @@ import {
 import { JoinDetailPrimarySections } from '../../../src/features/join/components/JoinDetailPrimarySections';
 import { JoinHostManagementSection } from '../../../src/features/join/components/JoinHostManagementSection';
 import { JoinTeamAssignmentSection } from '../../../src/features/join/components/JoinTeamAssignmentSection';
+import { MemberActionMenu } from '../../../src/features/member/components/MemberActionMenu';
 import { canShowJoinChatEntry } from '../../../src/ui/join-detail-display';
 import type { JoinWaitlistResponse } from '@jjoin/types';
 import {
@@ -864,6 +865,13 @@ export default function JoinDetailScreen() {
                   <Text variant="body" tone="primary">
                     {p.nickname}
                   </Text>
+                  <MemberActionMenu
+                    targetUserId={p.userId}
+                    nickname={p.nickname}
+                    viewerUserId={me?.userId}
+                    coinGiftEnabled={me?.featureFlags?.coinGiftEnabled !== false}
+                    messagingEnabled={me?.messagePolicy?.enabled !== false}
+                  />
                   <Button
                     label="승인"
                     loading={busy}

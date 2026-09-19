@@ -30,6 +30,7 @@ const TX_LABELS: Record<string, string> = {
   COIN_ISSUANCE: formatCoinTransactionLabelKo('COIN_ISSUANCE'),
   SHOP_PURCHASE: formatCoinTransactionLabelKo('SHOP_PURCHASE'),
   COIN_GIFT: formatCoinTransactionLabelKo('COIN_GIFT'),
+  DIRECT_MESSAGE_FEE: formatCoinTransactionLabelKo('DIRECT_MESSAGE_FEE'),
 };
 
 @Injectable()
