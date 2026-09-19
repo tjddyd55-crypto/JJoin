@@ -65,7 +65,9 @@ export default function ScreenStoresListScreen() {
               {item.coverImageUrl ? (
                 <Image source={{ uri: item.coverImageUrl }} style={styles.thumb} />
               ) : (
-                <View style={[styles.thumb, { backgroundColor: theme.colors.surface.base }]} />
+                <View style={[styles.thumb, styles.thumbPlaceholder, { backgroundColor: theme.colors.surface.base }]}>
+                  <Text tone="secondary" style={styles.thumbPlaceholderText}>사진</Text>
+                </View>
               )}
               <View style={styles.cardBody}>
                 <Text variant="sectionTitle">{item.name}</Text>
@@ -91,5 +93,7 @@ const styles = StyleSheet.create({
   card: { borderRadius: 12, padding: spacing.md, marginBottom: spacing.sm },
   cardRow: { flexDirection: 'row', gap: spacing.sm },
   thumb: { width: 72, height: 72, borderRadius: 8 },
+  thumbPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  thumbPlaceholderText: { fontSize: 12 },
   cardBody: { flex: 1, gap: 4 },
 });

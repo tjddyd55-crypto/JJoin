@@ -1,4 +1,4 @@
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { Button, Text, spacing, useTheme } from '@jjoin/design-system';
 import {
   buildStoreFacilitySummary,
@@ -8,6 +8,7 @@ import {
   sortStorePriceSlots,
 } from '@jjoin/domain';
 import type { PublicStoreDetailDto, StoreProfileDto } from '@jjoin/types';
+import { openStoreExternalUrl, openStorePhoneDialer } from '../open-store-external-link';
 
 function Divider() {
   const theme = useTheme();
@@ -53,12 +54,28 @@ export function StoreProfileHeader({
       <Text tone="secondary">{[store.address, store.regionLabel].filter(Boolean).join(' · ')}</Text>
       <View style={styles.actions}>
         {hasPhone ? (
-          <Button label="전화하기" variant="secondary" onPress={onCall ?? (() => Linking.openURL(`tel:${store.phone}`))} />
+          <Button
+            label="전화하기"
+            variant="secondary"
+            onPress={
+              onCall ??
+              (() => {
+                void openStorePhoneDialer(store.phone ?? '');
+              })
+            }
+          />
         ) : null}
         {hasReservationUrl ? (
           <Button
             label={store.reservationLabel?.trim() || '예약하기'}
-            onPress={onReserve ?? (() => Linking.openURL(store.reservationUrl!))}
+            onPress={
+              onReserve ??
+              (() => {
+                void openStoreExternalUrl(store.reservationUrl ?? '').then((ok) => {
+                  if (!ok) Alert.alert('예약 링크를 열 수 없습니다.');
+                });
+              })
+            }
           />
         ) : null}
       </View>
@@ -102,8 +119,10 @@ export function StoreProfileBody({ store }: { store: ProfileLike }) {
                 <Text variant="label">{formatStorePriceDayTypeLabel(dayType)}</Text>
                 {rows.map((slot) => (
                   <View key={slot.id} style={styles.priceRow}>
-                    <Text tone="secondary">{slot.startTime} ~ {slot.endTime}</Text>
-                    <Text>{formatKrwPrice(slot.price)}</Text>
+                    <Text tone="secondary" style={styles.priceTime}>
+                      {slot.startTime} - {slot.endTime}
+                    </Text>
+                    <Text style={styles.priceValue}>{formatKrwPrice(slot.price)}</Text>
                   </View>
                 ))}
               </View>
@@ -152,6 +171,8 @@ const styles = StyleSheet.create({
   body: { gap: spacing.sm },
   actions: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
   divider: { height: StyleSheet.hairlineWidth, marginVertical: spacing.md },
-  priceGroup: { gap: 4, marginTop: spacing.xs },
-  priceRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
+  priceGroup: { gap: 6, marginTop: spacing.xs },
+  priceRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  priceTime: { flex: 1, flexShrink: 1 },
+  priceValue: { minWidth: 88, textAlign: 'right' },
 });
