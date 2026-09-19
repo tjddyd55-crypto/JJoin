@@ -29,6 +29,7 @@ import { PlatformModule } from './modules/platform/platform.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { MallModule } from './modules/mall/mall.module';
 import { ExpansionModule } from './modules/expansion/expansion.module';
+import { DirectMessagesModule } from './modules/direct-messages/direct-messages.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -64,6 +65,7 @@ import { PrismaModule } from './prisma/prisma.module';
     PlatformModule,
     MallModule,
     ExpansionModule,
+    DirectMessagesModule,
   ],
 })
 export class AppModule {}

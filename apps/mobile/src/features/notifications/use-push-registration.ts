@@ -77,6 +77,8 @@ export function usePushRegistration() {
           router.push(`/my/clubs/${target.clubId}`);
         } else if (target.kind === 'club-notice') {
           router.push(`/my/clubs/${target.clubId}/notices`);
+        } else if (target.kind === 'conversation') {
+          router.push(`/messages/${target.conversationId}`);
         } else if (target.kind === 'notifications') {
           router.push('/my/notifications');
         }

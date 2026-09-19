@@ -16,6 +16,7 @@ describe('coin-supply', () => {
     assert.equal(classifyCoinSupplyEffect('JOIN_REWARD_RELEASE', 'DEBIT'), 'RELEASE');
     assert.equal(classifyCoinSupplyEffect('JOIN_REWARD_REFUND', 'CREDIT'), 'REFUND');
     assert.equal(classifyCoinSupplyEffect('ROOM_CREATION_FEE', 'DEBIT'), 'BURN');
+    assert.equal(classifyCoinSupplyEffect('DIRECT_MESSAGE_FEE', 'DEBIT'), 'BURN');
   });
 
   it('Case 1–5: purchase + event + transfer + hold + burn identity', () => {

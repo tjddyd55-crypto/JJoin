@@ -33,6 +33,7 @@ export type JoinRosterSlot =
   | {
       type: 'filled';
       participantId: string;
+      userId?: string;
       nickname: string;
       isHost: boolean;
       avatarUrl: string | null;
@@ -46,6 +47,7 @@ export function buildJoinRosterSlots(detail: JoinDetailDto): JoinRosterSlot[] {
   filled.push({
     type: 'filled',
     participantId: hostParticipant?.participantId ?? 'host',
+    userId: hostParticipant?.userId ?? detail.host.id,
     nickname: detail.host.nickname,
     isHost: true,
     avatarUrl: detail.host.avatarUrl ?? null,
@@ -57,6 +59,7 @@ export function buildJoinRosterSlots(detail: JoinDetailDto): JoinRosterSlot[] {
     filled.push({
       type: 'filled',
       participantId: participant.participantId,
+      userId: participant.userId,
       nickname: participant.nickname,
       isHost: false,
       avatarUrl: null,

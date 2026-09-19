@@ -207,6 +207,8 @@ export default function RootLayout() {
               <Stack.Screen name="mall" options={{ headerShown: false }} />
               <Stack.Screen name="join/[joinId]" options={{ headerShown: false }} />
               <Stack.Screen name="user/[userId]" />
+              <Stack.Screen name="messages" options={{ headerShown: false }} />
+              <Stack.Screen name="gift" options={{ headerShown: false }} />
               {isInternalToolsEnabled() ? (
                 <Stack.Screen name="dev" options={{ headerShown: false }} />
               ) : null}

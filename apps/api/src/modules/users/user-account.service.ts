@@ -12,7 +12,13 @@ import {
   type MeDto,
   type PublicUserProfileDto,
 } from '@jjoin/types';
-import { calculateParticipationTrust, computeAttendanceReliability, computePlayerReputation } from '@jjoin/domain';
+import {
+  calculateParticipationTrust,
+  computeAttendanceReliability,
+  computePlayerReputation,
+  DEFAULT_MESSAGE_POLICY,
+  normalizeMessagePolicy,
+} from '@jjoin/domain';
 import { canBypassIdentityVerification } from '../../config/identity-verification';
 import { profileEditSchema, profileSetupSchema, termsConsentSchema } from '@jjoin/validation';
 import { Prisma } from '@prisma/client';
@@ -97,6 +103,7 @@ export class UserAccountService {
         coinGiftEnabled: featureFlags.coinGiftEnabled,
         attendanceRewardsEnabled: featureFlags.attendanceRewardsEnabled,
       },
+      messagePolicy: await this.loadMessagePolicy(),
       walletSummary,
       premiumStatus,
       publicProfile: me.publicProfile
@@ -112,6 +119,20 @@ export class UserAccountService {
           }
         : null,
     };
+  }
+
+  private async loadMessagePolicy() {
+    const row = await this.prisma.messagePolicySettings.upsert({
+      where: { id: 'default' },
+      create: { id: 'default', ...DEFAULT_MESSAGE_POLICY },
+      update: {},
+    });
+    return normalizeMessagePolicy({
+      enabled: row.enabled,
+      premiumOnly: row.premiumOnly,
+      coinCostPerMessage: row.coinCostPerMessage,
+      friendsOnly: row.friendsOnly,
+    });
   }
 
   private async loadParticipationTrust(userId: string) {

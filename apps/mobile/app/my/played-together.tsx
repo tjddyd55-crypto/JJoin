@@ -12,8 +12,9 @@ import {
   UserAvatar,
 } from '@jjoin/design-system';
 import type { PlayedTogetherPersonDto } from '@jjoin/types';
+import { MemberActionMenu } from '../../src/features/member/components/MemberActionMenu';
 import { getApiClient } from '../../src/lib/api';
-import { getSecureSessionStore } from '../../src/session/SessionContext';
+import { getSecureSessionStore, useSession } from '../../src/session/SessionContext';
 import { NESTED_SCREEN_EDGES } from '../../src/ui/nested-screen';
 import { StarRatingDisplay } from '../../src/ui/patterns/StarRating';
 
@@ -33,6 +34,7 @@ function reinviteHref(person: PlayedTogetherPersonDto): Href {
 
 export default function PlayedTogetherScreen() {
   const router = useRouter();
+  const { me } = useSession();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [items, setItems] = useState<PlayedTogetherPersonDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -131,6 +133,15 @@ export default function PlayedTogetherScreen() {
                   />
                 </View>
               </Row>
+              <Spacer size="sm" />
+              <MemberActionMenu
+                targetUserId={person.userId}
+                nickname={person.nickname}
+                viewerUserId={me?.userId}
+                variant="cta"
+                coinGiftEnabled={me?.featureFlags?.coinGiftEnabled !== false}
+                messagingEnabled={me?.messagePolicy?.enabled !== false}
+              />
             </Card>
           );
         })}

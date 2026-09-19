@@ -1013,6 +1013,40 @@ export {
 } from './coin-gift';
 
 export {
+  DEFAULT_MESSAGE_POLICY,
+  MESSAGE_POLICY_SETTINGS_ID,
+  assertMessagePolicy,
+  canOpenMemberMessaging,
+  evaluateConversationAccess,
+  evaluateSendMessagePolicy,
+  normalizeMessagePolicy,
+  type EvaluateConversationAccessInput,
+  type EvaluateSendMessagePolicyInput,
+  type EvaluateSendMessagePolicyResult,
+  type MessagePolicyDenial,
+  type MessagePolicySnapshot,
+} from './message-policy';
+
+export {
+  DIRECT_MESSAGE_FEE_LEDGER_TYPE,
+  DIRECT_MESSAGE_FEE_REF_TYPE,
+  DIRECT_MESSAGE_MAX_LENGTH,
+  DIRECT_MESSAGE_POLL_INTERVAL_MS,
+  DIRECT_MESSAGE_PREVIEW_MAX,
+  countUnreadDirectMessages,
+  directMessageFeeIdempotencyKey,
+  directMessageReceivedEventKey,
+  isConversationParticipant,
+  isMessageUnreadForViewer,
+  normalizeDirectMessageBody,
+  normalizeDirectMessageIdempotencyKey,
+  orderDirectConversationPair,
+  peerUserIdFromPair,
+  previewDirectMessage,
+  type OrderedUserPair,
+} from './direct-message';
+
+export {
   DEFAULT_REWARD_POLICY,
   REWARD_GRANT_KINDS,
   REWARD_POLICY_SETTINGS_ID,

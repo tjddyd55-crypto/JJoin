@@ -1,21 +1,26 @@
 import { StyleSheet, View } from 'react-native';
 import { JoinHostAvatar, Text, useTheme } from '@jjoin/design-system';
 import type { JoinRosterSlot } from '../../../ui/join-detail-display';
+import { MemberActionMenu } from '../../member/components/MemberActionMenu';
+import { useSession } from '../../../session/SessionContext';
 
 export type JoinParticipationSlotGridProps = {
   slots: JoinRosterSlot[];
 };
 
 function FilledSlot({
+  userId,
   nickname,
   isHost,
   avatarUrl,
 }: {
+  userId?: string;
   nickname: string;
   isHost: boolean;
   avatarUrl: string | null;
 }) {
   const theme = useTheme();
+  const { me } = useSession();
 
   return (
     <View
@@ -32,6 +37,15 @@ function FilledSlot({
         {isHost ? '👑 ' : ''}
         {nickname}
       </Text>
+      {userId ? (
+        <MemberActionMenu
+          targetUserId={userId}
+          nickname={nickname}
+          viewerUserId={me?.userId}
+          coinGiftEnabled={me?.featureFlags?.coinGiftEnabled !== false}
+          messagingEnabled={me?.messagePolicy?.enabled !== false}
+        />
+      ) : null}
     </View>
   );
 }
@@ -69,6 +83,7 @@ export function JoinParticipationSlotGrid({ slots }: JoinParticipationSlotGridPr
         >
           {slot.type === 'filled' ? (
             <FilledSlot
+              userId={slot.userId}
               nickname={slot.nickname}
               isHost={slot.isHost}
               avatarUrl={slot.avatarUrl}

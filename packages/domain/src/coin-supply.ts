@@ -36,6 +36,7 @@ export function classifyCoinSupplyEffect(
   if (type === 'COIN_ISSUANCE' && direction === 'CREDIT') return 'ISSUANCE';
   if (type === 'ADMIN_ADJUSTMENT' && direction === 'CREDIT') return 'ISSUANCE';
   if (type === 'ROOM_CREATION_FEE' && direction === 'DEBIT') return 'BURN';
+  if (type === 'DIRECT_MESSAGE_FEE' && direction === 'DEBIT') return 'BURN';
   if (type === 'JOIN_REWARD_HOLD' && direction === 'DEBIT') return 'HOLD';
   if (type === 'JOIN_REWARD_RELEASE' && direction === 'DEBIT') return 'RELEASE';
   if (type === 'JOIN_REWARD_TRANSFER' && direction === 'CREDIT') return 'TRANSFER';
@@ -49,7 +50,7 @@ export function isIssuanceLedgerType(type: string): boolean {
 }
 
 export function isBurnLedgerType(type: string): boolean {
-  return type === 'ROOM_CREATION_FEE';
+  return type === 'ROOM_CREATION_FEE' || type === 'DIRECT_MESSAGE_FEE';
 }
 
 export type SupplyTotals = {

@@ -9,6 +9,7 @@ test('formatCoinTransactionLabelKo maps known ledger types', () => {
   assert.equal(formatCoinTransactionLabelKo('JOIN_REWARD_HOLD'), '조인 생성 HOLD');
   assert.equal(formatCoinTransactionLabelKo('JOIN_REWARD_TRANSFER'), '조인 참가 보상');
   assert.equal(formatCoinTransactionLabelKo('COIN_ISSUANCE'), '코인 충전');
+  assert.equal(formatCoinTransactionLabelKo('DIRECT_MESSAGE_FEE'), '메시지 수수료');
 });
 
 test('matchesWalletTransactionFilter HOLD tab', () => {

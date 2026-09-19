@@ -953,3 +953,19 @@ export const updateFeatureFlagsSchema = z.object({
   coinGiftEnabled: z.boolean().optional(),
   attendanceRewardsEnabled: z.boolean().optional(),
 });
+
+export const updateMessagePolicySchema = z.object({
+  enabled: z.boolean().optional(),
+  premiumOnly: z.boolean().optional(),
+  coinCostPerMessage: z.number().int().min(0).max(1_000_000).optional(),
+  friendsOnly: z.boolean().optional(),
+});
+
+export const createDirectConversationSchema = z.object({
+  peerUserId: z.string().uuid(),
+});
+
+export const postDirectMessageSchema = z.object({
+  body: z.string().trim().min(1).max(1000),
+  idempotencyKey: z.string().trim().min(8).max(120),
+});

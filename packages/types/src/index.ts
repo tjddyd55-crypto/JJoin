@@ -181,6 +181,8 @@ export enum CoinTxType {
   SHOP_PURCHASE = 'SHOP_PURCHASE',
   /** Peer gift: DEBIT sender available + CREDIT receiver available. Supply-neutral TRANSFER. */
   COIN_GIFT = 'COIN_GIFT',
+  /** Paid 1:1 message fee — available DEBIT / BURN when coinCostPerMessage > 0. */
+  DIRECT_MESSAGE_FEE = 'DIRECT_MESSAGE_FEE',
 }
 
 /** Why new Coin entered supply. Transfer/hold/refund must NEVER use these. */
@@ -282,6 +284,62 @@ export type FeatureFlagDto = {
   storeBannerAdsEnabled: boolean;
   coinGiftEnabled: boolean;
   attendanceRewardsEnabled: boolean;
+};
+
+export type MessagePolicyDto = {
+  enabled: boolean;
+  premiumOnly: boolean;
+  coinCostPerMessage: number;
+  friendsOnly: boolean;
+};
+
+export type UpdateMessagePolicyRequest = Partial<MessagePolicyDto>;
+
+export type DirectConversationPeerDto = {
+  userId: string;
+  nickname: string;
+  avatarUrl: string | null;
+};
+
+export type DirectConversationDto = {
+  id: string;
+  peer: DirectConversationPeerDto;
+  lastMessagePreview: string | null;
+  lastMessageAt: string | null;
+  unreadCount: number;
+  createdAt: string;
+};
+
+export type DirectConversationsResponse = {
+  items: DirectConversationDto[];
+};
+
+export type DirectMessageDto = {
+  id: string;
+  conversationId: string;
+  senderUserId: string;
+  body: string;
+  createdAt: string;
+  readAt: string | null;
+  mine: boolean;
+};
+
+export type DirectMessagesResponse = {
+  items: DirectMessageDto[];
+  nextCursor: string | null;
+};
+
+export type CreateDirectConversationRequest = {
+  peerUserId: string;
+};
+
+export type PostDirectMessageRequest = {
+  body: string;
+  idempotencyKey: string;
+};
+
+export type DirectUnreadCountDto = {
+  unreadCount: number;
 };
 
 export type PublicUserProfileDto = {
@@ -535,6 +593,7 @@ export type MeDto = {
   walletSummary: WalletSummaryDto;
   premiumStatus: PremiumStatusDto;
   featureFlags?: FeatureFlagDto;
+  messagePolicy?: MessagePolicyDto;
 };
 
 export type AuthSessionDto = {
@@ -1629,6 +1688,7 @@ export enum NotificationType {
   ATTENDANCE_REWARD = 'ATTENDANCE_REWARD',
   ACHIEVEMENT_REWARD = 'ACHIEVEMENT_REWARD',
   COIN_GIFT_RECEIVED = 'COIN_GIFT_RECEIVED',
+  DIRECT_MESSAGE_RECEIVED = 'DIRECT_MESSAGE_RECEIVED',
 }
 
 export enum JoinAlertDateMode {
@@ -1675,6 +1735,8 @@ export type NotificationDataDto = {
   clubId?: string;
   clubEventId?: string;
   noticeId?: string;
+  conversationId?: string;
+  fromUserId?: string;
 };
 
 export type AppNotificationDto = {

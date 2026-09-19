@@ -17,8 +17,9 @@ import {
 } from '@jjoin/design-system';
 import { GolfFriendRelationship, type GolfFriendCardDto } from '@jjoin/types';
 import * as Location from 'expo-location';
+import { MemberActionMenu } from '../../member/components/MemberActionMenu';
 import { getApiClient } from '../../../lib/api';
-import { getSecureSessionStore } from '../../../session/SessionContext';
+import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
 
 type TabId = 'recommended' | 'popular' | 'nearby' | 'search';
 
@@ -36,11 +37,17 @@ function GolfFriendCardItem({
   onPressProfile,
   onAction,
   acting,
+  viewerUserId,
+  coinGiftEnabled,
+  messagingEnabled,
 }: {
   item: GolfFriendCardDto;
   onPressProfile: () => void;
   onAction: (action: FriendAction) => void;
   acting: boolean;
+  viewerUserId?: string | null;
+  coinGiftEnabled: boolean;
+  messagingEnabled: boolean;
 }) {
   const theme = useTheme();
   const sport = item.user.sportProfiles[0];
@@ -136,6 +143,13 @@ function GolfFriendCardItem({
             {sport.sportCode} · {sport.skillLevel}
           </Text>
         ) : null}
+        <MemberActionMenu
+          targetUserId={item.user.id}
+          nickname={item.user.nickname}
+          viewerUserId={viewerUserId}
+          coinGiftEnabled={coinGiftEnabled}
+          messagingEnabled={messagingEnabled}
+        />
       </View>
       <Pressable
         accessibilityRole="button"
@@ -153,6 +167,7 @@ function GolfFriendCardItem({
 export function GolfFriendsScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { me } = useSession();
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [tab, setTab] = useState<TabId>('recommended');
   const [items, setItems] = useState<GolfFriendCardDto[]>([]);
@@ -303,6 +318,9 @@ export function GolfFriendsScreen() {
             onPressProfile={() => router.push(`/user/${item.user.id}`)}
             onAction={(action) => void onAction(item.user.id, action)}
             acting={actingId === item.user.id}
+            viewerUserId={me?.userId}
+            coinGiftEnabled={me?.featureFlags?.coinGiftEnabled !== false}
+            messagingEnabled={me?.messagePolicy?.enabled !== false}
           />
         )}
       />

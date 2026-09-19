@@ -8,6 +8,7 @@ export type PushRouteTarget =
   | { kind: 'club-notice'; clubId: string; noticeId?: string }
   | { kind: 'golf-friends' }
   | { kind: 'user'; userId: string }
+  | { kind: 'conversation'; conversationId: string }
   | { kind: 'notifications' }
   | { kind: 'unavailable' }
   | { kind: 'none' };
@@ -19,6 +20,14 @@ export function resolvePushRoute(data: Record<string, unknown> | undefined): Pus
   if (!data) return { kind: 'none' };
 
   const type = typeof data.type === 'string' ? data.type : '';
+  if (type === 'DIRECT_MESSAGE_RECEIVED') {
+    const conversationId =
+      typeof data.conversationId === 'string' ? data.conversationId : undefined;
+    if (conversationId && UUID_RE.test(conversationId)) {
+      return { kind: 'conversation', conversationId };
+    }
+    return { kind: 'notifications' };
+  }
   if (type === 'FRIEND_REQUEST_RECEIVED' || type === 'FRIEND_REQUEST_ACCEPTED') {
     const userId = typeof data.userId === 'string' ? data.userId : undefined;
     if (userId && UUID_RE.test(userId)) {
