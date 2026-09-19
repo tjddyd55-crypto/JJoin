@@ -1,64 +1,39 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  canEditStoreProfile,
-  canPublishStoreProfile,
-  formatStoreScreenBrandLabel,
-  validateStoreScreenBrand,
+  computeStoreMinPrice,
+  formatOperatingHoursLine,
+  sortStorePriceSlots,
 } from './store-profile';
 
-test('only active owner or admin can edit store profile', () => {
+test('sortStorePriceSlots orders by day type then start time', () => {
+  const sorted = sortStorePriceSlots([
+    { dayType: 'WEEKEND', startTime: '07:00', endTime: '12:00', price: 22000 },
+    { dayType: 'WEEKDAY', startTime: '18:00', endTime: '24:00', price: 22000 },
+    { dayType: 'WEEKDAY', startTime: '07:00', endTime: '12:00', price: 15000 },
+  ]);
+  assert.equal(sorted[0].dayType, 'WEEKDAY');
+  assert.equal(sorted[0].startTime, '07:00');
+  assert.equal(sorted[2].dayType, 'WEEKEND');
+});
+
+test('computeStoreMinPrice returns minimum slot price', () => {
   assert.equal(
-    canEditStoreProfile({
-      ownershipStatus: 'ACTIVE',
-      ownerUserId: 'o1',
-      actorUserId: 'o1',
-      isAdmin: false,
-    }),
-    true,
-  );
-  assert.equal(
-    canEditStoreProfile({
-      ownershipStatus: 'ACTIVE',
-      ownerUserId: 'o1',
-      actorUserId: 'x',
-      isAdmin: false,
-    }),
-    false,
-  );
-  assert.equal(
-    canEditStoreProfile({
-      ownershipStatus: 'REVOKED',
-      ownerUserId: 'o1',
-      actorUserId: 'o1',
-      isAdmin: false,
-    }),
-    false,
-  );
-  assert.equal(
-    canEditStoreProfile({
-      ownershipStatus: 'REVOKED',
-      ownerUserId: 'o1',
-      actorUserId: 'admin',
-      isAdmin: true,
-    }),
-    true,
+    computeStoreMinPrice([
+      { dayType: 'WEEKDAY', startTime: '07:00', endTime: '12:00', price: 15000 },
+      { dayType: 'WEEKEND', startTime: '07:00', endTime: '12:00', price: 22000 },
+    ]),
+    15000,
   );
 });
 
-test('OTHER brand requires text; public list only ACTIVE+PUBLIC', () => {
-  assert.equal(validateStoreScreenBrand({ screenBrand: 'OTHER', screenBrandOther: '' }).ok, false);
-  assert.deepEqual(validateStoreScreenBrand({ screenBrand: 'GOLFZON' }), {
-    ok: true,
-    screenBrandOther: null,
-  });
-  assert.equal(formatStoreScreenBrandLabel('KAKAO_VX'), '카카오 VX');
+test('formatOperatingHoursLine renders closed and 24h', () => {
   assert.equal(
-    canPublishStoreProfile({ visibility: 'PUBLIC', ownershipStatus: 'ACTIVE' }),
-    true,
+    formatOperatingHoursLine({ dayGroup: 'WEEKDAY', isClosed: true }),
+    '평일 휴무',
   );
   assert.equal(
-    canPublishStoreProfile({ visibility: 'PRIVATE', ownershipStatus: 'ACTIVE' }),
-    false,
+    formatOperatingHoursLine({ dayGroup: 'WEEKEND', is24Hours: true }),
+    '주말 24시간',
   );
 });

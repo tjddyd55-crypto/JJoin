@@ -3,6 +3,7 @@ import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } fro
 import {
   buildProfileAvatarObjectKey,
   buildProfileGalleryObjectKey,
+  buildStoreProfileObjectKey,
   buildMallProductCoverObjectKey,
   buildMallProductContentObjectKey,
   buildMallProductGalleryObjectKey,
@@ -154,6 +155,16 @@ export class ObjectStorageService {
     return buildMallProductGalleryObjectKey({
       environmentPrefix: this.config.environmentPrefix,
       productId,
+      fileId: randomUUID(),
+      extension,
+    });
+  }
+
+  buildStoreGalleryObjectKey(ownershipId: string, extension: 'jpg' | 'png' | 'webp'): string {
+    return buildStoreProfileObjectKey({
+      environmentPrefix: this.config.environmentPrefix,
+      ownershipId,
+      kind: 'gallery',
       fileId: randomUUID(),
       extension,
     });

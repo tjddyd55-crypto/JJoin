@@ -1,15 +1,20 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request } from 'express';
 import { CurrentUserId, MockAuthGuard } from '../../common/mock-auth.guard';
 import { AdminGuard } from '../../common/admin.guard';
@@ -18,7 +23,12 @@ import { HomeBannersService } from './home-banners.service';
 import { ProfileMatchService } from './profile-match.service';
 import { RewardsService } from './rewards.service';
 import { StoreBannerAdsService } from './store-banner-ads.service';
+import { StoreProfilePhotoService } from './store-profile-photo.service';
 import { StoreProfilesService } from './store-profiles.service';
+
+type UploadedImageFile = {
+  buffer: Buffer;
+};
 
 @Controller()
 export class PublicExpansionController {
@@ -56,6 +66,7 @@ export class MeExpansionController {
     private readonly profileMatch: ProfileMatchService,
     private readonly rewards: RewardsService,
     private readonly stores: StoreProfilesService,
+    private readonly storePhotos: StoreProfilePhotoService,
     private readonly ads: StoreBannerAdsService,
   ) {}
 
@@ -96,6 +107,37 @@ export class MeExpansionController {
     @Body() body: unknown,
   ) {
     return this.stores.upsertOwnerProfile(userId, ownershipId, body);
+  }
+
+  @Post('me/stores/:ownershipId/profile/photos')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadStorePhoto(
+    @CurrentUserId() userId: string,
+    @Param('ownershipId') ownershipId: string,
+    @UploadedFile() file?: UploadedImageFile,
+  ) {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('file_required');
+    }
+    return this.storePhotos.addPhoto(userId, ownershipId, file.buffer);
+  }
+
+  @Delete('me/stores/:ownershipId/profile/photos/:photoId')
+  deleteStorePhoto(
+    @CurrentUserId() userId: string,
+    @Param('ownershipId') ownershipId: string,
+    @Param('photoId') photoId: string,
+  ) {
+    return this.storePhotos.deletePhoto(userId, ownershipId, photoId);
+  }
+
+  @Patch('me/stores/:ownershipId/profile/photos/:photoId/cover')
+  setStoreCoverPhoto(
+    @CurrentUserId() userId: string,
+    @Param('ownershipId') ownershipId: string,
+    @Param('photoId') photoId: string,
+  ) {
+    return this.storePhotos.setCoverPhoto(userId, ownershipId, photoId);
   }
 
   @Get('me/store-banner-ads')

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { ScrollScreenFrame, Text, spacing, useTheme } from '@jjoin/design-system';
 import type { PublicStoreListItemDto } from '@jjoin/types';
@@ -61,15 +61,25 @@ export default function ScreenStoresListScreen() {
             onPress={() => router.push(`/stores/${item.ownershipId}`)}
             style={[styles.card, { backgroundColor: theme.colors.surface.elevated }]}
           >
-            <Text variant="sectionTitle">{item.name}</Text>
-            <Text tone="secondary">
-              {[item.regionLabel, item.screenBrandLabel].filter(Boolean).join(' · ')}
-            </Text>
-            {item.blurb ? (
-              <Text numberOfLines={2} tone="secondary">
-                {item.blurb}
-              </Text>
-            ) : null}
+            <View style={styles.cardRow}>
+              {item.coverImageUrl ? (
+                <Image source={{ uri: item.coverImageUrl }} style={styles.thumb} />
+              ) : (
+                <View style={[styles.thumb, styles.thumbPlaceholder, { backgroundColor: theme.colors.surface.base }]}>
+                  <Text tone="secondary" style={styles.thumbPlaceholderText}>사진</Text>
+                </View>
+              )}
+              <View style={styles.cardBody}>
+                <Text variant="sectionTitle">{item.name}</Text>
+                <Text tone="secondary">
+                  {[item.regionLabel, item.screenBrandLabel].filter(Boolean).join(' · ')}
+                </Text>
+                {item.minPriceLabel ? <Text>{item.minPriceLabel}</Text> : null}
+                {item.reservationAvailable ? (
+                  <Text tone="secondary">예약 가능</Text>
+                ) : null}
+              </View>
+            </View>
           </Pressable>
         ))
       )}
@@ -80,5 +90,10 @@ export default function ScreenStoresListScreen() {
 const styles = StyleSheet.create({
   filters: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
   chip: { borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8 },
-  card: { borderRadius: 12, padding: spacing.md, marginBottom: spacing.sm, gap: 4 },
+  card: { borderRadius: 12, padding: spacing.md, marginBottom: spacing.sm },
+  cardRow: { flexDirection: 'row', gap: spacing.sm },
+  thumb: { width: 72, height: 72, borderRadius: 8 },
+  thumbPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  thumbPlaceholderText: { fontSize: 12 },
+  cardBody: { flex: 1, gap: 4 },
 });

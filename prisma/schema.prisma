@@ -1097,6 +1097,24 @@ enum StoreProfileVisibility {
   PRIVATE
 }
 
+enum StoreOperatingDayGroup {
+  WEEKDAY
+  WEEKEND
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
+}
+
+enum StorePriceDayType {
+  WEEKDAY
+  WEEKEND
+  ALL
+}
+
 enum StoreBannerAdStatus {
   REQUESTED
   APPROVED
@@ -2488,25 +2506,72 @@ model ProfileMatchPreference {
 }
 
 model StoreProfile {
-  id                String                 @id @default(uuid()) @db.Uuid
-  ownershipId       String                 @unique @map("ownership_id") @db.Uuid
-  intro             String?
-  vibe              String?
-  amenities         String[]               @default([])
-  screenBrand       StoreScreenBrand       @default(OTHER) @map("screen_brand")
-  screenBrandOther  String?                @map("screen_brand_other")
-  visibility        StoreProfileVisibility @default(PRIVATE)
-  coverObjectKey    String?                @map("cover_object_key")
-  updatedByUserId   String?                @map("updated_by_user_id") @db.Uuid
-  createdAt         DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                  String                 @id @default(uuid()) @db.Uuid
+  ownershipId         String                 @unique @map("ownership_id") @db.Uuid
+  intro               String?
+  vibe                String?
+  amenities           String[]               @default([])
+  screenBrand         StoreScreenBrand       @default(OTHER) @map("screen_brand")
+  screenBrandOther    String?                @map("screen_brand_other")
+  screenModel         String?                @map("screen_model")
+  roomCount           Int?                   @map("room_count")
+  phone               String?
+  reservationLabel    String?                @map("reservation_label")
+  reservationUrl      String?                @map("reservation_url")
+  reservationNote     String?                @map("reservation_note")
+  parkingAvailable    Boolean?               @map("parking_available")
+  parkingNote         String?                @map("parking_note")
+  leftHandedAvailable Boolean?               @map("left_handed_available")
+  unmanned            Boolean?
+  visibility          StoreProfileVisibility @default(PRIVATE)
+  coverObjectKey      String?                @map("cover_object_key")
+  updatedByUserId     String?                @map("updated_by_user_id") @db.Uuid
+  createdAt           DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  ownership StoreOwnership      @relation(fields: [ownershipId], references: [id], onDelete: Cascade)
-  updatedBy User?               @relation("StoreProfileEditor", fields: [updatedByUserId], references: [id], onDelete: SetNull)
-  photos    StoreProfilePhoto[]
+  ownership      StoreOwnership         @relation(fields: [ownershipId], references: [id], onDelete: Cascade)
+  updatedBy      User?                  @relation("StoreProfileEditor", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  photos         StoreProfilePhoto[]
+  operatingHours StoreOperatingHours[]
+  priceSlots     StorePriceSlot[]
 
   @@index([visibility])
   @@map("store_profiles")
+}
+
+model StoreOperatingHours {
+  id        String                 @id @default(cuid())
+  profileId String                 @map("profile_id") @db.Uuid
+  dayGroup  StoreOperatingDayGroup @map("day_group")
+  label     String?
+  startTime String?                @map("start_time") @db.VarChar(5)
+  endTime   String?                @map("end_time") @db.VarChar(5)
+  isClosed  Boolean                @default(false) @map("is_closed")
+  is24Hours Boolean                @default(false) @map("is_24_hours")
+  sortOrder Int                    @default(0) @map("sort_order")
+  createdAt DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  profile StoreProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, sortOrder])
+  @@map("store_operating_hours")
+}
+
+model StorePriceSlot {
+  id        String            @id @default(cuid())
+  profileId String            @map("profile_id") @db.Uuid
+  dayType   StorePriceDayType @map("day_type")
+  startTime String            @map("start_time") @db.VarChar(5)
+  endTime   String            @map("end_time") @db.VarChar(5)
+  price     Int
+  label     String?
+  sortOrder Int               @default(0) @map("sort_order")
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  profile StoreProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, dayType, sortOrder])
+  @@map("store_price_slots")
 }
 
 model StoreProfilePhoto {
