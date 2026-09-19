@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  buildStoreProfileObjectKey,
   computeStoreMinPrice,
   formatOperatingHoursLine,
+  isOwnedStoreProfileObjectKey,
   sortStorePriceSlots,
 } from './store-profile';
 
@@ -24,6 +26,40 @@ test('computeStoreMinPrice returns minimum slot price', () => {
       { dayType: 'WEEKEND', startTime: '07:00', endTime: '12:00', price: 22000 },
     ]),
     15000,
+  );
+});
+
+test('isOwnedStoreProfileObjectKey validates store gallery prefix', () => {
+  const key = buildStoreProfileObjectKey({
+    environmentPrefix: 'development',
+    ownershipId: 'own-1',
+    kind: 'gallery',
+    fileId: 'file-1',
+    extension: 'png',
+  });
+  assert.equal(
+    isOwnedStoreProfileObjectKey({
+      objectKey: key,
+      environmentPrefix: 'development',
+      ownershipId: 'own-1',
+    }),
+    true,
+  );
+  assert.equal(
+    isOwnedStoreProfileObjectKey({
+      objectKey: key,
+      environmentPrefix: 'development',
+      ownershipId: 'own-2',
+    }),
+    false,
+  );
+  assert.equal(
+    isOwnedStoreProfileObjectKey({
+      objectKey: 'development/profiles/user-1/gallery/file-1.png',
+      environmentPrefix: 'development',
+      ownershipId: 'own-1',
+    }),
+    false,
   );
 });
 

@@ -63,7 +63,7 @@ export class StoreProfilePhotoService {
         }
       });
     } catch (error) {
-      await this.storage.deleteObject(objectKey, userId);
+      await this.storage.deleteStoreObject(objectKey, ownershipId);
       throw error;
     }
 
@@ -94,7 +94,7 @@ export class StoreProfilePhotoService {
       });
     }
 
-    await this.storage.deleteObject(photo.objectKey, userId);
+    await this.storage.deleteStoreObject(photo.objectKey, ownershipId);
     return this.profiles.getOwnerProfile(userId, ownershipId);
   }
 
