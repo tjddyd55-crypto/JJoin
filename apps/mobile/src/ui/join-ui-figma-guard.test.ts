@@ -11,7 +11,7 @@ const mobileRoot = join(dirname(fileURLToPath(import.meta.url)), '../..');
 
 const ROUTE_JOIN_CARD_SOURCES = [
   'src/features/explore/discovery/components/DiscoverJoinCard.tsx',
-  'src/features/home/components/HomeTodaysJoinSection.tsx',
+  'src/features/home/components/HomeVenueJoinSection.tsx',
   'app/(tabs)/my-joins.tsx',
 ] as const;
 
@@ -61,9 +61,9 @@ test('legacy HomeJoinSections file is removed', () => {
   assert.equal(existsSync(join(mobileRoot, LEGACY_HOME_CARD_FILE)), false);
 });
 
-test('home today section uses compact JoinCard mapper', () => {
+test('home venue section uses compact JoinCard mapper', () => {
   const source = readFileSync(
-    join(mobileRoot, 'src/features/home/components/HomeTodaysJoinSection.tsx'),
+    join(mobileRoot, 'src/features/home/components/HomeVenueJoinSection.tsx'),
     'utf8',
   );
   assert.match(source, /variant: 'compact'/);

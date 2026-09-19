@@ -2,33 +2,33 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import * as Location from 'expo-location';
 import { DEFAULT_NEARBY_RADIUS_METERS, localDayKey } from '@jjoin/domain';
+import { VenueType } from '@jjoin/types';
 import type {
   ClubDetailDto,
   ClubSummaryDto,
   DiscoverJoinCardDto,
+  GolfFriendCardDto,
   HomeBannerDto,
-  PublicUserProfileDto,
-  RecommendedJoinDto,
 } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
-import { trackRecommendationImpression } from '../../../lib/product-analytics';
 import { getSecureSessionStore } from '../../../session/SessionContext';
 import { fetchDiscoverJoins } from '../../explore/discovery/api/join-discover-api';
-import { pickTodayDiscoverJoins, pickUrgentJoins } from '../home-format';
+import { pickVenueDiscoverJoins } from '../home-format';
 
 const HOME_DATA_STALE_MS = 60_000;
+const HOME_JOIN_LIMIT = 3;
+const HOME_USER_LIMIT = 3;
 
 export type HomeDataState = {
-  todayJoins: DiscoverJoinCardDto[];
-  urgentJoins: ReturnType<typeof pickUrgentJoins>;
-  recommended: RecommendedJoinDto[];
+  fieldJoins: DiscoverJoinCardDto[];
+  screenJoins: DiscoverJoinCardDto[];
   clubs: ClubSummaryDto[];
   featuredClub: ClubDetailDto | null;
   banners: HomeBannerDto[];
-  discoveryProfiles: PublicUserProfileDto[];
+  discoveryFriends: GolfFriendCardDto[];
   initialLoading: boolean;
   isRefreshing: boolean;
-  recommendError: string | null;
+  discoverError: string | null;
   hasLoadedOnce: boolean;
   loadingClub: boolean;
 };
@@ -42,20 +42,18 @@ function roundCoord(value: number): number {
 export function useHomeData(userId: string | undefined, clubsUiEnabled = false) {
   const api = useMemo(() => getApiClient(getSecureSessionStore()), []);
   const [state, setState] = useState<HomeDataState>({
-    todayJoins: [],
-    urgentJoins: [],
-    recommended: [],
+    fieldJoins: [],
+    screenJoins: [],
     clubs: [],
     featuredClub: null,
     banners: [],
-    discoveryProfiles: [],
+    discoveryFriends: [],
     initialLoading: true,
     isRefreshing: false,
-    recommendError: null,
+    discoverError: null,
     hasLoadedOnce: false,
     loadingClub: true,
   });
-  const impressedRef = useRef(new Set<string>());
   const loadSeqRef = useRef(0);
   const lastFetchAtRef = useRef(0);
   const coordsRef = useRef<StableCoords | null>(null);
@@ -85,7 +83,7 @@ export function useHomeData(userId: string | undefined, clubsUiEnabled = false) 
         ...prev,
         initialLoading: mode === 'initial' && !prev.hasLoadedOnce,
         isRefreshing: mode === 'refresh' && prev.hasLoadedOnce,
-        recommendError: null,
+        discoverError: null,
       }));
 
       const todayKey = localDayKey(new Date());
@@ -109,80 +107,50 @@ export function useHomeData(userId: string | undefined, clubsUiEnabled = false) 
         }
       })();
 
-      const recommendedTask = (async () => {
-        try {
-          return await api.getRecommendedJoins({
-            limit: 5,
-            lat: coords?.lat,
-            lng: coords?.lng,
-          });
-        } catch {
-          return { items: [] as RecommendedJoinDto[] };
-        }
-      })();
-
       const clubsTask = clubsUiEnabled
         ? api.listMyClubs().catch(() => ({ items: [] }))
         : Promise.resolve({ items: [] });
       const bannersTask = api.listHomeBanners().catch(() => [] as HomeBannerDto[]);
       const profilesTask = api.getGolfFriendsRecommended().catch(() => ({ items: [] }));
 
-      const [discoverResult, recommendedResult, clubsResult, bannersResult, profilesResult] =
-        await Promise.allSettled([
-          discoverTask,
-          recommendedTask,
-          clubsTask,
-          bannersTask,
-          profilesTask,
-        ]);
+      const [discoverResult, clubsResult, bannersResult, profilesResult] = await Promise.allSettled([
+        discoverTask,
+        clubsTask,
+        bannersTask,
+        profilesTask,
+      ]);
 
       if (seq !== loadSeqRef.current) return;
 
-      const discoverRows =
-        discoverResult.status === 'fulfilled' ? discoverResult.value : [];
-      const recommended =
-        recommendedResult.status === 'fulfilled' ? recommendedResult.value.items : [];
-      const recommendFailed = recommendedResult.status === 'rejected';
+      const discoverRows = discoverResult.status === 'fulfilled' ? discoverResult.value : [];
+      const discoverFailed = discoverResult.status === 'rejected';
       const clubs = clubsResult.status === 'fulfilled' ? clubsResult.value.items : [];
       const banners = bannersResult.status === 'fulfilled' ? bannersResult.value : [];
-      const discoveryProfiles =
+      const discoveryFriends =
         profilesResult.status === 'fulfilled'
-          ? profilesResult.value.items
-              .map((item) => item.user)
-              .filter((profile): profile is PublicUserProfileDto => Boolean(profile?.id))
-              .slice(0, 8)
+          ? profilesResult.value.items.slice(0, HOME_USER_LIMIT)
           : [];
 
-      const todayJoins = pickTodayDiscoverJoins(discoverRows, 3);
-      const urgentJoins = pickUrgentJoins(discoverRows, recommended, 1);
-      const nextRecommended = recommended.slice(0, 3);
+      const fieldJoins = pickVenueDiscoverJoins(discoverRows, VenueType.FIELD, HOME_JOIN_LIMIT);
+      const screenJoins = pickVenueDiscoverJoins(discoverRows, VenueType.SCREEN, HOME_JOIN_LIMIT);
 
       setState((prev) => ({
         ...prev,
-        todayJoins,
-        urgentJoins,
-        recommended: nextRecommended,
+        fieldJoins,
+        screenJoins,
         clubs,
         banners,
-        discoveryProfiles,
+        discoveryFriends,
         initialLoading: false,
         isRefreshing: false,
         hasLoadedOnce: true,
-        recommendError:
-          recommendFailed && prev.recommended.length === 0 && nextRecommended.length === 0
-            ? '추천 조인을 불러오지 못했습니다.'
+        discoverError:
+          discoverFailed && prev.fieldJoins.length === 0 && prev.screenJoins.length === 0
+            ? '조인 목록을 불러오지 못했습니다.'
             : null,
       }));
 
       lastFetchAtRef.current = Date.now();
-
-      if (userId) {
-        for (const item of nextRecommended) {
-          if (impressedRef.current.has(item.joinId)) continue;
-          impressedRef.current.add(item.joinId);
-          trackRecommendationImpression(api, userId, item.joinId, 'home');
-        }
-      }
 
       const activeClub = clubs.find((c) => c.myStatus === 'ACTIVE') ?? clubs[0] ?? null;
       if (!activeClub) {
@@ -199,7 +167,7 @@ export function useHomeData(userId: string | undefined, clubsUiEnabled = false) 
         setState((prev) => ({ ...prev, featuredClub: null, loadingClub: false }));
       }
     },
-    [api, clubsUiEnabled, resolveCoords, userId],
+    [api, clubsUiEnabled, resolveCoords],
   );
 
   const reload = useCallback(() => {
