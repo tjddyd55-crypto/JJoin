@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AppState,
   KeyboardAvoidingView,
@@ -14,6 +14,10 @@ import type { DirectConversationDto, DirectMessageDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
 import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
+import {
+  mergeDirectMessages,
+  resolveDirectMessageIdempotencyKey,
+} from '../model/direct-message-thread';
 
 function newMessageKey() {
   return `dm-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -28,6 +32,7 @@ export function DirectConversationThreadScreen() {
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const pendingSend = useRef<{ body: string; key: string } | null>(null);
   const coinCost = me?.messagePolicy?.coinCostPerMessage ?? 0;
 
   const load = useCallback(async () => {
@@ -38,7 +43,7 @@ export function DirectConversationThreadScreen() {
         api.listDirectMessages(conversationId),
       ]);
       setConversation(conv);
-      setMessages(page.items);
+      setMessages((prev) => mergeDirectMessages(prev, page.items));
       await api.markDirectConversationRead(conversationId);
       setError(null);
     } catch (e) {
@@ -66,16 +71,26 @@ export function DirectConversationThreadScreen() {
   }, [conversationId, load]);
 
   async function onSend() {
-    if (!conversationId || !draft.trim()) return;
+    if (!conversationId || busy) return;
+    const body = draft.trim();
+    if (!body) return;
+    const pending = resolveDirectMessageIdempotencyKey({
+      body,
+      previousBody: pendingSend.current?.body ?? null,
+      previousKey: pendingSend.current?.key ?? null,
+      mint: newMessageKey,
+    });
+    pendingSend.current = pending;
     setBusy(true);
     setError(null);
     try {
       const sent = await api.postDirectMessage(conversationId, {
-        body: draft.trim(),
-        idempotencyKey: newMessageKey(),
+        body: pending.body,
+        idempotencyKey: pending.key,
       });
-      setMessages((prev) => [...prev, sent]);
+      setMessages((prev) => mergeDirectMessages(prev, [sent]));
       setDraft('');
+      pendingSend.current = null;
       await api.markDirectConversationRead(conversationId);
     } catch (e) {
       const text = e instanceof Error ? e.message : '';
