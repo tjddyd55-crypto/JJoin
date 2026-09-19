@@ -13,6 +13,7 @@
     "build:api": "pnpm --filter @jjoin/types build && pnpm --filter @jjoin/domain build && pnpm --filter @jjoin/validation build && pnpm prisma:generate && pnpm --filter @jjoin/api build",
     "typecheck": "pnpm -r --if-present run typecheck",
     "lint": "eslint \"apps/api/src/**/*.ts\" \"apps/mobile/src/**/*.{ts,tsx}\" \"packages/*/src/**/*.{ts,tsx}\" --max-warnings 300",
+    "dev:device": "powershell -ExecutionPolicy Bypass -File scripts/dev-device.ps1",
     "mobile:doctor": "powershell -ExecutionPolicy Bypass -File scripts/mobile-dev-doctor.ps1",
     "mobile:metro:recover": "powershell -ExecutionPolicy Bypass -File scripts/mobile-metro-recover.ps1",
     "test": "pnpm -r --if-present run test",
