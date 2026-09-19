@@ -149,6 +149,10 @@ import { JoinWaitlistService } from './join-waitlist.service';
 import { MediaUrlService } from '../storage/media-url.service';
 import type { AttendanceIntent } from '@jjoin/types';
 import { fieldJoinDetailCreateData, mapFieldJoinDetailDto } from './field-join-detail.map';
+import {
+  pickJoinParticipantGolfHandicaps,
+  resolveJoinParticipantPublicFields,
+} from './join-participant-public-fields';
 
 const ACTIVE_JOIN_STATUSES: JoinStatus[] = [JoinStatus.OPEN, JoinStatus.FULL];
 
@@ -891,7 +895,7 @@ export class JoinsService {
           include: {
             user: {
               include: {
-                profile: true,
+                profile: { include: { avatarAsset: { select: { storageKey: true } } } },
                 sportProfiles: { include: { sport: true } },
               },
             },
@@ -1970,9 +1974,21 @@ export class JoinsService {
         applicationNote?: string | null;
         hostReviewStatus?: string | null;
         user: {
-          profile: { nickname: string; gender?: string | null; age?: number | null } | null;
+          profile: {
+            nickname: string;
+            gender?: string | null;
+            age?: number | null;
+            ageBand?: string | null;
+            showAge?: boolean | null;
+            showHandicap?: boolean | null;
+            avatarAsset?: { storageKey: string } | null;
+          } | null;
           identityStatus?: string;
-          sportProfiles?: Array<{ fieldHandicap?: number | null; sport?: { code?: string } }>;
+          sportProfiles?: Array<{
+            fieldHandicap?: number | null;
+            screenHandicap?: number | null;
+            sport?: { code?: string };
+          }>;
         };
       }>;
       chatRoom?: {
@@ -2033,6 +2049,15 @@ export class JoinsService {
         p.id,
         p.participationStatus,
       );
+      const handicaps = pickJoinParticipantGolfHandicaps(p.user.sportProfiles);
+      const publicFields = resolveJoinParticipantPublicFields({
+        age: p.user.profile?.age ?? null,
+        fieldHandicap: handicaps.fieldHandicap,
+        screenHandicap: handicaps.screenHandicap,
+        showAge: p.user.profile?.showAge ?? true,
+        showHandicap: p.user.profile?.showHandicap ?? true,
+        isOwner: viewerUserId != null && p.userId === viewerUserId,
+      });
       return {
         participantId: p.id,
         userId: p.userId,
@@ -2074,11 +2099,13 @@ export class JoinsService {
                 participants: fieldRoster,
               })
             : null,
-        age: p.user.profile?.age ?? null,
-        fieldHandicap:
-          p.user.sportProfiles?.find((sp) => sp.sport?.code === SCREEN_GOLF_CODE)?.fieldHandicap ??
-          p.user.sportProfiles?.[0]?.fieldHandicap ??
-          null,
+        age: publicFields.age,
+        ageBand: (p.user.profile?.ageBand as JoinParticipantDto['ageBand']) ?? null,
+        avatarUrl: this.mediaUrls.resolveAvatarUrl(
+          p.user.profile?.avatarAsset?.storageKey ?? null,
+        ),
+        fieldHandicap: publicFields.fieldHandicap,
+        screenHandicap: publicFields.screenHandicap,
         avgScore: null,
       };
     });

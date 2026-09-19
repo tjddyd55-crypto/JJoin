@@ -13,6 +13,7 @@ import {
   StickyActionFrame,
   Stack,
   stickyActionScrollPadding,
+  stickyActionSecondaryButtonExtra,
   useTheme,
   type BadgeVariant,
 } from '@jjoin/design-system';
@@ -41,9 +42,16 @@ import {
   canSetAttendanceIntent,
 } from '../../../src/features/join/attendance-intent-ui';
 import { JoinDetailPrimarySections } from '../../../src/features/join/components/JoinDetailPrimarySections';
+import { FieldJoinRosterSections } from '../../../src/features/join/components/FieldJoinRosterSections';
 import { JoinHostManagementSection } from '../../../src/features/join/components/JoinHostManagementSection';
 import { JoinTeamAssignmentSection } from '../../../src/features/join/components/JoinTeamAssignmentSection';
 import { MemberActionMenu } from '../../../src/features/member/components/MemberActionMenu';
+import {
+  isFieldJoinDetail,
+  resolveFieldDetailStickyScrollExtra,
+  shouldShowJoinTeamAssignmentSection,
+  shouldShowJoinUrgentRecruitToggle,
+} from '../../../src/features/join/model/field-join-detail-ops';
 import { canShowJoinChatEntry } from '../../../src/ui/join-detail-display';
 import type { JoinWaitlistResponse } from '@jjoin/types';
 import {
@@ -246,12 +254,6 @@ export default function JoinDetailScreen() {
   const isHost = detail?.host.id === me?.userId;
   const pending = detail?.participants.filter(
     (p) => p.role !== 'HOST' && p.participationStatus === ParticipationStatus.APPLIED,
-  );
-  const fieldConfirmed = detail?.participants.filter(
-    (p) =>
-      p.role === 'HOST' ||
-      p.participationStatus === ParticipationStatus.APPROVED ||
-      p.participationStatus === ParticipationStatus.CONFIRMED,
   );
   const mySettlement = detail?.settlement?.settlements.find((s) => s.userId === me?.userId);
   const myCountdownMs = useServerCountdown(
@@ -663,15 +665,20 @@ export default function JoinDetailScreen() {
     (detail.status === JoinStatus.COMPLETED ||
       detail.status === JoinStatus.CANCELLED ||
       new Date(detail.startAt).getTime() < Date.now());
-  const showUrgentToggle =
-    isHost &&
-    canHostManageUrgentRecruitment({
-      status: detail.status,
-      startAt: detail.startAt,
-      plannedPlayerCount: detail.plannedPlayerCount,
-      confirmedPlayerCount: detail.confirmedPlayerCount,
-      isUrgent: detail.isUrgent ?? false,
-    });
+  const isFieldJoin = isFieldJoinDetail(detail);
+  const showUrgentToggle = shouldShowJoinUrgentRecruitToggle({
+    venueType: detail.venue.venueType,
+    isHost,
+    canManage:
+      isHost &&
+      canHostManageUrgentRecruitment({
+        status: detail.status,
+        startAt: detail.startAt,
+        plannedPlayerCount: detail.plannedPlayerCount,
+        confirmedPlayerCount: detail.confirmedPlayerCount,
+        isUrgent: detail.isUrgent ?? false,
+      }),
+  });
   const showChatEntry = canShowJoinChatEntry(detail, isHost);
   const showAttendanceIntentActions = canSetAttendanceIntent({
     isHost,
@@ -685,7 +692,14 @@ export default function JoinDetailScreen() {
   const showStickyCta = shouldShowJoinDetailStickyCta(primaryCta.presentation);
   const secondaryCtaLabel = joinDetailSecondaryCtaLabel(primaryCta.presentation);
   const scrollBottomPadding = showStickyCta
-    ? stickyActionScrollPadding(insets.bottom)
+    ? stickyActionScrollPadding(insets.bottom) +
+      (isFieldJoin
+        ? resolveFieldDetailStickyScrollExtra({
+            showApplyNote: primaryCta.presentation === 'apply',
+            showSecondaryCta: Boolean(secondaryCtaLabel),
+            secondaryButtonExtra: stickyActionSecondaryButtonExtra(),
+          })
+        : 0)
     : theme.layoutSpacing.sectionGap;
 
   return (
@@ -705,7 +719,25 @@ export default function JoinDetailScreen() {
           onOpenHost={() => router.push(`/user/${detail.host.id}`)}
         />
 
-        {detail.playFormat === 'TEAM' ? (
+        {isFieldJoin ? (
+          <FieldJoinRosterSections
+            detail={detail}
+            isHost={isHost}
+            onOpenProfile={(userId) => router.push(`/user/${userId}`)}
+            hostActions={
+              isHost
+                ? {
+                    busy,
+                    onApprove: (participantId) => void onApprove(participantId),
+                    onHold: (participantId) => void onHoldApplicant(participantId),
+                    onReject: (participantId) => void onRejectApplicant(participantId),
+                  }
+                : undefined
+            }
+          />
+        ) : null}
+
+        {shouldShowJoinTeamAssignmentSection(detail) ? (
           <JoinTeamAssignmentSection
             detail={detail}
             isHost={isHost}
@@ -717,9 +749,10 @@ export default function JoinDetailScreen() {
           <JoinHostManagementSection
             detail={detail}
             busy={busy}
+            density={isFieldJoin ? 'compact' : 'default'}
             showUrgentToggle={showUrgentToggle}
             onToggleUrgent={() => void onToggleUrgent()}
-            onOpenChat={showChatEntry ? openJoinChat : undefined}
+            onOpenChat={!isFieldJoin && showChatEntry ? openJoinChat : undefined}
             onEdit={
               canEditJoin
                 ? () => router.push(`/join/${joinId}/edit`)
@@ -741,7 +774,15 @@ export default function JoinDetailScreen() {
                 : undefined
             }
           />
-        ) : showChatEntry ? (
+        ) : null}
+
+        {isFieldJoin && showChatEntry ? (
+          <Section title="채팅방">
+            <Button label="💬 채팅방" loading={busy} onPress={openJoinChat} />
+          </Section>
+        ) : null}
+
+        {!isFieldJoin && !isHost && showChatEntry ? (
           <Section title="채팅">
             <Button label="💬 채팅방" loading={busy} onPress={openJoinChat} />
           </Section>
@@ -903,32 +944,7 @@ export default function JoinDetailScreen() {
           </Section>
         ) : null}
 
-        {detail.venue.venueType === 'FIELD' && fieldConfirmed ? (
-          <Section title={`확정 멤버 ${fieldConfirmed.length}`}>
-            {fieldConfirmed.map((p) => (
-              <Card key={p.participantId} variant="base" padding="md">
-                <Text variant="bodyStrong" tone="primary">
-                  {p.nickname}{p.role === 'HOST' ? ' · 방장' : ''}
-                </Text>
-                <Text variant="caption" tone="secondary">
-                  {[p.age != null ? `${p.age}세` : null, p.gender, p.fieldHandicap != null ? `핸디 ${p.fieldHandicap}` : null]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </Text>
-              </Card>
-            ))}
-          </Section>
-        ) : null}
-
-        {detail.venue.venueType === 'FIELD' && !isHost ? (
-          <Section title={`신청 ${detail.applicationCount ?? pending?.length ?? 0}`}>
-            <Text variant="caption" tone="secondary">
-              신청자 상세는 방장만 볼 수 있습니다.
-            </Text>
-          </Section>
-        ) : null}
-
-        {isHost && pending && pending.length > 0 ? (
+        {!isFieldJoin && isHost && pending && pending.length > 0 ? (
           <Section title={`신청자 ${pending.length}`}>
             {pending.map((p) => (
               <Card key={p.participantId} variant="base" padding="md">

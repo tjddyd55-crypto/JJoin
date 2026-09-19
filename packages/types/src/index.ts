@@ -1109,7 +1109,11 @@ export type JoinParticipantDto = {
   fieldFaceLabel?: '신청' | '확정' | '보류' | '미선정' | '신청 취소';
   fieldGenderHint?: '조건 일치' | '남성 자리 남음' | '여성 자리 남음' | '해당 성별 자리 마감' | null;
   age?: number | null;
+  ageBand?: AgeBand | null;
+  avatarUrl?: string | null;
   fieldHandicap?: number | null;
+  screenHandicap?: number | null;
+  /** Placeholder — no average-score SSOT exists yet. Always null. */
   avgScore?: number | null;
 };
 
