@@ -523,46 +523,23 @@ export default function CreateScreen() {
           ...(recurrenceUseEndDate
             ? { recurrenceEndDate }
             : { maxOccurrences }),
-          title: routeTitle ?? `${selectedVenue.name} ${venueType === 'FIELD' ? '필드 조인' : '스크린골프'}`,
+          title: routeTitle ?? `${selectedVenue.name} 스크린골프`,
           description: description.trim() || null,
           joinTemplate: {
             sportCode: SCREEN_GOLF_CODE,
             venueId,
-            venueType: venueType === 'FIELD' ? VenueType.FIELD : VenueType.SCREEN,
+            venueType: VenueType.SCREEN,
             plannedPlayerCount: players,
             playFormat,
             teamSize: playFormat === JoinPlayFormat.TEAM ? teamSize : null,
             teamCount: playFormat === JoinPlayFormat.TEAM ? teamCount : null,
             joinMethod,
-            title: routeTitle ?? `${selectedVenue.name} ${venueType === 'FIELD' ? '필드 조인' : '스크린골프'}`,
+            title: routeTitle ?? `${selectedVenue.name} 스크린골프`,
             description: description.trim() || null,
             rewardPerParticipant,
             ...memberPreferencesPayload(memberPrefs),
-            ...joinRoomCharacterPayload(
-              venueType === 'FIELD' && roomCharacter.participantSkillMode === 'HANDICAP_RANGE'
-                ? { ...roomCharacter, participantSkillMode: 'ANY' }
-                : roomCharacter,
-            ),
-            ...(venueType === 'FIELD'
-              ? fieldGenderCompositionPayload(genderComposition, plannedPlayerCountToRecruitCount(players))
-              : genderCompositionPayload(genderComposition, players)),
-            ...(venueType === 'FIELD'
-              ? {
-                  fieldDetails: {
-                    ...fieldJoinCostPayload({
-                      ...fieldCost,
-                      minFieldHandicap:
-                        roomCharacter.participantSkillMode === 'HANDICAP_RANGE'
-                          ? fieldCost.minFieldHandicap
-                          : null,
-                      maxFieldHandicap:
-                        roomCharacter.participantSkillMode === 'HANDICAP_RANGE'
-                          ? fieldCost.maxFieldHandicap
-                          : null,
-                    }),
-                  },
-                }
-              : {}),
+            ...joinRoomCharacterPayload(roomCharacter),
+            ...genderCompositionPayload(genderComposition, players),
           },
         });
         setDoneRecurringId(schedule.id);
