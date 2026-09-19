@@ -12,6 +12,10 @@ const sectionsPath = join(
   dirname(fileURLToPath(import.meta.url)),
   'components/JoinDetailPrimarySections.tsx',
 );
+const fieldSummaryPath = join(
+  dirname(fileURLToPath(import.meta.url)),
+  'components/FieldJoinDetailSummarySurface.tsx',
+);
 
 const FORBIDDEN_BODY_ACTIONS = [
   'label="내 조인"',
@@ -45,4 +49,16 @@ test('join detail keeps bookmark and share compact header actions', () => {
   assert.match(sections, /onShare/);
   assert.match(sections, /headerActionHit/);
   assert.match(sections, /minWidth: 44/);
+});
+
+test('FIELD detail core info is a single surface without nested scan card', () => {
+  const sections = readFileSync(sectionsPath, 'utf8');
+  const fieldSummary = readFileSync(fieldSummaryPath, 'utf8');
+  assert.doesNotMatch(sections, /한눈에 보기/);
+  assert.doesNotMatch(sections, /buildFieldJoinScanRows/);
+  assert.match(sections, /FieldJoinDetailSummarySurface/);
+  assert.match(sections, /buildFieldJoinDetailSummary/);
+  assert.doesNotMatch(fieldSummary, /한눈에 보기/);
+  assert.doesNotMatch(fieldSummary, /surface\.soft/);
+  assert.doesNotMatch(fieldSummary, /JoinDetailCard/);
 });

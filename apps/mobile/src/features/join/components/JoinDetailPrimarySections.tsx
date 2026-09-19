@@ -14,13 +14,12 @@ import {
   useTheme,
 } from '@jjoin/design-system';
 import {
-  formatFieldRecruitSummary,
   formatPlayFormatLabel,
   formatTeamCapacityLabel,
-  computeFieldOpenSeats,
 } from '@jjoin/domain';
-import { buildFieldJoinScanRows } from '../model/field-join-detail-scan';
+import { buildFieldJoinDetailSummary } from '../model/field-join-detail-summary';
 import type { JoinDetailDto } from '@jjoin/types';
+import { FieldJoinDetailSummarySurface } from './FieldJoinDetailSummarySurface';
 import { JoinParticipationSlotGrid } from './JoinParticipationSlotGrid';
 import {
   buildJoinBenefitLines,
@@ -77,6 +76,38 @@ function SectionDivider() {
     <View
       style={[styles.divider, { backgroundColor: theme.colors.border.subtle }]}
     />
+  );
+}
+
+function JoinDetailHostVenueBlock({
+  detail,
+  onOpenHost,
+  onOpenMap,
+}: {
+  detail: JoinDetailDto;
+  onOpenHost?: () => void;
+  onOpenMap?: () => void;
+}) {
+  const regionLine = [detail.venue.sido, detail.venue.sigungu].filter(Boolean).join(' ');
+  const distanceLabel = detail.venue.regionLabel?.trim() || null;
+  return (
+    <>
+      <JoinHostSummary
+        nickname={detail.host.nickname}
+        avatarUrl={detail.host.avatarUrl}
+        metaLine={formatHostMetaLine(detail)}
+        onPress={onOpenHost}
+        embedded
+      />
+      <SectionDivider />
+      <JoinVenueSummary
+        venueName={detail.venue.name}
+        address={[regionLine, detail.venue.address].filter(Boolean).join(' · ') || detail.venue.address}
+        distanceLabel={distanceLabel}
+        onOpenMap={onOpenMap}
+        embedded
+      />
+    </>
   );
 }
 
@@ -210,9 +241,7 @@ export function JoinDetailPrimarySections({
     (recruitment.femaleTarget ?? 0) > 0 ||
     (recruitment.minimumPlayers ?? 0) > 0;
 
-  const distanceLabel = detail.venue.regionLabel?.trim() || null;
   const trackLabel = detail.venue.venueType === 'FIELD' ? '필드 조인' : '스크린 조인';
-  const regionLine = [detail.venue.sido, detail.venue.sigungu].filter(Boolean).join(' ');
   const canOpenMap = detail.venue.hasMapCoords !== false && Boolean(detail.venue.latitude || detail.venue.longitude);
 
   const openMap = () => {
@@ -221,7 +250,6 @@ export function JoinDetailPrimarySections({
   };
 
   const fieldCost = detail.fieldDetails;
-  const fieldSeats = computeFieldOpenSeats(detail.plannedPlayerCount, detail.confirmedPlayerCount);
   const conditionLabels = [...requirements, ...memberPreferenceLabels];
   if (fieldCost?.minFieldHandicap != null && fieldCost.maxFieldHandicap != null) {
     conditionLabels.push(`필드 핸디 ${fieldCost.minFieldHandicap}~${fieldCost.maxFieldHandicap}`);
@@ -297,39 +325,25 @@ export function JoinDetailPrimarySections({
         </Text>
       </View>
 
-      <JoinDetailCard>
-        <JoinHostSummary
-          nickname={detail.host.nickname}
-          avatarUrl={detail.host.avatarUrl}
-          metaLine={formatHostMetaLine(detail)}
-          onPress={onOpenHost}
-          embedded
-        />
-        <SectionDivider />
-        <JoinVenueSummary
-          venueName={detail.venue.name}
-          address={[regionLine, detail.venue.address].filter(Boolean).join(' · ') || detail.venue.address}
-          distanceLabel={distanceLabel}
-          onOpenMap={canOpenMap ? openMap : undefined}
-          embedded
-        />
-      </JoinDetailCard>
-
       {detail.venue.venueType === 'FIELD' ? (
         <JoinDetailCard>
-          <JoinDetailInfoPanel
-            title="한눈에 보기"
-            rows={buildFieldJoinScanRows(detail)}
+          <JoinDetailHostVenueBlock
+            detail={detail}
+            onOpenHost={onOpenHost}
+            onOpenMap={canOpenMap ? openMap : undefined}
           />
-          <Text variant="caption" tone="secondary">
-            {formatFieldRecruitSummary({
-              recruitCount: detail.recruitCount ?? Math.max(0, fieldSeats.total - 1),
-              applicationCount: detail.applicationCount ?? 0,
-              confirmedCount: detail.confirmedApplicantCount ?? Math.max(0, fieldSeats.confirmed - 1),
-            })}
-          </Text>
+          <SectionDivider />
+          <FieldJoinDetailSummarySurface summary={buildFieldJoinDetailSummary(detail)} />
         </JoinDetailCard>
       ) : (
+      <>
+      <JoinDetailCard>
+        <JoinDetailHostVenueBlock
+          detail={detail}
+          onOpenHost={onOpenHost}
+          onOpenMap={canOpenMap ? openMap : undefined}
+        />
+      </JoinDetailCard>
       <JoinDetailCard>
         <JoinMiniStatGrid items={scheduleTiles} />
         <JoinSeatsRemainingBanner
@@ -344,6 +358,7 @@ export function JoinDetailPrimarySections({
         ) : null}
         <JoinParticipationSlotGrid slots={rosterSlots} />
       </JoinDetailCard>
+      </>
       )}
 
       {detail.venue.venueType !== 'FIELD' && (conditionLabels.length > 0 || showBenefits) ? (
