@@ -1,4 +1,4 @@
-/**
+﻿/**
  * DEV-only member message + coin gift E2E. Never Production.
  */
 const TAG = '[QA-MEMBER-MESSAGE-GIFT-E2E]';
@@ -199,20 +199,21 @@ async function main() {
   const unread2 = await req('GET', '/me/messages/unread-count', b.token);
   note('read_clears_unread', read.status < 300 && num(obj(unread2.json).unreadCount) === 0, unread2.text);
 
+  // DEV_A is often premium on this DEV DB; gate must use non-premium sender (DEV_B).
   const premiumOnly = await req('PUT', '/admin/message-policy', adminToken, {
     premiumOnly: true,
     friendsOnly: false,
     coinCostPerMessage: 0,
     enabled: true,
   });
-  const blockedPremium = await req('POST', `/me/messages/conversations/${conversationId}/messages`, a.token, {
+  const blockedPremium = await req('POST', `/me/messages/conversations/${conversationId}/messages`, b.token, {
     body: 'premium gate',
-    idempotencyKey: msgKey + '-premium',
+    idempotencyKey: msgKey + '-premium-b',
   });
   note(
     'policy_premium_only',
     premiumOnly.status < 300 && blockedPremium.status >= 400,
-    'status=' + blockedPremium.status,
+    'status=' + blockedPremium.status + ' sender=DEV_B',
   );
 
   const friendsOnly = await req('PUT', '/admin/message-policy', adminToken, {
