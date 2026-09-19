@@ -1,4 +1,5 @@
-import { JOIN_MEMBER_MAX_AGE, JOIN_MEMBER_MIN_AGE } from './join-member-preferences';
+export const JOIN_MEMBER_MIN_AGE = 18;
+export const JOIN_MEMBER_MAX_AGE = 70;
 
 export { JOIN_MEMBER_MIN_AGE as MEMBER_AGE_MIN, JOIN_MEMBER_MAX_AGE as MEMBER_AGE_MAX };
 

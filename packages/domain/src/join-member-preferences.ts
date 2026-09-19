@@ -1,8 +1,11 @@
 import { JoinPreferredGender } from '@jjoin/types';
-import { formatAgeRangeLabel } from './age-range';
+import {
+  JOIN_MEMBER_MAX_AGE,
+  JOIN_MEMBER_MIN_AGE,
+  formatAgeRangeLabel,
+} from './age-range';
 
-export const JOIN_MEMBER_MIN_AGE = 18;
-export const JOIN_MEMBER_MAX_AGE = 70;
+export { JOIN_MEMBER_MAX_AGE, JOIN_MEMBER_MIN_AGE };
 
 export type JoinMemberPreferenceInput = {
   preferredGender?: JoinPreferredGender | null;
