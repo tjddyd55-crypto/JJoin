@@ -15,6 +15,8 @@ import {
   validateStoreScreenBrand,
 } from '@jjoin/domain';
 import {
+  StoreOperatingDayGroup,
+  StorePriceDayType,
   StoreProfileVisibility,
   StoreScreenBrand,
   type PublicStoreDetailDto,
@@ -290,7 +292,7 @@ export class StoreProfilesService {
       (profile?.priceSlots ?? []).map(
         (slot): StorePriceSlotDto => ({
           id: slot.id,
-          dayType: slot.dayType,
+          dayType: slot.dayType as StorePriceDayType,
           startTime: slot.startTime,
           endTime: slot.endTime,
           price: slot.price,
@@ -342,7 +344,7 @@ export class StoreProfilesService {
       operatingHours: (profile?.operatingHours ?? []).map(
         (row): StoreOperatingHoursDto => ({
           id: row.id,
-          dayGroup: row.dayGroup,
+          dayGroup: row.dayGroup as StoreOperatingDayGroup,
           label: row.label,
           startTime: row.startTime,
           endTime: row.endTime,
