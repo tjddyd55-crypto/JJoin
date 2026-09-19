@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { test } from 'node:test';
-import { fileURLToPath } from 'node:url';
 import {
   buildJoinCardCharacterTags,
   formatFieldExpectedCostLabel,
@@ -11,8 +10,7 @@ import {
 } from './index';
 
 test('package.json points Metro at domain source, not stale dist', () => {
-  const packageJsonPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json');
-  const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
+  const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8')) as {
     'react-native'?: string;
     exports?: { '.'?: { 'react-native'?: string; default?: string } };
   };

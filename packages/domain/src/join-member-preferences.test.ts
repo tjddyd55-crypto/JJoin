@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { JoinPreferredGender } from '@jjoin/types';
 import {
-  formatJoinMemberPreferenceSummary,
   hasJoinMemberPreferences,
   validateJoinMemberPreferences,
 } from './join-member-preferences';
