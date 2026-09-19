@@ -72,13 +72,18 @@ export class DirectMessagesService {
     });
     const items: DirectConversationDto[] = [];
     for (const row of memberships) {
+      const peerUserId = peerUserIdFromPair(
+        { userLowId: row.conversation.userLowId, userHighId: row.conversation.userHighId },
+        viewerId,
+      );
+      if (!(await this.canAccess(viewerId, peerUserId))) continue;
       items.push(await this.toConversationDto(viewerId, row.conversationId));
     }
     return { items };
   }
 
   async getConversation(viewerId: string, conversationId: string): Promise<DirectConversationDto> {
-    await this.requireMembership(viewerId, conversationId);
+    await this.requireAccessibleConversation(viewerId, conversationId);
     return this.toConversationDto(viewerId, conversationId);
   }
 
@@ -87,7 +92,7 @@ export class DirectMessagesService {
     conversationId: string,
     opts: { cursor?: string; limit?: number },
   ): Promise<DirectMessagesResponse> {
-    await this.requireMembership(viewerId, conversationId);
+    await this.requireAccessibleConversation(viewerId, conversationId);
     const limit = Math.min(Math.max(opts.limit ?? 30, 1), 50);
     const rows = await this.prisma.directMessage.findMany({
       where: {
@@ -209,7 +214,7 @@ export class DirectMessagesService {
   }
 
   async markRead(viewerId: string, conversationId: string): Promise<DirectConversationDto> {
-    await this.requireMembership(viewerId, conversationId);
+    await this.requireAccessibleConversation(viewerId, conversationId);
     const now = new Date();
     await this.prisma.$transaction(async (tx) => {
       await tx.directConversationMember.update({
@@ -231,10 +236,15 @@ export class DirectMessagesService {
   async unreadCount(viewerId: string): Promise<DirectUnreadCountDto> {
     const memberships = await this.prisma.directConversationMember.findMany({
       where: { userId: viewerId },
-      select: { conversationId: true, lastReadAt: true },
+      include: { conversation: true },
     });
     let unreadCount = 0;
     for (const row of memberships) {
+      const peerUserId = peerUserIdFromPair(
+        { userLowId: row.conversation.userLowId, userHighId: row.conversation.userHighId },
+        viewerId,
+      );
+      if (!(await this.canAccess(viewerId, peerUserId))) continue;
       unreadCount += await this.prisma.directMessage.count({
         where: {
           conversationId: row.conversationId,
@@ -244,6 +254,27 @@ export class DirectMessagesService {
       });
     }
     return { unreadCount };
+  }
+
+  private async requireAccessibleConversation(viewerId: string, conversationId: string) {
+    const conversation = await this.requireMembership(viewerId, conversationId);
+    await this.assertCanAccess(
+      viewerId,
+      peerUserIdFromPair(
+        { userLowId: conversation.userLowId, userHighId: conversation.userHighId },
+        viewerId,
+      ),
+    );
+    return conversation;
+  }
+
+  private async canAccess(viewerId: string, peerUserId: string): Promise<boolean> {
+    try {
+      await this.assertCanAccess(viewerId, peerUserId);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private async assertCanAccess(viewerId: string, peerUserId: string): Promise<void> {

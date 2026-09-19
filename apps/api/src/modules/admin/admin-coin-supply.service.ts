@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import {
   currentSupply,
+  isBurnLedgerType,
   isCoinAmountPositive,
   verifySupplyIdentity,
 } from '@jjoin/domain';
@@ -28,6 +29,11 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ensureFoundation } from '../../foundation/ensure-foundation';
 import { CoinLedgerService } from '../wallet/coin-ledger.service';
 
+const BURN_LEDGER_TYPES = ['ROOM_CREATION_FEE', 'DIRECT_MESSAGE_FEE'] as const;
+if (BURN_LEDGER_TYPES.some((type) => !isBurnLedgerType(type))) {
+  throw new Error('admin burn ledger types must match domain isBurnLedgerType');
+}
+
 const MANUAL_GRANT_TYPES = new Set<string>([
   CoinIssuanceType.ADMIN_GRANT,
   CoinIssuanceType.CUSTOMER_SUPPORT,
@@ -38,6 +44,7 @@ const MANUAL_GRANT_TYPES = new Set<string>([
 
 const TX_LABELS: Record<string, string> = {
   ROOM_CREATION_FEE: '방 생성 수수료',
+  DIRECT_MESSAGE_FEE: '메시지 수수료',
   JOIN_REWARD_HOLD: '참가 보상 보류',
   JOIN_REWARD_RELEASE: '참가 보상 보류 해제',
   JOIN_REWARD_TRANSFER: '참가 보상 지급',
@@ -212,7 +219,11 @@ export class AdminCoinSupplyService {
         _sum: { amount: true },
       }),
       this.prisma.coinTransaction.aggregate({
-        where: { walletId: wallet.id, type: 'ROOM_CREATION_FEE', direction: 'DEBIT' },
+        where: {
+          walletId: wallet.id,
+          type: { in: [...BURN_LEDGER_TYPES] },
+          direction: 'DEBIT',
+        },
         _sum: { amount: true },
       }),
       this.prisma.coinTransaction.findMany({
@@ -318,7 +329,7 @@ export class AdminCoinSupplyService {
 
   private async sumBurns(): Promise<string> {
     const agg = await this.prisma.coinTransaction.aggregate({
-      where: { type: 'ROOM_CREATION_FEE', direction: 'DEBIT' },
+      where: { type: { in: [...BURN_LEDGER_TYPES] }, direction: 'DEBIT' },
       _sum: { amount: true },
     });
     return String(agg._sum.amount ?? 0);

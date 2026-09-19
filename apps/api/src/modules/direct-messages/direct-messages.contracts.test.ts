@@ -18,6 +18,31 @@ import {
   updateMessagePolicySchema,
 } from '@jjoin/validation';
 
+test('open/list gate matches send access before coin cost', () => {
+  assert.equal(
+    evaluateConversationAccess({
+      policy: { ...DEFAULT_MESSAGE_POLICY, enabled: false },
+      fromUserId: 'a',
+      toUserId: 'b',
+      isPremiumActive: false,
+      isAcceptedFriend: false,
+      isBlockedEitherWay: false,
+    }).ok,
+    false,
+  );
+  assert.equal(
+    evaluateConversationAccess({
+      policy: { ...DEFAULT_MESSAGE_POLICY, friendsOnly: true },
+      fromUserId: 'a',
+      toUserId: 'b',
+      isPremiumActive: false,
+      isAcceptedFriend: false,
+      isBlockedEitherWay: false,
+    }).ok,
+    false,
+  );
+});
+
 test('DEV default messaging policy is free for all', () => {
   assert.equal(DEFAULT_MESSAGE_POLICY.enabled, true);
   assert.equal(DEFAULT_MESSAGE_POLICY.premiumOnly, false);

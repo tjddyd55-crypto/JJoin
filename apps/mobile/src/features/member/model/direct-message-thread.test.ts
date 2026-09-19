@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { DirectMessageDto } from '@jjoin/types';
-import { mergeDirectMessages, resolveDirectMessageIdempotencyKey } from './direct-message-thread';
+import {
+  giftAttemptFingerprint,
+  mergeDirectMessages,
+  resolveDirectMessageIdempotencyKey,
+  resolveRetryIdempotencyKey,
+} from './direct-message-thread';
 
 function msg(id: string, createdAt: string): DirectMessageDto {
   return {
@@ -43,4 +48,25 @@ test('retry of the same body reuses the idempotency key', () => {
     mint: () => 'key-3',
   });
   assert.equal(changed.key, 'key-3');
+});
+
+test('gift retry of the same recipient/amount/message reuses the key', () => {
+  const fingerprint = giftAttemptFingerprint({
+    toUserId: 'u2',
+    amount: '500',
+    message: '고마워',
+  });
+  const first = resolveRetryIdempotencyKey({
+    fingerprint,
+    previousFingerprint: null,
+    previousKey: null,
+    mint: () => 'gift-1',
+  });
+  const retry = resolveRetryIdempotencyKey({
+    fingerprint,
+    previousFingerprint: first.fingerprint,
+    previousKey: first.key,
+    mint: () => 'gift-2',
+  });
+  assert.equal(retry.key, 'gift-1');
 });
