@@ -93,7 +93,6 @@ test('baseJoinCardFields maps FIELD cost and track badges without throwing', () 
     },
     { now: new Date('2026-09-17T03:00:00.000Z') },
   );
-  assert.equal(typeof resolveJoinListStatusBadges, 'function');
   assert.equal(card.costLabel, '예상 70,000원');
   assert.ok(card.statusBadges?.some((badge) => badge.label === '필드'));
   assert.equal(card.statusBadges?.some((badge) => badge.label === '스크린'), false);
