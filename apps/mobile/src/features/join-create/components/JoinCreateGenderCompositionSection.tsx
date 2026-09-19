@@ -14,10 +14,11 @@ type Props = {
   value: JoinGenderCompositionState;
   hostGender?: MatchingGender | null;
   caption?: string;
+  specifyLabel?: string;
   onChange: (next: JoinGenderCompositionState) => void;
 };
 
-const MODE_OPTIONS: Array<{ value: JoinGenderCompositionMode; label: string }> = [
+const DEFAULT_MODE_OPTIONS: Array<{ value: JoinGenderCompositionMode; label: string }> = [
   { value: 'ANY', label: '성별 무관' },
   { value: 'FIXED', label: '남/여 인원 지정' },
 ];
@@ -27,8 +28,15 @@ export function JoinCreateGenderCompositionSection({
   value,
   hostGender,
   caption,
+  specifyLabel,
   onChange,
 }: Props) {
+  const modeOptions = specifyLabel
+    ? [
+        { value: 'ANY' as const, label: '성별 무관' },
+        { value: 'FIXED' as const, label: specifyLabel },
+      ]
+    : DEFAULT_MODE_OPTIONS;
   const setMode = (mode: JoinGenderCompositionMode) => {
     if (mode === value.mode) return;
     if (mode === 'FIXED') {
@@ -79,7 +87,7 @@ export function JoinCreateGenderCompositionSection({
         {caption ?? '방장은 총 인원과 성별 구성에 포함됩니다.'}
       </Text>
       <View style={styles.row}>
-        {MODE_OPTIONS.map((opt) => (
+        {modeOptions.map((opt) => (
           <Chip
             key={opt.value}
             label={opt.label}

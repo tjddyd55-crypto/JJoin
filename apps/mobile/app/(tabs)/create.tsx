@@ -50,6 +50,7 @@ import { JoinCreatePricingSummary } from '../../src/features/join-create/compone
 import { FieldJoinQuickCreateForm } from '../../src/features/join-create/components/FieldJoinQuickCreateForm';
 import {
   JoinCreateMemberPreferencesSection,
+  defaultFieldJoinMemberPreferences,
   defaultJoinMemberPreferences,
   memberPreferencesPayload,
   memberPreferencesSummaryLabel,
@@ -200,7 +201,9 @@ export default function CreateScreen() {
   );
   const [description, setDescription] = useState('');
   const [joinMethod, setJoinMethod] = useState<JoinMethod>(JoinMethod.APPROVAL);
-  const [memberPrefs, setMemberPrefs] = useState(() => defaultJoinMemberPreferences());
+  const [memberPrefs, setMemberPrefs] = useState(() =>
+    venueType === 'FIELD' ? defaultFieldJoinMemberPreferences() : defaultJoinMemberPreferences(),
+  );
   const [genderComposition, setGenderComposition] = useState<JoinGenderCompositionState>(() => {
     if (venueType === 'FIELD') {
       return defaultJoinGenderComposition(
@@ -284,7 +287,9 @@ export default function CreateScreen() {
     );
     setDescription('');
     setJoinMethod(JoinMethod.APPROVAL);
-    setMemberPrefs(defaultJoinMemberPreferences());
+    setMemberPrefs(
+      venueType === 'FIELD' ? defaultFieldJoinMemberPreferences() : defaultJoinMemberPreferences(),
+    );
     setGenderComposition(
       defaultJoinGenderComposition(
         venueType === 'FIELD'

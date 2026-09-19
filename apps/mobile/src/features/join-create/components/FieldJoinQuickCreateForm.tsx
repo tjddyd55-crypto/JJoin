@@ -86,10 +86,10 @@ export function FieldJoinQuickCreateForm(props: Props) {
         style={styles.advancedToggle}
       >
         <Text variant="bodyStrong" tone="primary">
-          {advancedOpen ? '조건 접기' : '조건 더보기 (성별·나이·혜택·코인)'}
+          {advancedOpen ? '조건 접기' : '조건 더보기'}
         </Text>
         <Text variant="caption" tone="secondary">
-          기본값: 성별 무관 · 나이 무관 · 혜택 없음 · 코인 0
+          성별 · 나이 · 혜택 · 코인 · 메모 · 기본값 무관/없음
         </Text>
       </Pressable>
       {advancedOpen ? <FieldJoinQuickCreateAdvanced {...props} /> : null}
@@ -105,11 +105,13 @@ function FieldJoinQuickCreateAdvanced(props: Props) {
         value={props.genderComposition}
         hostGender={null}
         caption="모집 인원만 지정합니다. 신청은 막지 않고 확정 때 적용됩니다."
+        specifyLabel="구성 지정"
         onChange={props.onChangeGender}
       />
       <JoinCreateMemberPreferencesSection
         value={props.memberPrefs}
         onChange={props.onChangeMemberPrefs}
+        ageChoice="chips"
       />
       <FieldJoinBenefitsSection
         value={{

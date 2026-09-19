@@ -183,6 +183,61 @@ export function formatFieldCourseRegionLabel(params: {
   return `${normalized.cityCounty}`;
 }
 
+const FIELD_METRO_PROVINCE_RE = /(특별시|광역시|특별자치시)$/;
+
+/** 시/군 only. 구·읍·면·동 are display text, never a FIELD filter step. */
+export function isFieldSigunguFilterToken(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const token = value.trim();
+  if (!token) return false;
+  if (isFieldDongFilterToken(token)) return false;
+  if (/구$/.test(token)) return false;
+  return /[시군]$/.test(token);
+}
+
+export function isFieldMetroProvince(province: string | null | undefined): boolean {
+  const canonical = normalizeSido(province?.trim() || null);
+  return canonical != null && FIELD_METRO_PROVINCE_RE.test(canonical);
+}
+
+export function listFieldSigunguChoices(
+  province: string | null | undefined,
+): FieldCityCounty[] {
+  const group = findFieldProvinceGroup(province);
+  if (!group) return [];
+  return group.cities.filter((city) => isFieldSigunguFilterToken(city.cityCounty));
+}
+
+/**
+ * Sparse metros (서울 등) have almost no FIELD courses per 구.
+ * Skip 구 lists and go 시/도 → 코스. 도 단위는 시/군을 고른다.
+ */
+export function shouldSkipFieldSigunguStep(province: string | null | undefined): boolean {
+  if (isFieldMetroProvince(province)) return true;
+  return listFieldSigunguChoices(province).length === 0;
+}
+
+export type FieldCourseRegionNextStep = 'sigungu' | 'courses';
+
+export function nextFieldCoursePickerStepAfterSido(
+  province: string | null | undefined,
+): FieldCourseRegionNextStep {
+  return shouldSkipFieldSigunguStep(province) ? 'courses' : 'sigungu';
+}
+
+/** Card subtitle: `경기 용인시` / `서울`. */
+export function formatFieldCourseLocationLine(params: {
+  sido?: string | null;
+  sigungu?: string | null;
+}): string | null {
+  const group = findFieldProvinceGroup(params.sido);
+  const normalized = normalizeFieldCityCounty(params.sido, params.sigungu);
+  if (!normalized.province) return null;
+  const sidoLabel = group?.label ?? normalized.province;
+  if (!normalized.cityCounty) return sidoLabel;
+  return `${sidoLabel} ${normalized.cityCounty}`;
+}
+
 export function formatFieldCourseShortAddress(address: string | null | undefined): string | null {
   if (!address?.trim()) return null;
   const tokens = address.trim().split(/\s+/).filter(Boolean);

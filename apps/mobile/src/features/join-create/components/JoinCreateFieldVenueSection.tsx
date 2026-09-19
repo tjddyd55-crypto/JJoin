@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
-import { Button, Card, Text, spacing, useTheme } from '@jjoin/design-system';
+import { useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Button, Card, Icon, Text, spacing, useTheme } from '@jjoin/design-system';
 import type { ApiClient } from '@jjoin/api-client';
-import type { FieldGolfCourseDto } from '@jjoin/types';
+import { formatFieldCourseLocationLine } from '@jjoin/domain';
+import { FieldCoursePickerScreen } from './FieldCoursePickerScreen';
 import {
-  formatFieldCourseRegionLabel,
-  formatFieldCourseShortAddress,
-} from '@jjoin/domain';
-import { FieldRegionPicker } from '../../explore/discovery/components/FieldRegionPicker';
+  FIELD_COURSE_CHANGE_LABEL,
+  FIELD_COURSE_EMPTY_TRIGGER,
+  closeFieldCoursePicker,
+  createFieldCoursePickerState,
+  openFieldCoursePicker,
+} from '../model/field-course-picker';
 import {
   type JoinCreateVenueSelection,
   venueSelectionHasPlace,
@@ -21,156 +24,62 @@ type Props = {
 
 export function JoinCreateFieldVenueSection({ api, selected, onChange }: Props) {
   const theme = useTheme();
-  const [sido, setSido] = useState<string | null>(null);
-  const [sigungu, setSigungu] = useState<string | null>(null);
-  const [name, setName] = useState('');
-  const [hits, setHits] = useState<FieldGolfCourseDto[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [activatingId, setActivatingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const search = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await api.searchFieldGolfCourses({
-        name: name.trim() || undefined,
-        sido: sido ?? undefined,
-        sigungu: sigungu ?? undefined,
-        page: 1,
-        perPage: 30,
-      });
-      setHits(res.items);
-      if (res.items.length === 0) {
-        setError('조건에 맞는 골프장이 없습니다. 지역이나 이름을 바꿔 보세요.');
-      }
-    } catch {
-      setError('골프장 검색에 실패했습니다.');
-      setHits([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [api, name, sido, sigungu]);
-
-  useEffect(() => {
-    if (!sido || !sigungu) return;
-    void search();
-  }, [sido, sigungu, search]);
-
-  const selectCourse = useCallback(
-    async (course: FieldGolfCourseDto) => {
-      setActivatingId(course.id);
-      setError(null);
-      try {
-        const activated = await api.activateFieldGolfCourseVenue(course.id);
-        onChange({
-          venueId: activated.venueId,
-          fieldGolfCourseId: course.id,
-          name: course.name,
-          address: course.roadAddress ?? course.address ?? '',
-          sido: course.sido,
-          sigungu: course.sigungu,
-          latitude: course.latitude ?? undefined,
-          longitude: course.longitude ?? undefined,
-          source: 'FIELD_GOLF_COURSE',
-        });
-      } catch {
-        setError('골프장을 조인 장소로 활성화하지 못했습니다.');
-      } finally {
-        setActivatingId(null);
-      }
-    },
-    [api, onChange],
-  );
+  const [picker, setPicker] = useState(createFieldCoursePickerState);
 
   return (
     <View style={styles.root}>
-      <Text variant="sectionTitle" tone="primary">필드 골프장</Text>
-      <Text variant="caption" tone="secondary">
-        시/도 → 시/군을 고른 뒤 그 지역의 골프장을 보거나 이름으로 찾으세요.
-      </Text>
+      <Text variant="sectionTitle" tone="primary">골프장</Text>
       {venueSelectionHasPlace(selected) ? (
         <Card>
           <Text variant="bodyStrong" tone="primary">{selected.name}</Text>
           <Text variant="caption" tone="secondary">
-            {formatFieldCourseRegionLabel({ sido: selected.sido, sigungu: selected.sigungu }) ||
+            {formatFieldCourseLocationLine({ sido: selected.sido, sigungu: selected.sigungu }) ||
               selected.address}
           </Text>
-          <Button label="다시 선택" variant="secondary" onPress={() => onChange(null)} />
+          <Button
+            label={FIELD_COURSE_CHANGE_LABEL}
+            variant="secondary"
+            onPress={() => setPicker(openFieldCoursePicker())}
+          />
         </Card>
-      ) : null}
-
-      <FieldRegionPicker
-        province={sido}
-        cityCounty={sigungu}
-        onSelectProvince={(next) => {
-          setSido(next);
-          setSigungu(null);
-        }}
-        onSelectCity={(city) => {
-          setSido(city.province);
-          setSigungu(city.cityCounty);
-        }}
-      />
-
-      <TextInput
-        value={name}
-        onChangeText={setName}
-        placeholder="골프장 이름"
-        style={[
-          styles.input,
-          {
-            borderColor: theme.colors.border.subtle,
-            color: theme.colors.text.primary,
-          },
-        ]}
-      />
-      <Button label="골프장 검색" onPress={() => void search()} disabled={loading} />
-      {loading ? <ActivityIndicator /> : null}
-      {error ? <Text variant="caption" tone="error">{error}</Text> : null}
-      {hits.map((course) => (
+      ) : (
         <Pressable
-          key={course.id}
-          onPress={() => void selectCourse(course)}
-          disabled={activatingId === course.id}
-          style={[styles.hit, { borderColor: theme.colors.border.subtle }]}
+          accessibilityRole="button"
+          onPress={() => setPicker(openFieldCoursePicker())}
+          style={[
+            styles.trigger,
+            {
+              borderColor: theme.colors.border.subtle,
+              backgroundColor: theme.colors.surface.card,
+            },
+          ]}
         >
-          <Text variant="bodyStrong" tone="primary">{course.name}</Text>
-          <Text variant="caption" tone="secondary">
-            {[
-              formatFieldCourseRegionLabel({ sido: course.sido, sigungu: course.sigungu }),
-              formatFieldCourseShortAddress(course.roadAddress ?? course.address),
-            ]
-              .filter(Boolean)
-              .join(' · ') || '지역 정보 없음'}
-          </Text>
+          <Text variant="body" tone="secondary">{FIELD_COURSE_EMPTY_TRIGGER}</Text>
+          <Icon name="chevronRight" size="sm" tone="tertiary" />
         </Pressable>
-      ))}
+      )}
+      <FieldCoursePickerScreen
+        api={api}
+        state={picker}
+        onChangeState={setPicker}
+        onSelect={(next) => {
+          onChange(next);
+          setPicker((prev) => closeFieldCoursePicker(prev));
+        }}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { gap: spacing.sm },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-  chip: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  input: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 10,
-    minHeight: 44,
-    paddingHorizontal: 12,
-  },
-  hit: {
-    borderWidth: StyleSheet.hairlineWidth,
+  trigger: {
+    minHeight: 52,
     borderRadius: 12,
-    padding: 12,
-    gap: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
 });

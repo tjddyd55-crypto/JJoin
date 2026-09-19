@@ -4,7 +4,9 @@ import {
   FIELD_REGION_CATALOG,
   assertFieldRegionHasNoDongStep,
   isFieldDongFilterToken,
+  nextFieldCoursePickerStepAfterSido,
   normalizeFieldCityCounty,
+  shouldSkipFieldSigunguStep,
 } from '@jjoin/domain';
 
 test('FIELD create/list region catalog is province → city/county only', () => {
@@ -17,4 +19,6 @@ test('FIELD create/list region catalog is province → city/county only', () => 
     province: '경기도',
     cityCounty: '용인시',
   });
+  assert.equal(shouldSkipFieldSigunguStep('서울특별시'), true);
+  assert.equal(nextFieldCoursePickerStepAfterSido('경기도'), 'sigungu');
 });

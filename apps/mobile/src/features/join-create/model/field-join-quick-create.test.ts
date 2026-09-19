@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   FIELD_QUICK_CREATE_DEFAULT_RECRUIT,
+  FIELD_QUICK_CREATE_OPTIONAL_LABELS,
   fieldQuickCreateEffectiveReward,
+  fieldQuickCreateFirstPaintLabels,
   fieldQuickCreateRequiredLabels,
   isFieldQuickCreateReady,
   resolveFieldCreatePlayersFromParams,
@@ -41,4 +43,23 @@ test('FIELD quick create is ready only with course, time, recruit, and green fee
 test('FIELD quick create keeps Coin at 0 until the host opts in', () => {
   assert.equal(fieldQuickCreateEffectiveReward(false, '500'), '0');
   assert.equal(fieldQuickCreateEffectiveReward(true, '500'), '500');
+});
+
+test('FIELD create first paint is a single course row plus required fields', () => {
+  assert.deepEqual(fieldQuickCreateFirstPaintLabels(), [
+    '골프장',
+    '날짜',
+    '티타임',
+    '그린피',
+    '모집 인원',
+    '조건 더보기',
+    '만들기',
+  ]);
+  assert.deepEqual([...FIELD_QUICK_CREATE_OPTIONAL_LABELS], [
+    '성별',
+    '나이',
+    '혜택',
+    '코인',
+    '방장 메모',
+  ]);
 });

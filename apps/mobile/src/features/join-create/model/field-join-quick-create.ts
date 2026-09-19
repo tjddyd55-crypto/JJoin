@@ -47,6 +47,10 @@ export function fieldQuickCreateRequiredLabels(): string[] {
   return ['골프장', '날짜', '티타임', '그린피', '모집 인원'];
 }
 
+export function fieldQuickCreateFirstPaintLabels(): string[] {
+  return ['골프장', '날짜', '티타임', '그린피', '모집 인원', '조건 더보기', '만들기'];
+}
+
 /** Coin stays 0 unless the host explicitly opens the optional reward. */
 export function fieldQuickCreateEffectiveReward(
   coinSelected: boolean,
@@ -56,9 +60,9 @@ export function fieldQuickCreateEffectiveReward(
 }
 
 export const FIELD_QUICK_CREATE_OPTIONAL_LABELS = [
-  '성별 조건',
+  '성별',
   '나이',
-  '참가자 혜택',
+  '혜택',
   '코인',
   '방장 메모',
 ] as const;
