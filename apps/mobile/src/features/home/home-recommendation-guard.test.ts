@@ -6,21 +6,21 @@ import { dirname, join } from 'node:path';
 
 const mobileSrcRoot = join(dirname(fileURLToPath(import.meta.url)), '../..');
 
-test('home recommendation section always renders and uses skeleton', () => {
+test('home venue join sections always render skeleton and empty copy', () => {
   const home = readFileSync(join(mobileSrcRoot, 'features/home/screens/HomeScreen.tsx'), 'utf8');
   const section = readFileSync(
-    join(mobileSrcRoot, 'features/home/components/HomeTodaysJoinSection.tsx'),
+    join(mobileSrcRoot, 'features/home/components/HomeVenueJoinSection.tsx'),
     'utf8',
   );
   const hook = readFileSync(join(mobileSrcRoot, 'features/home/hooks/useHomeData.ts'), 'utf8');
 
-  assert.doesNotMatch(home, /showJoinSection/);
+  assert.match(home, /HomeVenueJoinSection/);
   assert.match(section, /JoinCardSkeleton/);
-  assert.match(section, /오늘 조건에 맞는 추천 조인이 아직 없어요/);
+  assert.match(section, /emptyMessage/);
   assert.match(hook, /isRefreshing/);
   assert.match(hook, /hasLoadedOnce/);
-  assert.doesNotMatch(hook, /loadingToday: true,\s*\n\s*loadingRecommended: true/);
   assert.match(hook, /if \(seq !== loadSeqRef\.current\) return/);
+  assert.doesNotMatch(hook, /getRecommendedJoins/);
 });
 
 test('app fonts bootstrap loads IBM Plex Sans KR token families', () => {
