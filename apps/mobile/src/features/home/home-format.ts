@@ -1,4 +1,5 @@
 import { isTodayValidJoin, localDayKey } from '@jjoin/domain';
+import { VenueType } from '@jjoin/types';
 import type { DiscoverJoinCardDto, RecommendedJoinDto } from '@jjoin/types';
 
 export function formatHomeJoinTime(startAt: string, now = new Date()): string {
@@ -18,6 +19,21 @@ export function formatHomeRegionLabel(regionLabel: string | null | undefined, si
 
 export function formatRemainingSeats(count: number): string {
   return count <= 0 ? '마감' : `${count}자리 남음`;
+}
+
+export function pickVenueDiscoverJoins(
+  items: DiscoverJoinCardDto[],
+  venueType: VenueType,
+  limit = 3,
+) {
+  const joinable = items.filter(
+    (join) =>
+      (join.canJoinState === 'JOINABLE' || join.canJoin) && join.venueType === venueType,
+  );
+  const sorted = [...joinable].sort(
+    (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
+  );
+  return sorted.slice(0, limit);
 }
 
 export function pickTodayDiscoverJoins(items: DiscoverJoinCardDto[], limit = 2, now = new Date()) {

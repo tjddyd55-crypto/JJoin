@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { DiscoverJoinCardDto, RecommendedJoinDto } from '@jjoin/types';
-import { JoinStatus } from '@jjoin/types';
+import { JoinStatus, VenueType } from '@jjoin/types';
 import {
   clubAttendanceLabel,
   formatHomeJoinTime,
@@ -9,6 +9,7 @@ import {
   formatRemainingSeats,
   pickTodayDiscoverJoins,
   pickUrgentJoins,
+  pickVenueDiscoverJoins,
 } from './home-format';
 
 const baseDiscover = (overrides: Partial<DiscoverJoinCardDto> = {}): DiscoverJoinCardDto =>
@@ -52,6 +53,18 @@ test('formatHomeRegionLabel prefers sigungu', () => {
 test('formatRemainingSeats handles zero slots', () => {
   assert.equal(formatRemainingSeats(0), '마감');
   assert.equal(formatRemainingSeats(3), '3자리 남음');
+});
+
+test('pickVenueDiscoverJoins filters by venue type and joinable state', () => {
+  const items = [
+    baseDiscover({ joinId: 'f1', venueType: VenueType.FIELD, startAt: '2026-09-02T16:00:00.000Z' }),
+    baseDiscover({ joinId: 's1', venueType: VenueType.SCREEN, startAt: '2026-09-02T15:00:00.000Z' }),
+    baseDiscover({ joinId: 'f2', venueType: VenueType.FIELD, canJoinState: 'FULL', canJoin: false }),
+  ];
+  const field = pickVenueDiscoverJoins(items, VenueType.FIELD, 2);
+  const screen = pickVenueDiscoverJoins(items, VenueType.SCREEN, 2);
+  assert.deepEqual(field.map((j) => j.joinId), ['f1']);
+  assert.deepEqual(screen.map((j) => j.joinId), ['s1']);
 });
 
 test('pickTodayDiscoverJoins keeps joinable today items only', () => {
