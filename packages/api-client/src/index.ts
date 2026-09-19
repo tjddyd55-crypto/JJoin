@@ -2341,6 +2341,28 @@ export class ApiClient {
     return parseJson(res);
   }
 
+  async deleteMyStoreProfilePhoto(ownershipId: string, photoId: string): Promise<StoreProfileDto> {
+    const res = await request(
+      `${this.config.baseUrl}/me/stores/${ownershipId}/profile/photos/${photoId}`,
+      {
+        method: 'DELETE',
+        headers: await this.headers(true),
+      },
+    );
+    return parseJson(res);
+  }
+
+  async setMyStoreCoverPhoto(ownershipId: string, photoId: string): Promise<StoreProfileDto> {
+    const res = await request(
+      `${this.config.baseUrl}/me/stores/${ownershipId}/profile/photos/${photoId}/cover`,
+      {
+        method: 'PATCH',
+        headers: await this.headers(true),
+      },
+    );
+    return parseJson(res);
+  }
+
   async getProfileMatchPreference(): Promise<ProfileMatchPreferenceDto> {
     const res = await request(`${this.config.baseUrl}/me/profile-match-preference`, {
       headers: await this.headers(true),

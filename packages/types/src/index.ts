@@ -256,6 +256,24 @@ export enum StoreProfileVisibility {
   PRIVATE = 'PRIVATE',
 }
 
+export enum StoreOperatingDayGroup {
+  WEEKDAY = 'WEEKDAY',
+  WEEKEND = 'WEEKEND',
+  MON = 'MON',
+  TUE = 'TUE',
+  WED = 'WED',
+  THU = 'THU',
+  FRI = 'FRI',
+  SAT = 'SAT',
+  SUN = 'SUN',
+}
+
+export enum StorePriceDayType {
+  WEEKDAY = 'WEEKDAY',
+  WEEKEND = 'WEEKEND',
+  ALL = 'ALL',
+}
+
 export enum StoreBannerAdStatus {
   REQUESTED = 'REQUESTED',
   APPROVED = 'APPROVED',
@@ -3251,6 +3269,28 @@ export type StoreProfilePhotoDto = {
   id: string;
   imageUrl: string | null;
   sortOrder: number;
+  isCover: boolean;
+};
+
+export type StoreOperatingHoursDto = {
+  id: string;
+  dayGroup: StoreOperatingDayGroup;
+  label: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  isClosed: boolean;
+  is24Hours: boolean;
+  sortOrder: number;
+};
+
+export type StorePriceSlotDto = {
+  id: string;
+  dayType: StorePriceDayType;
+  startTime: string;
+  endTime: string;
+  price: number;
+  label: string | null;
+  sortOrder: number;
 };
 
 export type StoreProfileDto = {
@@ -3261,14 +3301,28 @@ export type StoreProfileDto = {
   regionLabel: string | null;
   sido: string | null;
   sigungu: string | null;
+  address: string | null;
   intro: string | null;
   vibe: string | null;
   amenities: string[];
   screenBrand: StoreScreenBrand;
   screenBrandOther: string | null;
+  screenModel: string | null;
+  roomCount: number | null;
+  phone: string | null;
+  reservationLabel: string | null;
+  reservationUrl: string | null;
+  reservationNote: string | null;
+  parkingAvailable: boolean | null;
+  parkingNote: string | null;
+  leftHandedAvailable: boolean | null;
+  unmanned: boolean | null;
   visibility: StoreProfileVisibility;
   coverImageUrl: string | null;
   photos: StoreProfilePhotoDto[];
+  operatingHours: StoreOperatingHoursDto[];
+  priceSlots: StorePriceSlotDto[];
+  minPrice: number | null;
   canEdit: boolean;
 };
 
@@ -3282,6 +3336,9 @@ export type PublicStoreListItemDto = {
   screenBrandLabel: string;
   blurb: string | null;
   coverImageUrl: string | null;
+  minPrice: number | null;
+  minPriceLabel: string | null;
+  reservationAvailable: boolean;
 };
 
 export type PublicStoreDetailDto = StoreProfileDto & {
@@ -3292,13 +3349,46 @@ export type PublicStoreDetailDto = StoreProfileDto & {
   };
 };
 
+export type StoreOperatingHoursInput = {
+  id?: string;
+  dayGroup: StoreOperatingDayGroup;
+  label?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  isClosed?: boolean;
+  is24Hours?: boolean;
+  sortOrder?: number;
+};
+
+export type StorePriceSlotInput = {
+  id?: string;
+  dayType: StorePriceDayType;
+  startTime: string;
+  endTime: string;
+  price: number;
+  label?: string | null;
+  sortOrder?: number;
+};
+
 export type UpsertStoreProfileRequest = {
   intro?: string | null;
   vibe?: string | null;
   amenities?: string[];
   screenBrand?: StoreScreenBrand;
   screenBrandOther?: string | null;
+  screenModel?: string | null;
+  roomCount?: number | null;
+  phone?: string | null;
+  reservationLabel?: string | null;
+  reservationUrl?: string | null;
+  reservationNote?: string | null;
+  parkingAvailable?: boolean | null;
+  parkingNote?: string | null;
+  leftHandedAvailable?: boolean | null;
+  unmanned?: boolean | null;
   visibility?: StoreProfileVisibility;
+  operatingHours?: StoreOperatingHoursInput[];
+  priceSlots?: StorePriceSlotInput[];
 };
 
 export type HomeBannerDto = {

@@ -997,13 +997,58 @@ export const profileMatchPreferenceSchema = z
     }
   });
 
+const storeTimeSchema = z.string().trim().regex(/^\d{2}:\d{2}$/);
+
+export const storeOperatingHoursInputSchema = z.object({
+  id: z.string().optional(),
+  dayGroup: z.enum([
+    'WEEKDAY',
+    'WEEKEND',
+    'MON',
+    'TUE',
+    'WED',
+    'THU',
+    'FRI',
+    'SAT',
+    'SUN',
+  ]),
+  label: z.string().trim().max(20).nullable().optional(),
+  startTime: storeTimeSchema.nullable().optional(),
+  endTime: storeTimeSchema.nullable().optional(),
+  isClosed: z.boolean().optional(),
+  is24Hours: z.boolean().optional(),
+  sortOrder: z.number().int().min(0).max(99).optional(),
+});
+
+export const storePriceSlotInputSchema = z.object({
+  id: z.string().optional(),
+  dayType: z.enum(['WEEKDAY', 'WEEKEND', 'ALL']),
+  startTime: storeTimeSchema,
+  endTime: storeTimeSchema,
+  price: z.number().int().min(0).max(999_999),
+  label: z.string().trim().max(40).nullable().optional(),
+  sortOrder: z.number().int().min(0).max(99).optional(),
+});
+
 export const upsertStoreProfileSchema = z.object({
   intro: z.string().trim().max(400).nullable().optional(),
   vibe: z.string().trim().max(80).nullable().optional(),
   amenities: z.array(z.string().trim().min(1).max(40)).max(12).optional(),
   screenBrand: z.enum(['GOLFZON', 'KAKAO_VX', 'SG_GOLF', 'OTHER']).optional(),
   screenBrandOther: z.string().trim().max(40).nullable().optional(),
+  screenModel: z.string().trim().max(60).nullable().optional(),
+  roomCount: z.number().int().min(1).max(99).nullable().optional(),
+  phone: z.string().trim().max(20).nullable().optional(),
+  reservationLabel: z.string().trim().max(40).nullable().optional(),
+  reservationUrl: z.string().trim().url().max(500).nullable().optional(),
+  reservationNote: z.string().trim().max(400).nullable().optional(),
+  parkingAvailable: z.boolean().nullable().optional(),
+  parkingNote: z.string().trim().max(120).nullable().optional(),
+  leftHandedAvailable: z.boolean().nullable().optional(),
+  unmanned: z.boolean().nullable().optional(),
   visibility: z.enum(['PUBLIC', 'PRIVATE']).optional(),
+  operatingHours: z.array(storeOperatingHoursInputSchema).max(14).optional(),
+  priceSlots: z.array(storePriceSlotInputSchema).max(24).optional(),
 });
 
 export const upsertHomeBannerSchema = z.object({

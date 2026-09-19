@@ -3,11 +3,13 @@ import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } fro
 import {
   buildProfileAvatarObjectKey,
   buildProfileGalleryObjectKey,
+  buildStoreProfileObjectKey,
   buildMallProductCoverObjectKey,
   buildMallProductContentObjectKey,
   buildMallProductGalleryObjectKey,
   buildPublicObjectUrl,
   isOwnedProfileObjectKey,
+  isOwnedStoreProfileObjectKey,
   isOwnedMallProductObjectKey,
   isPublicReadableObjectKey,
   resolveStorageEnvironmentPrefix,
@@ -159,6 +161,16 @@ export class ObjectStorageService {
     });
   }
 
+  buildStoreGalleryObjectKey(ownershipId: string, extension: 'jpg' | 'png' | 'webp'): string {
+    return buildStoreProfileObjectKey({
+      environmentPrefix: this.config.environmentPrefix,
+      ownershipId,
+      kind: 'gallery',
+      fileId: randomUUID(),
+      extension,
+    });
+  }
+
   buildMallContentObjectKey(productId: string, extension: 'jpg' | 'png' | 'webp'): string {
     return buildMallProductContentObjectKey({
       environmentPrefix: this.config.environmentPrefix,
@@ -248,6 +260,33 @@ export class ObjectStorageService {
         ContentType: params.contentType,
       }),
     );
+  }
+
+  async deleteStoreObject(objectKey: string, ownershipId: string): Promise<void> {
+    if (!objectKey || objectKey.startsWith('mock://') || objectKey.startsWith('http')) return;
+    if (!this.client || !this.config.enabled) return;
+    if (
+      !isOwnedStoreProfileObjectKey({
+        objectKey,
+        environmentPrefix: this.config.environmentPrefix,
+        ownershipId,
+      })
+    ) {
+      this.logger.warn(`skip_delete_unowned_store_object ownership=${ownershipId}`);
+      return;
+    }
+    try {
+      await this.client.send(
+        new DeleteObjectCommand({
+          Bucket: this.config.bucket,
+          Key: objectKey,
+        }),
+      );
+    } catch (error) {
+      this.logger.warn(
+        `store_object_delete_failed ownership=${ownershipId} key=${objectKey} err=${error instanceof Error ? error.message : 'unknown'}`,
+      );
+    }
   }
 
   async deleteObject(objectKey: string, ownerUserId: string): Promise<void> {
