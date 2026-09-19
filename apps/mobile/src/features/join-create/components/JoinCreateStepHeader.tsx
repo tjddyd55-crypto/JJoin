@@ -5,16 +5,21 @@ import { JOIN_CREATE_STEPS, joinCreateStepIndex } from '../model/join-create-ste
 
 export type JoinCreateStepHeaderProps = {
   current: JoinCreateStepId;
+  steps?: Array<{ id: JoinCreateStepId; label: string }>;
   onSelect?: (step: JoinCreateStepId) => void;
 };
 
-export function JoinCreateStepHeader({ current, onSelect }: JoinCreateStepHeaderProps) {
+export function JoinCreateStepHeader({
+  current,
+  steps = JOIN_CREATE_STEPS,
+  onSelect,
+}: JoinCreateStepHeaderProps) {
   const theme = useTheme();
-  const currentIndex = joinCreateStepIndex(current);
+  const currentIndex = joinCreateStepIndex(current, steps);
 
   return (
     <View style={styles.root}>
-      {JOIN_CREATE_STEPS.map((step, index) => {
+      {steps.map((step, index) => {
         const done = index < currentIndex;
         const active = step.id === current;
         const canJump = onSelect && index <= currentIndex;

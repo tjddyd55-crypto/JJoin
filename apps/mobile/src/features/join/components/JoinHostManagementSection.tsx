@@ -6,6 +6,7 @@ export type JoinHostManagementSectionProps = {
   detail: JoinDetailDto;
   busy: boolean;
   showUrgentToggle: boolean;
+  density?: 'default' | 'compact';
   onToggleUrgent: () => void;
   onOpenChat?: () => void;
   onEdit?: () => void;
@@ -45,6 +46,7 @@ export function JoinHostManagementSection({
   detail,
   busy,
   showUrgentToggle,
+  density = 'default',
   onToggleUrgent,
   onOpenChat,
   onEdit,
@@ -57,8 +59,13 @@ export function JoinHostManagementSection({
   if (!hasSecondary && !hasPrimary) return null;
 
   return (
-    <View style={styles.root}>
-      <Text variant="bodyStrong" tone="primary">방장 관리</Text>
+    <View style={[styles.root, density === 'compact' ? styles.compactRoot : null]}>
+      <Text
+        variant={density === 'compact' ? 'caption' : 'bodyStrong'}
+        tone={density === 'compact' ? 'secondary' : 'primary'}
+      >
+        방장 관리
+      </Text>
 
       {hasSecondary ? (
         <View style={styles.secondaryRow}>
@@ -104,6 +111,9 @@ export function JoinHostManagementSection({
 const styles = StyleSheet.create({
   root: {
     gap: 12,
+  },
+  compactRoot: {
+    gap: 8,
   },
   secondaryRow: {
     flexDirection: 'row',

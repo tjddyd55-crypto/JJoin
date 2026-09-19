@@ -12,6 +12,22 @@ const sectionsPath = join(
   dirname(fileURLToPath(import.meta.url)),
   'components/JoinDetailPrimarySections.tsx',
 );
+const fieldSummaryPath = join(
+  dirname(fileURLToPath(import.meta.url)),
+  'components/FieldJoinDetailSummarySurface.tsx',
+);
+const rosterPath = join(
+  dirname(fileURLToPath(import.meta.url)),
+  'components/FieldJoinRosterSections.tsx',
+);
+const memberCardPath = join(
+  dirname(fileURLToPath(import.meta.url)),
+  'components/FieldJoinMemberProfileCard.tsx',
+);
+const opsPath = join(
+  dirname(fileURLToPath(import.meta.url)),
+  'model/field-join-detail-ops.ts',
+);
 
 const FORBIDDEN_BODY_ACTIONS = [
   'label="내 조인"',
@@ -45,4 +61,80 @@ test('join detail keeps bookmark and share compact header actions', () => {
   assert.match(sections, /onShare/);
   assert.match(sections, /headerActionHit/);
   assert.match(sections, /minWidth: 44/);
+});
+
+test('FIELD core surface keeps section titles and omits team or urgent copy', () => {
+  const fieldSummary = readFileSync(fieldSummaryPath, 'utf8');
+  const ops = readFileSync(opsPath, 'utf8');
+  assert.match(fieldSummary, /라운딩 정보|FIELD_DETAIL_SECTION_TITLES\[0\]/);
+  assert.match(ops, /'header'/);
+  assert.match(ops, /'round_info'/);
+  assert.match(ops, /'recruit_conditions'/);
+  assert.match(ops, /'participant_benefits'/);
+  assert.match(ops, /'host_memo'/);
+  assert.match(ops, /'sticky_cta'/);
+  assert.doesNotMatch(fieldSummary, /팀전|2팀 × 2명|포지션|긴급 모집/);
+});
+
+test('FIELD detail core info is a single surface without nested scan card', () => {
+  const sections = readFileSync(sectionsPath, 'utf8');
+  const fieldSummary = readFileSync(fieldSummaryPath, 'utf8');
+  assert.doesNotMatch(sections, /한눈에 보기/);
+  assert.doesNotMatch(sections, /buildFieldJoinScanRows/);
+  assert.match(sections, /FieldJoinDetailSummarySurface/);
+  assert.match(sections, /buildFieldJoinDetailSummary/);
+  assert.doesNotMatch(fieldSummary, /한눈에 보기/);
+  assert.doesNotMatch(fieldSummary, /surface\.soft/);
+  assert.doesNotMatch(fieldSummary, /JoinDetailCard/);
+});
+
+test('FIELD detail hides team assignment and urgent recruit CTA', () => {
+  const source = readFileSync(screenPath, 'utf8');
+  const ops = readFileSync(opsPath, 'utf8');
+  assert.match(source, /shouldShowJoinTeamAssignmentSection\(detail\)/);
+  assert.match(source, /shouldShowJoinUrgentRecruitToggle/);
+  assert.match(ops, /venueType === 'FIELD'\) return false/);
+  assert.match(ops, /venueType !== 'FIELD'/);
+  assert.doesNotMatch(source, /detail\.playFormat === 'TEAM' \? \(/);
+});
+
+test('SCREEN detail still owns team assignment and slot grid', () => {
+  const sections = readFileSync(sectionsPath, 'utf8');
+  const teamPath = join(
+    dirname(fileURLToPath(import.meta.url)),
+    'components/JoinTeamAssignmentSection.tsx',
+  );
+  const team = readFileSync(teamPath, 'utf8');
+  assert.match(sections, /JoinParticipationSlotGrid/);
+  assert.match(sections, /JoinMiniStatGrid/);
+  assert.match(sections, /venueType === 'FIELD' \? \(/);
+  assert.match(team, /팀 배정/);
+  assert.match(team, /formatPlayFormatLabel\('TEAM'\)/);
+});
+
+test('FIELD detail shows members and applicants before compact host ops and chat', () => {
+  const source = readFileSync(screenPath, 'utf8');
+  const roster = readFileSync(rosterPath, 'utf8');
+  const memberCard = readFileSync(memberCardPath, 'utf8');
+  const rosterAt = source.indexOf('<FieldJoinRosterSections');
+  const hostAt = source.indexOf('density={isFieldJoin ? \'compact\' : \'default\'}');
+  const chatAt = source.indexOf('title="채팅방"');
+  assert.ok(rosterAt > 0, 'FIELD roster must render');
+  assert.ok(hostAt > rosterAt, 'host management follows roster');
+  assert.ok(chatAt > hostAt, 'chat follows host management');
+  assert.match(roster, /formatFieldConfirmedMemberSectionTitle/);
+  assert.match(roster, /프로필 보기|onOpenProfile/);
+  assert.match(memberCard, /프로필 보기/);
+  assert.match(source, /onOpenChat=\{!isFieldJoin && showChatEntry/);
+});
+
+test('FIELD roster wires shared MemberActionMenu instead of local DM or gift', () => {
+  const roster = readFileSync(rosterPath, 'utf8');
+  const memberCard = readFileSync(memberCardPath, 'utf8');
+  assert.match(roster, /from '\.\.\/\.\.\/member\/components\/MemberActionMenu'/);
+  assert.match(roster, /resolveFieldJoinMemberActionInput/);
+  assert.match(roster, /<MemberActionMenu/);
+  assert.match(memberCard, /memberActions/);
+  assert.doesNotMatch(roster, /createDirectConversation|memberGiftHref|\/gift\/\[userId\]/);
+  assert.doesNotMatch(memberCard, /메시지 보내기|코인 선물하기|createDirectConversation/);
 });

@@ -5,7 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  formatFieldCourseRegionLabel,
+  formatFieldCourseShortAddress,
   hasValidKoreaMapCoords,
+  listSidoSpellings,
+  matchesFieldCityCounty,
+  normalizeFieldCityCounty,
   normalizeFieldGolfSearchQuery,
 } from '@jjoin/domain';
 import {
@@ -51,6 +56,8 @@ export class FieldGolfCoursesService {
     perPage?: number;
   }): Promise<FieldGolfCourseSearchResponse> {
     const query = normalizeFieldGolfSearchQuery(input);
+    const target = normalizeFieldCityCounty(query.sido, query.sigungu);
+    const sidoVariants = target.province ? listSidoSpellings(target.province) : [];
     const where: Prisma.FieldGolfCourseWhereInput = {
       isActive: true,
       ...(query.name
@@ -61,23 +68,33 @@ export class FieldGolfCoursesService {
             ],
           }
         : {}),
-      ...(query.sido ? { sido: query.sido } : {}),
-      ...(query.sigungu ? { sigungu: { contains: query.sigungu } } : {}),
+      ...(sidoVariants.length > 0 ? { sido: { in: sidoVariants } } : {}),
     };
 
-    const [totalCount, rows] = await Promise.all([
+    const [totalCountAll, rows] = await Promise.all([
       this.prisma.fieldGolfCourse.count({ where }),
       this.prisma.fieldGolfCourse.findMany({
         where,
         orderBy: [{ sido: 'asc' }, { name: 'asc' }],
-        skip: query.skip,
-        take: query.perPage,
         include: { venue: { select: { id: true } } },
       }),
     ]);
 
+    const filtered = target.cityCounty
+      ? rows.filter((row) =>
+          matchesFieldCityCounty({
+            rowSido: row.sido,
+            rowSigungu: row.sigungu,
+            targetProvince: target.province ?? '',
+            targetCityCounty: target.cityCounty ?? '',
+          }),
+        )
+      : rows;
+    const totalCount = target.cityCounty ? filtered.length : totalCountAll;
+    const pageRows = filtered.slice(query.skip, query.skip + query.perPage);
+
     return {
-      items: rows.map((row) => this.toDto(row)),
+      items: pageRows.map((row) => this.toDto(row)),
       page: query.page,
       perPage: query.perPage,
       totalCount,
@@ -202,7 +219,12 @@ export class FieldGolfCoursesService {
   private toDto(row: CourseRow): FieldGolfCourseDto {
     const latitude = row.latitude == null ? null : Number(row.latitude);
     const longitude = row.longitude == null ? null : Number(row.longitude);
-    const regionLabel = [row.sido, row.sigungu].filter(Boolean).join(' ') || null;
+    const normalized = normalizeFieldCityCounty(row.sido, row.sigungu);
+    const cityCounty = normalized.cityCounty;
+    const shortAddress = formatFieldCourseShortAddress(row.roadAddress ?? row.address);
+    const regionLabel =
+      formatFieldCourseRegionLabel({ sido: row.sido, sigungu: row.sigungu }) ??
+      ([row.sido, row.sigungu].filter(Boolean).join(' ') || null);
     return {
       id: row.id,
       name: row.name,
@@ -210,6 +232,8 @@ export class FieldGolfCoursesService {
       roadAddress: row.roadAddress,
       sido: row.sido,
       sigungu: row.sigungu,
+      cityCounty,
+      shortAddress,
       regionLabel,
       holeCount: row.holeCount,
       status: row.status,

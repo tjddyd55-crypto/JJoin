@@ -13,8 +13,13 @@ import {
   Text,
   useTheme,
 } from '@jjoin/design-system';
-import { formatPlayFormatLabel, formatTeamCapacityLabel } from '@jjoin/domain';
+import {
+  formatPlayFormatLabel,
+  formatTeamCapacityLabel,
+} from '@jjoin/domain';
+import { buildFieldJoinDetailSummary } from '../model/field-join-detail-summary';
 import type { JoinDetailDto } from '@jjoin/types';
+import { FieldJoinDetailSummarySurface } from './FieldJoinDetailSummarySurface';
 import { JoinParticipationSlotGrid } from './JoinParticipationSlotGrid';
 import {
   buildJoinBenefitLines,
@@ -74,6 +79,38 @@ function SectionDivider() {
   );
 }
 
+function JoinDetailHostVenueBlock({
+  detail,
+  onOpenHost,
+  onOpenMap,
+}: {
+  detail: JoinDetailDto;
+  onOpenHost?: () => void;
+  onOpenMap?: () => void;
+}) {
+  const regionLine = [detail.venue.sido, detail.venue.sigungu].filter(Boolean).join(' ');
+  const distanceLabel = detail.venue.regionLabel?.trim() || null;
+  return (
+    <>
+      <JoinHostSummary
+        nickname={detail.host.nickname}
+        avatarUrl={detail.host.avatarUrl}
+        metaLine={formatHostMetaLine(detail)}
+        onPress={onOpenHost}
+        embedded
+      />
+      <SectionDivider />
+      <JoinVenueSummary
+        venueName={detail.venue.name}
+        address={[regionLine, detail.venue.address].filter(Boolean).join(' · ') || detail.venue.address}
+        distanceLabel={distanceLabel}
+        onOpenMap={onOpenMap}
+        embedded
+      />
+    </>
+  );
+}
+
 type InfoRow = { label: string; value: string };
 
 function JoinDetailInfoPanel({
@@ -117,11 +154,14 @@ function JoinDetailInfoPanel({
 
 function buildScheduleStatTiles(detail: JoinDetailDto) {
   const recruitment = buildJoinRecruitmentBreakdown(detail);
+  const isField = detail.venue.venueType === 'FIELD';
   const tiles = [
     { label: '날짜', value: formatJoinScheduleDetailDate(detail.startAt), surface: 'info' as const },
     {
-      label: '시간',
-      value: `${formatJoinScheduleDetailTime(detail.startAt)}~${formatJoinScheduleDetailTime(detail.scheduledEndAt)}`,
+      label: isField ? '티타임' : '시간',
+      value: isField
+        ? formatJoinScheduleDetailTime(detail.startAt)
+        : `${formatJoinScheduleDetailTime(detail.startAt)}~${formatJoinScheduleDetailTime(detail.scheduledEndAt)}`,
       surface: 'info' as const,
     },
     {
@@ -201,9 +241,7 @@ export function JoinDetailPrimarySections({
     (recruitment.femaleTarget ?? 0) > 0 ||
     (recruitment.minimumPlayers ?? 0) > 0;
 
-  const distanceLabel = detail.venue.regionLabel?.trim() || null;
   const trackLabel = detail.venue.venueType === 'FIELD' ? '필드 조인' : '스크린 조인';
-  const regionLine = [detail.venue.sido, detail.venue.sigungu].filter(Boolean).join(' ');
   const canOpenMap = detail.venue.hasMapCoords !== false && Boolean(detail.venue.latitude || detail.venue.longitude);
 
   const openMap = () => {
@@ -211,7 +249,11 @@ export function JoinDetailPrimarySections({
     void Linking.openURL(`https://map.kakao.com/link/map/${latitude},${longitude}`);
   };
 
+  const fieldCost = detail.fieldDetails;
   const conditionLabels = [...requirements, ...memberPreferenceLabels];
+  if (fieldCost?.minFieldHandicap != null && fieldCost.maxFieldHandicap != null) {
+    conditionLabels.push(`필드 핸디 ${fieldCost.minFieldHandicap}~${fieldCost.maxFieldHandicap}`);
+  }
   if (hasRecruitmentTargets) {
     if ((recruitment.maleTarget ?? 0) > 0) {
       conditionLabels.push(`남성 ${recruitment.maleTarget}명`);
@@ -283,24 +325,25 @@ export function JoinDetailPrimarySections({
         </Text>
       </View>
 
+      {detail.venue.venueType === 'FIELD' ? (
+        <JoinDetailCard>
+          <JoinDetailHostVenueBlock
+            detail={detail}
+            onOpenHost={onOpenHost}
+            onOpenMap={canOpenMap ? openMap : undefined}
+          />
+          <SectionDivider />
+          <FieldJoinDetailSummarySurface summary={buildFieldJoinDetailSummary(detail)} />
+        </JoinDetailCard>
+      ) : (
+      <>
       <JoinDetailCard>
-        <JoinHostSummary
-          nickname={detail.host.nickname}
-          avatarUrl={detail.host.avatarUrl}
-          metaLine={formatHostMetaLine(detail)}
-          onPress={onOpenHost}
-          embedded
-        />
-        <SectionDivider />
-        <JoinVenueSummary
-          venueName={detail.venue.name}
-          address={[regionLine, detail.venue.address].filter(Boolean).join(' · ') || detail.venue.address}
-          distanceLabel={distanceLabel}
+        <JoinDetailHostVenueBlock
+          detail={detail}
+          onOpenHost={onOpenHost}
           onOpenMap={canOpenMap ? openMap : undefined}
-          embedded
         />
       </JoinDetailCard>
-
       <JoinDetailCard>
         <JoinMiniStatGrid items={scheduleTiles} />
         <JoinSeatsRemainingBanner
@@ -315,8 +358,10 @@ export function JoinDetailPrimarySections({
         ) : null}
         <JoinParticipationSlotGrid slots={rosterSlots} />
       </JoinDetailCard>
+      </>
+      )}
 
-      {(conditionLabels.length > 0 || showBenefits) ? (
+      {detail.venue.venueType !== 'FIELD' && (conditionLabels.length > 0 || showBenefits) ? (
         <JoinDetailCard>
           {conditionLabels.length > 0 ? (
             <JoinRequirementChips labels={conditionLabels} />
@@ -333,7 +378,7 @@ export function JoinDetailPrimarySections({
         </JoinDetailCard>
       ) : null}
 
-      {showGameInfo ? (
+      {showGameInfo && detail.venue.venueType !== 'FIELD' ? (
         <JoinDetailCard>
           <Text variant="caption" tone="secondary" style={styles.eyebrow}>
             게임 · 애프터
@@ -358,7 +403,7 @@ export function JoinDetailPrimarySections({
         </JoinDetailCard>
       ) : null}
 
-      {detail.description?.trim() ? (
+      {detail.venue.venueType !== 'FIELD' && detail.description?.trim() ? (
         <JoinDetailCard>
           <Text variant="caption" tone="secondary" style={styles.eyebrow}>
             추가 안내

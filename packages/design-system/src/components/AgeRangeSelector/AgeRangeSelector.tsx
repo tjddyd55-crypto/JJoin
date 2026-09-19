@@ -22,6 +22,7 @@ export type AgeRangeSelectorProps = {
   value: AgeRangeSelectorValue;
   onChange: (next: AgeRangeSelectorValue) => void;
   unrestrictedLabel?: string;
+  showUnrestrictedControl?: boolean;
   style?: ViewStyle;
 };
 
@@ -64,6 +65,7 @@ export function AgeRangeSelector({
   value,
   onChange,
   unrestrictedLabel = '연령 제한 없음',
+  showUnrestrictedControl = true,
   style,
 }: AgeRangeSelectorProps) {
   const theme = useTheme();
@@ -239,16 +241,18 @@ export function AgeRangeSelector({
         </View>
       </View>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ selected: unrestricted }}
-        onPress={setUnrestricted}
-        style={styles.unrestrictedBtn}
-      >
-        <Text variant="caption" tone={unrestricted ? 'primary' : 'tertiary'}>
-          {unrestrictedLabel}
-        </Text>
-      </Pressable>
+      {showUnrestrictedControl ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ selected: unrestricted }}
+          onPress={setUnrestricted}
+          style={styles.unrestrictedBtn}
+        >
+          <Text variant="caption" tone={unrestricted ? 'primary' : 'tertiary'}>
+            {unrestrictedLabel}
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

@@ -952,10 +952,11 @@ export class ApiClient {
     return parseJson(res);
   }
 
-  async applyJoin(joinId: string): Promise<JoinDetailDto> {
+  async applyJoin(joinId: string, body?: { note?: string | null }): Promise<JoinDetailDto> {
     const res = await request(`${this.config.baseUrl}/joins/${joinId}/apply`, {
       method: 'POST',
       headers: await this.headers(true),
+      body: body ? JSON.stringify(body) : undefined,
     });
     return parseJson(res);
   }
@@ -986,6 +987,52 @@ export class ApiClient {
 
   async getJoinWaitlist(joinId: string): Promise<import('@jjoin/types').JoinWaitlistResponse> {
     const res = await request(`${this.config.baseUrl}/joins/${joinId}/waitlist`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async cancelFieldApplication(joinId: string): Promise<JoinDetailDto> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/apply/cancel`, {
+      method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async holdParticipant(joinId: string, participantId: string): Promise<JoinDetailDto> {
+    const res = await request(
+      `${this.config.baseUrl}/joins/${joinId}/participants/${participantId}/hold`,
+      {
+        method: 'POST',
+        headers: await this.headers(true),
+      },
+    );
+    return parseJson(res);
+  }
+
+  async rejectParticipant(joinId: string, participantId: string): Promise<JoinDetailDto> {
+    const res = await request(
+      `${this.config.baseUrl}/joins/${joinId}/participants/${participantId}/reject`,
+      {
+        method: 'POST',
+        headers: await this.headers(true),
+      },
+    );
+    return parseJson(res);
+  }
+
+  async closeFieldApplications(joinId: string): Promise<JoinDetailDto> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/applications/close`, {
+      method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async openFieldApplications(joinId: string): Promise<JoinDetailDto> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/applications/open`, {
+      method: 'POST',
       headers: await this.headers(true),
     });
     return parseJson(res);

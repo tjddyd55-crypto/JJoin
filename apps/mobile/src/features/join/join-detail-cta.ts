@@ -94,6 +94,20 @@ export function resolveJoinDetailPrimaryCta(params: {
     if (canLeave) {
       return { label: '참가 취소', disabled: false, presentation: 'leave' };
     }
+    const isFieldMine = detail.venue?.venueType === 'FIELD';
+    if (isFieldMine && mine.hostReviewStatus === 'REJECTED') {
+      return { label: '미선정', disabled: true, presentation: 'closed' };
+    }
+    if (isFieldMine && mine.participationStatus === ParticipationStatus.APPLIED) {
+      return { label: '신청 취소', disabled: false, presentation: 'leave' };
+    }
+    if (
+      isFieldMine &&
+      (mine.participationStatus === ParticipationStatus.APPROVED ||
+        mine.participationStatus === ParticipationStatus.CONFIRMED)
+    ) {
+      return { label: '참가 취소', disabled: false, presentation: 'leave' };
+    }
     const joined =
       mine.participationStatus === ParticipationStatus.APPROVED ||
       mine.participationStatus === ParticipationStatus.CONFIRMED ||
@@ -101,6 +115,14 @@ export function resolveJoinDetailPrimaryCta(params: {
     if (joined) {
       return { label: '참가 완료', disabled: true, presentation: 'joined' };
     }
+  }
+
+  const isField = detail.venue?.venueType === 'FIELD';
+  if (isField) {
+    if (detail.fieldDetails?.applicationsClosed === true) {
+      return { label: '신청 마감', disabled: true, presentation: 'closed' };
+    }
+    return { label: '참가 신청', disabled: false, presentation: 'apply' };
   }
 
   if (detail.waitlistAvailable) {

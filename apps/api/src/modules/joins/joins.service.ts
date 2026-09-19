@@ -15,6 +15,7 @@ import {
   ParticipantRole,
   ParticipationStatus,
   SCREEN_GOLF_CODE,
+  type ApplyJoinRequest,
   type CreateJoinRequest,
   type ExploreJoinPreviewDto,
   type ExploreVenueDto,
@@ -80,14 +81,39 @@ import {
   validateStandardGenderCompositionEdit,
   formatStandardGenderCompositionLabel,
   validateJoinPlayFormat,
+  validateJoinCapacityForTrack,
+  validateFieldJoinDetails,
+  fieldRoundDurationRule,
   validateTeamAssignment,
   assertVenueTypeMatch,
   hasValidKoreaMapCoords,
   parseJoinVenueType,
+  canApplyToFieldJoin,
+  canCancelFieldParticipation,
+  canConfirmFieldApplicant,
+  countFieldApplications,
+  countFieldConfirmedApplicants,
+  isFieldUserCancelled,
+  fieldGenderConfirmHint,
+  mapFieldParticipationFaceLabel,
+  plannedPlayerCountToRecruitCount,
+  resolveFieldRecruitCount,
+  validateFieldApplicationNote,
+  validateFieldGenderRecruit,
+  defaultFieldJoinDetails,
   type MatchingGender,
 } from '@jjoin/domain';
-import { createJoinSchema, joinCoinPreviewSchema, updateJoinSchema } from '@jjoin/validation';
-import { joinCreateBadRequest, joinCreateBadRequestFromZod } from './join-create-errors';
+import {
+  applyJoinSchema,
+  createJoinSchema,
+  joinCoinPreviewSchema,
+  updateJoinSchema,
+} from '@jjoin/validation';
+import {
+  joinCreateBadRequest,
+  joinCreateBadRequestFromZod,
+  joinCreateClientMessage,
+} from './join-create-errors';
 import {
   findJoinIdByClientIdempotencyKey,
   isPrismaUniqueConflict,
@@ -122,6 +148,11 @@ import { JoinCreationCoinPolicyService } from './join-creation-coin-policy.servi
 import { JoinWaitlistService } from './join-waitlist.service';
 import { MediaUrlService } from '../storage/media-url.service';
 import type { AttendanceIntent } from '@jjoin/types';
+import { fieldJoinDetailCreateData, mapFieldJoinDetailDto } from './field-join-detail.map';
+import {
+  pickJoinParticipantGolfHandicaps,
+  resolveJoinParticipantPublicFields,
+} from './join-participant-public-fields';
 
 const ACTIVE_JOIN_STATUSES: JoinStatus[] = [JoinStatus.OPEN, JoinStatus.FULL];
 
@@ -253,18 +284,55 @@ export class JoinsService {
     }
     const playFormat = playFormatResult.value;
     const requestedVenueType = parseJoinVenueType(input.venueType);
+    const trackCapacity = validateJoinCapacityForTrack({
+      playFormat: playFormat.playFormat,
+      plannedPlayerCount: playFormat.plannedPlayerCount,
+      teamSize: playFormat.teamSize,
+      teamCount: playFormat.teamCount,
+      venueType: requestedVenueType,
+    });
+    if (!trackCapacity.ok) {
+      throw joinCreateBadRequest(trackCapacity.code);
+    }
+    const fieldDetailsResult =
+      requestedVenueType === 'FIELD' && input.fieldDetails
+        ? validateFieldJoinDetails({
+            ...input.fieldDetails,
+            participantCount: playFormat.plannedPlayerCount,
+          })
+        : null;
+    if (fieldDetailsResult && !fieldDetailsResult.ok) {
+      throw joinCreateBadRequest(fieldDetailsResult.code);
+    }
     const hostProfile = await this.prisma.user.findUnique({
       where: { id: hostUserId },
       select: { profile: { select: { gender: true } } },
     });
     const hostGender = (hostProfile?.profile?.gender ?? null) as MatchingGender | null;
-    const genderComposition = parseGenderCompositionPayload({
+    let genderComposition = parseGenderCompositionPayload({
       genderCompositionMode: input.genderCompositionMode,
       targetMaleCount: input.targetMaleCount,
       targetFemaleCount: input.targetFemaleCount,
       plannedPlayerCount: playFormat.plannedPlayerCount,
     });
-    if (
+    if (requestedVenueType === 'FIELD') {
+      const recruit = resolveFieldRecruitCount({
+        recruitCount: input.recruitCount,
+        plannedPlayerCount: playFormat.plannedPlayerCount,
+      });
+      if (!recruit.ok) throw joinCreateBadRequest(recruit.code);
+      const fieldGender = validateFieldGenderRecruit({
+        recruitCount: recruit.recruitCount,
+        mode: input.genderCompositionMode,
+        maleRecruitCount: input.targetMaleCount,
+        femaleRecruitCount: input.targetFemaleCount,
+      });
+      if (!fieldGender.ok) throw joinCreateBadRequest(fieldGender.code);
+      genderComposition = {
+        targetMaleCount: fieldGender.maleRecruitCount,
+        targetFemaleCount: fieldGender.femaleRecruitCount,
+      };
+    } else if (
       hasFixedGenderComposition(
         genderComposition.targetMaleCount,
         genderComposition.targetFemaleCount,
@@ -335,8 +403,15 @@ export class JoinsService {
 
     const scheduledEndAt = estimateEndAt({
       startAt,
-      playerCount: input.plannedPlayerCount,
-      rule: SCREEN_GOLF_DURATION_RULE,
+      playerCount: playFormat.plannedPlayerCount,
+      rule:
+        requestedVenueType === 'FIELD'
+          ? fieldRoundDurationRule(
+              fieldDetailsResult && fieldDetailsResult.ok
+                ? fieldDetailsResult.value.roundHoles
+                : 18,
+            )
+          : SCREEN_GOLF_DURATION_RULE,
     });
 
     const joinId = randomUUID();
@@ -473,6 +548,16 @@ export class JoinsService {
             },
           },
         });
+
+        if (requestedVenueType === 'FIELD') {
+          const details =
+            fieldDetailsResult && fieldDetailsResult.ok
+              ? fieldDetailsResult.value
+              : defaultFieldJoinDetails();
+          await tx.fieldJoinDetail.create({
+            data: fieldJoinDetailCreateData(joinId, randomUUID(), details),
+          });
+        }
 
         await this.ledger.applyRoomCreationFee(tx, {
           walletId: wallet.id,
@@ -807,10 +892,18 @@ export class JoinsService {
         sport: true,
         host: { include: { profile: true, sportProfiles: { include: { sport: true } } } },
         participants: {
-          include: { user: { include: { profile: true } } },
+          include: {
+            user: {
+              include: {
+                profile: { include: { avatarAsset: { select: { storageKey: true } } } },
+                sportProfiles: { include: { sport: true } },
+              },
+            },
+          },
           orderBy: { appliedAt: 'asc' },
         },
         chatRoom: true,
+        fieldDetail: true,
       },
     });
     if (!join) throw new NotFoundException('join_not_found');
@@ -958,8 +1051,19 @@ export class JoinsService {
     };
   }
 
-  async apply(joinId: string, userId: string): Promise<JoinDetailDto> {
+  async apply(joinId: string, userId: string, raw?: ApplyJoinRequest): Promise<JoinDetailDto> {
     await this.accounts.assertIdentityVerified(userId, 'APPLY_JOIN');
+    const parsedNote = applyJoinSchema.safeParse(raw ?? {});
+    if (!parsedNote.success) {
+      throw new BadRequestException('invalid_apply_join');
+    }
+    const noteResult = validateFieldApplicationNote(parsedNote.data.note);
+    if (!noteResult.ok) {
+      throw new BadRequestException({
+        code: noteResult.code,
+        message: joinCreateClientMessage(noteResult.code),
+      });
+    }
 
     const joinKindRow = await this.prisma.join.findUnique({
       where: { id: joinId },
@@ -973,7 +1077,7 @@ export class JoinsService {
     await this.prisma.$transaction(async (tx) => {
       const join = await tx.join.findUnique({
         where: { id: joinId },
-        include: { participants: true },
+        include: { participants: true, venue: true, fieldDetail: true },
       });
       if (!join) throw new NotFoundException('join_not_found');
       if (join.hostUserId === userId) {
@@ -988,14 +1092,48 @@ export class JoinsService {
       if (join.status === 'CANCELLED' || join.status === 'COMPLETED') {
         throw new BadRequestException('join_not_joinable');
       }
-      if (join.status === 'FULL') {
-        throw new BadRequestException('join_full');
-      }
-      if (!ACTIVE_JOIN_STATUSES.includes(join.status as JoinStatus) && join.status !== 'OPEN') {
-        throw new BadRequestException('join_not_joinable');
+      const isField = parseJoinVenueType(join.venue.venueType) === 'FIELD';
+      const existing = join.participants.find((p) => p.userId === userId);
+      if (isField) {
+        const applyGate = canApplyToFieldJoin({
+          applicationsClosed: join.fieldDetail?.applicationsClosed ?? false,
+          joinStatus: join.status,
+          alreadyApplied: Boolean(existing && !isFieldUserCancelled(existing)),
+        });
+        if (!applyGate.ok) {
+          throw new BadRequestException({
+            code: applyGate.code,
+            message: joinCreateClientMessage(applyGate.code, '참가 신청을 할 수 없습니다.'),
+          });
+        }
+      } else {
+        if (join.status === 'FULL') {
+          throw new BadRequestException('join_full');
+        }
+        if (!ACTIVE_JOIN_STATUSES.includes(join.status as JoinStatus) && join.status !== 'OPEN') {
+          throw new BadRequestException('join_not_joinable');
+        }
+        if (existing) {
+          throw new ConflictException('already_applied');
+        }
       }
 
-      const existing = join.participants.find((p) => p.userId === userId);
+      if (isField && existing && isFieldUserCancelled(existing)) {
+        await tx.joinParticipant.update({
+          where: { id: existing.id },
+          data: {
+            participationStatus: 'APPLIED',
+            appliedAt: new Date(),
+            cancelledAt: null,
+            approvedAt: null,
+            confirmedAt: null,
+            hostReviewStatus: null,
+            applicationNote: noteResult.value,
+          },
+        });
+        return;
+      }
+
       if (existing) {
         throw new ConflictException('already_applied');
       }
@@ -1007,6 +1145,7 @@ export class JoinsService {
             userId,
             role: 'PARTICIPANT',
             participationStatus: 'APPLIED',
+            applicationNote: isField ? noteResult.value : null,
           },
         });
       } catch (e) {
@@ -1230,6 +1369,7 @@ export class JoinsService {
       const join = await tx.join.findUnique({
         where: { id: joinId },
         include: {
+          venue: true,
           participants: { include: { user: { include: { profile: true } } } },
           host: { include: { profile: true } },
         },
@@ -1254,7 +1394,43 @@ export class JoinsService {
         throw new BadRequestException('invalid_participant_status');
       }
 
-      if (
+      const venueType = parseJoinVenueType(
+        (join as { venue?: { venueType?: string } }).venue?.venueType,
+      );
+      const rosterParticipants = join.participants.map((p) => ({
+        role: p.role,
+        participationStatus: p.participationStatus,
+        hostReviewStatus: (p as { hostReviewStatus?: string | null }).hostReviewStatus ?? null,
+        gender: (p.user.profile?.gender ?? null) as MatchingGender | null,
+      }));
+
+      if (venueType === 'FIELD') {
+        const recruit = resolveFieldRecruitCount({
+          plannedPlayerCount: join.plannedPlayerCount,
+        });
+        if (!recruit.ok) throw new BadRequestException(recruit.code);
+        const confirmGate = canConfirmFieldApplicant({
+          recruitCount: recruit.recruitCount,
+          applicantStatus: participant.participationStatus,
+          applicantHostReview: (participant as { hostReviewStatus?: string | null }).hostReviewStatus,
+          applicantGender: (participant.user.profile?.gender ?? null) as MatchingGender | null,
+          genderMode: hasFixedGenderComposition(join.targetMaleCount, join.targetFemaleCount)
+            ? 'FIXED'
+            : 'ANY',
+          maleRecruitCount: join.targetMaleCount,
+          femaleRecruitCount: join.targetFemaleCount,
+          participants: rosterParticipants,
+        });
+        if (!confirmGate.ok) {
+          throw new BadRequestException({
+            code: confirmGate.code,
+            message:
+              confirmGate.code === 'GENDER_SLOT_FULL'
+                ? '해당 성별 모집 인원이 마감되었습니다.'
+                : joinCreateClientMessage(confirmGate.code, '확정할 수 없습니다.'),
+          });
+        }
+      } else if (
         join.joinKind !== 'STORE_MATCHING' &&
         hasFixedGenderComposition(join.targetMaleCount, join.targetFemaleCount)
       ) {
@@ -1300,6 +1476,7 @@ export class JoinsService {
         data: {
           participationStatus: 'APPROVED',
           approvedAt: new Date(),
+          hostReviewStatus: null,
         },
       });
 
@@ -1354,6 +1531,161 @@ export class JoinsService {
     void this.urgentVacancy.clearIfNeeded(joinId);
 
     return this.getDetail(joinId, hostUserId);
+  }
+
+  async cancelOwnFieldParticipation(joinId: string, userId: string): Promise<JoinDetailDto> {
+    await this.prisma.$transaction(async (tx) => {
+      const join = await tx.join.findUnique({
+        where: { id: joinId },
+        include: {
+          venue: true,
+          participants: { include: { settlement: true } },
+        },
+      });
+      if (!join) throw new NotFoundException('join_not_found');
+      if (parseJoinVenueType(join.venue.venueType) !== 'FIELD') {
+        throw new BadRequestException('field_only');
+      }
+      if (join.status === 'CANCELLED' || join.status === 'COMPLETED') {
+        throw new BadRequestException('join_not_joinable');
+      }
+      const mine = join.participants.find((p) => p.userId === userId && p.role !== 'HOST');
+      if (!mine) throw new NotFoundException('participation_not_found');
+      const cancelGate = canCancelFieldParticipation({
+        role: mine.role,
+        participationStatus: mine.participationStatus,
+      });
+      if (!cancelGate.ok) {
+        throw new BadRequestException({
+          code: cancelGate.code,
+          message: joinCreateClientMessage(cancelGate.code, '취소할 수 없습니다.'),
+        });
+      }
+      if (mine.participationStatus === 'CANCELLED') return;
+
+      if (
+        mine.settlement &&
+        (mine.settlement.rewardStatus === 'HELD' ||
+          mine.settlement.rewardStatus === 'PENDING_CONFIRMATION')
+      ) {
+        await tx.rewardSettlement.update({
+          where: { id: mine.settlement.id },
+          data: { rewardStatus: 'NOT_ELIGIBLE', refundedAt: null },
+        });
+      }
+
+      await tx.joinParticipant.update({
+        where: { id: mine.id },
+        data: {
+          participationStatus: 'CANCELLED',
+          cancelledAt: new Date(),
+          hostReviewStatus: null,
+        },
+      });
+
+      const confirmed = computeConfirmedPlayerCount(
+        join.participants.map((p) =>
+          p.id === mine.id ? 'CANCELLED' : p.participationStatus,
+        ),
+      );
+      const scheduledEndAt = estimateEndAt({
+        startAt: join.startAt,
+        playerCount: Math.max(confirmed, 1),
+        rule: SCREEN_GOLF_DURATION_RULE,
+      });
+      const nextStatus = nextJoinStatusAfterRoster({
+        currentStatus: join.status,
+        confirmedPlayerCount: confirmed,
+        plannedPlayerCount: join.plannedPlayerCount,
+      });
+      await tx.join.update({
+        where: { id: joinId },
+        data: {
+          confirmedPlayerCount: confirmed,
+          scheduledEndAt,
+          status: nextStatus as never,
+        },
+      });
+    });
+
+    void this.joinChat.removeMember(joinId, userId);
+    return this.getDetail(joinId, userId);
+  }
+
+  async holdApplicant(
+    joinId: string,
+    participantId: string,
+    hostUserId: string,
+  ): Promise<JoinDetailDto> {
+    await this.assertFieldHostReview(joinId, participantId, hostUserId, 'ON_HOLD');
+    return this.getDetail(joinId, hostUserId);
+  }
+
+  async rejectApplicant(
+    joinId: string,
+    participantId: string,
+    hostUserId: string,
+  ): Promise<JoinDetailDto> {
+    await this.assertFieldHostReview(joinId, participantId, hostUserId, 'REJECTED');
+    return this.getDetail(joinId, hostUserId);
+  }
+
+  async setFieldApplicationsClosed(
+    joinId: string,
+    hostUserId: string,
+    closed: boolean,
+  ): Promise<JoinDetailDto> {
+    const join = await this.prisma.join.findUnique({
+      where: { id: joinId },
+      include: { venue: true, fieldDetail: true },
+    });
+    if (!join) throw new NotFoundException('join_not_found');
+    if (join.hostUserId !== hostUserId) throw new ForbiddenException('not_join_host');
+    if (parseJoinVenueType(join.venue.venueType) !== 'FIELD') {
+      throw new BadRequestException('field_only');
+    }
+    if (!join.fieldDetail) {
+      throw new BadRequestException('field_detail_required');
+    }
+    await this.prisma.fieldJoinDetail.update({
+      where: { joinId },
+      data: { applicationsClosed: closed },
+    });
+    return this.getDetail(joinId, hostUserId);
+  }
+
+  private async assertFieldHostReview(
+    joinId: string,
+    participantId: string,
+    hostUserId: string,
+    review: 'ON_HOLD' | 'REJECTED',
+  ): Promise<void> {
+    const join = await this.prisma.join.findUnique({
+      where: { id: joinId },
+      include: { venue: true, participants: true },
+    });
+    if (!join) throw new NotFoundException('join_not_found');
+    if (join.hostUserId !== hostUserId) throw new ForbiddenException('not_join_host');
+    if (parseJoinVenueType(join.venue.venueType) !== 'FIELD') {
+      throw new BadRequestException('field_only');
+    }
+    const participant = join.participants.find((p) => p.id === participantId);
+    if (!participant) throw new NotFoundException('participant_not_found');
+    if (participant.role === 'HOST') throw new BadRequestException('cannot_review_host');
+    if (participant.participationStatus !== 'APPLIED') {
+      throw new BadRequestException('invalid_participant_status');
+    }
+    await this.prisma.joinParticipant.update({
+      where: { id: participantId },
+      data:
+        review === 'REJECTED'
+          ? {
+              participationStatus: 'CANCELLED',
+              cancelledAt: new Date(),
+              hostReviewStatus: 'REJECTED',
+            }
+          : { hostReviewStatus: 'ON_HOLD' },
+    });
   }
 
   /** Phase F “오늘 조인”: discovery statuses, today-valid or ongoing, not ended. */
@@ -1639,7 +1971,25 @@ export class JoinsService {
         offeredAt?: Date | null;
         offerExpiresAt?: Date | null;
         teamIndex?: number | null;
-        user: { profile: { nickname: string; gender?: string | null } | null; identityStatus?: string };
+        applicationNote?: string | null;
+        hostReviewStatus?: string | null;
+        user: {
+          profile: {
+            nickname: string;
+            gender?: string | null;
+            age?: number | null;
+            ageBand?: string | null;
+            showAge?: boolean | null;
+            showHandicap?: boolean | null;
+            avatarAsset?: { storageKey: string } | null;
+          } | null;
+          identityStatus?: string;
+          sportProfiles?: Array<{
+            fieldHandicap?: number | null;
+            screenHandicap?: number | null;
+            sport?: { code?: string };
+          }>;
+        };
       }>;
       chatRoom?: {
         status: string;
@@ -1666,11 +2016,27 @@ export class JoinsService {
     );
     assertPublicProfileHasNoPrivateFields(hostProfile as unknown as Record<string, unknown>);
 
+    const isHostViewer = viewerUserId != null && join.host.id === viewerUserId;
+    const venueType = parseJoinVenueType((join.venue as { venueType?: string }).venueType);
+    const fieldRoster = join.participants.map((p) => ({
+      role: p.role,
+      participationStatus: p.participationStatus,
+      hostReviewStatus: p.hostReviewStatus ?? null,
+      gender: (p.user.profile?.gender ?? null) as MatchingGender | null,
+    }));
+    const fieldRecruitCount =
+      venueType === 'FIELD' ? plannedPlayerCountToRecruitCount(join.plannedPlayerCount) : null;
+
     const participants: JoinParticipantDto[] = join.participants
       .filter((p) => {
         const waitlistStatus = ['WAITLISTED', 'WAITLIST_EXPIRED'].includes(p.participationStatus);
-        if (!waitlistStatus) return true;
-        return viewerUserId != null && p.userId === viewerUserId;
+        if (waitlistStatus) {
+          return viewerUserId != null && p.userId === viewerUserId;
+        }
+        if (venueType !== 'FIELD' || isHostViewer) return true;
+        if (p.role === 'HOST') return true;
+        if (p.userId === viewerUserId) return true;
+        return ['APPROVED', 'CONFIRMED', 'COMPLETED'].includes(p.participationStatus);
       })
       .map((p) => {
       const reliability = extras?.reliabilityByUserId?.get(p.userId);
@@ -1683,6 +2049,15 @@ export class JoinsService {
         p.id,
         p.participationStatus,
       );
+      const handicaps = pickJoinParticipantGolfHandicaps(p.user.sportProfiles);
+      const publicFields = resolveJoinParticipantPublicFields({
+        age: p.user.profile?.age ?? null,
+        fieldHandicap: handicaps.fieldHandicap,
+        screenHandicap: handicaps.screenHandicap,
+        showAge: p.user.profile?.showAge ?? true,
+        showHandicap: p.user.profile?.showHandicap ?? true,
+        isOwner: viewerUserId != null && p.userId === viewerUserId,
+      });
       return {
         participantId: p.id,
         userId: p.userId,
@@ -1702,6 +2077,36 @@ export class JoinsService {
         completedJoinCount: reliability?.completedCount,
         noShowCount: reliability?.noShowCount,
         attendanceRatePercent: reliability?.attendanceRatePercent ?? null,
+        applicationNote:
+          isHostViewer || p.userId === viewerUserId ? (p.applicationNote ?? null) : null,
+        hostReviewStatus:
+          (p.hostReviewStatus as JoinParticipantDto['hostReviewStatus']) ?? null,
+        fieldFaceLabel: mapFieldParticipationFaceLabel({
+          role: p.role,
+          participationStatus: p.participationStatus,
+          hostReviewStatus: p.hostReviewStatus ?? null,
+        }),
+        fieldGenderHint:
+          isHostViewer && venueType === 'FIELD' && fieldRecruitCount != null
+            ? fieldGenderConfirmHint({
+                applicantGender: (p.user.profile?.gender ?? null) as MatchingGender | null,
+                recruitCount: fieldRecruitCount,
+                genderMode: hasFixedGenderComposition(join.targetMaleCount, join.targetFemaleCount)
+                  ? 'FIXED'
+                  : 'ANY',
+                maleRecruitCount: join.targetMaleCount,
+                femaleRecruitCount: join.targetFemaleCount,
+                participants: fieldRoster,
+              })
+            : null,
+        age: publicFields.age,
+        ageBand: (p.user.profile?.ageBand as JoinParticipantDto['ageBand']) ?? null,
+        avatarUrl: this.mediaUrls.resolveAvatarUrl(
+          p.user.profile?.avatarAsset?.storageKey ?? null,
+        ),
+        fieldHandicap: publicFields.fieldHandicap,
+        screenHandicap: publicFields.screenHandicap,
+        avgScore: null,
       };
     });
 
@@ -1847,6 +2252,15 @@ export class JoinsService {
       preferredGender: (join.preferredGender as JoinPreferredGender | null) ?? null,
       minAge: join.minAge ?? null,
       maxAge: join.maxAge ?? null,
+      fieldDetails: mapFieldJoinDetailDto(
+        (join as { fieldDetail?: Parameters<typeof mapFieldJoinDetailDto>[0] }).fieldDetail,
+        join.plannedPlayerCount,
+      ),
+      recruitCount: fieldRecruitCount ?? undefined,
+      applicationCount:
+        venueType === 'FIELD' ? countFieldApplications(fieldRoster) : undefined,
+      confirmedApplicantCount:
+        venueType === 'FIELD' ? countFieldConfirmedApplicants(fieldRoster) : undefined,
       participantSkillMode:
         (join.participantSkillMode as JoinParticipantSkillMode | null) ??
         JoinParticipantSkillMode.ANY,

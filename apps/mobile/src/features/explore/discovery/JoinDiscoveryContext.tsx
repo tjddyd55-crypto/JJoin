@@ -36,10 +36,28 @@ const JoinDiscoveryContext = createContext<JoinDiscoveryContextValue | null>(
   null,
 );
 
-export function JoinDiscoveryProvider({ children }: { children: ReactNode }) {
-  const [filter, setFilter] = useState<JoinDiscoveryUiState>(() =>
-    createInitialDiscoveryUiState(),
-  );
+export function JoinDiscoveryProvider({
+  children,
+  initialVenueType,
+}: {
+  children: ReactNode;
+  initialVenueType?: string;
+}) {
+  const [filter, setFilter] = useState<JoinDiscoveryUiState>(() => {
+    const base = createInitialDiscoveryUiState();
+    if (initialVenueType === 'FIELD' || initialVenueType === 'SCREEN') {
+      return { ...base, venueType: initialVenueType };
+    }
+    return base;
+  });
+
+  useEffect(() => {
+    if (initialVenueType === 'FIELD' || initialVenueType === 'SCREEN') {
+      setFilter((prev) =>
+        prev.venueType === initialVenueType ? prev : { ...prev, venueType: initialVenueType },
+      );
+    }
+  }, [initialVenueType]);
 
   useEffect(() => {
     let cancelled = false;

@@ -5,6 +5,7 @@ import {
   computePlayerReputation,
   inferPreferredHours,
   isStrongRecommendationAlertSignal,
+  parseJoinVenueType,
   rankRecommendations,
   type RecommendCandidate,
   type RecommendReasonCode,
@@ -12,9 +13,11 @@ import {
 } from '@jjoin/domain';
 import {
   NotificationType as DomainNotificationType,
+  VenueType,
   type RecommendedJoinDto,
   type RecommendedJoinsResponse,
 } from '@jjoin/types';
+import { mapFieldJoinDetailDto } from '../joins/field-join-detail.map';
 import { NotificationType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationEventService } from '../notifications/notification-event.service';
@@ -104,6 +107,7 @@ export class JoinRecommendationsService {
           venue: {
             select: {
               name: true,
+              venueType: true,
               latitude: true,
               longitude: true,
               golfFacilityId: true,
@@ -116,6 +120,23 @@ export class JoinRecommendationsService {
                   longitude: true,
                 },
               },
+            },
+          },
+          fieldDetail: {
+            select: {
+              greenFeePerPerson: true,
+              greenFeePayer: true,
+              cartFeeTotal: true,
+              cartFeePayer: true,
+              caddieMode: true,
+              caddieFeeTotal: true,
+              caddieFeePayer: true,
+              roundHoles: true,
+              teeTimeMode: true,
+              minFieldHandicap: true,
+              maxFieldHandicap: true,
+              depositRequired: true,
+              depositAmount: true,
             },
           },
           participants: {
@@ -259,6 +280,14 @@ export class JoinRecommendationsService {
         hostAverageRatingDisplay:
           (rep?.reviewCount ?? 0) > 0 ? (rep?.averageRatingDisplay ?? null) : null,
         hostReviewCount: rep?.reviewCount ?? 0,
+        venueType: parseJoinVenueType(
+          (join.venue as { venueType?: string }).venueType,
+        ) as VenueType,
+        expectedCostKrw:
+          mapFieldJoinDetailDto(
+            (join as { fieldDetail?: Parameters<typeof mapFieldJoinDetailDto>[0] }).fieldDetail,
+            join.plannedPlayerCount,
+          )?.greenFeePerPerson ?? null,
       };
       if (includeDebug) {
         dto.debug = { score: r.score, signals: r.signals };

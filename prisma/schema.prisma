@@ -911,6 +911,7 @@ model Join {
   chatRoom       JoinChatRoom?
   invitations    JoinInvitation[]
   playerReviews  PlayerReview[]
+  fieldDetail    FieldJoinDetail?
 
   @@index([venueId, startAt])
   @@index([status, startAt])
@@ -923,6 +924,63 @@ model Join {
   @@unique([recurringScheduleId, recurringOccurrenceDate])
   @@unique([hostUserId, clientIdempotencyKey], map: "joins_host_client_idempotency_key")
   @@map("joins")
+}
+
+enum FieldGreenFeePayer {
+  EACH_PERSON
+  HOST
+}
+
+enum FieldSplitFeePayer {
+  EQUAL_SPLIT
+  HOST
+}
+
+enum FieldCaddieMode {
+  CADDIE
+  NO_CADDIE
+}
+
+enum FieldTeeTimeMode {
+  CONFIRMED
+  RECRUIT_FIRST
+  SOFT_WINDOW
+}
+
+/// FIELD-only 1:1 extension. KRW round cost never enters the Coin wallet ledger.
+/// Existing FIELD joins may omit this row — readers must be null-safe.
+model FieldJoinDetail {
+  id                String             @id @default(uuid()) @db.Uuid
+  joinId            String             @unique @map("join_id") @db.Uuid
+  greenFeePerPerson Int?               @map("green_fee_per_person")
+  greenFeePayer     FieldGreenFeePayer @default(EACH_PERSON) @map("green_fee_payer")
+  cartFeeTotal      Int?               @map("cart_fee_total")
+  cartFeePayer      FieldSplitFeePayer @default(EQUAL_SPLIT) @map("cart_fee_payer")
+  caddieMode        FieldCaddieMode    @default(NO_CADDIE) @map("caddie_mode")
+  caddieFeeTotal    Int?               @map("caddie_fee_total")
+  caddieFeePayer    FieldSplitFeePayer? @map("caddie_fee_payer")
+  /// Join round holes (9|18). Not FieldGolfCourse.holeCount.
+  roundHoles        Int                @default(18) @map("round_holes")
+  teeTimeMode       FieldTeeTimeMode   @default(CONFIRMED) @map("tee_time_mode")
+  minFieldHandicap  Int?               @map("min_field_handicap")
+  maxFieldHandicap  Int?               @map("max_field_handicap")
+  /// Schema-only v1 extension. No payment UI.
+  depositRequired   Boolean            @default(false) @map("deposit_required")
+  depositAmount     Int?               @map("deposit_amount")
+  /// Informational host promises. Never enter the Coin ledger or Toss settlement.
+  benefitGreenFee   Boolean            @default(false) @map("benefit_green_fee")
+  benefitCart       Boolean            @default(false) @map("benefit_cart")
+  benefitCaddie     Boolean            @default(false) @map("benefit_caddie")
+  /// Host-only close. Confirmed-full does not auto-close applications.
+  applicationsClosed Boolean           @default(false) @map("applications_closed")
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  join Join @relation(fields: [joinId], references: [id], onDelete: Cascade)
+
+  @@index([caddieMode])
+  @@index([teeTimeMode])
+  @@map("field_join_details")
 }
 
 /// User-defined discovery alert for new JOINABLE joins.
@@ -1252,6 +1310,10 @@ model JoinParticipant {
   cancelledAt         DateTime?           @map("cancelled_at") @db.Timestamptz(6)
   offeredAt           DateTime?           @map("offered_at") @db.Timestamptz(6)
   offerExpiresAt      DateTime?           @map("offer_expires_at") @db.Timestamptz(6)
+  /// Optional apply note to the host. Not a comment thread.
+  applicationNote     String?             @map("application_note") @db.VarChar(80)
+  /// FIELD host review overlay: ON_HOLD | REJECTED. Null for pending/user-cancel.
+  hostReviewStatus    String?             @map("host_review_status") @db.VarChar(20)
 
   join       Join              @relation(fields: [joinId], references: [id], onDelete: Cascade)
   user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)

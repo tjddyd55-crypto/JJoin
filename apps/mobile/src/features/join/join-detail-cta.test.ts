@@ -1,6 +1,17 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { JoinStatus, JoinMethod, ParticipationStatus, ParticipantRole, type JoinDetailDto } from '@jjoin/types';
+import {
+  FieldCaddieMode,
+  FieldCartFeePayer,
+  FieldGreenFeePayer,
+  FieldTeeTimeMode,
+  JoinStatus,
+  JoinMethod,
+  ParticipationStatus,
+  ParticipantRole,
+  VenueType,
+  type JoinDetailDto,
+} from '@jjoin/types';
 import {
   joinDetailCtaButtonVariant,
   resolveJoinDetailPrimaryCta,
@@ -131,4 +142,56 @@ test('OFFERED shows accept CTA', () => {
   });
   assert.equal(cta.presentation, 'waitlist_offer');
   assert.match(cta.label, /자리가 났어요/);
+});
+
+test('FIELD applicant can cancel their own application', () => {
+  const cta = resolveJoinDetailPrimaryCta({
+    detail: {
+      ...baseDetail,
+      venue: { ...baseDetail.venue, venueType: VenueType.FIELD },
+      myParticipation: {
+        participantId: 'p1',
+        userId: 'u1',
+        role: ParticipantRole.PARTICIPANT,
+        participationStatus: ParticipationStatus.APPLIED,
+        nickname: '나',
+        verifiedBadge: false,
+        appliedAt: '2026-01-01T00:00:00Z',
+        approvedAt: null,
+      },
+    },
+    isHost: false,
+    canLeave: false,
+  });
+  assert.equal(cta.presentation, 'leave');
+  assert.equal(cta.label, '신청 취소');
+});
+
+test('FIELD stays applyable after confirmed-full until host closes applications', () => {
+  const cta = resolveJoinDetailPrimaryCta({
+    detail: {
+      ...baseDetail,
+      status: JoinStatus.FULL,
+      availableSlots: 0,
+      venue: { ...baseDetail.venue, venueType: VenueType.FIELD },
+      fieldDetails: {
+        greenFeePerPerson: 90000,
+        greenFeePayer: FieldGreenFeePayer.EACH_PERSON,
+        cartFeeTotal: null,
+        cartFeePayer: FieldCartFeePayer.EQUAL_SPLIT,
+        caddieMode: FieldCaddieMode.NO_CADDIE,
+        caddieFeeTotal: null,
+        caddieFeePayer: null,
+        roundHoles: 18,
+        teeTimeMode: FieldTeeTimeMode.CONFIRMED,
+        benefitGreenFee: true,
+        applicationsClosed: false,
+        cost: { participantExpectedKrw: 90000, hostExpectedKrw: 90000, lines: [] },
+      },
+    },
+    isHost: false,
+    canLeave: false,
+  });
+  assert.equal(cta.presentation, 'apply');
+  assert.equal(cta.label, '참가 신청');
 });

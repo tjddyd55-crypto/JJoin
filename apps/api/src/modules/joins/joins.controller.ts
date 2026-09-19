@@ -8,7 +8,12 @@
   Query,
   UseGuards,
 } from '@nestjs/common';
-import type { CreateJoinRequest, JoinCoinPreviewRequest, UpdateJoinRequest } from '@jjoin/types';
+import type {
+  ApplyJoinRequest,
+  CreateJoinRequest,
+  JoinCoinPreviewRequest,
+  UpdateJoinRequest,
+} from '@jjoin/types';
 import { JoinsService } from './joins.service';
 import { JoinDiscoveryService } from './join-discovery.service';
 import { MatchingJoinsService } from './matching-joins.service';
@@ -223,8 +228,18 @@ export class JoinsController {
 
   @Post(':joinId/apply')
   @UseGuards(MockAuthGuard)
-  apply(@Param('joinId') joinId: string, @CurrentUserId() userId: string) {
-    return this.service.apply(joinId, userId);
+  apply(
+    @Param('joinId') joinId: string,
+    @CurrentUserId() userId: string,
+    @Body() body?: ApplyJoinRequest,
+  ) {
+    return this.service.apply(joinId, userId, body);
+  }
+
+  @Post(':joinId/apply/cancel')
+  @UseGuards(MockAuthGuard)
+  cancelOwnFieldApplication(@Param('joinId') joinId: string, @CurrentUserId() userId: string) {
+    return this.service.cancelOwnFieldParticipation(joinId, userId);
   }
 
   @Post(':joinId/participants/:participantId/approve')
@@ -235,6 +250,38 @@ export class JoinsController {
     @CurrentUserId() userId: string,
   ) {
     return this.service.approve(joinId, participantId, userId);
+  }
+
+  @Post(':joinId/participants/:participantId/hold')
+  @UseGuards(MockAuthGuard)
+  holdApplicant(
+    @Param('joinId') joinId: string,
+    @Param('participantId') participantId: string,
+    @CurrentUserId() userId: string,
+  ) {
+    return this.service.holdApplicant(joinId, participantId, userId);
+  }
+
+  @Post(':joinId/participants/:participantId/reject')
+  @UseGuards(MockAuthGuard)
+  rejectApplicant(
+    @Param('joinId') joinId: string,
+    @Param('participantId') participantId: string,
+    @CurrentUserId() userId: string,
+  ) {
+    return this.service.rejectApplicant(joinId, participantId, userId);
+  }
+
+  @Post(':joinId/applications/close')
+  @UseGuards(MockAuthGuard)
+  closeFieldApplications(@Param('joinId') joinId: string, @CurrentUserId() userId: string) {
+    return this.service.setFieldApplicationsClosed(joinId, userId, true);
+  }
+
+  @Post(':joinId/applications/open')
+  @UseGuards(MockAuthGuard)
+  openFieldApplications(@Param('joinId') joinId: string, @CurrentUserId() userId: string) {
+    return this.service.setFieldApplicationsClosed(joinId, userId, false);
   }
 }
 

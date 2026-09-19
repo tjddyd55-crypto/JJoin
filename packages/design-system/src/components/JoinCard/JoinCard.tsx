@@ -34,6 +34,8 @@ export type JoinCardProps = {
   /** Join character chips (skill / game / after). */
   infoTags?: string[];
   rewardLabel?: string | null;
+  /** FIELD expected KRW — never a Coin amount. */
+  costLabel?: string | null;
   isUrgent?: boolean;
   onPress?: () => void;
   accessibilityLabel?: string;
@@ -55,6 +57,7 @@ export function JoinCard({
   reasonTags,
   infoTags,
   rewardLabel,
+  costLabel,
   isUrgent,
   onPress,
   accessibilityLabel,
@@ -124,6 +127,11 @@ export function JoinCard({
                 <RecommendationReasonTag key={tag} label={tag} />
               ))}
             </View>
+          ) : null}
+          {costLabel && variant !== 'preview' ? (
+            <Text variant="meta" tone="primary" numberOfLines={1}>
+              {costLabel}
+            </Text>
           ) : null}
           {rewardLabel && variant !== 'preview' ? (
             <Text variant="meta" tone="success" numberOfLines={1}>

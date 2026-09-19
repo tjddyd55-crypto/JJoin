@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import {
   buildDiscoverRegionApiQuery,
   DEFAULT_REGION_QUICK_PICKS,
@@ -18,6 +18,8 @@ import {
 import { WeekStrip } from './WeekStrip';
 import { RegionQuickPicks, type RegionChip } from './RegionQuickPicks';
 import { RegionPickerSheet } from './RegionPickerSheet';
+import { FieldRegionPicker } from './FieldRegionPicker';
+import { Button, Text } from '@jjoin/design-system';
 
 type Props = {
   locationDenied: boolean;
@@ -156,6 +158,34 @@ export function DiscoveryFilterChrome({
         }}
         onChangeRegion={() => setPickerOpen(true)}
       />
+      {filter.venueType === 'FIELD' ? (
+        <Modal
+          visible={pickerOpen}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setPickerOpen(false)}
+        >
+          <Pressable style={fieldPickerStyles.backdrop} onPress={() => setPickerOpen(false)} />
+          <View style={fieldPickerStyles.sheet}>
+            <Text variant="sectionTitle" tone="primary">지역 선택</Text>
+            <FieldRegionPicker
+              province={filter.region.mode === 'DISTRICT' ? filter.region.sido ?? null : null}
+              cityCounty={filter.region.mode === 'DISTRICT' ? filter.region.sigungu ?? null : null}
+              onSelectProvince={() => undefined}
+              onSelectCity={(city) => {
+                setRegion({
+                  mode: 'DISTRICT',
+                  sido: city.province,
+                  sigungu: city.cityCounty,
+                  label: city.label,
+                });
+                setPickerOpen(false);
+              }}
+            />
+            <Button label="닫기" variant="secondary" onPress={() => setPickerOpen(false)} />
+          </View>
+        </Modal>
+      ) : (
       <RegionPickerSheet
         visible={pickerOpen}
         onClose={() => {
@@ -178,6 +208,18 @@ export function DiscoveryFilterChrome({
           }).then(() => loadPrefs());
         }}
       />
+      )}
     </View>
   );
 }
+
+const fieldPickerStyles = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' },
+  sheet: {
+    backgroundColor: '#fff',
+    padding: 16,
+    gap: 12,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+});

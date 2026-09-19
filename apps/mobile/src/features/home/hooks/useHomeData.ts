@@ -7,6 +7,7 @@ import type {
   ClubSummaryDto,
   DiscoverJoinCardDto,
   HomeBannerDto,
+  PublicUserProfileDto,
   RecommendedJoinDto,
 } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
@@ -24,6 +25,7 @@ export type HomeDataState = {
   clubs: ClubSummaryDto[];
   featuredClub: ClubDetailDto | null;
   banners: HomeBannerDto[];
+  discoveryProfiles: PublicUserProfileDto[];
   initialLoading: boolean;
   isRefreshing: boolean;
   recommendError: string | null;
@@ -46,6 +48,7 @@ export function useHomeData(userId: string | undefined, clubsUiEnabled = false) 
     clubs: [],
     featuredClub: null,
     banners: [],
+    discoveryProfiles: [],
     initialLoading: true,
     isRefreshing: false,
     recommendError: null,
@@ -122,13 +125,16 @@ export function useHomeData(userId: string | undefined, clubsUiEnabled = false) 
         ? api.listMyClubs().catch(() => ({ items: [] }))
         : Promise.resolve({ items: [] });
       const bannersTask = api.listHomeBanners().catch(() => [] as HomeBannerDto[]);
+      const profilesTask = api.getGolfFriendsRecommended().catch(() => ({ items: [] }));
 
-      const [discoverResult, recommendedResult, clubsResult, bannersResult] = await Promise.allSettled([
-        discoverTask,
-        recommendedTask,
-        clubsTask,
-        bannersTask,
-      ]);
+      const [discoverResult, recommendedResult, clubsResult, bannersResult, profilesResult] =
+        await Promise.allSettled([
+          discoverTask,
+          recommendedTask,
+          clubsTask,
+          bannersTask,
+          profilesTask,
+        ]);
 
       if (seq !== loadSeqRef.current) return;
 
@@ -139,6 +145,13 @@ export function useHomeData(userId: string | undefined, clubsUiEnabled = false) 
       const recommendFailed = recommendedResult.status === 'rejected';
       const clubs = clubsResult.status === 'fulfilled' ? clubsResult.value.items : [];
       const banners = bannersResult.status === 'fulfilled' ? bannersResult.value : [];
+      const discoveryProfiles =
+        profilesResult.status === 'fulfilled'
+          ? profilesResult.value.items
+              .map((item) => item.user)
+              .filter((profile): profile is PublicUserProfileDto => Boolean(profile?.id))
+              .slice(0, 8)
+          : [];
 
       const todayJoins = pickTodayDiscoverJoins(discoverRows, 3);
       const urgentJoins = pickUrgentJoins(discoverRows, recommended, 1);
@@ -151,6 +164,7 @@ export function useHomeData(userId: string | undefined, clubsUiEnabled = false) 
         recommended: nextRecommended,
         clubs,
         banners,
+        discoveryProfiles,
         initialLoading: false,
         isRefreshing: false,
         hasLoadedOnce: true,

@@ -14,7 +14,9 @@ import { getSecureSessionStore } from '../../../session/SessionContext';
 import { HomeCompactHeader } from '../components/HomeCompactHeader';
 import { HomeBannerCarousel } from '../components/HomeBannerCarousel';
 import { HomeQuickMenu } from '../components/HomeQuickMenu';
+import { HomeTrackCtaRow } from '../components/HomeTrackCtaRow';
 import { HomeTodaysJoinSection } from '../components/HomeTodaysJoinSection';
+import { HomeProfileDiscoverySection } from '../components/HomeProfileDiscoverySection';
 import { HomeClubSection } from '../components/HomeClubSection';
 import { useHomeData } from '../hooks/useHomeData';
 import { useNotificationUnreadCount } from '../../notifications/useNotificationUnreadCount';
@@ -40,6 +42,7 @@ export function HomeScreen() {
     clubs,
     featuredClub,
     banners,
+    discoveryProfiles,
     initialLoading,
     isRefreshing,
     recommendError,
@@ -73,6 +76,10 @@ export function HomeScreen() {
 
       <Spacer size="sm" />
 
+      <HomeTrackCtaRow />
+
+      <Spacer size="sm" />
+
       <HomeQuickMenu clubsUiEnabled={clubsUiEnabled} />
 
       <View style={styles.section}>
@@ -94,6 +101,23 @@ export function HomeScreen() {
           onBrowseAll={() => router.push('/(tabs)/joins')}
         />
       </View>
+
+      {discoveryProfiles.length > 0 ? (
+        <View style={styles.section}>
+          <SectionHeader
+            title="함께 라운드할 사람"
+            titleVariant="joinSectionTitle"
+            actionLabel="더보기"
+            onActionPress={() => router.push('/my/golf-friends' as Href)}
+          />
+          <HomeProfileDiscoverySection
+            profiles={discoveryProfiles}
+            onPressProfile={(userId) =>
+              router.push({ pathname: '/user/[userId]', params: { userId } } as Href)
+            }
+          />
+        </View>
+      ) : null}
 
       {clubsUiEnabled ? (
         <View style={styles.section}>

@@ -1,8 +1,15 @@
-import { validateJoinPlayFormat, type JoinPlayFormat } from '@jjoin/domain';
+import {
+  validateJoinCapacityForTrack,
+  validateJoinPlayFormat,
+  type JoinPlayFormat,
+  type JoinVenueType,
+} from '@jjoin/domain';
 
 export type JoinCreateStepId =
   | 'venue'
   | 'capacity'
+  | 'cost'
+  | 'benefits'
   | 'members'
   | 'options'
   | 'confirm';
@@ -15,8 +22,21 @@ export const JOIN_CREATE_STEPS: Array<{ id: JoinCreateStepId; label: string }> =
   { id: 'confirm', label: '확인' },
 ];
 
-export function joinCreateStepIndex(step: JoinCreateStepId): number {
-  return JOIN_CREATE_STEPS.findIndex((s) => s.id === step);
+export const FIELD_JOIN_CREATE_STEPS: Array<{ id: JoinCreateStepId; label: string }> = [
+  { id: 'venue', label: '빠른 생성' },
+];
+
+export function joinCreateStepsForTrack(
+  venueType: JoinVenueType,
+): Array<{ id: JoinCreateStepId; label: string }> {
+  return venueType === 'FIELD' ? FIELD_JOIN_CREATE_STEPS : JOIN_CREATE_STEPS;
+}
+
+export function joinCreateStepIndex(
+  step: JoinCreateStepId,
+  steps: Array<{ id: JoinCreateStepId }> = JOIN_CREATE_STEPS,
+): number {
+  return steps.findIndex((s) => s.id === step);
 }
 
 export function canAdvanceJoinCreateStep(
@@ -28,24 +48,56 @@ export function canAdvanceJoinCreateStep(
     playFormat?: JoinPlayFormat;
     teamSize?: number | null;
     teamCount?: number | null;
+    venueType?: JoinVenueType;
+    costValid?: boolean;
   },
 ): boolean {
   switch (step) {
     case 'venue':
+      if (args.venueType === 'FIELD') {
+        return args.venueReady && args.startAtValid && args.costValid !== false;
+      }
       return args.venueReady && args.startAtValid;
     case 'capacity':
-      return validateJoinPlayFormat({
+      return validateJoinCapacityForTrack({
         playFormat: args.playFormat ?? 'INDIVIDUAL',
         plannedPlayerCount: args.players,
         teamSize: args.teamSize,
         teamCount: args.teamCount,
+        venueType: args.venueType ?? 'SCREEN',
       }).ok;
+    case 'cost':
+      return args.costValid !== false;
+    case 'benefits':
+      return true;
     case 'members':
     case 'options':
       return true;
     case 'confirm':
-      return args.venueReady && args.startAtValid;
+      return args.venueReady && args.startAtValid && args.costValid !== false;
     default:
       return false;
   }
+}
+
+export function canAdvanceScreenCreateStep(
+  step: JoinCreateStepId,
+  args: Parameters<typeof canAdvanceJoinCreateStep>[1],
+): boolean {
+  return canAdvanceJoinCreateStep(step, { ...args, venueType: 'SCREEN' });
+}
+
+/** SCREEN capacity helper used by existing tests that do not pass venueType. */
+export function validateScreenCreateCapacity(args: {
+  players: number;
+  playFormat?: JoinPlayFormat;
+  teamSize?: number | null;
+  teamCount?: number | null;
+}): boolean {
+  return validateJoinPlayFormat({
+    playFormat: args.playFormat ?? 'INDIVIDUAL',
+    plannedPlayerCount: args.players,
+    teamSize: args.teamSize,
+    teamCount: args.teamCount,
+  }).ok;
 }

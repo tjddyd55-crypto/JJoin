@@ -13,6 +13,7 @@ import {
   StickyActionFrame,
   Stack,
   stickyActionScrollPadding,
+  stickyActionSecondaryButtonExtra,
   useTheme,
   type BadgeVariant,
 } from '@jjoin/design-system';
@@ -41,9 +42,16 @@ import {
   canSetAttendanceIntent,
 } from '../../../src/features/join/attendance-intent-ui';
 import { JoinDetailPrimarySections } from '../../../src/features/join/components/JoinDetailPrimarySections';
+import { FieldJoinRosterSections } from '../../../src/features/join/components/FieldJoinRosterSections';
 import { JoinHostManagementSection } from '../../../src/features/join/components/JoinHostManagementSection';
 import { JoinTeamAssignmentSection } from '../../../src/features/join/components/JoinTeamAssignmentSection';
 import { MemberActionMenu } from '../../../src/features/member/components/MemberActionMenu';
+import {
+  isFieldJoinDetail,
+  resolveFieldDetailStickyScrollExtra,
+  shouldShowJoinTeamAssignmentSection,
+  shouldShowJoinUrgentRecruitToggle,
+} from '../../../src/features/join/model/field-join-detail-ops';
 import { canShowJoinChatEntry } from '../../../src/ui/join-detail-display';
 import type { JoinWaitlistResponse } from '@jjoin/types';
 import {
@@ -188,6 +196,7 @@ export default function JoinDetailScreen() {
   const [statement, setStatement] = useState('');
   const [busy, setBusy] = useState(false);
   const [attendance, setAttendance] = useState<Record<string, boolean>>({});
+  const [applicationNote, setApplicationNote] = useState('');
 
   const load = useCallback(async () => {
     if (!joinId) return;
@@ -244,7 +253,7 @@ export default function JoinDetailScreen() {
 
   const isHost = detail?.host.id === me?.userId;
   const pending = detail?.participants.filter(
-    (p) => p.participationStatus === ParticipationStatus.APPLIED,
+    (p) => p.role !== 'HOST' && p.participationStatus === ParticipationStatus.APPLIED,
   );
   const mySettlement = detail?.settlement?.settlements.find((s) => s.userId === me?.userId);
   const myCountdownMs = useServerCountdown(
@@ -267,14 +276,21 @@ export default function JoinDetailScreen() {
   }
 
   async function onLeaveStoreJoin() {
-    if (!joinId || busy) return;
+    if (!joinId || busy || !detail) return;
     setBusy(true);
     setError(null);
     try {
-      const next = await api.leaveStoreJoin(joinId);
+      const next =
+        detail.venue.venueType === 'FIELD'
+          ? await api.cancelFieldApplication(joinId)
+          : await api.leaveStoreJoin(joinId);
       setDetail(next);
     } catch {
-      setError('참가 취소에 실패했습니다.');
+      setError(
+        detail.venue.venueType === 'FIELD'
+          ? '신청 취소에 실패했습니다.'
+          : '참가 취소에 실패했습니다.',
+      );
     } finally {
       setBusy(false);
     }
@@ -315,7 +331,12 @@ export default function JoinDetailScreen() {
     }
     setBusy(true);
     try {
-      const next = await api.applyJoin(joinId);
+      const next = await api.applyJoin(
+        joinId,
+        detail?.venue.venueType === 'FIELD' && applicationNote.trim()
+          ? { note: applicationNote.trim() }
+          : undefined,
+      );
       setDetail(next);
       setError(null);
     } catch (e) {
@@ -400,8 +421,35 @@ export default function JoinDetailScreen() {
     try {
       const next = await api.approveParticipant(joinId, participantId);
       setDetail(next);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      setError(msg.includes('성별') || msg.includes('GENDER') ? '해당 성별 자리가 마감되었습니다.' : '확정에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onHoldApplicant(participantId: string) {
+    if (!joinId) return;
+    setBusy(true);
+    try {
+      const next = await api.holdParticipant(joinId, participantId);
+      setDetail(next);
     } catch {
-      setError('승인에 실패했습니다.');
+      setError('보류에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onRejectApplicant(participantId: string) {
+    if (!joinId) return;
+    setBusy(true);
+    try {
+      const next = await api.rejectParticipant(joinId, participantId);
+      setDetail(next);
+    } catch {
+      setError('미선정 처리에 실패했습니다.');
     } finally {
       setBusy(false);
     }
@@ -617,15 +665,20 @@ export default function JoinDetailScreen() {
     (detail.status === JoinStatus.COMPLETED ||
       detail.status === JoinStatus.CANCELLED ||
       new Date(detail.startAt).getTime() < Date.now());
-  const showUrgentToggle =
-    isHost &&
-    canHostManageUrgentRecruitment({
-      status: detail.status,
-      startAt: detail.startAt,
-      plannedPlayerCount: detail.plannedPlayerCount,
-      confirmedPlayerCount: detail.confirmedPlayerCount,
-      isUrgent: detail.isUrgent ?? false,
-    });
+  const isFieldJoin = isFieldJoinDetail(detail);
+  const showUrgentToggle = shouldShowJoinUrgentRecruitToggle({
+    venueType: detail.venue.venueType,
+    isHost,
+    canManage:
+      isHost &&
+      canHostManageUrgentRecruitment({
+        status: detail.status,
+        startAt: detail.startAt,
+        plannedPlayerCount: detail.plannedPlayerCount,
+        confirmedPlayerCount: detail.confirmedPlayerCount,
+        isUrgent: detail.isUrgent ?? false,
+      }),
+  });
   const showChatEntry = canShowJoinChatEntry(detail, isHost);
   const showAttendanceIntentActions = canSetAttendanceIntent({
     isHost,
@@ -639,7 +692,14 @@ export default function JoinDetailScreen() {
   const showStickyCta = shouldShowJoinDetailStickyCta(primaryCta.presentation);
   const secondaryCtaLabel = joinDetailSecondaryCtaLabel(primaryCta.presentation);
   const scrollBottomPadding = showStickyCta
-    ? stickyActionScrollPadding(insets.bottom)
+    ? stickyActionScrollPadding(insets.bottom) +
+      (isFieldJoin
+        ? resolveFieldDetailStickyScrollExtra({
+            showApplyNote: primaryCta.presentation === 'apply',
+            showSecondaryCta: Boolean(secondaryCtaLabel),
+            secondaryButtonExtra: stickyActionSecondaryButtonExtra(),
+          })
+        : 0)
     : theme.layoutSpacing.sectionGap;
 
   return (
@@ -659,7 +719,25 @@ export default function JoinDetailScreen() {
           onOpenHost={() => router.push(`/user/${detail.host.id}`)}
         />
 
-        {detail.playFormat === 'TEAM' ? (
+        {isFieldJoin ? (
+          <FieldJoinRosterSections
+            detail={detail}
+            isHost={isHost}
+            onOpenProfile={(userId) => router.push(`/user/${userId}`)}
+            hostActions={
+              isHost
+                ? {
+                    busy,
+                    onApprove: (participantId) => void onApprove(participantId),
+                    onHold: (participantId) => void onHoldApplicant(participantId),
+                    onReject: (participantId) => void onRejectApplicant(participantId),
+                  }
+                : undefined
+            }
+          />
+        ) : null}
+
+        {shouldShowJoinTeamAssignmentSection(detail) ? (
           <JoinTeamAssignmentSection
             detail={detail}
             isHost={isHost}
@@ -671,9 +749,10 @@ export default function JoinDetailScreen() {
           <JoinHostManagementSection
             detail={detail}
             busy={busy}
+            density={isFieldJoin ? 'compact' : 'default'}
             showUrgentToggle={showUrgentToggle}
             onToggleUrgent={() => void onToggleUrgent()}
-            onOpenChat={showChatEntry ? openJoinChat : undefined}
+            onOpenChat={!isFieldJoin && showChatEntry ? openJoinChat : undefined}
             onEdit={
               canEditJoin
                 ? () => router.push(`/join/${joinId}/edit`)
@@ -695,7 +774,15 @@ export default function JoinDetailScreen() {
                 : undefined
             }
           />
-        ) : showChatEntry ? (
+        ) : null}
+
+        {isFieldJoin && showChatEntry ? (
+          <Section title="채팅방">
+            <Button label="💬 채팅방" loading={busy} onPress={openJoinChat} />
+          </Section>
+        ) : null}
+
+        {!isFieldJoin && !isHost && showChatEntry ? (
           <Section title="채팅">
             <Button label="💬 채팅방" loading={busy} onPress={openJoinChat} />
           </Section>
@@ -857,14 +944,27 @@ export default function JoinDetailScreen() {
           </Section>
         ) : null}
 
-        {isHost && pending && pending.length > 0 ? (
-          <Section title="참가 신청">
+        {!isFieldJoin && isHost && pending && pending.length > 0 ? (
+          <Section title={`신청자 ${pending.length}`}>
             {pending.map((p) => (
               <Card key={p.participantId} variant="base" padding="md">
+                <Text variant="bodyStrong" tone="primary">{p.nickname}</Text>
+                <Text variant="caption" tone="secondary">
+                  {[
+                    p.fieldFaceLabel,
+                    p.fieldGenderHint,
+                    p.age != null ? `${p.age}세` : null,
+                    p.gender,
+                    p.fieldHandicap != null ? `핸디 ${p.fieldHandicap}` : null,
+                    p.attendanceRatePercent != null ? `출석 ${p.attendanceRatePercent}%` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </Text>
+                {p.applicationNote ? (
+                  <Text variant="caption" tone="secondary">한마디: {p.applicationNote}</Text>
+                ) : null}
                 <View style={styles.pendingRow}>
-                  <Text variant="body" tone="primary">
-                    {p.nickname}
-                  </Text>
                   <MemberActionMenu
                     targetUserId={p.userId}
                     nickname={p.nickname}
@@ -873,11 +973,35 @@ export default function JoinDetailScreen() {
                     messagingEnabled={me?.messagePolicy?.enabled !== false}
                   />
                   <Button
-                    label="승인"
+                    label="프로필"
+                    variant="secondary"
+                    fullWidth={false}
+                    onPress={() => router.push(`/user/${p.userId}`)}
+                  />
+                  <Button
+                    label="확정"
                     loading={busy}
                     fullWidth={false}
                     onPress={() => void onApprove(p.participantId)}
                   />
+                  {detail.venue.venueType === 'FIELD' ? (
+                    <>
+                      <Button
+                        label="보류"
+                        variant="secondary"
+                        loading={busy}
+                        fullWidth={false}
+                        onPress={() => void onHoldApplicant(p.participantId)}
+                      />
+                      <Button
+                        label="미선정"
+                        variant="secondary"
+                        loading={busy}
+                        fullWidth={false}
+                        onPress={() => void onRejectApplicant(p.participantId)}
+                      />
+                    </>
+                  ) : null}
                 </View>
               </Card>
             ))}
@@ -966,6 +1090,14 @@ export default function JoinDetailScreen() {
       {showStickyCta ? (
         <StickyActionFrame>
           <Stack gap="sm">
+            {detail.venue.venueType === 'FIELD' && primaryCta.presentation === 'apply' ? (
+              <Input
+                label="방장에게 한마디 (선택)"
+                value={applicationNote}
+                onChangeText={setApplicationNote}
+                placeholder="짧게 인사를 남겨보세요"
+              />
+            ) : null}
             <Button
               label={
                 primaryCta.presentation === 'waitlist_offer'

@@ -22,8 +22,9 @@ import {
   TEAM_SIZE_MIN,
   computeCoinShortfall,
   computeRewardEligibleSlots,
+  plannedPlayerCountToRecruitCount,
+  recruitCountToPlannedPlayerCount,
   formatNumber,
-  FIELD_FOURSOME_PRESETS,
   formatPlayFormatLabel,
   formatTeamCapacityLabel,
   parseJoinVenueType,
@@ -44,11 +45,12 @@ import { getSecureSessionStore, useSession } from '../../src/session/SessionCont
 import { getApiClient } from '../../src/lib/api';
 import { resolveAppVariant } from '../../src/lib/app-variant';
 import { JoinCreateVenueSection } from '../../src/features/join-create/components/JoinCreateVenueSection';
-import { JoinCreateFieldVenueSection } from '../../src/features/join-create/components/JoinCreateFieldVenueSection';
 import { JoinCreateStepHeader, JoinCreateSummaryRow } from '../../src/features/join-create/components/JoinCreateStepHeader';
 import { JoinCreatePricingSummary } from '../../src/features/join-create/components/JoinCreatePricingSummary';
+import { FieldJoinQuickCreateForm } from '../../src/features/join-create/components/FieldJoinQuickCreateForm';
 import {
   JoinCreateMemberPreferencesSection,
+  defaultFieldJoinMemberPreferences,
   defaultJoinMemberPreferences,
   memberPreferencesPayload,
   memberPreferencesSummaryLabel,
@@ -58,6 +60,7 @@ import { JoinCreateGenderCompositionSection } from '../../src/features/join-crea
 import {
   defaultJoinGenderComposition,
   genderCompositionPayload,
+  fieldGenderCompositionPayload,
   genderCompositionSummaryLabel,
   resolveHostGenderFromDisplay,
   validateJoinGenderCompositionClient,
@@ -87,11 +90,20 @@ import {
   venueSelectionLabel,
 } from '../../src/features/join-create/model/join-create-venue';
 import {
-  JOIN_CREATE_STEPS,
   type JoinCreateStepId,
   canAdvanceJoinCreateStep,
   joinCreateStepIndex,
+  joinCreateStepsForTrack,
 } from '../../src/features/join-create/model/join-create-steps';
+import {
+  defaultFieldJoinCreateCost,
+  fieldJoinCostPayload,
+} from '../../src/features/join-create/model/field-join-create-cost';
+import {
+  fieldQuickCreateEffectiveReward,
+  isFieldQuickCreateReady,
+  resolveFieldCreatePlayersFromParams,
+} from '../../src/features/join-create/model/field-join-quick-create';
 import { KstDatePickerField } from '../../src/shared/date/KstDatePickerField';
 import { KstTimePickerField } from '../../src/shared/date/KstTimePickerField';
 import { composeKstIso, splitKstDateTime } from '../../src/features/store/matching-join-ui';
@@ -176,11 +188,12 @@ export default function CreateScreen() {
   const [playFormat, setPlayFormat] = useState<JoinPlayFormat>(JoinPlayFormat.INDIVIDUAL);
   const [teamSize, setTeamSize] = useState(4);
   const [teamCount, setTeamCount] = useState(2);
-  const [players, setPlayers] = useState(() =>
-    resolveJoinCreatePlayersFromParams(
-      typeof params.players === 'string' ? params.players : undefined,
-    ),
-  );
+  const [players, setPlayers] = useState(() => {
+    const raw = typeof params.players === 'string' ? params.players : undefined;
+    return venueType === 'FIELD'
+      ? resolveFieldCreatePlayersFromParams(raw)
+      : resolveJoinCreatePlayersFromParams(raw);
+  });
   const [rewardPerParticipant, setRewardPerParticipant] = useState(() =>
     resolveJoinCreateRewardFromParams(
       typeof params.rewardPerParticipant === 'string' ? params.rewardPerParticipant : undefined,
@@ -188,15 +201,29 @@ export default function CreateScreen() {
   );
   const [description, setDescription] = useState('');
   const [joinMethod, setJoinMethod] = useState<JoinMethod>(JoinMethod.APPROVAL);
-  const [memberPrefs, setMemberPrefs] = useState(() => defaultJoinMemberPreferences());
-  const [genderComposition, setGenderComposition] = useState<JoinGenderCompositionState>(() =>
-    defaultJoinGenderComposition(
+  const [memberPrefs, setMemberPrefs] = useState(() =>
+    venueType === 'FIELD' ? defaultFieldJoinMemberPreferences() : defaultJoinMemberPreferences(),
+  );
+  const [genderComposition, setGenderComposition] = useState<JoinGenderCompositionState>(() => {
+    if (venueType === 'FIELD') {
+      return defaultJoinGenderComposition(
+        plannedPlayerCountToRecruitCount(
+          resolveFieldCreatePlayersFromParams(
+            typeof params.players === 'string' ? params.players : undefined,
+          ),
+        ),
+      );
+    }
+    return defaultJoinGenderComposition(
       resolveJoinCreatePlayersFromParams(
         typeof params.players === 'string' ? params.players : undefined,
       ),
-    ),
-  );
+    );
+  });
   const [roomCharacter, setRoomCharacter] = useState(() => defaultJoinCreateRoomCharacter());
+  const [fieldCost, setFieldCost] = useState(() => defaultFieldJoinCreateCost());
+  const [fieldCoinBenefit, setFieldCoinBenefit] = useState(false);
+  const createSteps = joinCreateStepsForTrack(venueType);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [doneJoinId, setDoneJoinId] = useState<string | null>(null);
@@ -214,12 +241,20 @@ export default function CreateScreen() {
     [me?.publicProfile?.genderDisplay],
   );
 
+  const fieldRecruitCount =
+    venueType === 'FIELD' ? plannedPlayerCountToRecruitCount(players) : players;
+
   useEffect(() => {
+    const capacity = venueType === 'FIELD' ? plannedPlayerCountToRecruitCount(players) : players;
     setGenderComposition((prev) => ({
       ...prev,
-      maleCapacity: clampMaleCapacity(prev.maleCapacity, players, hostGender),
+      maleCapacity: clampMaleCapacity(
+        prev.maleCapacity,
+        capacity,
+        venueType === 'FIELD' ? null : hostGender,
+      ),
     }));
-  }, [players, hostGender]);
+  }, [players, hostGender, venueType]);
 
   const startAtIso = useMemo(() => {
     try {
@@ -235,9 +270,13 @@ export default function CreateScreen() {
     setGameDate(defaultParts.dateYmd);
     setStartTime(defaultParts.timeHm);
     setPlayers(
-      resolveJoinCreatePlayersFromParams(
-        typeof params.players === 'string' ? params.players : undefined,
-      ),
+      venueType === 'FIELD'
+        ? resolveFieldCreatePlayersFromParams(
+            typeof params.players === 'string' ? params.players : undefined,
+          )
+        : resolveJoinCreatePlayersFromParams(
+            typeof params.players === 'string' ? params.players : undefined,
+          ),
     );
     setRewardPerParticipant(
       resolveJoinCreateRewardFromParams(
@@ -248,8 +287,25 @@ export default function CreateScreen() {
     );
     setDescription('');
     setJoinMethod(JoinMethod.APPROVAL);
-    setMemberPrefs(defaultJoinMemberPreferences());
+    setMemberPrefs(
+      venueType === 'FIELD' ? defaultFieldJoinMemberPreferences() : defaultJoinMemberPreferences(),
+    );
+    setGenderComposition(
+      defaultJoinGenderComposition(
+        venueType === 'FIELD'
+          ? plannedPlayerCountToRecruitCount(
+              resolveFieldCreatePlayersFromParams(
+                typeof params.players === 'string' ? params.players : undefined,
+              ),
+            )
+          : resolveJoinCreatePlayersFromParams(
+              typeof params.players === 'string' ? params.players : undefined,
+            ),
+      ),
+    );
     setRoomCharacter(defaultJoinCreateRoomCharacter());
+    setFieldCost(defaultFieldJoinCreateCost());
+    setFieldCoinBenefit(false);
     setRecurrenceMode('NONE');
     setRecurrenceUseEndDate(false);
     setRecurrenceEndDate('');
@@ -258,7 +314,13 @@ export default function CreateScreen() {
     setSubmitting(false);
     setError(null);
     clearJoinCreateDraft();
-  }, [defaultParts.dateYmd, defaultParts.timeHm, params.players, params.rewardPerParticipant]);
+  }, [
+    defaultParts.dateYmd,
+    defaultParts.timeHm,
+    params.players,
+    params.rewardPerParticipant,
+    venueType,
+  ]);
 
   useFocusEffect(
     useCallback(() => {
@@ -329,12 +391,18 @@ export default function CreateScreen() {
   }, [api, params.venueAddress, params.venueName, routeVenueId]);
 
   const rewardEligibleSlots = useMemo(() => computeRewardEligibleSlots(players), [players]);
+  const fieldEffectiveReward = fieldQuickCreateEffectiveReward(
+    fieldCoinBenefit,
+    rewardPerParticipant,
+  );
+  const previewReward =
+    venueType === 'FIELD' ? fieldEffectiveReward : rewardPerParticipant;
   const previewEnabled = Boolean(me?.userId) && recurrenceMode === 'NONE';
   const {
     preview,
     loading: previewLoading,
     error: previewError,
-  } = useJoinCoinPreview(api, players, rewardPerParticipant, previewEnabled);
+  } = useJoinCoinPreview(api, players, previewReward, previewEnabled);
 
   const shortfall = useMemo(() => {
     if (!preview) return null;
@@ -411,17 +479,30 @@ export default function CreateScreen() {
       );
       return;
     }
-    const genderValidation = validateJoinGenderCompositionClient({
-      state: genderComposition,
-      totalCapacity: players,
-      hostGender,
-    });
-    if (!genderValidation.ok) {
-      setError(genderValidation.message);
-      setStep('capacity');
+    if (venueType !== 'FIELD') {
+      const genderValidation = validateJoinGenderCompositionClient({
+        state: genderComposition,
+        totalCapacity: players,
+        hostGender,
+      });
+      if (!genderValidation.ok) {
+        setError(genderValidation.message);
+        setStep('capacity');
+        return;
+      }
+    } else if (
+      !isFieldQuickCreateReady({
+        venueReady: venueSelectionHasPlace(selectedVenue),
+        startAtValid,
+        recruitCount: plannedPlayerCountToRecruitCount(players),
+        greenFeePerPerson: fieldCost.greenFeePerPerson,
+      })
+    ) {
+      setError('골프장, 티타임, 그린피, 모집 인원을 확인해주세요.');
+      setStep('venue');
       return;
     }
-    if (recurrenceMode === 'WEEKLY') {
+    if (recurrenceMode === 'WEEKLY' && venueType !== 'FIELD') {
       if (!recurrenceUseEndDate && maxOccurrences < 1) {
         setError('반복 횟수를 선택해주세요.');
         return;
@@ -438,7 +519,7 @@ export default function CreateScreen() {
       if (venueId !== selectedVenue.venueId) {
         setSelectedVenue({ ...selectedVenue, venueId, source: 'VENUE' });
       }
-      if (recurrenceMode === 'WEEKLY') {
+      if (recurrenceMode === 'WEEKLY' && venueType !== 'FIELD') {
         const dayOfWeek = isoWeekdayFromDateKey(gameDate);
         const schedule = await api.createRecurringJoin({
           dayOfWeek,
@@ -447,18 +528,18 @@ export default function CreateScreen() {
           ...(recurrenceUseEndDate
             ? { recurrenceEndDate }
             : { maxOccurrences }),
-          title: routeTitle ?? `${selectedVenue.name} ${venueType === 'FIELD' ? '필드 조인' : '스크린골프'}`,
+          title: routeTitle ?? `${selectedVenue.name} 스크린골프`,
           description: description.trim() || null,
           joinTemplate: {
             sportCode: SCREEN_GOLF_CODE,
             venueId,
-            venueType: venueType === 'FIELD' ? VenueType.FIELD : VenueType.SCREEN,
+            venueType: VenueType.SCREEN,
             plannedPlayerCount: players,
             playFormat,
             teamSize: playFormat === JoinPlayFormat.TEAM ? teamSize : null,
             teamCount: playFormat === JoinPlayFormat.TEAM ? teamCount : null,
             joinMethod,
-            title: routeTitle ?? `${selectedVenue.name} ${venueType === 'FIELD' ? '필드 조인' : '스크린골프'}`,
+            title: routeTitle ?? `${selectedVenue.name} 스크린골프`,
             description: description.trim() || null,
             rewardPerParticipant,
             ...memberPreferencesPayload(memberPrefs),
@@ -476,20 +557,39 @@ export default function CreateScreen() {
         venueId,
         startAt: startAtIso,
         plannedPlayerCount: players,
-        playFormat,
-        teamSize: playFormat === JoinPlayFormat.TEAM ? teamSize : null,
-        teamCount: playFormat === JoinPlayFormat.TEAM ? teamCount : null,
-        joinMethod,
+        playFormat: venueType === 'FIELD' ? JoinPlayFormat.INDIVIDUAL : playFormat,
+        teamSize: venueType === 'FIELD' || playFormat !== JoinPlayFormat.TEAM ? null : teamSize,
+        teamCount: venueType === 'FIELD' || playFormat !== JoinPlayFormat.TEAM ? null : teamCount,
+        joinMethod: venueType === 'FIELD' ? JoinMethod.APPROVAL : joinMethod,
         title: routeTitle ?? `${selectedVenue.name} ${venueType === 'FIELD' ? '필드 조인' : '스크린골프'}`,
         description: description.trim() || null,
-        rewardPerParticipant,
+        rewardPerParticipant: venueType === 'FIELD' ? fieldEffectiveReward : rewardPerParticipant,
+        recruitCount: venueType === 'FIELD' ? plannedPlayerCountToRecruitCount(players) : undefined,
         venueType: venueType === 'FIELD' ? VenueType.FIELD : VenueType.SCREEN,
         idempotencyKey: newIdempotencyKey(),
         clubId: routeClubId,
         clubEventId: routeClubEventId,
         ...memberPreferencesPayload(memberPrefs),
-        ...joinRoomCharacterPayload(roomCharacter),
-        ...genderCompositionPayload(genderComposition, players),
+        ...joinRoomCharacterPayload(
+          venueType === 'FIELD' && roomCharacter.participantSkillMode === 'HANDICAP_RANGE'
+            ? { ...roomCharacter, participantSkillMode: 'ANY' }
+            : roomCharacter,
+        ),
+        ...(venueType === 'FIELD'
+          ? fieldGenderCompositionPayload(
+              genderComposition,
+              plannedPlayerCountToRecruitCount(players),
+            )
+          : genderCompositionPayload(genderComposition, players)),
+            ...(venueType === 'FIELD'
+              ? {
+                  fieldDetails: fieldJoinCostPayload({
+                    ...fieldCost,
+                    minFieldHandicap: null,
+                    maxFieldHandicap: null,
+                  }),
+                }
+              : {}),
       });
       if (prefilledInvitees.length > 0) {
         try {
@@ -550,6 +650,10 @@ export default function CreateScreen() {
     routeClubId,
     routeTitle,
     selectedVenue,
+    fieldCost,
+    fieldCoinBenefit,
+    fieldEffectiveReward,
+    venueType,
     shortfall,
     startAtIso,
     startAtValid,
@@ -557,8 +661,14 @@ export default function CreateScreen() {
     submitting,
   ]);
 
-  const stepIndex = joinCreateStepIndex(step);
-  const isLastStep = step === 'confirm';
+  const stepIndex = joinCreateStepIndex(step, createSteps);
+  const fieldQuickReady = isFieldQuickCreateReady({
+    venueReady,
+    startAtValid,
+    recruitCount: fieldRecruitCount,
+    greenFeePerPerson: fieldCost.greenFeePerPerson,
+  });
+  const isLastStep = venueType === 'FIELD' || step === 'confirm';
   const canGoNext = canAdvanceJoinCreateStep(step, {
     venueReady,
     startAtValid,
@@ -566,21 +676,23 @@ export default function CreateScreen() {
     playFormat,
     teamSize: playFormat === JoinPlayFormat.TEAM ? teamSize : null,
     teamCount: playFormat === JoinPlayFormat.TEAM ? teamCount : null,
+    venueType,
+    costValid: venueType !== 'FIELD' || fieldQuickReady,
   });
 
   const goNext = () => {
     if (!canGoNext) {
-      if (step === 'venue') setError('장소와 일정을 확인해주세요.');
+      if (step === 'venue') setError(venueType === 'FIELD' ? '골프장과 티타임을 확인해주세요.' : '장소와 일정을 확인해주세요.');
       return;
     }
     setError(null);
-    const next = JOIN_CREATE_STEPS[stepIndex + 1];
+    const next = createSteps[stepIndex + 1];
     if (next) setStep(next.id);
   };
 
   const goBack = () => {
     setError(null);
-    const prev = JOIN_CREATE_STEPS[stepIndex - 1];
+    const prev = createSteps[stepIndex - 1];
     if (prev) setStep(prev.id);
   };
 
@@ -639,7 +751,11 @@ export default function CreateScreen() {
 
   const actionSection = isLastStep ? (
     <Stack gap="sm">
-      {footerState.helperText ? (
+      {venueType === 'FIELD' && !fieldQuickReady ? (
+        <Text variant="caption" tone="secondary" style={styles.footerHelper}>
+          골프장·날짜·티타임·그린피·모집만 있으면 바로 만들 수 있습니다.
+        </Text>
+      ) : footerState.helperText ? (
         <Text variant="caption" tone="secondary" style={styles.footerHelper}>
           {footerState.helperText}
         </Text>
@@ -648,7 +764,11 @@ export default function CreateScreen() {
         <Button label="코인 충전하기" variant="secondary" size="sm" onPress={() => router.push('/my/coin-charge')} />
       ) : null}
       <Button
-        disabled={footerState.createDisabled && recurrenceMode === 'NONE'}
+        disabled={
+          venueType === 'FIELD'
+            ? !fieldQuickReady || footerState.createDisabled
+            : footerState.createDisabled && recurrenceMode === 'NONE'
+        }
         label={recurrenceMode === 'WEEKLY' ? '반복 조인 만들기' : footerState.createLabel}
         loading={submitting}
         onPress={() => void onCreate()}
@@ -671,8 +791,39 @@ export default function CreateScreen() {
   return (
     <FormScreenFrame>
       <Stack gap="md">
-        <Text variant="screenTitle" tone="primary">조인 만들기</Text>
-        <JoinCreateStepHeader current={step} onSelect={(s) => setStep(s)} />
+        <Text variant="screenTitle" tone="primary">
+          {venueType === 'FIELD' ? '필드 조인 만들기' : '스크린 조인 만들기'}
+        </Text>
+        {venueType === 'FIELD' ? (
+          <FieldJoinQuickCreateForm
+            api={api}
+            selectedVenue={selectedVenue}
+            onChangeVenue={setSelectedVenue}
+            gameDate={gameDate}
+            onChangeDate={setGameDate}
+            startTime={startTime}
+            onChangeTime={setStartTime}
+            startAtValid={startAtValid}
+            venueReady={venueReady}
+            recruitCount={fieldRecruitCount}
+            onChangeRecruit={(n) => setPlayers(recruitCountToPlannedPlayerCount(n))}
+            fieldCost={fieldCost}
+            onChangeCost={setFieldCost}
+            genderComposition={genderComposition}
+            onChangeGender={setGenderComposition}
+            memberPrefs={memberPrefs}
+            onChangeMemberPrefs={setMemberPrefs}
+            coinSelected={fieldCoinBenefit}
+            onChangeCoinSelected={setFieldCoinBenefit}
+            rewardPerParticipant={rewardPerParticipant}
+            onChangeReward={setRewardPerParticipant}
+            rewardEligibleSlots={rewardEligibleSlots}
+            description={description}
+            onChangeDescription={setDescription}
+          />
+        ) : (
+        <>
+        <JoinCreateStepHeader current={step} steps={createSteps} onSelect={(s) => setStep(s)} />
 
         {step !== 'venue' ? (
           <Card variant="base" padding="md">
@@ -687,22 +838,18 @@ export default function CreateScreen() {
 
         {step === 'venue' ? (
           <>
-            {venueType === 'FIELD' ? (
-              <JoinCreateFieldVenueSection
-                api={api}
-                selected={selectedVenue}
-                onChange={setSelectedVenue}
-              />
-            ) : (
-              <JoinCreateVenueSection
-                api={api}
-                selected={selectedVenue}
-                onChange={setSelectedVenue}
-                onPickFromMap={onPickFromMap}
-              />
-            )}
+            <JoinCreateVenueSection
+              api={api}
+              selected={selectedVenue}
+              onChange={setSelectedVenue}
+              onPickFromMap={onPickFromMap}
+            />
             <KstDatePickerField label="날짜" dateYmd={gameDate} onChange={setGameDate} />
-            <KstTimePickerField label="시작 시간" valueHm={startTime} onChange={setStartTime} />
+            <KstTimePickerField
+              label="시작 시간"
+              valueHm={startTime}
+              onChange={setStartTime}
+            />
             {!startAtValid && venueReady ? (
               <Text variant="caption" tone="error">시작 시간은 현재보다 이후여야 합니다.</Text>
             ) : null}
@@ -721,16 +868,10 @@ export default function CreateScreen() {
                   onPress={() => {
                     setPlayFormat(format);
                     if (format === JoinPlayFormat.TEAM) {
-                      const nextSize = venueType === 'FIELD' ? 2 : teamSize;
-                      const nextCount = venueType === 'FIELD' ? 2 : teamCount;
-                      if (venueType === 'FIELD') {
-                        setTeamSize(nextSize);
-                        setTeamCount(nextCount);
-                      }
                       const nextPlayers = resolvePlannedPlayerCount({
                         playFormat: 'TEAM',
-                        teamSize: nextSize,
-                        teamCount: nextCount,
+                        teamSize,
+                        teamCount,
                       });
                       setPlayers(nextPlayers);
                       setGenderComposition(defaultJoinGenderComposition(nextPlayers));
@@ -741,30 +882,11 @@ export default function CreateScreen() {
             </View>
             {playFormat === JoinPlayFormat.TEAM ? (
               <>
-                <Text variant="sectionTitle" tone="primary">
-                  {venueType === 'FIELD' ? '포썸 구성' : '팀 구성'}
-                </Text>
+                <Text variant="sectionTitle" tone="primary">팀 구성</Text>
                 <Text variant="caption" tone="secondary">
                   {formatTeamCapacityLabel({ teamSize, teamCount }) ?? '팀 수를 선택하세요'}
                 </Text>
-                {venueType === 'FIELD' ? (
-                  <View style={styles.row}>
-                    {FIELD_FOURSOME_PRESETS.map((preset) => (
-                      <Chip
-                        key={preset.label}
-                        label={preset.label}
-                        selected={teamSize === preset.teamSize && teamCount === preset.teamCount}
-                        onPress={() => {
-                          setTeamSize(preset.teamSize);
-                          setTeamCount(preset.teamCount);
-                          const nextPlayers = preset.teamSize * preset.teamCount;
-                          setPlayers(nextPlayers);
-                          setGenderComposition(defaultJoinGenderComposition(nextPlayers));
-                        }}
-                      />
-                    ))}
-                  </View>
-                ) : null}
+                <>
                 <Text variant="caption" tone="secondary">팀당 인원</Text>
                 <View style={styles.row}>
                   {Array.from({ length: TEAM_SIZE_MAX - TEAM_SIZE_MIN + 1 }, (_, i) => i + TEAM_SIZE_MIN).map((n) => (
@@ -797,6 +919,7 @@ export default function CreateScreen() {
                     />
                   ))}
                 </View>
+                </>
               </>
             ) : (
               <>
@@ -845,7 +968,22 @@ export default function CreateScreen() {
         {step === 'members' ? (
           <>
             <JoinCreateMemberPreferencesSection value={memberPrefs} onChange={setMemberPrefs} />
-            <JoinCreateParticipantSkillSection value={roomCharacter} onChange={setRoomCharacter} />
+            <JoinCreateParticipantSkillSection
+              value={roomCharacter}
+              onChange={setRoomCharacter}
+              handicapTrack="SCREEN"
+              fieldHandicap={{
+                min: fieldCost.minFieldHandicap,
+                max: fieldCost.maxFieldHandicap,
+              }}
+              onFieldHandicapChange={(next) =>
+                setFieldCost((prev) => ({
+                  ...prev,
+                  minFieldHandicap: next.min,
+                  maxFieldHandicap: next.max,
+                }))
+              }
+            />
           </>
         ) : null}
 
@@ -975,6 +1113,8 @@ export default function CreateScreen() {
             )}
           </>
         ) : null}
+        </>
+        )}
 
         {error ? (
           <Text variant="body" tone="error">{error}</Text>

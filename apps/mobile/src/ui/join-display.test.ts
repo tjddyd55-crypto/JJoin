@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { JoinStatus } from '@jjoin/types';
 import {
+  baseJoinCardFields,
   formatJoinScheduleListLabel,
   resolveJoinListStatusBadges,
   splitJoinCapacityDisplay,
@@ -78,4 +79,21 @@ test('formatJoinRewardTileValue returns null for zero', () => {
 
 test('buildJoinCardRewardLabel returns null for zero', () => {
   assert.equal(buildJoinCardRewardLabel('0'), null);
+});
+
+test('baseJoinCardFields maps FIELD cost and track badges without throwing', () => {
+  const card = baseJoinCardFields(
+    {
+      startAt: '2026-09-17T10:00:00.000Z',
+      status: JoinStatus.OPEN,
+      venueName: '거제CC',
+      venueType: 'FIELD',
+      expectedCostKrw: 70_000,
+      seatsLeft: 2,
+    },
+    { now: new Date('2026-09-17T03:00:00.000Z') },
+  );
+  assert.equal(card.costLabel, '그린피 70,000원');
+  assert.ok(card.statusBadges?.some((badge) => badge.label === '필드'));
+  assert.equal(card.statusBadges?.some((badge) => badge.label === '스크린'), false);
 });
