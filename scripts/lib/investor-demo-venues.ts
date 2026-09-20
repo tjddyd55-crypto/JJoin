@@ -19,6 +19,9 @@ export type DemoStoreSpec = {
 /** Home discover uses regionMode=NEARBY and this exact radius. */
 export const DEMO_HOME_NEARBY_RADIUS_METERS = 5000;
 
+/** Device/home cluster used for today FIELD pin (송파 잠실 SCREEN). */
+export const DEMO_JAMSIL_HOME_ANCHOR = { lat: 37.513, lng: 127.102 } as const;
+
 /** Common DEV QA GPS points inside the Seoul micro-cluster. */
 export const DEMO_HOME_NEARBY_PROBES = [
   { id: 'gangnam', lat: 37.4979, lng: 127.0276 },
@@ -95,9 +98,9 @@ export type DemoCourseFallback = {
 };
 
 /**
- * Today OPEN FIELD hubs — same lat/lng as SCREEN today venues.
- * Prefer 잠실/송파/선릉/강남 so a Jamsil-edge device that sees 송파 SCREEN
- * also sees FIELD at the same 5km NEARBY point. Seongsu stays as a rest hub.
+ * Today OPEN FIELD hubs — all within 5km of 잠실 (37.513, 127.102).
+ * Names stay 잠실/송파/선릉/강남; coords sit inside the home NEARBY circle
+ * so a Jamsil-edge device that sees 송파 SCREEN also sees FIELD.
  */
 export const DEMO_TODAY_FIELD_VENUES: DemoCourseFallback[] = [
   {
@@ -116,8 +119,8 @@ export const DEMO_TODAY_FIELD_VENUES: DemoCourseFallback[] = [
     sido: '서울특별시',
     sigungu: '송파구',
     address: '서울특별시 송파구',
-    lat: 37.513,
-    lng: 127.102,
+    lat: 37.511,
+    lng: 127.105,
     holeCount: 18,
   },
   {
@@ -126,8 +129,8 @@ export const DEMO_TODAY_FIELD_VENUES: DemoCourseFallback[] = [
     sido: '서울특별시',
     sigungu: '강남구',
     address: '서울특별시 강남구',
-    lat: 37.5046,
-    lng: 127.0491,
+    lat: 37.51,
+    lng: 127.062,
     holeCount: 18,
   },
   {
@@ -136,8 +139,8 @@ export const DEMO_TODAY_FIELD_VENUES: DemoCourseFallback[] = [
     sido: '서울특별시',
     sigungu: '강남구',
     address: '서울특별시 강남구',
-    lat: 37.4979,
-    lng: 127.0276,
+    lat: 37.507,
+    lng: 127.07,
     holeCount: 18,
   },
 ];

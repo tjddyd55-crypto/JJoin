@@ -14,6 +14,7 @@ import {
   INVESTOR_DEMO_JOIN_KEY_PREFIX,
   DEMO_HOME_NEARBY_PROBES,
   DEMO_HOME_NEARBY_RADIUS_METERS,
+  DEMO_JAMSIL_HOME_ANCHOR,
   DEMO_TODAY_FIELD_SLUGS,
   DEMO_TODAY_SCREEN_SLUGS,
   DEMO_TODAY_SCREEN_VENUES,
@@ -46,21 +47,20 @@ import {
 validatePersonaCatalog();
 validateVenueCatalog();
 
-const screenBySlug = new Map(DEMO_TODAY_SCREEN_VENUES.map((row) => [row.slug, row]));
-const fieldAlign: Array<{ field: string; screen: string }> = [
-  { field: 'jamsil-hub', screen: 'jamsil' },
-  { field: 'songpa-hub', screen: 'jamsil' },
-  { field: 'seolleung-hub', screen: 'seolleung' },
-  { field: 'gangnam-hub', screen: 'gangnam' },
-];
-for (const pair of fieldAlign) {
-  const field = resolveFieldJoinCoords({ courseSlug: pair.field });
-  const screen = screenBySlug.get(pair.screen);
-  assert.ok(field && screen, `align missing ${pair.field}`);
-  assert.ok(
-    haversineMetersDemo(field.lat, field.lng, screen.lat, screen.lng) <= 50,
-    `FIELD ${pair.field} not pinned to SCREEN ${pair.screen}`,
+const jamsilScreen = DEMO_TODAY_SCREEN_VENUES.find((row) => row.slug === 'jamsil');
+assert.ok(jamsilScreen);
+assert.equal(jamsilScreen.lat, DEMO_JAMSIL_HOME_ANCHOR.lat);
+assert.equal(jamsilScreen.lng, DEMO_JAMSIL_HOME_ANCHOR.lng);
+for (const slug of DEMO_TODAY_FIELD_SLUGS) {
+  const field = resolveFieldJoinCoords({ courseSlug: slug });
+  assert.ok(field, `today field hub missing ${slug}`);
+  const meters = haversineMetersDemo(
+    DEMO_JAMSIL_HOME_ANCHOR.lat,
+    DEMO_JAMSIL_HOME_ANCHOR.lng,
+    field.lat,
+    field.lng,
   );
+  assert.ok(meters <= DEMO_HOME_NEARBY_RADIUS_METERS, `FIELD ${slug} ${Math.round(meters)}m from Jamsil`);
 }
 assert.deepEqual(DEMO_TODAY_FIELD_SLUGS, ['jamsil-hub', 'songpa-hub', 'seolleung-hub', 'gangnam-hub']);
 
@@ -180,6 +180,18 @@ assert.match(seedSource, /Prisma-only inserts/);
 assert.match(seedSource, /Mass OPEN joins do not grant/);
 assert.doesNotMatch(seedSource, /clubsUiEnabled:\s*true/);
 assert.match(seedSource, /clubsUiEnabled:\s*DEFAULT_FEATURE_FLAGS\.clubsUiEnabled/);
+
+const resetSource = readFileSync(join(process.cwd(), 'scripts/lib/investor-demo-reset.ts'), 'utf8');
+assert.match(resetSource, /hostUserId: \{ in: userIds \}/);
+assert.match(resetSource, /collectHostedJoinIds/);
+assert.match(resetSource, /sweepHostedJoins/);
+assert.match(resetSource, /joinParticipant\.deleteMany/);
+assert.match(resetSource, /fieldJoinDetail\.deleteMany/);
+assert.match(resetSource, /hosted_joins_remain/);
+assert.ok(
+  resetSource.indexOf('sweepHostedJoins') < resetSource.indexOf('deleteDemoUsers'),
+  'hosted joins must be deleted before users',
+);
 
 const required = listRequiredDemoAssets();
 assert.ok(required.length >= 20 + 15 + 3, `assets=${required.length}`);
