@@ -4,11 +4,8 @@
  */
 import type { PrismaClient } from '@prisma/client';
 import {
-  DEMO_BANNER_TITLE_PREFIX,
-  DEMO_CLUB_NAME_PREFIX,
   DEMO_COURSE_EXTERNAL_PREFIX,
   DEMO_FACILITY_KEY_PREFIX,
-  DEMO_JOIN_TITLE_PREFIX,
   DEMO_SUBJECT_PREFIX,
   DEMO_VENUE_PLACE_PREFIX,
   isProtectedNickname,
@@ -51,8 +48,9 @@ export async function collectDemoResetPlan(prisma: PrismaClient): Promise<DemoRe
     | { clientIdempotencyKey: { startsWith: string } }
     | { hostUserId: { in: string[] } }
   > = [
-    { title: { startsWith: DEMO_JOIN_TITLE_PREFIX } },
+    // Internal key is SSOT. Legacy title prefix cleans older seeded rows.
     { clientIdempotencyKey: { startsWith: 'investor-demo:' } },
+    { title: { startsWith: '[INVESTOR-DEMO] ' } },
   ];
   if (userIds.length) joinOr.push({ hostUserId: { in: userIds } });
 
@@ -62,11 +60,30 @@ export async function collectDemoResetPlan(prisma: PrismaClient): Promise<DemoRe
       select: { id: true },
     }),
     prisma.club.findMany({
-      where: { name: { startsWith: DEMO_CLUB_NAME_PREFIX } },
+      where: {
+        OR: [
+          { inviteCode: 'invdemo-weekend' },
+          { name: { startsWith: '[INVESTOR-DEMO] ' } },
+          { name: '주말스퀘어 클럽' },
+        ],
+      },
       select: { id: true },
     }),
     prisma.homeBanner.findMany({
-      where: { title: { startsWith: DEMO_BANNER_TITLE_PREFIX } },
+      where: {
+        OR: [
+          { title: { startsWith: '[INVESTOR-DEMO] ' } },
+          {
+            title: {
+              in: [
+                '주말 필드 조인, 지금 모집 중',
+                '강남 스크린에서 오늘 저녁 한 게임',
+                '출석하고 코인 받기',
+              ],
+            },
+          },
+        ],
+      },
       select: { id: true },
     }),
     prisma.golfFacility.findMany({

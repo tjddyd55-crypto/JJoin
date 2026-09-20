@@ -610,7 +610,7 @@ async function upsertJoin(ctx: SeedCtx, plan: JoinPlan): Promise<void> {
         venueId,
         hostUserId: host.id,
         title,
-        description: '투자자 데모용 조인입니다. 실사용자 데이터가 아닙니다.',
+        description: '초보·중급 환영 · 매너 라운드 · 정시 티오프',
         status: plan.status,
         startAt,
         scheduledEndAt: endAt,

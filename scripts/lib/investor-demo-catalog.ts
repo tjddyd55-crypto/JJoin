@@ -6,16 +6,14 @@
  * Pexels landscape/venue stock reused from the mall demo source list.
  */
 
-import { INVESTOR_DEMO_TAG } from './investor-demo-guard.ts';
-
 export const DEMO_SUBJECT_PREFIX = 'investor-demo-';
 export const DEMO_EMAIL_DOMAIN = 'jjoin.zone.demo';
-export const DEMO_JOIN_TITLE_PREFIX = `${INVESTOR_DEMO_TAG} `;
+export const DEMO_JOIN_TITLE_PREFIX = ''; // UI-facing; reset uses clientIdempotencyKey
 export const DEMO_FACILITY_KEY_PREFIX = 'investor-demo-facility-';
 export const DEMO_COURSE_EXTERNAL_PREFIX = 'investor-demo-course-';
 export const DEMO_VENUE_PLACE_PREFIX = 'investor-demo-venue-';
-export const DEMO_CLUB_NAME_PREFIX = `${INVESTOR_DEMO_TAG} `;
-export const DEMO_BANNER_TITLE_PREFIX = `${INVESTOR_DEMO_TAG} `;
+export const DEMO_CLUB_NAME_PREFIX = ''; // UI-facing; reset uses inviteCode
+export const DEMO_BANNER_TITLE_PREFIX = ''; // UI-facing; reset matches catalog titles
 export const DEMO_DM_KEY_PREFIX = 'investor-demo-dm:';
 
 /** Physical-device / mock-auth QA accounts — never seed or delete these. */
@@ -72,14 +70,14 @@ export type DemoPersonaSpec = {
 export const DEMO_PERSONAS: DemoPersonaSpec[] = [
   {
     slug: 'hajun',
-    nickname: '정하준·데모',
+    nickname: '정하준',
     gender: 'MALE',
     ageBand: 'THIRTIES',
     age: 34,
     heightCm: 178,
     regionLabel: '서울 강남',
     regionCode: '11680',
-    bio: '강남 스크린 주말 번개 호스트. 투자자 데모 계정입니다.',
+    bio: '강남 스크린 주말 번개 호스트. 초보·중급 환영합니다.',
     skillLevel: 'ADVANCED',
     screenHandicap: 4,
     fieldHandicap: 8,
@@ -91,7 +89,7 @@ export const DEMO_PERSONAS: DemoPersonaSpec[] = [
   },
   {
     slug: 'seoa',
-    nickname: '윤서아·데모',
+    nickname: '윤서아',
     gender: 'FEMALE',
     ageBand: 'TWENTIES',
     age: 27,
@@ -110,7 +108,7 @@ export const DEMO_PERSONAS: DemoPersonaSpec[] = [
   },
   {
     slug: 'doyun',
-    nickname: '한도윤·데모',
+    nickname: '한도윤',
     gender: 'MALE',
     ageBand: 'FORTIES',
     age: 41,
@@ -129,7 +127,7 @@ export const DEMO_PERSONAS: DemoPersonaSpec[] = [
   },
   {
     slug: 'yerin',
-    nickname: '최예린·데모',
+    nickname: '최예린',
     gender: 'FEMALE',
     ageBand: 'TWENTIES',
     age: 24,
@@ -148,7 +146,7 @@ export const DEMO_PERSONAS: DemoPersonaSpec[] = [
   },
   {
     slug: 'minjae',
-    nickname: '강민재·데모',
+    nickname: '강민재',
     gender: 'MALE',
     ageBand: 'THIRTIES',
     age: 36,
@@ -167,7 +165,7 @@ export const DEMO_PERSONAS: DemoPersonaSpec[] = [
   },
   {
     slug: 'jihu',
-    nickname: '배지후·데모',
+    nickname: '배지후',
     gender: 'MALE',
     ageBand: 'THIRTIES',
     age: 31,
@@ -186,7 +184,7 @@ export const DEMO_PERSONAS: DemoPersonaSpec[] = [
   },
   {
     slug: 'haneul',
-    nickname: '오하늘·데모',
+    nickname: '오하늘',
     gender: 'FEMALE',
     ageBand: 'TWENTIES',
     age: 29,
@@ -205,7 +203,7 @@ export const DEMO_PERSONAS: DemoPersonaSpec[] = [
   },
   {
     slug: 'taehyun',
-    nickname: '임태현·데모',
+    nickname: '임태현',
     gender: 'MALE',
     ageBand: 'FORTIES',
     age: 44,
@@ -379,7 +377,7 @@ export const DEMO_BANNERS: DemoBannerSpec[] = [
 export const DEMO_CLUB = {
   slug: 'weekend-square',
   name: '주말스퀘어 클럽',
-  intro: '주말 필드 + 평일 스크린. 투자자 데모용 공개 클럽입니다.',
+  intro: '주말 필드 + 평일 스크린. 라운드 일정 같이 맞추는 공개 클럽입니다.',
   region: '서울특별시 강남구',
   ownerSlug: 'minjae' as DemoPersonaSlug,
   memberSlugs: ['hajun', 'seoa', 'haneul'] as DemoPersonaSlug[],
