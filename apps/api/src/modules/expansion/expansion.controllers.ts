@@ -95,6 +95,11 @@ export class MeExpansionController {
     return this.rewards.checkIn(userId);
   }
 
+  @Post('me/rewards/attendance/ping')
+  pingAttendance(@CurrentUserId() userId: string) {
+    return this.rewards.pingAttendance(userId);
+  }
+
   @Get('me/stores/:ownershipId/profile')
   ownerProfile(@CurrentUserId() userId: string, @Param('ownershipId') ownershipId: string) {
     return this.stores.getOwnerProfile(userId, ownershipId);

@@ -449,6 +449,7 @@ model User {
   mallOrders               MallOrder[]
   profileMatchPreference   ProfileMatchPreference?
   dailyAttendanceCheckIns  DailyAttendanceCheckIn[]
+  attendanceStats          UserAttendanceStats?
   rewardGrants             RewardGrant[]
   coinGiftsSent            CoinGift[]                 @relation("CoinGiftSender")
   coinGiftsReceived        CoinGift[]                 @relation("CoinGiftReceiver")
@@ -2692,10 +2693,26 @@ model RewardPolicySettings {
   participationEnabled      Boolean  @default(true) @map("participation_enabled")
   participationThreshold    Int      @default(5) @map("participation_threshold")
   participationAmount       Decimal  @default(5) @map("participation_amount") @db.Decimal(18, 4)
+  hostMilestones            Json     @default("[]") @map("host_milestones")
+  participationMilestones   Json     @default("[]") @map("participation_milestones")
   updatedAt                 DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
   updatedBy                 String?  @map("updated_by") @db.Uuid
 
   @@map("reward_policy_settings")
+}
+
+/// Durable attendance streak projection. DailyAttendanceCheckIn remains the day-level SSOT.
+model UserAttendanceStats {
+  userId             String   @id @map("user_id") @db.Uuid
+  currentStreak      Int      @default(0) @map("current_streak")
+  bestStreak         Int      @default(0) @map("best_streak")
+  totalDays          Int      @default(0) @map("total_days")
+  lastCheckInKstDate String?  @map("last_check_in_kst_date") @db.VarChar(10)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_attendance_stats")
 }
 
 model DailyAttendanceCheckIn {

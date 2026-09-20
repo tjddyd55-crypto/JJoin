@@ -40,7 +40,7 @@ export default function MyLayout() {
         <Stack.Screen name="account" options={{ title: '계정' }} />
         <Stack.Screen name="notifications" options={{ title: '알림' }} />
         <Stack.Screen name="notification-settings" options={{ title: '알림 설정' }} />
-        <Stack.Screen name="rewards" options={{ title: '출석 · 업적' }} />
+        <Stack.Screen name="rewards" options={{ title: '활동 보상' }} />
         <Stack.Screen name="coin-gift" options={{ title: '코인 선물' }} />
         <Stack.Screen name="profile-match" options={{ title: '프로필 매칭 알림' }} />
         <Stack.Screen name="store-profile" options={{ title: '매장 프로필' }} />

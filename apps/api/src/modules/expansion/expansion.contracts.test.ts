@@ -95,6 +95,15 @@ test('home banner and reward policy admin schemas', () => {
     true,
   );
   assert.equal(updateRewardPolicySchema.safeParse({ hostThreshold: 0 }).success, false);
+  assert.equal(
+    updateRewardPolicySchema.safeParse({
+      hostMilestones: [
+        { threshold: 1, amount: '3' },
+        { threshold: 5, amount: '10' },
+      ],
+    }).success,
+    true,
+  );
   assert.equal(validateRewardPolicy(DEFAULT_REWARD_POLICY).ok, true);
 });
 

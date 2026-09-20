@@ -2,6 +2,17 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { resolveNotificationRoute } from './push-routing';
 
+test('attendance and achievement rewards route to activity rewards', () => {
+  assert.deepEqual(
+    resolveNotificationRoute({ type: 'ATTENDANCE_REWARD', data: {} }),
+    { kind: 'rewards' },
+  );
+  assert.deepEqual(
+    resolveNotificationRoute({ type: 'ACHIEVEMENT_REWARD', data: {} }),
+    { kind: 'rewards' },
+  );
+});
+
 test('reward paid routes to wallet', () => {
   assert.deepEqual(
     resolveNotificationRoute({

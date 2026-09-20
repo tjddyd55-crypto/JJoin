@@ -3487,6 +3487,17 @@ export type CoinGiftDto = {
   createdAt: string;
 };
 
+export type RewardMilestoneDto = {
+  threshold: number;
+  amount: string;
+};
+
+export type RewardMilestoneProgressDto = RewardMilestoneDto & {
+  remaining: number;
+  reached: boolean;
+  granted: boolean;
+};
+
 export type RewardPolicyDto = {
   attendanceEnabled: boolean;
   attendanceAmount: string;
@@ -3496,32 +3507,32 @@ export type RewardPolicyDto = {
   participationEnabled: boolean;
   participationThreshold: number;
   participationAmount: string;
+  hostMilestones: RewardMilestoneDto[];
+  participationMilestones: RewardMilestoneDto[];
 };
 
 export type UpdateRewardPolicyRequest = Partial<RewardPolicyDto>;
+
+export type RewardTrackProgressDto = {
+  currentCount: number;
+  threshold: number;
+  remaining: number;
+  reached: boolean;
+  granted: boolean;
+  enabled: boolean;
+  amount: string;
+  milestones: RewardMilestoneProgressDto[];
+};
 
 export type RewardProgressDto = {
   checkedInToday: boolean;
   attendanceAmount: string;
   attendanceEnabled: boolean;
-  host: {
-    currentCount: number;
-    threshold: number;
-    remaining: number;
-    reached: boolean;
-    granted: boolean;
-    enabled: boolean;
-    amount: string;
-  };
-  participation: {
-    currentCount: number;
-    threshold: number;
-    remaining: number;
-    reached: boolean;
-    granted: boolean;
-    enabled: boolean;
-    amount: string;
-  };
+  currentStreak: number;
+  bestStreak: number;
+  totalAttendanceDays: number;
+  host: RewardTrackProgressDto;
+  participation: RewardTrackProgressDto;
 };
 
 export type RewardGrantDto = {
@@ -3532,10 +3543,26 @@ export type RewardGrantDto = {
   createdAt: string;
 };
 
+export type RewardToastDto = {
+  title: string;
+  body: string;
+};
+
 export type AttendanceCheckInDto = {
   kstDate: string;
   granted: boolean;
   alreadyCheckedIn: boolean;
+  disabled: boolean;
   amount: string;
+  currentStreak: number;
+  bestStreak: number;
+  totalAttendanceDays: number;
+  toast: RewardToastDto | null;
+  newlyGrantedMilestones: Array<{
+    kind: RewardGrantKind;
+    threshold: number;
+    amount: string;
+    toast: RewardToastDto;
+  }>;
   progress: RewardProgressDto;
 };

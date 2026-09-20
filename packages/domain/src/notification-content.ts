@@ -9,6 +9,9 @@ export type NotificationContentContext = {
   messagePreview?: string | null;
   joinTitle?: string | null;
   rewardAmount?: string | null;
+  achievementKind?: string | null;
+  milestoneThreshold?: number | null;
+  currentStreak?: number | null;
 };
 
 export type NotificationContent = {
@@ -84,6 +87,18 @@ const COPY: Record<string, (ctx: NotificationContentContext) => NotificationCont
   FOLLOWED_STORE_NEW_JOIN: (ctx) => ({
     title: '관심 매장 새 조인',
     body: `${label(ctx.venueName, '매장')}에 새 조인이 등록되었습니다.`,
+  }),
+  ATTENDANCE_REWARD: (ctx) => ({
+    title: '오늘 출석 완료',
+    body: ctx.rewardAmount
+      ? `${ctx.rewardAmount}코인 지급 · 연속 ${Math.max(1, ctx.currentStreak ?? 1)}일`
+      : '오늘 앱 출석이 기록되었습니다.',
+  }),
+  ACHIEVEMENT_REWARD: (ctx) => ({
+    title: ctx.achievementKind === 'PARTICIPATION_MILESTONE' ? '참가 업적 달성' : '호스트 업적 달성',
+    body: ctx.rewardAmount
+      ? `${ctx.milestoneThreshold ?? ''}회 성사 · ${ctx.rewardAmount}코인 지급`
+      : '성사 업적 보상이 지급되었습니다.',
   }),
 };
 

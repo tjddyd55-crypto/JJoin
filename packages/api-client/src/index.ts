@@ -2492,6 +2492,15 @@ export class ApiClient {
     return parseJson(res);
   }
 
+  /** Non-blocking app-entry ping. Same payload as check-in; server is idempotent per KST day. */
+  async pingAttendance(): Promise<AttendanceCheckInDto> {
+    const res = await request(`${this.config.baseUrl}/me/rewards/attendance/ping`, {
+      method: 'POST',
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
   async assignJoinTeam(joinId: string, body: AssignJoinTeamRequest): Promise<JoinDetailDto> {
     const res = await request(`${this.config.baseUrl}/joins/${joinId}/team-assignment`, {
       method: 'PATCH',

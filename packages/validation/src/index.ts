@@ -1101,6 +1101,11 @@ export const coinGiftSchema = z.object({
   message: z.string().trim().max(80).nullable().optional(),
 });
 
+const rewardMilestoneSchema = z.object({
+  threshold: z.number().int().min(1).max(500),
+  amount: z.string().regex(/^\d+(\.\d{1,4})?$/),
+});
+
 export const updateRewardPolicySchema = z.object({
   attendanceEnabled: z.boolean().optional(),
   attendanceAmount: z.string().regex(/^\d+(\.\d{1,4})?$/).optional(),
@@ -1110,6 +1115,8 @@ export const updateRewardPolicySchema = z.object({
   participationEnabled: z.boolean().optional(),
   participationThreshold: z.number().int().min(1).max(500).optional(),
   participationAmount: z.string().regex(/^\d+(\.\d{1,4})?$/).optional(),
+  hostMilestones: z.array(rewardMilestoneSchema).max(20).optional(),
+  participationMilestones: z.array(rewardMilestoneSchema).max(20).optional(),
 });
 
 export const updateFeatureFlagsSchema = z.object({

@@ -4,9 +4,10 @@ import { SettlementService } from './settlement.service';
 import { WalletModule } from '../wallet/wallet.module';
 import { DisputeModule } from '../dispute/dispute.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ExpansionModule } from '../expansion/expansion.module';
 
 @Module({
-  imports: [WalletModule, DisputeModule, NotificationsModule],
+  imports: [WalletModule, DisputeModule, NotificationsModule, ExpansionModule],
   controllers: [SettlementController],
   providers: [SettlementService],
   exports: [SettlementService],
