@@ -5,9 +5,10 @@
 
 export const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 export const DEMO_SLOT_DURATION_MS = 3 * 3600_000;
-export const DEMO_ONGOING_MIN_REMAINING_MS = 2 * 3600_000;
-export const TODAY_SCREEN_SLOT_MIN = 15;
-export const TODAY_FIELD_SLOT_MIN = 8;
+/** Ongoing-today rooms stay listable long enough for same-evening DEV QA. */
+export const DEMO_ONGOING_MIN_REMAINING_MS = 6 * 3600_000;
+export const TODAY_SCREEN_SLOT_MIN = 20;
+export const TODAY_FIELD_SLOT_MIN = 10;
 
 export type KstParts = {
   year: number;

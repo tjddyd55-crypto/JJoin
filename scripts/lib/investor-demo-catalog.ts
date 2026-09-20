@@ -61,6 +61,8 @@ export {
   FIELD_OPEN_TARGET,
   buildJoinPlans,
   summarizeJoinPlans,
+  countTodayDiscoverablePlans,
+  assertTodayDiscoverableContract,
   joinIdempotencyKey,
   type DemoJoinPlan,
 } from './investor-demo-joins.ts';

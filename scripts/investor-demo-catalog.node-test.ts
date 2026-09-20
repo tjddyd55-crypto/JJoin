@@ -12,7 +12,9 @@ import {
   DEMO_STORES,
   INVESTOR_DEMO_BATCH_VERSION,
   INVESTOR_DEMO_JOIN_KEY_PREFIX,
+  DEMO_HUB_STORE_SLUGS,
   buildJoinPlans,
+  countTodayDiscoverablePlans,
   demoEmail,
   demoProviderSubject,
   joinIdempotencyKey,
@@ -24,12 +26,12 @@ import { assertSafeUiCopy } from './lib/investor-demo-copy.ts';
 import { inspectDemoAssets, listRequiredDemoAssets } from './lib/investor-demo-assets.ts';
 import {
   KST_OFFSET_MS,
+  DEMO_ONGOING_MIN_REMAINING_MS,
   TODAY_FIELD_SLOT_MIN,
   TODAY_SCREEN_SLOT_MIN,
   buildFieldSlots,
   buildScreenSlots,
   countTodayListableSlots,
-  isSameKstDay,
   kstParts,
   resolveDemoSlotEndAt,
 } from './lib/investor-demo-schedule.ts';
@@ -62,25 +64,31 @@ for (const plan of plans) {
   assert.ok(plan.startAt.getTime() <= twoWeeks + 24 * 3600_000, `beyond 2w ${plan.key} ${plan.startAt.toISOString()}`);
 }
 
-function countDiscoverableToday(source: typeof plans, clock: Date, track: 'SCREEN' | 'FIELD'): number {
-  return source.filter((plan) => {
-    if (plan.status !== 'OPEN' || plan.track !== track) return false;
-    if (!isSameKstDay(plan.startAt, clock)) return false;
-    return plan.scheduledEndAt.getTime() > clock.getTime();
-  }).length;
+assert.ok(countTodayDiscoverablePlans(plans, now, 'SCREEN') >= TODAY_SCREEN_SLOT_MIN, 'noon SCREEN today list');
+assert.ok(countTodayDiscoverablePlans(plans, now, 'FIELD') >= TODAY_FIELD_SLOT_MIN, 'noon FIELD today list');
+
+const lateClocks = [
+  new Date('2026-09-20T13:00:00.000Z'), // 22:00 KST
+  new Date('2026-09-20T14:00:00.000Z'), // 23:00 KST — live DEV seed clock
+];
+for (const late of lateClocks) {
+  const lateScreen = buildScreenSlots(late);
+  const lateField = buildFieldSlots(late);
+  assert.ok(countTodayListableSlots(lateScreen, late) >= TODAY_SCREEN_SLOT_MIN, `late SCREEN slots ${late.toISOString()}`);
+  assert.ok(countTodayListableSlots(lateField, late) >= TODAY_FIELD_SLOT_MIN, `late FIELD slots ${late.toISOString()}`);
+  const latePlans = buildJoinPlans(late);
+  assert.ok(countTodayDiscoverablePlans(latePlans, late, 'SCREEN') >= TODAY_SCREEN_SLOT_MIN, `late SCREEN list ${late.toISOString()}`);
+  assert.ok(countTodayDiscoverablePlans(latePlans, late, 'FIELD') >= TODAY_FIELD_SLOT_MIN, `late FIELD list ${late.toISOString()}`);
+  for (const plan of latePlans) {
+    if (plan.status !== 'OPEN' || plan.bucket !== 'today_ongoing') continue;
+    assert.ok(
+      plan.scheduledEndAt.getTime() - late.getTime() >= DEMO_ONGOING_MIN_REMAINING_MS,
+      `ongoing remaining ${plan.key}`,
+    );
+  }
+  const todayScreen = latePlans.filter((plan) => plan.track === 'SCREEN' && plan.key.startsWith('screen-today-'));
+  assert.ok(todayScreen.every((plan) => DEMO_HUB_STORE_SLUGS.includes(plan.storeSlug as (typeof DEMO_HUB_STORE_SLUGS)[number])));
 }
-
-assert.ok(countDiscoverableToday(plans, now, 'SCREEN') >= TODAY_SCREEN_SLOT_MIN, 'noon SCREEN today list');
-assert.ok(countDiscoverableToday(plans, now, 'FIELD') >= TODAY_FIELD_SLOT_MIN, 'noon FIELD today list');
-
-const late = new Date('2026-09-20T13:00:00.000Z'); // 22:00 KST Sunday
-const lateScreen = buildScreenSlots(late);
-const lateField = buildFieldSlots(late);
-assert.ok(countTodayListableSlots(lateScreen, late) >= TODAY_SCREEN_SLOT_MIN, 'late SCREEN today slots');
-assert.ok(countTodayListableSlots(lateField, late) >= TODAY_FIELD_SLOT_MIN, 'late FIELD today slots');
-const latePlans = buildJoinPlans(late);
-assert.ok(countDiscoverableToday(latePlans, late, 'SCREEN') >= TODAY_SCREEN_SLOT_MIN, 'late SCREEN today list');
-assert.ok(countDiscoverableToday(latePlans, late, 'FIELD') >= TODAY_FIELD_SLOT_MIN, 'late FIELD today list');
 
 const hostCompleted = new Map<string, number>();
 const participateCompleted = new Map<string, number>();

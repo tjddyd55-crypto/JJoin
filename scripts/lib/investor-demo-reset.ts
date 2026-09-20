@@ -54,6 +54,7 @@ export async function collectDemoResetPlan(prisma: PrismaClient): Promise<DemoRe
     // Internal key is SSOT. Legacy title prefix cleans older seeded rows.
     { clientIdempotencyKey: { startsWith: 'investor-demo:' } },
     { title: { startsWith: '[INVESTOR-DEMO] ' } },
+    { title: { startsWith: '[FIELD-E2E-' } },
   ];
   if (userIds.length) joinOr.push({ hostUserId: { in: userIds } });
 

@@ -58,7 +58,7 @@ Railway TCP proxy처럼 RTT가 길면 Prisma 기본 인터랙티브 트랜잭션
 | SCREEN 조인 | 9 | 114 (OPEN 96 + 성사 18) |
 | FIELD 조인 | 7 | 53 (OPEN 48 + 성사 5) |
 
-시간은 시드 실행 시각(KST) 기준 상대값입니다. `GET /joins/discover`는 **선택한 KST 하루**만 보고, 홈/리스트 기본값은 오늘입니다. 저녁에 시드해도 오늘 startAt + `scheduledEndAt > now` 슬롯을 강제합니다 (SCREEN ≥ 15, FIELD ≥ 8). 오늘 저녁이 모두 지났으면 `now-30~90분` 진행 중 슬롯을 넣고 endAt은 `max(start+3h, now+2h)`입니다.
+시간은 시드 실행 시각(KST) 기준 상대값입니다. `GET /joins/discover`는 **선택한 KST 하루**만 보고, 홈/리스트 기본값은 오늘입니다. 저녁(~23:00)에 시드해도 오늘 startAt + `scheduledEndAt > now` 슬롯을 강제합니다 (SCREEN ≥ 20, FIELD ≥ 10). 오늘 저녁/티오프가 모두 지났으면 `now-30~90분` 진행 중 슬롯을 넣고 endAt은 `max(start+3h, now+6h)`입니다.
 
 ## 지역
 
@@ -95,8 +95,8 @@ R2 키: `development/investor-demo/v2/{avatars\|stores\|banners\|field}/…` (pr
 
 Discover `GET /joins/discover?date=오늘&regionMode=ALL&joinability=ALL`:
 
-- SCREEN `totalCount` ≥ 15 (OPEN, startAt 오늘 KST, scheduledEndAt > now)
-- FIELD `totalCount` ≥ 8
+- SCREEN `totalCount` ≥ 20 (OPEN, startAt 오늘 KST, scheduledEndAt > now)
+- FIELD `totalCount` ≥ 10
 - 홈은 같은 오늘 쿼리에 `regionMode=NEARBY` + `joinability=JOINABLE`. 오늘 밀도 슬롯은 강남·마포·송파 / 서초·강남·마포 hub
 
 Prisma OPEN 전체(내일 포함)는 SCREEN 96 / FIELD 48 근처. **원본 Prisma count는 pass 기준이 아닙니다.**

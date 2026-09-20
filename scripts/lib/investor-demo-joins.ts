@@ -21,6 +21,7 @@ import {
   buildFieldSlots,
   buildScreenSlots,
   cycleSlots,
+  isSameKstDay,
   resolveDemoSlotEndAt,
   splitTodayAndRest,
   type SlotSpec,
@@ -336,6 +337,29 @@ export function buildOpenJoinPlans(now: Date): DemoJoinPlan[] {
   return plans;
 }
 
+export function countTodayDiscoverablePlans(
+  plans: DemoJoinPlan[],
+  now: Date,
+  track: 'SCREEN' | 'FIELD',
+): number {
+  return plans.filter((plan) => {
+    if (plan.status !== JoinStatus.OPEN || plan.track !== track) return false;
+    if (!isSameKstDay(plan.startAt, now)) return false;
+    return plan.scheduledEndAt.getTime() > now.getTime();
+  }).length;
+}
+
+export function assertTodayDiscoverableContract(plans: DemoJoinPlan[], now: Date): void {
+  const screen = countTodayDiscoverablePlans(plans, now, 'SCREEN');
+  const field = countTodayDiscoverablePlans(plans, now, 'FIELD');
+  if (screen < TODAY_SCREEN_SLOT_MIN) {
+    throw new Error(`today_kst_screen_plans ${screen} < ${TODAY_SCREEN_SLOT_MIN}`);
+  }
+  if (field < TODAY_FIELD_SLOT_MIN) {
+    throw new Error(`today_kst_field_plans ${field} < ${TODAY_FIELD_SLOT_MIN}`);
+  }
+}
+
 export function buildJoinPlans(now = new Date()): DemoJoinPlan[] {
   const plans = [...buildHistoryJoinPlans(now), ...buildOpenJoinPlans(now)];
   const keys = new Set<string>();
@@ -345,6 +369,7 @@ export function buildJoinPlans(now = new Date()): DemoJoinPlan[] {
     assertSafeUiCopy(plan.title, `join.${plan.key}.title`);
     assertSafeUiCopy(plan.description, `join.${plan.key}.body`);
   }
+  assertTodayDiscoverableContract(plans, now);
   return plans;
 }
 
