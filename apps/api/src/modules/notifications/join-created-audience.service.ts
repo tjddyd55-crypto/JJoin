@@ -4,6 +4,7 @@ import {
   JOIN_CREATED_AUDIENCE_BATCH_SIZE,
   NOTIFICATION_METRIC_NAMES,
   boundingBoxForRadiusKm,
+  collectPaginatedAudienceIds,
   incrementNotificationCounter,
   isBlockedEitherWay,
   isWithinScreenRadius,
@@ -29,6 +30,20 @@ type JoinCreatedContext = {
   sido: string | null;
   sigungu: string | null;
 };
+
+type SameAdminAudienceRow = {
+  userId: string;
+  user: { profile: { regionLabel: string | null; regionCode: string | null } | null };
+};
+
+type FieldAutoAudienceRow = {
+  id: string;
+  profile: { regionLabel: string | null; regionCode: string | null } | null;
+  joinRegionPreferences: Array<{ sido: string; sigungu: string }>;
+  notificationPreference: { fieldRegions: unknown; fieldRegionMode: string } | null;
+};
+
+type FieldCustomAudienceRow = { user_id: string };
 
 @Injectable()
 export class JoinCreatedAudienceService {
@@ -185,25 +200,11 @@ export class JoinCreatedAudienceService {
   ): Promise<string[]> {
     const spellings = listSidoSpellings(ctx.sido);
     if (spellings.length === 0) return [];
-    const rows = await this.prisma.notificationPreference.findMany({
-      where: {
-        joinCreatedEnabled: true,
-        screenRadiusMode: 'SAME_ADMIN_REGION',
-        userId: { not: ctx.hostUserId },
-        user: {
-          profile: {
-            OR: spellings.map((sido) => ({ regionLabel: { contains: sido } })),
-          },
-        },
-      },
-      take: JOIN_CREATED_AUDIENCE_BATCH_SIZE,
-      select: {
-        userId: true,
-        user: { select: { profile: { select: { regionLabel: true, regionCode: true } } } },
-      },
-    });
-    return rows
-      .filter((row) => {
+    return collectPaginatedAudienceIds<SameAdminAudienceRow>({
+      pageSize: JOIN_CREATED_AUDIENCE_BATCH_SIZE,
+      cursorOf: (row) => row.userId,
+      idOf: (row) => row.userId,
+      include: (row) => {
         if (!this.eligible(row.userId, ctx.hostUserId, blocks)) return false;
         const home = parseHomeRegion(row.user.profile);
         return isWithinScreenRadius({
@@ -215,8 +216,28 @@ export class JoinCreatedAudienceService {
           venueSido: ctx.sido,
           venueSigungu: ctx.sigungu,
         });
-      })
-      .map((row) => row.userId);
+      },
+      fetchPage: (cursor, take) =>
+        this.prisma.notificationPreference.findMany({
+          where: {
+            joinCreatedEnabled: true,
+            screenRadiusMode: 'SAME_ADMIN_REGION',
+            userId: { not: ctx.hostUserId },
+            user: {
+              profile: {
+                OR: spellings.map((sido) => ({ regionLabel: { contains: sido } })),
+              },
+            },
+          },
+          orderBy: { userId: 'asc' },
+          take,
+          ...(cursor ? { cursor: { userId: cursor }, skip: 1 } : {}),
+          select: {
+            userId: true,
+            user: { select: { profile: { select: { regionLabel: true, regionCode: true } } } },
+          },
+        }),
+    });
   }
 
   private async collectFieldRecipients(
@@ -234,31 +255,39 @@ export class JoinCreatedAudienceService {
   ): Promise<string[]> {
     const spellings = listSidoSpellings(ctx.sido);
     if (spellings.length === 0) return [];
-    const rows = await this.prisma.user.findMany({
-      where: {
-        id: { not: ctx.hostUserId },
-        OR: [
-          { notificationPreference: null },
-          { notificationPreference: { joinCreatedEnabled: true, fieldRegionMode: 'AUTO' } },
-        ],
-        AND: [
-          {
+    return collectPaginatedAudienceIds<FieldAutoAudienceRow>({
+      pageSize: JOIN_CREATED_AUDIENCE_BATCH_SIZE,
+      cursorOf: (row) => row.id,
+      idOf: (row) => row.id,
+      include: (row) => this.fieldUserMatches(row, ctx, blocks),
+      fetchPage: (cursor, take) =>
+        this.prisma.user.findMany({
+          where: {
+            id: { not: ctx.hostUserId },
             OR: [
-              { profile: { OR: spellings.map((sido) => ({ regionLabel: { contains: sido } })) } },
-              { joinRegionPreferences: { some: { sido: { in: spellings } } } },
+              { notificationPreference: null },
+              { notificationPreference: { joinCreatedEnabled: true, fieldRegionMode: 'AUTO' } },
+            ],
+            AND: [
+              {
+                OR: [
+                  { profile: { OR: spellings.map((sido) => ({ regionLabel: { contains: sido } })) } },
+                  { joinRegionPreferences: { some: { sido: { in: spellings } } } },
+                ],
+              },
             ],
           },
-        ],
-      },
-      take: JOIN_CREATED_AUDIENCE_BATCH_SIZE,
-      select: {
-        id: true,
-        profile: { select: { regionLabel: true, regionCode: true } },
-        joinRegionPreferences: { select: { sido: true, sigungu: true } },
-        notificationPreference: { select: { fieldRegions: true, fieldRegionMode: true } },
-      },
+          orderBy: { id: 'asc' },
+          take,
+          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+          select: {
+            id: true,
+            profile: { select: { regionLabel: true, regionCode: true } },
+            joinRegionPreferences: { select: { sido: true, sigungu: true } },
+            notificationPreference: { select: { fieldRegions: true, fieldRegionMode: true } },
+          },
+        }),
     });
-    return rows.filter((row) => this.fieldUserMatches(row, ctx, blocks)).map((row) => row.id);
   }
 
   private async collectFieldCustomUsers(
@@ -268,28 +297,47 @@ export class JoinCreatedAudienceService {
     const province = normalizeSido(ctx.sido);
     if (!province) return [];
     const venue = { province, cityCounty: parseHomeRegion({ sido: ctx.sido, sigungu: ctx.sigungu }).sigungu };
-    const matched = await this.prisma.$queryRaw<Array<{ user_id: string }>>`
-      SELECT user_id
-      FROM notification_preferences
-      WHERE join_created_enabled = true
-        AND field_region_mode = 'CUSTOM'
-        AND user_id <> ${ctx.hostUserId}::uuid
-        AND (
-          field_regions @> ${JSON.stringify([{ province, cityCounty: venue.cityCounty }])}::jsonb
-          OR field_regions @> ${JSON.stringify([{ province, cityCounty: null }])}::jsonb
-        )
-      LIMIT ${JOIN_CREATED_AUDIENCE_BATCH_SIZE}
-    `;
-    return matched.map((row) => row.user_id).filter((userId) => this.eligible(userId, ctx.hostUserId, blocks));
+    const cityMatch = JSON.stringify([{ province, cityCounty: venue.cityCounty }]);
+    const provinceMatch = JSON.stringify([{ province, cityCounty: null }]);
+    return collectPaginatedAudienceIds<FieldCustomAudienceRow>({
+      pageSize: JOIN_CREATED_AUDIENCE_BATCH_SIZE,
+      cursorOf: (row) => row.user_id,
+      idOf: (row) => row.user_id,
+      include: (row) => this.eligible(row.user_id, ctx.hostUserId, blocks),
+      fetchPage: (cursor, take) =>
+        cursor
+          ? this.prisma.$queryRaw<Array<{ user_id: string }>>`
+              SELECT user_id
+              FROM notification_preferences
+              WHERE join_created_enabled = true
+                AND field_region_mode = 'CUSTOM'
+                AND user_id <> ${ctx.hostUserId}::uuid
+                AND user_id > ${cursor}::uuid
+                AND (
+                  field_regions @> ${cityMatch}::jsonb
+                  OR field_regions @> ${provinceMatch}::jsonb
+                )
+              ORDER BY user_id ASC
+              LIMIT ${take}
+            `
+          : this.prisma.$queryRaw<Array<{ user_id: string }>>`
+              SELECT user_id
+              FROM notification_preferences
+              WHERE join_created_enabled = true
+                AND field_region_mode = 'CUSTOM'
+                AND user_id <> ${ctx.hostUserId}::uuid
+                AND (
+                  field_regions @> ${cityMatch}::jsonb
+                  OR field_regions @> ${provinceMatch}::jsonb
+                )
+              ORDER BY user_id ASC
+              LIMIT ${take}
+            `,
+    });
   }
 
   private fieldUserMatches(
-    row: {
-      id: string;
-      profile: { regionLabel: string | null; regionCode: string | null } | null;
-      joinRegionPreferences: Array<{ sido: string; sigungu: string }>;
-      notificationPreference: { fieldRegions: unknown; fieldRegionMode: string } | null;
-    },
+    row: FieldAutoAudienceRow,
     ctx: JoinCreatedContext,
     blocks: Array<{ blockerUserId: string; blockedUserId: string }>,
   ): boolean {

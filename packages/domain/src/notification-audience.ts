@@ -234,3 +234,33 @@ export function isKnownFieldNotificationRegion(region: FieldNotificationRegion):
   if (!region.cityCounty) return true;
   return group.cities.some((city) => city.cityCounty === region.cityCounty);
 }
+
+export type PaginatedAudienceFetchPage<T> = (
+  cursor: string | undefined,
+  take: number,
+) => Promise<T[]>;
+
+/**
+ * Cursor page-walk for JOIN_CREATED audience.
+ * `pageSize` is a page size, not a total cap. A page with zero eligible rows
+ * still continues until the fetch returns a short page.
+ */
+export async function collectPaginatedAudienceIds<T>(input: {
+  pageSize: number;
+  fetchPage: PaginatedAudienceFetchPage<T>;
+  cursorOf: (row: T) => string;
+  idOf: (row: T) => string;
+  include: (row: T) => boolean;
+}): Promise<string[]> {
+  const ids: string[] = [];
+  let cursor: string | undefined;
+  while (true) {
+    const page = await input.fetchPage(cursor, input.pageSize);
+    for (const row of page) {
+      if (input.include(row)) ids.push(input.idOf(row));
+    }
+    if (page.length < input.pageSize) break;
+    cursor = input.cursorOf(page[page.length - 1]!);
+  }
+  return ids;
+}

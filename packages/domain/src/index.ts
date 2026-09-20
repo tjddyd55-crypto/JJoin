@@ -759,7 +759,9 @@ export {
   NOTIFICATION_OUTBOX_STALE_PROCESSING_MS,
   SCREEN_NOTIFICATION_RADIUS_OPTIONS,
   buildAndroidCollapseKey,
+  buildJoinUpdateOperationId,
   buildNotificationEventKey,
+  canonicalizeNotificationMutation,
   formatUnreadBadge,
   incrementNotificationCounter,
   isRecommendationNotificationType,
@@ -795,6 +797,7 @@ export {
 
 export {
   boundingBoxForRadiusKm,
+  collectPaginatedAudienceIds,
   dedupeRegions,
   isBlockedEitherWay,
   isKnownFieldNotificationRegion,
@@ -809,6 +812,7 @@ export {
   shouldRateLimitJoinCreated,
   type GeoPoint,
   type HomeRegionInput,
+  type PaginatedAudienceFetchPage,
   type ParsedHomeRegion,
 } from './notification-audience';
 

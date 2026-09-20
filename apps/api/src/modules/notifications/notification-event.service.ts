@@ -28,6 +28,7 @@ export type EnqueueTypedNotificationInput = {
   data: Record<string, unknown>;
   targetEntityId: string;
   messageId?: string;
+  operationId?: string;
   eventKey?: string;
   actorUserId?: string;
 };
@@ -81,6 +82,7 @@ export class NotificationEventService {
           recipientUserId: input.userId,
           targetEntityId: input.targetEntityId,
           messageId: input.messageId,
+          operationId: input.operationId,
         });
       await this.enqueueSafe({
         userId: input.userId,

@@ -1,15 +1,19 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Section, Spacer, Text, useTheme } from '@jjoin/design-system';
-import {
-  FIELD_REGION_CATALOG,
-  listFieldSigunguChoices,
-  shouldSkipFieldSigunguStep,
-} from '@jjoin/domain';
+import { FIELD_REGION_CATALOG, shouldSkipFieldSigunguStep } from '@jjoin/domain';
 import type {
   FieldNotificationRegionDto,
   NotificationPreferenceDto,
   ScreenNotificationRadiusMode,
 } from '@jjoin/types';
+import { useModalSafePadding } from '../../../ui/modal-safe-area';
+import {
+  formatFieldNotificationRegions,
+  isFieldRegionSelected,
+  listCustomFieldCityChoices,
+  toggleFieldNotificationRegion,
+} from './join-created-preference-regions';
 
 const RADIUS_OPTIONS: Array<{ mode: ScreenNotificationRadiusMode; label: string }> = [
   { mode: 'KM_5', label: '5km' },
@@ -63,7 +67,7 @@ export function JoinCreatedPreferenceSection({ prefs, busy, onChange }: Props) {
           <Spacer size="sm" />
           <Text variant="meta" tone="tertiary">
             {prefs.fieldRegionMode === 'AUTO'
-              ? `집/활동 지역을 따라갑니다: ${formatRegions(prefs.resolvedFieldRegions)}`
+              ? `집/활동 지역을 따라갑니다: ${formatFieldNotificationRegions(prefs.resolvedFieldRegions)}`
               : '선택한 지역만 유지합니다. 자동으로 되돌리면 집 지역을 다시 따릅니다.'}
           </Text>
           {prefs.fieldRegionMode === 'CUSTOM' ? (
@@ -79,82 +83,126 @@ export function JoinCreatedPreferenceSection({ prefs, busy, onChange }: Props) {
   );
 }
 
-function formatRegions(regions: FieldNotificationRegionDto[]): string {
-  if (regions.length === 0) return '아직 집 지역이 없습니다';
-  return regions
-    .map((region) => (region.cityCounty ? `${region.province} ${region.cityCounty}` : region.province))
-    .join(', ');
-}
-
 function CustomFieldRegionPicker(props: {
   selected: FieldNotificationRegionDto[];
   disabled: boolean;
   onChange: (regions: FieldNotificationRegionDto[]) => void;
 }) {
+  const [cityPickerProvince, setCityPickerProvince] = useState<string | null>(null);
+  const modalSafePadding = useModalSafePadding();
+  const theme = useTheme();
+  const cityChoices = cityPickerProvince ? listCustomFieldCityChoices(cityPickerProvince) : [];
+  const cityPickerLabel =
+    FIELD_REGION_CATALOG.find((group) => group.province === cityPickerProvince)?.label ??
+    cityPickerProvince;
+
   return (
     <View style={styles.customWrap}>
       <Text variant="meta" tone="secondary">
-        선택됨: {formatRegions(props.selected)}
+        선택됨: {formatFieldNotificationRegions(props.selected)}
       </Text>
       {FIELD_REGION_CATALOG.map((group) => {
         const skipCity = shouldSkipFieldSigunguStep(group.province);
-        const cities = skipCity ? [] : listFieldSigunguChoices(group.province);
-        const provinceSelected = props.selected.some(
-          (region) => region.province === group.province && !region.cityCounty,
-        );
+        const cities = skipCity ? [] : listCustomFieldCityChoices(group.province);
+        const provinceSelected = isFieldRegionSelected(props.selected, {
+          province: group.province,
+          cityCounty: null,
+        });
+        const selectedCityCount = props.selected.filter(
+          (region) => region.province === group.province && region.cityCounty,
+        ).length;
         return (
           <View key={group.province} style={styles.provinceBlock}>
-            <Chip
-              label={group.label}
-              selected={provinceSelected}
-              disabled={props.disabled}
-              onPress={() =>
-                props.onChange(toggleRegion(props.selected, { province: group.province, cityCounty: null }))
-              }
-            />
-            {cities.length > 0 ? (
-              <View style={styles.chipRow}>
-                {cities.slice(0, 8).map((city) => (
-                  <Chip
-                    key={city.cityCounty}
-                    label={city.label}
-                    selected={props.selected.some(
-                      (region) =>
-                        region.province === city.province && region.cityCounty === city.cityCounty,
-                    )}
-                    disabled={props.disabled}
-                    onPress={() =>
-                      props.onChange(
-                        toggleRegion(props.selected, {
-                          province: city.province,
-                          cityCounty: city.cityCounty,
-                        }),
-                      )
-                    }
-                  />
-                ))}
-              </View>
-            ) : null}
+            <View style={styles.provinceRow}>
+              <Chip
+                label={group.label}
+                selected={provinceSelected}
+                disabled={props.disabled}
+                onPress={() =>
+                  props.onChange(
+                    toggleFieldNotificationRegion(props.selected, {
+                      province: group.province,
+                      cityCounty: null,
+                    }),
+                  )
+                }
+              />
+              {cities.length > 0 ? (
+                <Chip
+                  label={
+                    selectedCityCount > 0
+                      ? `시/군 ${cities.length}개 · ${selectedCityCount} 선택`
+                      : `시/군 ${cities.length}개`
+                  }
+                  selected={selectedCityCount > 0}
+                  disabled={props.disabled}
+                  onPress={() => setCityPickerProvince(group.province)}
+                />
+              ) : null}
+            </View>
           </View>
         );
       })}
+
+      <Modal
+        visible={cityPickerProvince != null}
+        animationType="slide"
+        onRequestClose={() => setCityPickerProvince(null)}
+      >
+        <View
+          style={[
+            styles.modal,
+            {
+              backgroundColor: theme.colors.surface.base,
+              paddingTop: modalSafePadding.paddingTop + 12,
+              paddingBottom: modalSafePadding.paddingBottom + 16,
+            },
+          ]}
+        >
+          <View style={styles.modalHeader}>
+            <Text variant="sectionTitle" tone="primary">
+              {cityPickerLabel} 시/군
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setCityPickerProvince(null)}
+              style={styles.modalClose}
+            >
+              <Text variant="bodyStrong" tone="primary">
+                완료
+              </Text>
+            </Pressable>
+          </View>
+          <Text variant="meta" tone="tertiary" style={styles.modalHint}>
+            광역 전체 선택은 목록에서 시/도 칩으로 합니다. 여기서는 시/군을 여러 개 고를 수 있습니다.
+          </Text>
+          <ScrollView contentContainerStyle={styles.modalList}>
+            <View style={styles.chipRow}>
+              {cityChoices.map((city) => (
+                <Chip
+                  key={city.cityCounty}
+                  label={city.label}
+                  selected={isFieldRegionSelected(props.selected, {
+                    province: city.province,
+                    cityCounty: city.cityCounty,
+                  })}
+                  disabled={props.disabled}
+                  onPress={() =>
+                    props.onChange(
+                      toggleFieldNotificationRegion(props.selected, {
+                        province: city.province,
+                        cityCounty: city.cityCounty,
+                      }),
+                    )
+                  }
+                />
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
-}
-
-function toggleRegion(
-  current: FieldNotificationRegionDto[],
-  target: FieldNotificationRegionDto,
-): FieldNotificationRegionDto[] {
-  const exists = current.some(
-    (region) => region.province === target.province && region.cityCounty === target.cityCounty,
-  );
-  if (exists) {
-    return current.filter(
-      (region) => !(region.province === target.province && region.cityCounty === target.cityCounty),
-    );
-  }
-  return [...current, target];
 }
 
 function Chip(props: { label: string; selected: boolean; disabled: boolean; onPress: () => void }) {
@@ -197,5 +245,32 @@ const styles = StyleSheet.create({
   },
   provinceBlock: {
     gap: 8,
+  },
+  provinceRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    alignItems: 'center',
+  },
+  modal: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  modalClose: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  modalHint: {
+    marginBottom: 12,
+  },
+  modalList: {
+    paddingBottom: 24,
   },
 });

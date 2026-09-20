@@ -101,6 +101,7 @@ import {
   validateFieldApplicationNote,
   validateFieldGenderRecruit,
   defaultFieldJoinDetails,
+  buildJoinUpdateOperationId,
   type MatchingGender,
 } from '@jjoin/domain';
 import {
@@ -841,6 +842,11 @@ export class JoinsService {
       }
     }
 
+    const operationId = buildJoinUpdateOperationId({
+      previousUpdatedAt: join.updatedAt,
+      mutation: input,
+    });
+
     await this.prisma.join.update({
       where: { id: joinId },
       data: {
@@ -866,7 +872,13 @@ export class JoinsService {
       },
     });
 
-    void this.engagementNotify.notifyJoinLifecycle(joinId, NotificationType.JOIN_UPDATED, hostUserId);
+    void this.engagementNotify.notifyJoinLifecycle(
+      joinId,
+      NotificationType.JOIN_UPDATED,
+      hostUserId,
+      undefined,
+      { operationId },
+    );
     return this.getDetail(joinId, hostUserId);
   }
 

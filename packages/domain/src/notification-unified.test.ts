@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   buildNotificationContent,
   buildNotificationEventKey,
+  buildJoinUpdateOperationId,
   buildAndroidCollapseKey,
   formatUnreadBadge,
   isRecommendationNotificationType,
@@ -147,6 +148,72 @@ test('idempotency key includes messageId for DMs', () => {
       targetEntityId: 'j1',
     }),
     'JOIN_CREATED:u1:j1',
+  );
+});
+
+test('JOIN_UPDATED same operation retry dedupes; distinct edits do not', () => {
+  const previousUpdatedAt = '2026-09-20T03:00:00.000Z';
+  const firstMutation = { title: '저녁 조인', description: '첫 수정' };
+  const secondMutation = { title: '저녁 조인', description: '두번째 수정' };
+  const firstOp = buildJoinUpdateOperationId({
+    previousUpdatedAt,
+    mutation: firstMutation,
+  });
+  const retryOp = buildJoinUpdateOperationId({
+    previousUpdatedAt,
+    mutation: { description: '첫 수정', title: '저녁 조인' },
+  });
+  const secondOp = buildJoinUpdateOperationId({
+    previousUpdatedAt: '2026-09-20T03:10:00.000Z',
+    mutation: secondMutation,
+  });
+  assert.equal(firstOp, retryOp);
+  assert.notEqual(firstOp, secondOp);
+
+  const recipient = 'u1';
+  const joinId = 'j1';
+  const firstKey = buildNotificationEventKey({
+    type: 'JOIN_UPDATED',
+    recipientUserId: recipient,
+    targetEntityId: joinId,
+    operationId: firstOp,
+  });
+  const retryKey = buildNotificationEventKey({
+    type: 'JOIN_UPDATED',
+    recipientUserId: recipient,
+    targetEntityId: joinId,
+    operationId: retryOp,
+  });
+  const secondKey = buildNotificationEventKey({
+    type: 'JOIN_UPDATED',
+    recipientUserId: recipient,
+    targetEntityId: joinId,
+    operationId: secondOp,
+  });
+  assert.equal(firstKey, retryKey);
+  assert.notEqual(firstKey, secondKey);
+  assert.match(firstKey, /^JOIN_UPDATED:u1:j1:/);
+  assert.notEqual(
+    firstKey,
+    buildNotificationEventKey({
+      type: 'JOIN_UPDATED',
+      recipientUserId: recipient,
+      targetEntityId: joinId,
+    }),
+  );
+
+  const keys = new Set([firstKey, retryKey, secondKey]);
+  assert.equal(keys.size, 2);
+});
+
+test('JOIN_CANCELLED stays join-scoped without operation id', () => {
+  assert.equal(
+    buildNotificationEventKey({
+      type: 'JOIN_CANCELLED',
+      recipientUserId: 'u1',
+      targetEntityId: 'j1',
+    }),
+    'JOIN_CANCELLED:u1:j1',
   );
 });
 

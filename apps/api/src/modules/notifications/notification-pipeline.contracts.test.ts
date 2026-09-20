@@ -4,6 +4,7 @@ import {
   JOIN_CREATED_RATE_LIMIT,
   NOTIFICATION_OUTBOX_MAX_ATTEMPTS,
   buildAndroidCollapseKey,
+  buildJoinUpdateOperationId,
   buildNotificationContent,
   buildNotificationEventKey,
   isRecommendationNotificationType,
@@ -36,6 +37,38 @@ test('idempotency keys stay unique per recipient + entity', () => {
     targetEntityId: 'join-1',
   });
   assert.notEqual(a, b);
+});
+
+test('JOIN_UPDATED retry shares a key and a later edit does not', () => {
+  const prior = '2026-09-20T01:00:00.000Z';
+  const retry = buildJoinUpdateOperationId({
+    previousUpdatedAt: prior,
+    mutation: { title: '변경' },
+  });
+  const sameRetry = buildJoinUpdateOperationId({
+    previousUpdatedAt: prior,
+    mutation: { title: '변경' },
+  });
+  const laterEdit = buildJoinUpdateOperationId({
+    previousUpdatedAt: '2026-09-20T01:05:00.000Z',
+    mutation: { title: '또 변경' },
+  });
+  assert.equal(retry, sameRetry);
+  assert.notEqual(retry, laterEdit);
+  assert.notEqual(
+    buildNotificationEventKey({
+      type: 'JOIN_UPDATED',
+      recipientUserId: 'p1',
+      targetEntityId: 'join-1',
+      operationId: retry,
+    }),
+    buildNotificationEventKey({
+      type: 'JOIN_UPDATED',
+      recipientUserId: 'p1',
+      targetEntityId: 'join-1',
+      operationId: laterEdit,
+    }),
+  );
 });
 
 test('message grouping collapse key is conversation-scoped', () => {

@@ -70,12 +70,14 @@ export class JoinEngagementNotifyService {
     type: 'JOIN_UPDATED' | 'JOIN_CANCELLED',
     actorUserId?: string,
     recipientUserIds?: string[],
+    options?: { operationId?: string },
   ): Promise<void> {
     try {
       const join = await this.prisma.join.findUnique({
         where: { id: joinId },
         select: {
           hostUserId: true,
+          updatedAt: true,
           venue: { select: { name: true } },
           participants: {
             where: {
@@ -89,6 +91,10 @@ export class JoinEngagementNotifyService {
         },
       });
       if (!join) return;
+      const operationId =
+        type === 'JOIN_UPDATED'
+          ? (options?.operationId ?? join.updatedAt.toISOString())
+          : undefined;
       for (const participant of join.participants) {
         if (participant.userId === join.hostUserId) continue;
         await this.notifications.enqueueTypedSafe({
@@ -96,6 +102,7 @@ export class JoinEngagementNotifyService {
           type,
           targetEntityId: joinId,
           actorUserId: actorUserId ?? join.hostUserId,
+          operationId,
           context: { venueName: join.venue.name },
           data: { joinId },
         });

@@ -145,13 +145,63 @@ export type NotificationEventKeyInput = {
   recipientUserId: string;
   targetEntityId: string;
   messageId?: string;
+  /** Stable per mutation. Distinct JOIN_UPDATED edits must not share a key. */
+  operationId?: string;
 };
 
 export function buildNotificationEventKey(input: NotificationEventKeyInput): string {
   if (input.messageId) {
     return `${input.type}:${input.recipientUserId}:${input.targetEntityId}:${input.messageId}`;
   }
+  if (input.operationId) {
+    return `${input.type}:${input.recipientUserId}:${input.targetEntityId}:${input.operationId}`;
+  }
   return `${input.type}:${input.recipientUserId}:${input.targetEntityId}`;
+}
+
+export function canonicalizeNotificationMutation(value: unknown): string {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => canonicalizeNotificationMutation(item)).join(',')}]`;
+  }
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record)
+    .filter((key) => record[key] !== undefined)
+    .sort();
+  return `{${keys
+    .map((key) => `${JSON.stringify(key)}:${canonicalizeNotificationMutation(record[key])}`)
+    .join(',')}}`;
+}
+
+function stableMutationHash(input: string): string {
+  let h1 = 0x811c9dc5;
+  let h2 = 0x811c9dc5 ^ 0xabcdef01;
+  for (let i = 0; i < input.length; i += 1) {
+    const code = input.charCodeAt(i);
+    h1 ^= code;
+    h1 = Math.imul(h1, 0x01000193);
+    h2 ^= code;
+    h2 = Math.imul(h2, 0x01000193);
+  }
+  return `${(h1 >>> 0).toString(16).padStart(8, '0')}${(h2 >>> 0).toString(16).padStart(8, '0')}`;
+}
+
+/**
+ * JOIN_UPDATED operation id: previous `updatedAt` + canonical mutation hash.
+ * Same update retry (same prior timestamp + same payload) stays idempotent.
+ * A later distinct edit has a new prior `updatedAt` and/or payload, so it does not dedupe.
+ */
+export function buildJoinUpdateOperationId(input: {
+  previousUpdatedAt: string | Date;
+  mutation: unknown;
+}): string {
+  const previousUpdatedAt =
+    input.previousUpdatedAt instanceof Date
+      ? input.previousUpdatedAt.toISOString()
+      : input.previousUpdatedAt;
+  return stableMutationHash(`${previousUpdatedAt}:${canonicalizeNotificationMutation(input.mutation)}`);
 }
 
 export function buildAndroidCollapseKey(type: string, targetEntityId: string): string {
