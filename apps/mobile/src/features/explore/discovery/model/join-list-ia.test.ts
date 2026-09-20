@@ -16,7 +16,7 @@ import {
 } from './join-list-chrome';
 
 const discoveryRoot = dirname(fileURLToPath(import.meta.url));
-const mobileRoot = join(discoveryRoot, '../../../..');
+const mobileRoot = join(discoveryRoot, '../../../../../');
 
 function readMobile(rel: string): string {
   return readFileSync(join(mobileRoot, rel), 'utf8');
