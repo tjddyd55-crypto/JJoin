@@ -20,6 +20,7 @@ import {
   INVESTOR_DEMO_TAG,
   assertInvestorDemoAllowed,
   describeDemoEnv,
+  investorDemoPrismaClientOptions,
 } from './lib/investor-demo-guard.ts';
 
 type CliArgs = {
@@ -53,6 +54,10 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const env = assertInvestorDemoAllowed();
   console.log(`${INVESTOR_DEMO_TAG} guard_ok ${describeDemoEnv(env)}`);
+  console.log(
+    `${INVESTOR_DEMO_TAG} tx_timeout_ms=${investorDemoPrismaClientOptions().transactionOptions.timeout} ` +
+      `tx_max_wait_ms=${investorDemoPrismaClientOptions().transactionOptions.maxWait}`,
+  );
   printCatalogPlan();
 
   if (args.dryRun && !process.env.DATABASE_URL) {
@@ -66,7 +71,7 @@ async function main(): Promise<void> {
   const { PrismaClient } = await import('@prisma/client');
   const { collectDemoResetPlan, resetInvestorDemo } = await import('./lib/investor-demo-reset.ts');
   const { seedInvestorDemo } = await import('./lib/investor-demo-seed.ts');
-  const prisma = new PrismaClient();
+  const prisma = new PrismaClient(investorDemoPrismaClientOptions());
   try {
     if (args.dryRun) {
       const plan = await collectDemoResetPlan(prisma);

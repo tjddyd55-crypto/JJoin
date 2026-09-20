@@ -17,6 +17,7 @@ import {
 import { kstDateParts } from '../../packages/domain/src/club-stats-period.ts';
 import { CoinIssuanceType } from '../../packages/types/src/index.ts';
 import type { CoinLedgerService } from '../../apps/api/src/modules/wallet/coin-ledger.service.ts';
+import { investorDemoTransactionOptions } from './investor-demo-guard.ts';
 
 export function listRecentKstDates(days: number, includeToday: boolean, todayKst: string): string[] {
   const count = Math.max(0, days);
@@ -39,6 +40,7 @@ export async function seedAttendanceHistory(input: {
   dates: string[];
   amount: string;
 }): Promise<{ created: number; reused: number; streak: ReturnType<typeof computeAttendanceStreakFromDates> }> {
+  await input.ledger.getOrCreateWallet(input.userId);
   let created = 0;
   let reused = 0;
   for (const kstDate of input.dates) {
@@ -86,37 +88,44 @@ async function upsertAttendanceDay(input: {
   if (existing) return 'reused';
 
   const idempotencyKey = attendanceGrantIdempotencyKey(input.userId, input.kstDate);
-  const issuance = await input.ledger.issueCoins({
-    userId: input.userId,
-    amount: input.amount,
-    issuanceType: CoinIssuanceType.EVENT_REWARD,
-    reason: 'DAILY_ATTENDANCE',
-    referenceType: 'DAILY_ATTENDANCE',
-    referenceId: input.kstDate,
-    idempotencyKey,
-  });
-  const grant = await input.prisma.rewardGrant.upsert({
-    where: { idempotencyKey },
-    create: {
-      id: randomUUID(),
-      userId: input.userId,
-      kind: 'ATTENDANCE',
-      milestoneKey: input.kstDate,
-      amount: input.amount,
-      issuanceId: issuance.issuanceId,
-      idempotencyKey,
-    },
-    update: {},
-  });
-  await input.prisma.dailyAttendanceCheckIn.create({
-    data: {
-      id: randomUUID(),
-      userId: input.userId,
-      kstDate: input.kstDate,
-      amount: input.amount,
-      grantId: grant.id,
-    },
-  });
+  await input.prisma.$transaction(async (tx) => {
+    const issuance = await input.ledger.issueCoins(
+      {
+        userId: input.userId,
+        amount: input.amount,
+        issuanceType: CoinIssuanceType.EVENT_REWARD,
+        reason: 'DAILY_ATTENDANCE',
+        referenceType: 'DAILY_ATTENDANCE',
+        referenceId: input.kstDate,
+        idempotencyKey,
+      },
+      tx,
+    );
+    const grant = await tx.rewardGrant.upsert({
+      where: { idempotencyKey },
+      create: {
+        id: randomUUID(),
+        userId: input.userId,
+        kind: 'ATTENDANCE',
+        milestoneKey: input.kstDate,
+        amount: input.amount,
+        issuanceId: issuance.issuanceId,
+        idempotencyKey,
+      },
+      update: { issuanceId: issuance.issuanceId },
+    });
+    await tx.dailyAttendanceCheckIn.upsert({
+      where: { userId_kstDate: { userId: input.userId, kstDate: input.kstDate } },
+      create: {
+        id: randomUUID(),
+        userId: input.userId,
+        kstDate: input.kstDate,
+        amount: input.amount,
+        grantId: grant.id,
+      },
+      update: { amount: input.amount, grantId: grant.id },
+    });
+  }, investorDemoTransactionOptions());
   await ensureInAppNotification(input.prisma, {
     userId: input.userId,
     type: 'ATTENDANCE_REWARD',
@@ -178,27 +187,34 @@ async function upsertMilestoneGrant(input: {
 }): Promise<'created' | 'reused'> {
   const idempotencyKey = milestoneGrantIdempotencyKey(input.kind, input.userId, input.threshold);
   const existing = await input.prisma.rewardGrant.findUnique({ where: { idempotencyKey } });
-  const issuance = await input.ledger.issueCoins({
-    userId: input.userId,
-    amount: input.amount,
-    issuanceType: CoinIssuanceType.EVENT_REWARD,
-    reason: input.kind,
-    referenceType: input.kind,
-    referenceId: String(input.threshold),
-    idempotencyKey,
-  });
   if (existing) return 'reused';
-  await input.prisma.rewardGrant.create({
-    data: {
-      id: randomUUID(),
-      userId: input.userId,
-      kind: input.kind,
-      milestoneKey: String(input.threshold),
-      amount: input.amount,
-      issuanceId: issuance.issuanceId,
-      idempotencyKey,
-    },
-  });
+  await input.prisma.$transaction(async (tx) => {
+    const issuance = await input.ledger.issueCoins(
+      {
+        userId: input.userId,
+        amount: input.amount,
+        issuanceType: CoinIssuanceType.EVENT_REWARD,
+        reason: input.kind,
+        referenceType: input.kind,
+        referenceId: String(input.threshold),
+        idempotencyKey,
+      },
+      tx,
+    );
+    await tx.rewardGrant.upsert({
+      where: { idempotencyKey },
+      create: {
+        id: randomUUID(),
+        userId: input.userId,
+        kind: input.kind,
+        milestoneKey: String(input.threshold),
+        amount: input.amount,
+        issuanceId: issuance.issuanceId,
+        idempotencyKey,
+      },
+      update: {},
+    });
+  }, investorDemoTransactionOptions());
   const label = input.kind === 'HOST_MILESTONE' ? '호스트' : '참가';
   await ensureInAppNotification(input.prisma, {
     userId: input.userId,

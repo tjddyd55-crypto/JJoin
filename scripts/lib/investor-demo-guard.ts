@@ -8,6 +8,26 @@
 
 export const INVESTOR_DEMO_TAG = '[INVESTOR-DEMO]';
 
+/** Interactive tx budget for Railway DEV TCP proxy RTT. Production API client is unchanged. */
+export const INVESTOR_DEMO_TX_TIMEOUT_MS = 60_000;
+export const INVESTOR_DEMO_TX_MAX_WAIT_MS = 20_000;
+
+export function investorDemoPrismaClientOptions() {
+  return {
+    transactionOptions: {
+      maxWait: INVESTOR_DEMO_TX_MAX_WAIT_MS,
+      timeout: INVESTOR_DEMO_TX_TIMEOUT_MS,
+    },
+  } as const;
+}
+
+export function investorDemoTransactionOptions() {
+  return {
+    maxWait: INVESTOR_DEMO_TX_MAX_WAIT_MS,
+    timeout: INVESTOR_DEMO_TX_TIMEOUT_MS,
+  } as const;
+}
+
 export type DemoEnvSnapshot = {
   nodeEnv: string;
   railwayEnvironment: string;

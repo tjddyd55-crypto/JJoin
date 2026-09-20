@@ -821,6 +821,9 @@ async function seedRewards(ctx: SeedCtx): Promise<{ attendanceCreated: number; m
   const today = todayKstDate();
   let attendanceCreated = 0;
   let milestonesCreated = 0;
+  for (const { id } of ctx.users.values()) {
+    await ctx.ledger.getOrCreateWallet(id);
+  }
   for (const { id, spec } of ctx.users.values()) {
     const dates = listRecentKstDates(spec.attendanceDays, spec.includeTodayAttendance, today);
     const attendance = await seedAttendanceHistory({

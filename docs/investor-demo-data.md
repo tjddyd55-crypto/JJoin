@@ -10,6 +10,8 @@ Production 적용·시드·배포·실푸시 금지. 이 문서는 **Development
 
 가드가 `appVariant` / `railwayEnvironment` / `NODE_ENV` / `DATABASE_URL`을 검사합니다. Production 신호이거나 환경이 모호하면 **즉시 중단**합니다.
 
+Railway TCP proxy처럼 RTT가 길면 Prisma 기본 인터랙티브 트랜잭션(5s)이 중간에 끊길 수 있습니다. 시드 전용 `PrismaClient`는 `timeout: 60_000` / `maxWait: 20_000`을 쓰고, 출석·마일스톤은 **하루/한 건씩** 작은 트랜잭션으로 나눕니다. Production API 원장 타임아웃은 바꾸지 않습니다. 중간에 실패해도 멱등 키로 재실행하면 이어서 채워집니다.
+
 ```bash
 # 계획만 (DB 없이 가능)
 pnpm exec tsx scripts/seed-investor-demo.ts --dry-run

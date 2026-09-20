@@ -18,7 +18,11 @@ import {
 } from './lib/investor-demo-catalog.ts';
 import { listRecentKstDates } from './lib/investor-demo-rewards.ts';
 import {
+  INVESTOR_DEMO_TX_MAX_WAIT_MS,
+  INVESTOR_DEMO_TX_TIMEOUT_MS,
   assertInvestorDemoAllowed,
+  investorDemoPrismaClientOptions,
+  investorDemoTransactionOptions,
   resolveInvestorDemoBlockReason,
   readDemoEnv,
 } from './lib/investor-demo-guard.ts';
@@ -170,6 +174,11 @@ assert.equal(
   milestoneGrantIdempotencyKey('PARTICIPATION_MILESTONE', 'user-1', 10),
   'reward:participation_milestone:user-1:10',
 );
+
+assert.equal(INVESTOR_DEMO_TX_TIMEOUT_MS, 60_000);
+assert.equal(INVESTOR_DEMO_TX_MAX_WAIT_MS, 20_000);
+assert.equal(investorDemoTransactionOptions().timeout, 60_000);
+assert.equal(investorDemoPrismaClientOptions().transactionOptions.timeout, 60_000);
 
 const dates = listRecentKstDates(3, true, '2026-09-20');
 assert.deepEqual(dates, ['2026-09-18', '2026-09-19', '2026-09-20']);
