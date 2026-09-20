@@ -39,7 +39,10 @@
     "notification-delivery": "pnpm exec tsx scripts/run-notification-delivery.ts",
     "premium-renewal": "pnpm exec tsx scripts/run-premium-renewal.ts",
     "attendance-reminders": "pnpm exec tsx scripts/run-attendance-reminders.ts",
-    "payment:dev-smoke": "pnpm exec tsx scripts/payment-dev-smoke.ts"
+    "payment:dev-smoke": "pnpm exec tsx scripts/payment-dev-smoke.ts",
+    "dev:investor-demo": "pnpm exec tsx scripts/seed-investor-demo.ts",
+    "dev:investor-demo:dry-run": "pnpm exec tsx scripts/seed-investor-demo.ts --dry-run",
+    "dev:investor-demo:test": "pnpm exec tsx scripts/investor-demo-guard.node-test.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",
