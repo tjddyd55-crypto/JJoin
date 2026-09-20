@@ -48,6 +48,17 @@ test('home and bottom paths still reach SCREEN and FIELD lists', () => {
   assert.match(quickMenu, /venueType: 'SCREEN'/);
   assert.match(tabs, /name="joins"/);
   assert.match(tabs, /name="index"/);
+  assert.match(tabs, /resolveTabPressParams/);
+  assert.match(tabs, /shouldNavigateOnTabPress/);
+  assert.doesNotMatch(tabs, /navigate\(route\.name, route\.params\)/);
+});
+
+test('join list does not global-reset venueType on every focus', () => {
+  const provider = readMobile('src/features/explore/discovery/JoinDiscoveryContext.tsx');
+  const joins = readMobile('app/(tabs)/joins.tsx');
+  assert.doesNotMatch(provider, /useFocusEffect/);
+  assert.doesNotMatch(joins, /useFocusEffect/);
+  assert.match(provider, /parseJoinListVenueTypeParam/);
 });
 
 test('join list screen removes title and in-list SCREEN\/FIELD toggle', () => {
