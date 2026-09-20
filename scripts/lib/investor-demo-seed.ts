@@ -33,6 +33,7 @@ import {
   DEMO_STORES,
   DEMO_BANNERS,
   DEMO_FIELD_COURSE_FALLBACKS,
+  DEMO_HUB_COURSE_SLUGS,
   DEMO_FACILITY_KEY_PREFIX,
   DEMO_COURSE_EXTERNAL_PREFIX,
   DEMO_VENUE_PLACE_PREFIX,
@@ -49,6 +50,7 @@ import {
   type DemoPersonaSpec,
 } from './investor-demo-catalog.ts';
 import { INVESTOR_DEMO_TAG } from './investor-demo-guard.ts';
+import { resolveDemoSlotEndAt } from './investor-demo-schedule.ts';
 import { listRecentKstDates, seedAttendanceHistory, seedReachedMilestones, todayKstDate } from './investor-demo-rewards.ts';
 import { uploadInvestorDemoAssets } from './investor-demo-upload.ts';
 
@@ -312,7 +314,16 @@ async function seedStores(ctx: SeedCtx): Promise<void> {
     } else {
       await ctx.prisma.golfFacility.update({
         where: { id: facility.id },
-        data: { displayName: store.name, sourceName: store.name, sido: store.sido, sigungu: store.sigungu },
+        data: {
+          displayName: store.name,
+          sourceName: store.name,
+          sido: store.sido,
+          sigungu: store.sigungu,
+          latitude: store.lat,
+          longitude: store.lng,
+          isActive: true,
+          isScreenJoinEligible: true,
+        },
       });
     }
     const venue = await ensureScreenVenue(ctx, facility.id, store.slug, store.name, store.lat, store.lng);
@@ -345,7 +356,15 @@ async function ensureScreenVenue(
   if (existing) {
     return ctx.prisma.venue.update({
       where: { id: existing.id },
-      data: { name, address: `${name}`, latitude: lat, longitude: lng, region: name },
+      data: {
+        name,
+        address: `${name}`,
+        latitude: lat,
+        longitude: lng,
+        region: name,
+        venueType: VenueType.SCREEN,
+        golfFacilityId: facilityId,
+      },
     });
   }
   return ctx.prisma.venue.create({
@@ -411,13 +430,18 @@ async function upsertStoreProfile(
 }
 
 async function seedFieldVenues(ctx: SeedCtx): Promise<string[]> {
+  const fallbacks = await createFallbackCourses(ctx);
+  const hubCourses = DEMO_HUB_COURSE_SLUGS.map(
+    (slug) => fallbacks.find((row) => row.externalId === `${DEMO_COURSE_EXTERNAL_PREFIX}${slug}`),
+  ).filter((row): row is NonNullable<typeof row> => Boolean(row));
+  const hubIds = new Set(hubCourses.map((row) => row.id));
   const existing = await ctx.prisma.fieldGolfCourse.findMany({
-    where: { isActive: true, latitude: { not: null }, sido: { not: null } },
-    take: 16,
+    where: { isActive: true, latitude: { not: null }, sido: { not: null }, id: { notIn: [...hubIds] } },
+    take: 13,
     orderBy: { name: 'asc' },
   });
+  const courses = [...hubCourses, ...existing];
   const venueIds: string[] = [];
-  const courses = existing.length >= 4 ? existing.slice(0, 12) : await createFallbackCourses(ctx);
   for (const [index, course] of courses.entries()) {
     const venue = await ensureFieldVenue(
       ctx,
@@ -473,7 +497,12 @@ async function ensureFieldVenue(
   lng: number,
 ) {
   const linked = await ctx.prisma.venue.findFirst({ where: { fieldGolfCourseId: courseId } });
-  if (linked) return linked;
+  if (linked) {
+    return ctx.prisma.venue.update({
+      where: { id: linked.id },
+      data: { venueType: VenueType.FIELD, fieldGolfCourseId: courseId, name, latitude: lat, longitude: lng },
+    });
+  }
   const placeId = `${DEMO_VENUE_PLACE_PREFIX}field-${index}`;
   const existing = await ctx.prisma.venue.findUnique({
     where: { provider_providerPlaceId: { provider: 'CUSTOM', providerPlaceId: placeId } },
@@ -481,7 +510,7 @@ async function ensureFieldVenue(
   if (existing) {
     return ctx.prisma.venue.update({
       where: { id: existing.id },
-      data: { fieldGolfCourseId: courseId, venueType: VenueType.FIELD, name },
+      data: { fieldGolfCourseId: courseId, venueType: VenueType.FIELD, name, latitude: lat, longitude: lng },
     });
   }
   return ctx.prisma.venue.create({
@@ -511,7 +540,7 @@ async function upsertJoin(ctx: SeedCtx, plan: DemoJoinPlan): Promise<void> {
   const host = mustUser(ctx, plan.host);
   const venueId = resolveJoinVenue(ctx, plan);
   const startAt = plan.startAt;
-  const endAt = new Date(startAt.getTime() + 3 * 3600_000);
+  const endAt = plan.scheduledEndAt ?? resolveDemoSlotEndAt(startAt, new Date());
   const clientKey = joinIdempotencyKey(plan.key);
   const existing = await ctx.prisma.join.findUnique({
     where: {

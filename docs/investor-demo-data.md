@@ -58,12 +58,13 @@ Railway TCP proxy처럼 RTT가 길면 Prisma 기본 인터랙티브 트랜잭션
 | SCREEN 조인 | 9 | 114 (OPEN 96 + 성사 18) |
 | FIELD 조인 | 7 | 53 (OPEN 48 + 성사 5) |
 
-시간은 시드 실행 시각(KST) 기준 상대값입니다. 오늘 저녁, 내일 오전/오후, 이번 주말, 다음 평일 저녁, 다음 주말, 2주 이내가 섞입니다. 고정된 과거 달력으로 활성 조인을 박지 않습니다.
+시간은 시드 실행 시각(KST) 기준 상대값입니다. `GET /joins/discover`는 **선택한 KST 하루**만 보고, 홈/리스트 기본값은 오늘입니다. 저녁에 시드해도 오늘 startAt + `scheduledEndAt > now` 슬롯을 강제합니다 (SCREEN ≥ 15, FIELD ≥ 8). 오늘 저녁이 모두 지났으면 `now-30~90분` 진행 중 슬롯을 넣고 endAt은 `max(start+3h, now+2h)`입니다.
 
 ## 지역
 
 - SCREEN: 서울·고양/일산·파주·김포·인천·부천·광명·안양·성남/분당·용인·수원·화성·남양주·의정부 + 부산·대구·대전·광주
-- FIELD: 기존 DEV 실코스 행을 우선 사용. 없으면 용인·이천·인천·가평·춘천·청주·천안·경주·김해·전주·순천·제주 fallback
+- FIELD: 오늘 밀도 슬롯은 수도권 hub 코스(서초·강남·마포)를 앞에 둡니다. 그다음 기존 DEV 실코스, 없으면 용인·이천 등 fallback
+- SCREEN 오늘 밀도: 강남·마포·송파 (홈 `regionMode=NEARBY` 5km)
 
 ## 시각 자산
 
@@ -89,6 +90,16 @@ R2 키: `development/investor-demo/v2/{avatars\|stores\|banners\|field}/…` (pr
 - fallback 코스 `investor-demo-course-*` (실 ODCloud 코스는 유지)
 - venue `investor-demo-venue-*`
 - 데모 사용자끼리의 DM
+
+## 오늘 리스트 기대값 (시드 직후)
+
+Discover `GET /joins/discover?date=오늘&regionMode=ALL&joinability=ALL`:
+
+- SCREEN `totalCount` ≥ 15 (OPEN, startAt 오늘 KST, scheduledEndAt > now)
+- FIELD `totalCount` ≥ 8
+- 홈은 같은 오늘 쿼리에 `regionMode=NEARBY` + `joinability=JOINABLE`. 오늘 밀도 슬롯은 강남·마포·송파 / 서초·강남·마포 hub
+
+Prisma OPEN 전체(내일 포함)는 SCREEN 96 / FIELD 48 근처. **원본 Prisma count는 pass 기준이 아닙니다.**
 
 ## 코디네이터 후속
 

@@ -22,7 +22,17 @@ import {
 } from './lib/investor-demo-catalog.ts';
 import { assertSafeUiCopy } from './lib/investor-demo-copy.ts';
 import { inspectDemoAssets, listRequiredDemoAssets } from './lib/investor-demo-assets.ts';
-import { KST_OFFSET_MS, buildFieldSlots, buildScreenSlots, kstParts } from './lib/investor-demo-schedule.ts';
+import {
+  KST_OFFSET_MS,
+  TODAY_FIELD_SLOT_MIN,
+  TODAY_SCREEN_SLOT_MIN,
+  buildFieldSlots,
+  buildScreenSlots,
+  countTodayListableSlots,
+  isSameKstDay,
+  kstParts,
+  resolveDemoSlotEndAt,
+} from './lib/investor-demo-schedule.ts';
 
 validatePersonaCatalog();
 validateVenueCatalog();
@@ -47,9 +57,30 @@ assert.ok((summary.buckets.next_weekday_evening ?? 0) > 0, 'weekday evening slot
 const twoWeeks = now.getTime() + 14 * 24 * 3600_000;
 for (const plan of plans) {
   if (plan.status !== 'OPEN') continue;
-  assert.ok(plan.startAt.getTime() > now.getTime(), `past open join ${plan.key}`);
+  const endAt = plan.scheduledEndAt ?? resolveDemoSlotEndAt(plan.startAt, now);
+  assert.ok(endAt.getTime() > now.getTime(), `ended open join ${plan.key}`);
   assert.ok(plan.startAt.getTime() <= twoWeeks + 24 * 3600_000, `beyond 2w ${plan.key} ${plan.startAt.toISOString()}`);
 }
+
+function countDiscoverableToday(source: typeof plans, clock: Date, track: 'SCREEN' | 'FIELD'): number {
+  return source.filter((plan) => {
+    if (plan.status !== 'OPEN' || plan.track !== track) return false;
+    if (!isSameKstDay(plan.startAt, clock)) return false;
+    return plan.scheduledEndAt.getTime() > clock.getTime();
+  }).length;
+}
+
+assert.ok(countDiscoverableToday(plans, now, 'SCREEN') >= TODAY_SCREEN_SLOT_MIN, 'noon SCREEN today list');
+assert.ok(countDiscoverableToday(plans, now, 'FIELD') >= TODAY_FIELD_SLOT_MIN, 'noon FIELD today list');
+
+const late = new Date('2026-09-20T13:00:00.000Z'); // 22:00 KST Sunday
+const lateScreen = buildScreenSlots(late);
+const lateField = buildFieldSlots(late);
+assert.ok(countTodayListableSlots(lateScreen, late) >= TODAY_SCREEN_SLOT_MIN, 'late SCREEN today slots');
+assert.ok(countTodayListableSlots(lateField, late) >= TODAY_FIELD_SLOT_MIN, 'late FIELD today slots');
+const latePlans = buildJoinPlans(late);
+assert.ok(countDiscoverableToday(latePlans, late, 'SCREEN') >= TODAY_SCREEN_SLOT_MIN, 'late SCREEN today list');
+assert.ok(countDiscoverableToday(latePlans, late, 'FIELD') >= TODAY_FIELD_SLOT_MIN, 'late FIELD today list');
 
 const hostCompleted = new Map<string, number>();
 const participateCompleted = new Map<string, number>();

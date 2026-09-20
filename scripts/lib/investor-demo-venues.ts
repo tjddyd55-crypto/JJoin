@@ -16,6 +16,12 @@ export type DemoStoreSpec = {
   galleryCount: number;
 };
 
+/** Capital-region stores used for today-dense / home NEARBY slots. */
+export const DEMO_HUB_STORE_SLUGS = ['gangnam', 'mapo', 'songpa'] as const;
+
+/** Capital-region fallback courses placed first so today FIELD uses nearby venues. */
+export const DEMO_HUB_COURSE_SLUGS = ['seocho-hub', 'gangnam-hub', 'mapo-hub'] as const;
+
 export const DEMO_STORES: DemoStoreSpec[] = [
   store('gangnam', '강남 스크린 라운지', '서울특별시', '강남구', 'GOLFZON', 37.4979, 127.0276, 'doyun', 4),
   store('bundang', '분당 스크린 스튜디오', '경기도', '성남시', 'KAKAO_VX', 37.3595, 127.105, 'doyun', 3),
@@ -79,6 +85,36 @@ export type DemoCourseFallback = {
 };
 
 export const DEMO_FIELD_COURSE_FALLBACKS: DemoCourseFallback[] = [
+  {
+    slug: 'seocho-hub',
+    name: '서초 근교 컨트리클럽',
+    sido: '서울특별시',
+    sigungu: '서초구',
+    address: '서울특별시 서초구',
+    lat: 37.483,
+    lng: 127.032,
+    holeCount: 18,
+  },
+  {
+    slug: 'gangnam-hub',
+    name: '강남 힐 컨트리클럽',
+    sido: '서울특별시',
+    sigungu: '강남구',
+    address: '서울특별시 강남구',
+    lat: 37.501,
+    lng: 127.035,
+    holeCount: 18,
+  },
+  {
+    slug: 'mapo-hub',
+    name: '마포 한강 컨트리클럽',
+    sido: '서울특별시',
+    sigungu: '마포구',
+    address: '서울특별시 마포구',
+    lat: 37.557,
+    lng: 126.936,
+    holeCount: 18,
+  },
   {
     slug: 'yongin-south',
     name: '용인 남서울 컨트리클럽',

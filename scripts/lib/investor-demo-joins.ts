@@ -14,8 +14,18 @@ import {
   listPlayerSlugs,
   type DemoPersonaSlug,
 } from './investor-demo-personas.ts';
-import { DEMO_STORES } from './investor-demo-venues.ts';
-import { buildFieldSlots, buildScreenSlots, cycleSlots, type TimeBucket } from './investor-demo-schedule.ts';
+import { DEMO_HUB_STORE_SLUGS, DEMO_STORES } from './investor-demo-venues.ts';
+import {
+  TODAY_FIELD_SLOT_MIN,
+  TODAY_SCREEN_SLOT_MIN,
+  buildFieldSlots,
+  buildScreenSlots,
+  cycleSlots,
+  resolveDemoSlotEndAt,
+  splitTodayAndRest,
+  type SlotSpec,
+  type TimeBucket,
+} from './investor-demo-schedule.ts';
 
 export const INVESTOR_DEMO_BATCH_VERSION = 'v2';
 export const INVESTOR_DEMO_JOIN_KEY_PREFIX = `investor-demo:${INVESTOR_DEMO_BATCH_VERSION}:`;
@@ -44,6 +54,7 @@ export type DemoJoinPlan = {
   completed: DemoPersonaSlug[];
   confirmed: DemoPersonaSlug[];
   startAt: Date;
+  scheduledEndAt: Date;
   plannedPlayerCount: number;
   storeSlug?: string;
   fieldIndex?: number;
@@ -78,8 +89,13 @@ function pickHost(key: string, prefer?: DemoPersonaSlug[]): DemoPersonaSlug {
   return pool[hashKey(`${key}:host`) % pool.length]!;
 }
 
-function pickStore(key: string): string {
-  return DEMO_STORES[hashKey(`${key}:store`) % DEMO_STORES.length]!.slug;
+function ended(startAt: Date): Date {
+  return resolveDemoSlotEndAt(startAt, new Date(startAt.getTime() + 1));
+}
+
+function pickStore(key: string, preferHub = false): string {
+  const pool = preferHub ? DEMO_HUB_STORE_SLUGS : DEMO_STORES.map((row) => row.slug);
+  return pool[hashKey(`${key}:store`) % pool.length]!;
 }
 
 function pickCondition(key: string, track: 'SCREEN' | 'FIELD'): JoinCondition {
@@ -141,6 +157,7 @@ export function buildHistoryJoinPlans(now: Date): DemoJoinPlan[] {
       completed: i < 2 ? ['seoa', 'yerin'] : ['seoa'],
       confirmed: [],
       startAt: past(24 * (3 + i * 2) + 19),
+      scheduledEndAt: new Date(past(24 * (3 + i * 2) + 19).getTime() + 3 * 3600_000),
       plannedPlayerCount: 4,
       storeSlug: 'gangnam',
       condition: historyCondition,
@@ -165,6 +182,7 @@ export function buildHistoryJoinPlans(now: Date): DemoJoinPlan[] {
       completed: fieldCompleted[i] ?? [],
       confirmed: [],
       startAt: past(24 * (4 + i * 2) + 8),
+      scheduledEndAt: ended(past(24 * (4 + i * 2) + 8)),
       plannedPlayerCount: 4,
       fieldIndex: i % 3,
       greenFeePerPerson: 140_000,
@@ -182,6 +200,7 @@ export function buildHistoryJoinPlans(now: Date): DemoJoinPlan[] {
     completed: [],
     confirmed: [],
     startAt: past(24 * 6 + 20),
+    scheduledEndAt: ended(past(24 * 6 + 20)),
     plannedPlayerCount: 3,
     storeSlug: 'suwon',
     condition: historyCondition,
@@ -196,6 +215,7 @@ export function buildHistoryJoinPlans(now: Date): DemoJoinPlan[] {
     completed: [],
     confirmed: [],
     startAt: past(24 * 8 + 21),
+    scheduledEndAt: ended(past(24 * 8 + 21)),
     plannedPlayerCount: 4,
     storeSlug: 'mapo',
     condition: historyCondition,
@@ -225,6 +245,7 @@ export function buildHistoryJoinPlans(now: Date): DemoJoinPlan[] {
       completed: [],
       confirmed: [],
       startAt: past(row.hoursAgo),
+      scheduledEndAt: ended(past(row.hoursAgo)),
       plannedPlayerCount: 3,
       storeSlug: row.store,
       condition: pickCondition(row.key, 'SCREEN'),
@@ -234,61 +255,84 @@ export function buildHistoryJoinPlans(now: Date): DemoJoinPlan[] {
   return plans;
 }
 
+function allocateOpenSlots(slots: SlotSpec[], now: Date, todayCount: number, restCount: number, prefix: string): SlotSpec[] {
+  const { today, rest } = splitTodayAndRest(slots, now);
+  return [...cycleSlots(today, todayCount, `${prefix}-today`), ...cycleSlots(rest, restCount, `${prefix}-rest`)];
+}
+
+function toOpenPlan(input: {
+  slot: SlotSpec;
+  track: 'SCREEN' | 'FIELD';
+  storeSlug?: string;
+  fieldIndex?: number;
+  isUrgent?: boolean;
+}): DemoJoinPlan {
+  const key = input.slot.key;
+  const host = pickHost(key, input.track === 'FIELD' ? fieldHostSlugs() : undefined);
+  const capacity = input.track === 'FIELD' ? 1 + (hashKey(`${key}:spots`) % 3) + 1 : pickCapacity(key);
+  return {
+    key,
+    title: input.track === 'SCREEN' ? screenTitle(key, input.storeSlug ?? 'gangnam') : fieldTitle(key),
+    description: pickFromPool(input.track === 'SCREEN' ? SCREEN_JOIN_BODIES : FIELD_JOIN_BODIES, key),
+    track: input.track,
+    status: JoinStatus.OPEN,
+    host,
+    completed: [],
+    confirmed: occupancyConfirmed(key, capacity, host),
+    startAt: input.slot.startAt,
+    scheduledEndAt: input.slot.scheduledEndAt,
+    plannedPlayerCount: capacity,
+    storeSlug: input.storeSlug,
+    fieldIndex: input.fieldIndex,
+    bucket: input.slot.bucket,
+    isUrgent: input.isUrgent,
+    greenFeePerPerson: input.track === 'FIELD' ? GREEN_FEES[hashKey(`${key}:fee`) % GREEN_FEES.length] : undefined,
+    condition: pickCondition(key, input.track),
+  };
+}
+
+function fieldHostSlugs(): DemoPersonaSlug[] {
+  return DEMO_PERSONAS.filter((row) => row.role === 'host' || row.role === 'club').map((row) => row.slug);
+}
+
 export function buildOpenJoinPlans(now: Date): DemoJoinPlan[] {
-  const screenSlots = cycleSlots(buildScreenSlots(now), SCREEN_OPEN_TARGET, 'screen-open');
-  const fieldSlots = cycleSlots(buildFieldSlots(now), FIELD_OPEN_TARGET, 'field-open');
+  const screenSlots = allocateOpenSlots(
+    buildScreenSlots(now),
+    now,
+    TODAY_SCREEN_SLOT_MIN,
+    SCREEN_OPEN_TARGET - TODAY_SCREEN_SLOT_MIN,
+    'screen',
+  );
+  const fieldSlots = allocateOpenSlots(
+    buildFieldSlots(now),
+    now,
+    TODAY_FIELD_SLOT_MIN,
+    FIELD_OPEN_TARGET - TODAY_FIELD_SLOT_MIN,
+    'field',
+  );
   const plans: DemoJoinPlan[] = [];
 
   for (const [index, slot] of screenSlots.entries()) {
-    const key = slot.key;
-    const storeSlug = pickStore(key);
-    const host = pickHost(key);
-    const capacity = pickCapacity(key);
-    const confirmed = occupancyConfirmed(key, capacity, host);
-    const isUrgent = slot.bucket === 'tonight' && index % 4 === 0;
-    plans.push({
-      key,
-      title: screenTitle(key, storeSlug),
-      description: pickFromPool(SCREEN_JOIN_BODIES, key),
-      track: 'SCREEN',
-      status: JoinStatus.OPEN,
-      host,
-      completed: [],
-      confirmed,
-      startAt: slot.startAt,
-      plannedPlayerCount: capacity,
-      storeSlug,
-      bucket: slot.bucket,
-      isUrgent,
-      condition: pickCondition(key, 'SCREEN'),
-    });
+    const todayHub = slot.bucket === 'tonight' || slot.bucket === 'today_ongoing' || index < TODAY_SCREEN_SLOT_MIN;
+    plans.push(
+      toOpenPlan({
+        slot,
+        track: 'SCREEN',
+        storeSlug: pickStore(slot.key, todayHub),
+        isUrgent: slot.bucket === 'tonight' && index % 4 === 0,
+      }),
+    );
   }
-
-  const fieldHosts = DEMO_PERSONAS.filter((row) => row.role === 'host' || row.role === 'club').map((row) => row.slug);
   for (const [index, slot] of fieldSlots.entries()) {
-    const key = slot.key;
-    const host = pickHost(key, fieldHosts);
-    const recruit = 1 + (hashKey(`${key}:spots`) % 3);
-    const capacity = recruit + 1;
-    const confirmed = occupancyConfirmed(key, capacity, host);
-    plans.push({
-      key,
-      title: fieldTitle(key),
-      description: pickFromPool(FIELD_JOIN_BODIES, key),
-      track: 'FIELD',
-      status: JoinStatus.OPEN,
-      host,
-      completed: [],
-      confirmed,
-      startAt: slot.startAt,
-      plannedPlayerCount: capacity,
-      fieldIndex: index % 12,
-      bucket: slot.bucket,
-      greenFeePerPerson: GREEN_FEES[hashKey(`${key}:fee`) % GREEN_FEES.length],
-      condition: pickCondition(key, 'FIELD'),
-    });
+    const hubIndex = index < TODAY_FIELD_SLOT_MIN;
+    plans.push(
+      toOpenPlan({
+        slot,
+        track: 'FIELD',
+        fieldIndex: hubIndex ? index % 3 : index % 12,
+      }),
+    );
   }
-
   return plans;
 }
 

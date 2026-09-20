@@ -12,6 +12,7 @@ import {
   isOngoingJoin,
   isTodayValidJoin,
   isValidOnSelectedDate,
+  matchesDiscoverListWhere,
   kstDayBoundsUtc,
   partitionDiscoverJoins,
   pickHomeHostedJoins,
@@ -117,6 +118,31 @@ test('isTodayValidJoin: excludes completed today', () => {
       now,
       timeZone: TZ,
     }),
+    false,
+  );
+});
+
+test('matchesDiscoverListWhere mirrors discover Prisma day + venueType', () => {
+  const now = new Date('2026-09-20T13:00:00.000Z'); // 22:00 KST Sunday
+  const dateKey = '2026-09-20';
+  const todayStart = '2026-09-20T10:00:00.000Z'; // 19:00 KST
+  const todayEnd = '2026-09-20T14:30:00.000Z'; // 23:30 KST
+  const tomorrowStart = '2026-09-21T10:00:00.000Z';
+  const base = {
+    status: JoinStatus.OPEN,
+    startAt: todayStart,
+    scheduledEndAt: todayEnd,
+    venueType: 'SCREEN' as const,
+    requestedVenueType: 'SCREEN' as const,
+    dateKey,
+    now,
+  };
+  assert.equal(matchesDiscoverListWhere(base), true);
+  assert.equal(matchesDiscoverListWhere({ ...base, requestedVenueType: 'FIELD' }), false);
+  assert.equal(matchesDiscoverListWhere({ ...base, status: JoinStatus.COMPLETED }), false);
+  assert.equal(matchesDiscoverListWhere({ ...base, startAt: tomorrowStart }), false);
+  assert.equal(
+    matchesDiscoverListWhere({ ...base, scheduledEndAt: '2026-09-20T12:00:00.000Z' }),
     false,
   );
 });
