@@ -350,6 +350,14 @@ export type DiscoverListWhereInput = JoinTimeWindow & {
 };
 
 /**
+ * Discover `venueType` query. Omitted / unknown → SCREEN only.
+ * Home must request FIELD and SCREEN separately; a single omit call never returns FIELD.
+ */
+export function resolveDiscoverVenueType(raw?: string | null): 'SCREEN' | 'FIELD' {
+  return raw === 'FIELD' ? 'FIELD' : 'SCREEN';
+}
+
+/**
  * SSOT for GET /joins/discover Prisma where + venueType.
  * Mirrors JoinDiscoveryService.findDiscoveryJoins:
  * status ∈ DISCOVERY_JOIN_STATUSES

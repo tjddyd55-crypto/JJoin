@@ -101,7 +101,7 @@ export function useHomeData(userId: string | undefined, clubsUiEnabled = false) 
           joinability: 'JOINABLE' as const,
         };
         try {
-          // Discover is venueType-scoped; omitted type defaults to SCREEN only.
+          // Omit venueType → SCREEN only. Home FIELD rail needs an explicit FIELD fetch.
           const [screenRes, fieldRes] = await Promise.all([
             fetchDiscoverJoins(api, { ...nearby, venueType: 'SCREEN' }),
             fetchDiscoverJoins(api, { ...nearby, venueType: 'FIELD' }),

@@ -13,6 +13,7 @@ import {
   isTodayValidJoin,
   isValidOnSelectedDate,
   matchesDiscoverListWhere,
+  resolveDiscoverVenueType,
   kstDayBoundsUtc,
   partitionDiscoverJoins,
   pickHomeHostedJoins,
@@ -120,6 +121,14 @@ test('isTodayValidJoin: excludes completed today', () => {
     }),
     false,
   );
+});
+
+test('resolveDiscoverVenueType treats omit as SCREEN-only', () => {
+  assert.equal(resolveDiscoverVenueType(undefined), 'SCREEN');
+  assert.equal(resolveDiscoverVenueType(null), 'SCREEN');
+  assert.equal(resolveDiscoverVenueType(''), 'SCREEN');
+  assert.equal(resolveDiscoverVenueType('SCREEN'), 'SCREEN');
+  assert.equal(resolveDiscoverVenueType('FIELD'), 'FIELD');
 });
 
 test('matchesDiscoverListWhere mirrors discover Prisma day + venueType', () => {

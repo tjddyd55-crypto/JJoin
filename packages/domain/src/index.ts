@@ -377,6 +377,7 @@ export {
   isTodayValidJoin,
   isValidOnSelectedDate,
   matchesDiscoverListWhere,
+  resolveDiscoverVenueType,
   kstDayBoundsUtc,
   localDayKey,
   partitionDiscoverJoins,
