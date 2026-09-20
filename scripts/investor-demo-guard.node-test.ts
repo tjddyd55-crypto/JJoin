@@ -38,6 +38,8 @@ function withEnv(overrides: Record<string, string | undefined>, fn: () => void):
   ];
   const saved: Record<string, string | undefined> = {};
   for (const key of keys) saved[key] = process.env[key];
+  // Clear first so host RAILWAY_* / APP_* cannot leak into the case under test.
+  for (const key of keys) delete process.env[key];
   for (const [key, value] of Object.entries(overrides)) {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;

@@ -85,9 +85,12 @@ export function describeDemoEnv(snapshot: DemoEnvSnapshot): string {
 }
 
 export function resolveInvestorDemoBlockReason(snapshot: DemoEnvSnapshot): string | null {
-  const railway = snapshot.railwayEnvironmentName || snapshot.railwayEnvironment;
-  if (isProductionToken(railway)) {
-    return `${INVESTOR_DEMO_TAG} production_forbidden railwayEnvironment=${railway}`;
+  // Fail-closed: ANY production signal blocks, even if another field says development.
+  if (isProductionToken(snapshot.railwayEnvironment)) {
+    return `${INVESTOR_DEMO_TAG} production_forbidden railwayEnvironment=${snapshot.railwayEnvironment}`;
+  }
+  if (isProductionToken(snapshot.railwayEnvironmentName)) {
+    return `${INVESTOR_DEMO_TAG} production_forbidden railwayEnvironment=${snapshot.railwayEnvironmentName}`;
   }
   if (isProductionToken(snapshot.appVariant)) {
     return `${INVESTOR_DEMO_TAG} production_forbidden appVariant=${snapshot.appVariant}`;
@@ -96,6 +99,7 @@ export function resolveInvestorDemoBlockReason(snapshot: DemoEnvSnapshot): strin
     return `${INVESTOR_DEMO_TAG} production_forbidden database_url`;
   }
 
+  const railway = snapshot.railwayEnvironmentName || snapshot.railwayEnvironment;
   const explicitDev =
     isDevelopmentToken(snapshot.appVariant) || isDevelopmentToken(railway);
   if (explicitDev) return null;
