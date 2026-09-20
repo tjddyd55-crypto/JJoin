@@ -68,6 +68,10 @@ export default function NotificationsScreen() {
       router.push('/my/wallet');
       return;
     }
+    if (target.kind === 'rewards') {
+      router.push('/my/rewards');
+      return;
+    }
     if (target.kind === 'club') {
       router.push(`/my/clubs/${target.clubId}`);
       return;

@@ -59,6 +59,7 @@ import { JoinEngagementNotifyService } from '../engagement/join-engagement-notif
 import { JoinChatService } from '../join-loop/join-chat.service';
 import { UrgentVacancyService } from '../join-loop/urgent-vacancy.service';
 import { JoinWaitlistService } from './join-waitlist.service';
+import { RewardsService } from '../expansion/rewards.service';
 
 const MATCHING_OPEN_STATUSES: JoinStatus[] = [JoinStatus.OPEN, JoinStatus.FULL];
 
@@ -81,6 +82,7 @@ export class MatchingJoinsService {
     private readonly urgentVacancy: UrgentVacancyService,
     @Inject(forwardRef(() => JoinWaitlistService))
     private readonly waitlist: JoinWaitlistService,
+    private readonly rewards: RewardsService,
   ) {}
 
   async create(hostUserId: string, raw: CreateStoreMatchingJoinRequest): Promise<JoinDetailDto> {
@@ -598,6 +600,7 @@ export class MatchingJoinsService {
     );
 
     void this.joinChat.onJoinTerminal(joinId, 'COMPLETED');
+    void this.rewards.evaluateAfterJoinCompleted(joinId);
 
     return this.joins.getDetail(joinId, hostUserId);
   }

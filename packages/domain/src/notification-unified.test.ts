@@ -258,6 +258,22 @@ test('tap routing SSOT for spec types', () => {
   );
   assert.equal(notificationInboxCategory('DIRECT_MESSAGE_RECEIVED'), 'message');
   assert.equal(notificationInboxCategory('JOIN_CREATED'), 'join');
+  assert.equal(notificationInboxCategory('ATTENDANCE_REWARD'), 'settlement');
+  assert.deepEqual(resolveNotificationRoute({ type: 'ATTENDANCE_REWARD', data: {} }), {
+    kind: 'rewards',
+  });
+  assert.deepEqual(resolveNotificationRoute({ type: 'ACHIEVEMENT_REWARD', data: {} }), {
+    kind: 'rewards',
+  });
+  assert.equal(buildNotificationContent('ATTENDANCE_REWARD', { rewardAmount: '1', currentStreak: 2 }).title, '오늘 출석 완료');
+  assert.match(
+    buildNotificationContent('ACHIEVEMENT_REWARD', {
+      achievementKind: 'HOST_MILESTONE',
+      milestoneThreshold: 5,
+      rewardAmount: '10',
+    }).body,
+    /5회 성사/,
+  );
   assert.equal(formatUnreadBadge(0), '');
   assert.equal(formatUnreadBadge(12), '12');
   assert.equal(formatUnreadBadge(120), '99+');

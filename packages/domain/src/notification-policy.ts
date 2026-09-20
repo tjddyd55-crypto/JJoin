@@ -84,6 +84,8 @@ const CATEGORY_BY_TYPE: Record<string, NotificationInboxCategory> = {
   DISPUTE_RESOLVED: 'settlement',
   COIN_GIFT_RECEIVED: 'settlement',
   COIN_PURCHASE_COMPLETED: 'settlement',
+  ATTENDANCE_REWARD: 'settlement',
+  ACHIEVEMENT_REWARD: 'settlement',
 };
 
 export function notificationInboxCategory(type: string): NotificationInboxCategory {

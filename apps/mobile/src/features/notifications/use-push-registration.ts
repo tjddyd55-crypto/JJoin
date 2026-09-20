@@ -114,7 +114,8 @@ function navigateFromPushData(
   else if (target.kind === 'user') router.push(`/user/${target.userId}`);
   else if (target.kind === 'wallet' || target.kind === 'wallet-transactions') {
     router.push('/my/wallet');
-  } else if (target.kind === 'unavailable') router.push('/unavailable');
+  } else if (target.kind === 'rewards') router.push('/my/rewards');
+  else if (target.kind === 'unavailable') router.push('/unavailable');
   else if (target.kind === 'club') router.push(`/my/clubs/${target.clubId}`);
   else if (target.kind === 'club-notice') router.push(`/my/clubs/${target.clubId}/notices`);
   else if (target.kind === 'conversation') router.push(`/messages/${target.conversationId}`);

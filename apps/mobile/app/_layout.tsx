@@ -16,6 +16,7 @@ import { resolveOnboardingStep } from '@jjoin/domain';
 import { t } from '@jjoin/i18n';
 import { isInternalToolsEnabled } from '../src/lib/internal-tools';
 import { PushRegistrationHost } from '../src/features/notifications/PushRegistrationHost';
+import { AttendanceRewardHost } from '../src/features/rewards/AttendanceRewardHost';
 import { ProductionReleaseGate } from '../src/features/release/ProductionReleaseGate';
 import { useAppFonts } from '../src/bootstrap/useAppFonts';
 
@@ -192,6 +193,7 @@ export default function RootLayout() {
           <SessionProvider>
             <AuthGateBootstrap>
               <PushBootstrap />
+              <AttendanceRewardHost />
               <Stack
               screenOptions={{
                 headerShown: false,

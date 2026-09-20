@@ -40,6 +40,7 @@ import { mockUserStore } from '../../mock/mock-user.store';
 import { NotificationEventService } from '../notifications/notification-event.service';
 import { NotificationType } from '@prisma/client';
 import { storeMatchingCompleteSchema } from '@jjoin/validation';
+import { RewardsService } from '../expansion/rewards.service';
 
 const SETTLING_ELIGIBLE: JoinStatus[] = [
   JoinStatus.OPEN,
@@ -59,6 +60,7 @@ export class SettlementService {
     private readonly ledger: CoinLedgerService,
     private readonly disputes: DisputeService,
     private readonly notifications: NotificationEventService,
+    private readonly rewards: RewardsService,
   ) {
     // Fail-closed: standalone cron must wire DisputeService — never auto-pay without dispute guard.
     if (!disputes || typeof disputes.countOpenDisputesForJoin !== 'function') {
@@ -189,6 +191,7 @@ export class SettlementService {
         eventKey: `settlement:${settlementId}:confirmation_required`,
       });
     }
+    this.queueAchievementEvaluation(joinId);
   }
 
   async getJoinSettlements(
@@ -375,6 +378,7 @@ export class SettlementService {
       }
     }
 
+    this.queueAchievementEvaluation(joinId);
     return { ok: true, settlementId: result.id, rewardStatus: result.rewardStatus };
   }
 
@@ -551,6 +555,7 @@ export class SettlementService {
       });
     }
 
+    this.queueAchievementEvaluation(joinId);
     return {
       ok: true,
       attendedCount: parsed.data.attendance.filter((a) => a.attended).length,
@@ -937,7 +942,12 @@ export class SettlementService {
       });
     }
 
+    this.queueAchievementEvaluation(result.joinId);
     return result;
+  }
+
+  private queueAchievementEvaluation(joinId: string): void {
+    void this.rewards.evaluateAfterJoinCompleted(joinId);
   }
 
   private async executeAdminPay(

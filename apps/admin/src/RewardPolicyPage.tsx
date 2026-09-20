@@ -1,15 +1,36 @@
 import { useEffect, useState } from 'react';
-import type { RewardPolicyDto } from '@jjoin/types';
+import type { RewardMilestoneDto, RewardPolicyDto } from '@jjoin/types';
 
 type ApiFn = <T>(path: string, init?: RequestInit) => Promise<T>;
 
+function milestonesToText(rows: RewardMilestoneDto[]): string {
+  return rows.map((row) => `${row.threshold}:${row.amount}`).join('\n');
+}
+
+function parseMilestones(text: string): RewardMilestoneDto[] {
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [threshold, amount] = line.split(':');
+      return { threshold: Number(threshold), amount: (amount ?? '').trim() };
+    });
+}
+
 export function RewardPolicyPage({ api }: { api: ApiFn }) {
   const [draft, setDraft] = useState<RewardPolicyDto | null>(null);
+  const [hostText, setHostText] = useState('');
+  const [participationText, setParticipationText] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    void api<RewardPolicyDto>('/admin/reward-policy').then(setDraft);
+    void api<RewardPolicyDto>('/admin/reward-policy').then((next) => {
+      setDraft(next);
+      setHostText(milestonesToText(next.hostMilestones));
+      setParticipationText(milestonesToText(next.participationMilestones));
+    });
   }, [api]);
 
   async function save() {
@@ -18,9 +39,15 @@ export function RewardPolicyPage({ api }: { api: ApiFn }) {
     try {
       const next = await api<RewardPolicyDto>('/admin/reward-policy', {
         method: 'PUT',
-        body: JSON.stringify(draft),
+        body: JSON.stringify({
+          ...draft,
+          hostMilestones: parseMilestones(hostText),
+          participationMilestones: parseMilestones(participationText),
+        }),
       });
       setDraft(next);
+      setHostText(milestonesToText(next.hostMilestones));
+      setParticipationText(milestonesToText(next.participationMilestones));
       setMessage('저장했습니다.');
     } catch (e) {
       setMessage(e instanceof Error ? e.message : '저장 실패');
@@ -34,7 +61,10 @@ export function RewardPolicyPage({ api }: { api: ApiFn }) {
   return (
     <section className="card" style={{ padding: 16 }}>
       <h1>보상 정책</h1>
-      <p>성공 기준은 참가/조인 COMPLETED입니다. 동일 마일스톤은 1회만 지급됩니다.</p>
+      <p>
+        출석 날짜는 KST입니다. 호스트는 Join.status=COMPLETED, 참가는 role=PARTICIPANT +
+        participationStatus=COMPLETED만 집계합니다. 동일 마일스톤은 1회만 지급됩니다.
+      </p>
       <label>
         <input
           type="checkbox"
@@ -59,18 +89,12 @@ export function RewardPolicyPage({ api }: { api: ApiFn }) {
         호스트 업적
       </label>
       <label style={{ display: 'block', marginTop: 8 }}>
-        호스트 임계값
-        <input
-          type="number"
-          value={draft.hostThreshold}
-          onChange={(e) => setDraft({ ...draft, hostThreshold: Number(e.target.value) })}
-        />
-      </label>
-      <label style={{ display: 'block', marginTop: 8 }}>
-        호스트 금액
-        <input
-          value={draft.hostAmount}
-          onChange={(e) => setDraft({ ...draft, hostAmount: e.target.value })}
+        호스트 마일스톤 (한 줄에 횟수:코인)
+        <textarea
+          rows={5}
+          value={hostText}
+          onChange={(e) => setHostText(e.target.value)}
+          style={{ display: 'block', width: '100%', marginTop: 4 }}
         />
       </label>
       <label style={{ display: 'block', marginTop: 8 }}>
@@ -82,18 +106,12 @@ export function RewardPolicyPage({ api }: { api: ApiFn }) {
         참가 업적
       </label>
       <label style={{ display: 'block', marginTop: 8 }}>
-        참가 임계값
-        <input
-          type="number"
-          value={draft.participationThreshold}
-          onChange={(e) => setDraft({ ...draft, participationThreshold: Number(e.target.value) })}
-        />
-      </label>
-      <label style={{ display: 'block', marginTop: 8 }}>
-        참가 금액
-        <input
-          value={draft.participationAmount}
-          onChange={(e) => setDraft({ ...draft, participationAmount: e.target.value })}
+        참가 마일스톤 (한 줄에 횟수:코인)
+        <textarea
+          rows={5}
+          value={participationText}
+          onChange={(e) => setParticipationText(e.target.value)}
+          style={{ display: 'block', width: '100%', marginTop: 4 }}
         />
       </label>
       <div style={{ marginTop: 16 }}>

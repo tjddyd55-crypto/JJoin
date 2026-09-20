@@ -7,6 +7,7 @@ export type NotificationRouteTarget =
   | { kind: 'join'; joinId: string }
   | { kind: 'wallet' }
   | { kind: 'wallet-transactions' }
+  | { kind: 'rewards' }
   | { kind: 'club'; clubId: string }
   | { kind: 'club-notice'; clubId: string; noticeId?: string }
   | { kind: 'golf-friends' }
@@ -47,6 +48,7 @@ export function resolveNotificationRoute(item: {
     return userId ? { kind: 'user', userId } : { kind: 'golf-friends' };
   }
 
+  if (isRewardActivityType(type)) return { kind: 'rewards' };
   if (isWalletType(type)) return { kind: 'wallet' };
 
   const joinId = uuidField(data, 'joinId');
@@ -63,6 +65,10 @@ export function resolveNotificationRoute(item: {
   if (type.startsWith('CLUB_')) return { kind: 'notifications' };
   if (joinId) return { kind: 'join', joinId };
   return type ? { kind: 'notifications' } : { kind: 'none' };
+}
+
+function isRewardActivityType(type: string): boolean {
+  return type === 'ATTENDANCE_REWARD' || type === 'ACHIEVEMENT_REWARD';
 }
 
 function isWalletType(type: string): boolean {

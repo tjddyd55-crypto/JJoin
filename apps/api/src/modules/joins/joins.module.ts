@@ -21,6 +21,7 @@ import { EngagementModule } from '../engagement/engagement.module';
 import { JoinLoopModule } from '../join-loop/join-loop.module';
 import { ClubsModule } from '../clubs/clubs.module';
 import { PaymentsModule } from '../payments/payments.module';
+import { ExpansionModule } from '../expansion/expansion.module';
 import { AdminGuard } from '../../common/admin.guard';
 
 @Module({
@@ -32,6 +33,7 @@ import { AdminGuard } from '../../common/admin.guard';
     VenuesModule,
     GolfFacilitiesModule,
     PaymentsModule,
+    ExpansionModule,
     forwardRef(() => EngagementModule),
     forwardRef(() => JoinLoopModule),
     forwardRef(() => ClubsModule),

@@ -263,8 +263,8 @@ export function MyHomeScreen() {
             />
             {flags?.attendanceRewardsEnabled !== false ? (
               <ListRow
-                label="출석 · 업적 보상"
-                subtitle="오늘 출석과 성사 보상"
+                label="활동 보상"
+                subtitle="자동 출석 · 호스트/참가 업적"
                 icon="coin"
                 onPress={() => router.push('/my/rewards' as Href)}
               />
