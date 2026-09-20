@@ -17,10 +17,20 @@ import {
   getCachedExpoPushToken,
   requestNotificationPermission,
 } from '../push-registration';
+import { JoinCreatedPreferenceSection } from './JoinCreatedPreferenceSection';
 
-type ToggleKey = keyof Omit<NotificationPreferenceDto, 'pushEnabled'>;
+type ToggleKey =
+  | 'joinAlertsEnabled'
+  | 'followedStoreEnabled'
+  | 'urgentJoinEnabled'
+  | 'invitationEnabled'
+  | 'attendanceReminderEnabled'
+  | 'bookmarkUpdatesEnabled'
+  | 'profileMatchEnabled'
+  | 'joinCreatedEnabled';
 
 const TOGGLES: Array<{ key: ToggleKey; label: string; description: string }> = [
+  { key: 'joinCreatedEnabled', label: '근처 새 조인', description: '스크린 거리 / 필드 지역 추천' },
   { key: 'joinAlertsEnabled', label: '새 조인 알림', description: '조건에 맞는 조인' },
   { key: 'followedStoreEnabled', label: '팔로우 매장 알림', description: '관심 매장 새 조인' },
   { key: 'urgentJoinEnabled', label: '긴급 모집', description: '긴급 자리 알림' },
@@ -59,11 +69,11 @@ export function NotificationSettingsScreen() {
   }, [load]);
 
   const patch = useCallback(
-    async (patchBody: Partial<NotificationPreferenceDto>) => {
+    async (patchBody: Partial<NotificationPreferenceDto> & { fieldRegionsResetToAuto?: boolean }) => {
       if (!prefs) return;
       setBusy(true);
       try {
-        const next = await api.setNotificationPreference({ ...prefs, ...patchBody });
+        const next = await api.setNotificationPreference(patchBody);
         setPrefs(next);
       } catch {
         Alert.alert('저장 실패', '알림 설정을 저장하지 못했습니다.');
@@ -164,6 +174,8 @@ export function NotificationSettingsScreen() {
           </View>
         </Card>
       </Section>
+
+      <JoinCreatedPreferenceSection prefs={prefs} busy={busy} onChange={(next) => void patch(next)} />
     </ScrollScreenFrame>
   );
 }

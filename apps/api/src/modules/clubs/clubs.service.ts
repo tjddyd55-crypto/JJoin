@@ -374,7 +374,7 @@ export class ClubsService {
         clubId,
       });
     } else {
-      await this.notifyClubManagers(clubId, NotificationType.JOIN_APPLICATION_RECEIVED, {
+      await this.notifyClubManagers(clubId, NotificationType.CLUB_JOIN_REQUESTED, {
         title: '동호회 가입 신청',
         body: `${club.name}에 새 가입 신청이 있습니다.`,
         clubId,
@@ -433,7 +433,7 @@ export class ClubsService {
     });
 
     const club = await this.requireClub(clubId);
-    await this.notifyUser(row.userId, NotificationType.JOIN_UPDATED, {
+    await this.notifyUser(row.userId, NotificationType.CLUB_JOIN_REJECTED, {
       title: '동호회 가입 거절',
       body: `${club.name} 가입 신청이 거절되었습니다.`,
       clubId,

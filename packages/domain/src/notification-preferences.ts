@@ -11,6 +11,7 @@ export type NotificationPreferenceFields = {
   attendanceReminderEnabled: boolean;
   bookmarkUpdatesEnabled: boolean;
   profileMatchEnabled: boolean;
+  joinCreatedEnabled: boolean;
 };
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferenceFields = {
@@ -21,6 +22,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferenceFields = {
   attendanceReminderEnabled: true,
   bookmarkUpdatesEnabled: true,
   profileMatchEnabled: true,
+  joinCreatedEnabled: true,
 };
 
 export type PushPreferenceNotificationType =
@@ -35,7 +37,8 @@ export type PushPreferenceNotificationType =
   | 'BOOKMARK_JOIN_UPDATED'
   | 'BOOKMARK_JOIN_CANCELLED'
   | 'JOIN_RECOMMENDATION'
-  | 'PROFILE_MATCH_JOIN';
+  | 'PROFILE_MATCH_JOIN'
+  | 'JOIN_CREATED';
 
 const PREFERENCE_FIELD: Record<PushPreferenceNotificationType, keyof NotificationPreferenceFields> =
   {
@@ -51,6 +54,7 @@ const PREFERENCE_FIELD: Record<PushPreferenceNotificationType, keyof Notificatio
     BOOKMARK_JOIN_CANCELLED: 'bookmarkUpdatesEnabled',
     JOIN_RECOMMENDATION: 'joinAlertsEnabled',
     PROFILE_MATCH_JOIN: 'profileMatchEnabled',
+    JOIN_CREATED: 'joinCreatedEnabled',
   };
 
 /** Returns true when tray push should be attempted for this notification type. */

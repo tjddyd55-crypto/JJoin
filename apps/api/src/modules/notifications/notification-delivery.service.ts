@@ -1,6 +1,14 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { NotificationOutboxStatus } from '@prisma/client';
-import { shouldDeliverPushForType } from '@jjoin/domain';
+import {
+  NOTIFICATION_METRIC_NAMES,
+  NOTIFICATION_OUTBOX_BACKOFF_MS,
+  NOTIFICATION_OUTBOX_MAX_ATTEMPTS,
+  NOTIFICATION_OUTBOX_STALE_PROCESSING_MS,
+  buildAndroidCollapseKey,
+  incrementNotificationCounter,
+  shouldDeliverPushForType,
+} from '@jjoin/domain';
 import { resolveApiAppVariantDb } from '../../config/app-variant';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationPreferenceStore } from './notification-preference.store';
@@ -9,9 +17,6 @@ import {
   type NotificationDeliveryProvider,
   type PushMessage,
 } from './providers/notification-delivery.provider';
-
-const MAX_ATTEMPTS = 5;
-const BACKOFF_MS = [30_000, 120_000, 600_000, 1_800_000, 3_600_000];
 
 @Injectable()
 export class NotificationDeliveryService {
@@ -38,35 +43,12 @@ export class NotificationDeliveryService {
     let processed = 0;
     let sent = 0;
     let failed = 0;
-    const apiVariant = resolveApiAppVariantDb();
     try {
-      const now = new Date();
-      const rows = await this.prisma.notificationOutbox.findMany({
-        where: {
-          status: NotificationOutboxStatus.PENDING,
-          nextAttemptAt: { lte: now },
-        },
-        orderBy: { nextAttemptAt: 'asc' },
-        take: limit,
-        include: {
-          notification: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  pushNotificationsEnabled: true,
-                  pushDevices: {
-                    where: { active: true, appVariant: apiVariant },
-                    select: { id: true, pushToken: true },
-                  },
-                },
-              },
-            },
-          },
-        },
-      });
-
+      await this.reclaimStaleProcessing();
+      const rows = await this.loadDueRows(limit);
       for (const row of rows) {
+        const claimed = await this.claimRow(row.id);
+        if (!claimed) continue;
         processed += 1;
         const outcome = await this.deliverOne(row);
         if (outcome === 'sent') sent += 1;
@@ -76,6 +58,57 @@ export class NotificationDeliveryService {
       this.running = false;
     }
     return { processed, sent, failed };
+  }
+
+  private async reclaimStaleProcessing(): Promise<void> {
+    const staleBefore = new Date(Date.now() - NOTIFICATION_OUTBOX_STALE_PROCESSING_MS);
+    await this.prisma.notificationOutbox.updateMany({
+      where: {
+        status: NotificationOutboxStatus.PROCESSING,
+        updatedAt: { lte: staleBefore },
+      },
+      data: { status: NotificationOutboxStatus.RETRY },
+    });
+  }
+
+  private async loadDueRows(limit: number) {
+    const now = new Date();
+    const apiVariant = resolveApiAppVariantDb();
+    return this.prisma.notificationOutbox.findMany({
+      where: {
+        status: { in: [NotificationOutboxStatus.PENDING, NotificationOutboxStatus.RETRY] },
+        nextAttemptAt: { lte: now },
+      },
+      orderBy: { nextAttemptAt: 'asc' },
+      take: limit,
+      include: {
+        notification: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                pushNotificationsEnabled: true,
+                pushDevices: {
+                  where: { active: true, appVariant: apiVariant },
+                  select: { id: true, pushToken: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  private async claimRow(id: string): Promise<boolean> {
+    const claimed = await this.prisma.notificationOutbox.updateMany({
+      where: {
+        id,
+        status: { in: [NotificationOutboxStatus.PENDING, NotificationOutboxStatus.RETRY] },
+      },
+      data: { status: NotificationOutboxStatus.PROCESSING },
+    });
+    return claimed.count === 1;
   }
 
   private async deliverOne(row: {
@@ -101,43 +134,39 @@ export class NotificationDeliveryService {
       prefs,
       notification.user.pushNotificationsEnabled,
     );
-
     const devices = pushAllowed ? notification.user.pushDevices : [];
 
     if (devices.length === 0) {
-      await this.prisma.notificationOutbox.update({
-        where: { id: row.id },
-        data: {
-          status: NotificationOutboxStatus.SENT,
-          sentAt: new Date(),
-          lastError: pushAllowed ? 'no_active_devices' : 'push_skipped_by_preference',
-          attemptCount: { increment: 1 },
-        },
-      });
+      incrementNotificationCounter(NOTIFICATION_METRIC_NAMES.pushSkippedPreference);
+      await this.markSent(row.id, row.attemptCount + 1, pushAllowed ? 'no_active_devices' : 'push_skipped_by_preference');
       return 'sent';
     }
 
-    const data =
-      typeof notification.data === 'object' && notification.data !== null
-        ? (notification.data as Record<string, unknown>)
-        : {};
-
+    const data = this.asRecord(notification.data);
+    const collapseId = buildAndroidCollapseKey(
+      notification.type,
+      String(data.conversationId ?? data.joinId ?? data.clubId ?? notification.id),
+    );
     const messages: PushMessage[] = devices.map((d) => ({
       to: d.pushToken,
       title: notification.title,
       body: notification.body,
-      data: {
-        ...data,
-        notificationId: notification.id,
-        type: notification.type,
-      },
+      data: { ...data, notificationId: notification.id, type: notification.type },
       channelId: 'jjoin-general',
+      collapseId,
+      tag: collapseId,
     }));
 
     const results = await this.provider.sendPush(messages);
+    return this.persistSendResults(row, results);
+  }
+
+  private async persistSendResults(
+    row: { id: string; attemptCount: number; notification: { type: string; userId: string } },
+    results: Array<{ ok: boolean; errorCode?: string; errorMessage?: string; invalidateToken?: boolean; token: string }>,
+  ): Promise<'sent' | 'failed' | 'deferred'> {
     let anyOk = false;
     let lastError: string | null = null;
-
     for (const result of results) {
       if (result.ok) {
         anyOk = true;
@@ -155,43 +184,53 @@ export class NotificationDeliveryService {
 
     const nextAttempt = row.attemptCount + 1;
     if (anyOk) {
-      await this.prisma.notificationOutbox.update({
-        where: { id: row.id },
-        data: {
-          status: NotificationOutboxStatus.SENT,
-          sentAt: new Date(),
-          attemptCount: nextAttempt,
-          lastError: null,
-        },
-      });
+      incrementNotificationCounter(NOTIFICATION_METRIC_NAMES.pushSent);
+      await this.markSent(row.id, nextAttempt, null);
       this.logger.log(
-        `notification_push_sent type=${notification.type} user=${notification.userId.slice(0, 8)}`,
+        `notification_push_sent type=${row.notification.type} user=${row.notification.userId.slice(0, 8)}`,
       );
       return 'sent';
     }
-
-    if (nextAttempt >= MAX_ATTEMPTS) {
+    if (nextAttempt >= NOTIFICATION_OUTBOX_MAX_ATTEMPTS) {
+      incrementNotificationCounter(NOTIFICATION_METRIC_NAMES.pushFailedTerminal);
       await this.prisma.notificationOutbox.update({
         where: { id: row.id },
         data: {
-          status: NotificationOutboxStatus.FAILED,
+          status: NotificationOutboxStatus.FAILED_TERMINAL,
           attemptCount: nextAttempt,
           lastError: lastError?.slice(0, 300) ?? 'max_attempts',
         },
       });
       return 'failed';
     }
-
-    const delay = BACKOFF_MS[Math.min(nextAttempt - 1, BACKOFF_MS.length - 1)]!;
+    incrementNotificationCounter(NOTIFICATION_METRIC_NAMES.pushRetry);
+    const delay = NOTIFICATION_OUTBOX_BACKOFF_MS[Math.min(nextAttempt - 1, NOTIFICATION_OUTBOX_BACKOFF_MS.length - 1)]!;
     await this.prisma.notificationOutbox.update({
       where: { id: row.id },
       data: {
-        status: NotificationOutboxStatus.PENDING,
+        status: NotificationOutboxStatus.RETRY,
         attemptCount: nextAttempt,
         lastError: lastError?.slice(0, 300) ?? 'retry',
         nextAttemptAt: new Date(Date.now() + delay),
       },
     });
     return 'deferred';
+  }
+
+  private async markSent(id: string, attemptCount: number, lastError: string | null): Promise<void> {
+    await this.prisma.notificationOutbox.update({
+      where: { id },
+      data: {
+        status: NotificationOutboxStatus.SENT,
+        sentAt: new Date(),
+        attemptCount,
+        lastError,
+      },
+    });
+  }
+
+  private asRecord(data: unknown): Record<string, unknown> {
+    if (typeof data === 'object' && data !== null) return data as Record<string, unknown>;
+    return {};
   }
 }

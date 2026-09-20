@@ -866,6 +866,7 @@ export class JoinsService {
       },
     });
 
+    void this.engagementNotify.notifyJoinLifecycle(joinId, NotificationType.JOIN_UPDATED, hostUserId);
     return this.getDetail(joinId, hostUserId);
   }
 
@@ -1165,15 +1166,13 @@ export class JoinsService {
     ]);
     if (joinMeta && applicant) {
       const nickname = applicant.profile?.nickname ?? '참가자';
-      await this.notifications.enqueueSafe({
+      await this.notifications.enqueueTypedSafe({
         userId: joinMeta.hostUserId,
         type: NotificationType.JOIN_APPLICATION_RECEIVED,
-        title: '새 참가 신청',
-        body: `${nickname}님이 조인 참가를 신청했습니다.`,
-        data: {
-          type: NotificationType.JOIN_APPLICATION_RECEIVED,
-          joinId,
-        },
+        targetEntityId: joinId,
+        actorUserId: userId,
+        context: { actorNickname: nickname },
+        data: { joinId },
         eventKey: `join:${joinId}:application:${userId}:received`,
       });
     }
@@ -1512,15 +1511,12 @@ export class JoinsService {
     });
 
     if (newlyApprovedUserId) {
-      await this.notifications.enqueueSafe({
+      await this.notifications.enqueueTypedSafe({
         userId: newlyApprovedUserId,
         type: NotificationType.JOIN_APPLICATION_APPROVED,
-        title: '참가 승인',
-        body: '참가 신청이 승인되었습니다.',
-        data: {
-          type: NotificationType.JOIN_APPLICATION_APPROVED,
-          joinId,
-        },
+        targetEntityId: joinId,
+        context: {},
+        data: { joinId },
         eventKey: `join:${joinId}:application:${newlyApprovedUserId}:approved`,
       });
       void this.joinChat.ensureRoomForJoin(joinId).then(() =>
@@ -1627,6 +1623,21 @@ export class JoinsService {
     hostUserId: string,
   ): Promise<JoinDetailDto> {
     await this.assertFieldHostReview(joinId, participantId, hostUserId, 'REJECTED');
+    const participant = await this.prisma.joinParticipant.findUnique({
+      where: { id: participantId },
+      select: { userId: true, join: { select: { venue: { select: { name: true } } } } },
+    });
+    if (participant) {
+      await this.notifications.enqueueTypedSafe({
+        userId: participant.userId,
+        type: NotificationType.JOIN_APPLICATION_REJECTED,
+        targetEntityId: joinId,
+        actorUserId: hostUserId,
+        context: { venueName: participant.join.venue.name },
+        data: { joinId, participantId },
+        eventKey: `join:${joinId}:application:${participant.userId}:rejected`,
+      });
+    }
     return this.getDetail(joinId, hostUserId);
   }
 

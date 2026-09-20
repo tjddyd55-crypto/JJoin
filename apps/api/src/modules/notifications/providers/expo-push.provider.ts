@@ -40,6 +40,8 @@ export class ExpoPushNotificationProvider implements NotificationDeliveryProvide
       sound: m.sound ?? 'default',
       channelId: m.channelId ?? 'jjoin-general',
       priority: 'high' as const,
+      collapseId: m.collapseId,
+      ...(m.tag ? { tag: m.tag } : {}),
     }));
 
     try {

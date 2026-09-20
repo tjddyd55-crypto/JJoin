@@ -153,14 +153,27 @@ export async function deactivateCurrentPushDevice(api: ApiClient): Promise<void>
 export async function configureNotificationHandler(): Promise<void> {
   const Notifications = await loadNotifications();
   if (!Notifications) return;
+  const { shouldSuppressOsPushForActiveChat } = await import('./active-conversation');
   Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-    }),
+    handleNotification: async (notification) => {
+      const data = notification.request.content.data as Record<string, unknown> | undefined;
+      const suppress = shouldSuppressOsPushForActiveChat(data);
+      return {
+        shouldShowBanner: !suppress,
+        shouldShowList: !suppress,
+        shouldPlaySound: !suppress,
+        shouldSetBadge: false,
+      };
+    },
   });
+}
+
+export async function consumeLastNotificationResponse(): Promise<Record<string, unknown> | null> {
+  const Notifications = await loadNotifications();
+  if (!Notifications?.getLastNotificationResponseAsync) return null;
+  const last = await Notifications.getLastNotificationResponseAsync();
+  if (!last) return null;
+  return (last.notification.request.content.data ?? null) as Record<string, unknown> | null;
 }
 
 export async function addNotificationResponseListener(

@@ -1325,7 +1325,7 @@ export class ApiClient {
   }
 
   async setNotificationPreference(
-    body: Partial<NotificationPreferenceDto>,
+    body: Partial<NotificationPreferenceDto> & { fieldRegionsResetToAuto?: boolean },
   ): Promise<NotificationPreferenceDto> {
     const res = await request(`${this.config.baseUrl}/me/notification-preference`, {
       method: 'PATCH',

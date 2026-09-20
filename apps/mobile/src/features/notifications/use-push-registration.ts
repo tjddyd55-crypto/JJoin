@@ -8,6 +8,7 @@ import { getSecureSessionStore, useSessionOptional } from '../../session/Session
 import {
   addNotificationResponseListener,
   configureNotificationHandler,
+  consumeLastNotificationResponse,
   deactivateCurrentPushDevice,
   registerPushDeviceWithServer,
   resolvePushRoute,
@@ -22,6 +23,7 @@ export function usePushRegistration() {
   const session = useSessionOptional();
   const router = useRouter();
   const registeredForUser = useRef<string | null>(null);
+  const consumedColdStart = useRef(false);
   const api = getApiClient(getSecureSessionStore());
   const appState = session?.appState;
   const userId = session?.me?.userId;
@@ -88,6 +90,22 @@ export function usePushRegistration() {
         return;
       }
       remove = sub?.remove;
+      if (consumedColdStart.current) return;
+      consumedColdStart.current = true;
+      const cold = await consumeLastNotificationResponse();
+      if (!cancelled && cold) {
+        const target = applyClubsUiGateToPushRoute(resolvePushRoute(cold), featureFlags);
+        if (target.kind === 'join') router.push(`/join/${target.joinId}`);
+        else if (target.kind === 'golf-friends') router.push('/my/golf-friends');
+        else if (target.kind === 'user') router.push(`/user/${target.userId}`);
+        else if (target.kind === 'wallet' || target.kind === 'wallet-transactions') {
+          router.push('/my/wallet');
+        } else if (target.kind === 'unavailable') router.push('/unavailable');
+        else if (target.kind === 'club') router.push(`/my/clubs/${target.clubId}`);
+        else if (target.kind === 'club-notice') router.push(`/my/clubs/${target.clubId}/notices`);
+        else if (target.kind === 'conversation') router.push(`/messages/${target.conversationId}`);
+        else if (target.kind === 'notifications') router.push('/my/notifications');
+      }
     })();
     return () => {
       cancelled = true;

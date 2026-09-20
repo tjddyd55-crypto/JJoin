@@ -6,6 +6,7 @@ import { PushDevicesService } from './push-devices.service';
 import { NotificationEventService } from './notification-event.service';
 import { NotificationDeliveryService } from './notification-delivery.service';
 import { NotificationPreferenceStore } from './notification-preference.store';
+import { JoinCreatedAudienceService } from './join-created-audience.service';
 import { NOTIFICATION_DELIVERY_PROVIDER } from './providers/notification-delivery.provider';
 import { ExpoPushNotificationProvider } from './providers/expo-push.provider';
 import { NullPushNotificationProvider } from './providers/null-push.provider';
@@ -18,6 +19,7 @@ import { NullPushNotificationProvider } from './providers/null-push.provider';
     NotificationEventService,
     NotificationDeliveryService,
     NotificationPreferenceStore,
+    JoinCreatedAudienceService,
     ExpoPushNotificationProvider,
     NullPushNotificationProvider,
     {
@@ -40,6 +42,7 @@ import { NullPushNotificationProvider } from './providers/null-push.provider';
     NotificationDeliveryService,
     PushDevicesService,
     NotificationPreferenceStore,
+    JoinCreatedAudienceService,
   ],
 })
 export class NotificationsModule {}

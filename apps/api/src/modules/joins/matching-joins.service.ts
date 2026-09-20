@@ -293,6 +293,14 @@ export class MatchingJoinsService {
   }
 
   async cancel(joinId: string, hostUserId: string): Promise<JoinDetailDto> {
+    const recipients = await this.prisma.joinParticipant.findMany({
+      where: {
+        joinId,
+        role: 'PARTICIPANT',
+        participationStatus: { in: ['APPLIED', 'APPROVED', 'CONFIRMED'] },
+      },
+      select: { userId: true },
+    });
     await this.prisma.$transaction(async (tx) => {
       const join = await tx.join.findUnique({ where: { id: joinId } });
       if (!join) throw new NotFoundException('join_not_found');
@@ -340,6 +348,12 @@ export class MatchingJoinsService {
     );
 
     void this.engagementNotify.notifyBookmarkJoinEvent(joinId, 'cancelled');
+    void this.engagementNotify.notifyJoinLifecycle(
+      joinId,
+      'JOIN_CANCELLED',
+      hostUserId,
+      recipients.map((row) => row.userId),
+    );
     void this.joinChat.onJoinTerminal(joinId, 'CANCELLED');
 
     return this.joins.getDetail(joinId, hostUserId);

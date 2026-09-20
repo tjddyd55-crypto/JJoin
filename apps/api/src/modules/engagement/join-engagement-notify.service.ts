@@ -8,6 +8,7 @@ import {
 } from '@jjoin/domain';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationEventService } from '../notifications/notification-event.service';
+import { JoinCreatedAudienceService } from '../notifications/join-created-audience.service';
 import { ProductEventsService } from '../analytics/product-events.service';
 import { ProfileMatchService } from '../expansion/profile-match.service';
 
@@ -52,6 +53,7 @@ export class JoinEngagementNotifyService {
     private readonly notifications: NotificationEventService,
     private readonly analytics: ProductEventsService,
     private readonly profileMatch: ProfileMatchService,
+    private readonly joinCreatedAudience: JoinCreatedAudienceService,
   ) {}
 
   async notifyNewJoinableJoin(joinId: string): Promise<void> {
@@ -60,6 +62,47 @@ export class JoinEngagementNotifyService {
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'notify_new_joinable_failed';
       this.logger.warn(`notifyNewJoinableJoin failed joinId=${joinId} err=${msg}`);
+    }
+  }
+
+  async notifyJoinLifecycle(
+    joinId: string,
+    type: 'JOIN_UPDATED' | 'JOIN_CANCELLED',
+    actorUserId?: string,
+    recipientUserIds?: string[],
+  ): Promise<void> {
+    try {
+      const join = await this.prisma.join.findUnique({
+        where: { id: joinId },
+        select: {
+          hostUserId: true,
+          venue: { select: { name: true } },
+          participants: {
+            where: {
+              role: 'PARTICIPANT',
+              ...(recipientUserIds
+                ? { userId: { in: recipientUserIds } }
+                : { participationStatus: { in: ['APPLIED', 'APPROVED', 'CONFIRMED'] } }),
+            },
+            select: { userId: true },
+          },
+        },
+      });
+      if (!join) return;
+      for (const participant of join.participants) {
+        if (participant.userId === join.hostUserId) continue;
+        await this.notifications.enqueueTypedSafe({
+          userId: participant.userId,
+          type,
+          targetEntityId: joinId,
+          actorUserId: actorUserId ?? join.hostUserId,
+          context: { venueName: join.venue.name },
+          data: { joinId },
+        });
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'notify_join_lifecycle_failed';
+      this.logger.warn(`notifyJoinLifecycle failed joinId=${joinId} type=${type} err=${msg}`);
     }
   }
 
@@ -177,6 +220,7 @@ export class JoinEngagementNotifyService {
       }
     }
     await this.profileMatch.notifyMatchingJoin(join.id);
+    await this.joinCreatedAudience.notifyJoinCreated(join.id);
   }
 
   private async notifyBookmarkJoinEventInner(

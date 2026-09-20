@@ -8,6 +8,7 @@ import {
   Text,
   useTheme,
 } from '@jjoin/design-system';
+import { NOTIFICATION_INBOX_CATEGORY_LABEL, notificationInboxCategory } from '@jjoin/domain';
 import type { AppNotificationDto } from '@jjoin/types';
 import { getApiClient } from '../../src/lib/api';
 import { getSecureSessionStore } from '../../src/session/SessionContext';
@@ -131,6 +132,9 @@ export default function NotificationsScreen() {
               },
             ]}
           >
+            <Text variant="caption" tone="secondary">
+              {NOTIFICATION_INBOX_CATEGORY_LABEL[notificationInboxCategory(item.type)]}
+            </Text>
             <Text variant="bodyStrong" tone="primary">
               {item.title}
             </Text>

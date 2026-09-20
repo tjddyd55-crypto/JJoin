@@ -191,16 +191,17 @@ export class DirectMessagesService {
 
       if (!result.alreadyExists) {
         const senderNickname = await this.resolveNickname(viewerId);
-        await this.notifications.enqueueSafe({
+        await this.notifications.enqueueTypedSafe({
           userId: peerUserId,
           type: NotificationType.DIRECT_MESSAGE_RECEIVED,
-          title: '새 메시지',
-          body: `${senderNickname}: ${previewDirectMessage(normalizedBody)}`,
-          data: {
-            type: NotificationType.DIRECT_MESSAGE_RECEIVED,
-            conversationId,
-            fromUserId: viewerId,
+          targetEntityId: conversationId,
+          messageId: result.message.id,
+          actorUserId: viewerId,
+          context: {
+            actorNickname: senderNickname,
+            messagePreview: previewDirectMessage(normalizedBody),
           },
+          data: { conversationId, fromUserId: viewerId },
           eventKey: directMessageReceivedEventKey(result.message.id),
         });
       }

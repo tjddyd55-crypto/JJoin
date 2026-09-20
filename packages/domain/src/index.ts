@@ -745,6 +745,74 @@ export {
 } from './notification-preferences';
 
 export {
+  DEFAULT_FIELD_NOTIFICATION_REGION_MODE,
+  DEFAULT_QUIET_HOURS,
+  DEFAULT_SCREEN_NOTIFICATION_RADIUS_KM,
+  DEFAULT_SCREEN_NOTIFICATION_RADIUS_MODE,
+  JOIN_CREATED_AUDIENCE_BATCH_SIZE,
+  JOIN_CREATED_RATE_LIMIT,
+  MAX_CUSTOM_FIELD_NOTIFICATION_REGIONS,
+  NOTIFICATION_INBOX_CATEGORY_LABEL,
+  NOTIFICATION_METRIC_NAMES,
+  NOTIFICATION_OUTBOX_BACKOFF_MS,
+  NOTIFICATION_OUTBOX_MAX_ATTEMPTS,
+  NOTIFICATION_OUTBOX_STALE_PROCESSING_MS,
+  SCREEN_NOTIFICATION_RADIUS_OPTIONS,
+  buildAndroidCollapseKey,
+  buildNotificationEventKey,
+  formatUnreadBadge,
+  incrementNotificationCounter,
+  isRecommendationNotificationType,
+  isValidFieldRegionMode,
+  isValidScreenRadiusMode,
+  isWithinQuietHours,
+  notificationInboxCategory,
+  readNotificationCounter,
+  resetNotificationCounters,
+  screenRadiusKmToMode,
+  screenRadiusModeToKm,
+  type FieldNotificationRegion,
+  type FieldNotificationRegionMode,
+  type NotificationEventKeyInput,
+  type NotificationInboxCategory,
+  type NotificationMetricName,
+  type QuietHoursWindow,
+  type ScreenNotificationRadiusKm,
+  type ScreenNotificationRadiusMode,
+} from './notification-policy';
+
+export {
+  buildNotificationContent,
+  type NotificationContent,
+  type NotificationContentContext,
+} from './notification-content';
+
+export {
+  resolveNotificationRoute,
+  resolvePushRoute,
+  type NotificationRouteTarget,
+} from './notification-routes';
+
+export {
+  boundingBoxForRadiusKm,
+  dedupeRegions,
+  isBlockedEitherWay,
+  isKnownFieldNotificationRegion,
+  isWithinScreenRadius,
+  matchesFieldNotificationRegions,
+  matchesScreenAdminRegion,
+  parseFieldRegionsJson,
+  parseHomeRegion,
+  resolveDefaultFieldNotificationRegions,
+  resolveEffectiveFieldNotificationRegions,
+  shouldExcludeHost,
+  shouldRateLimitJoinCreated,
+  type GeoPoint,
+  type HomeRegionInput,
+  type ParsedHomeRegion,
+} from './notification-audience';
+
+export {
   attendanceReminderCopy,
   attendanceReminderEventKey,
   isJoinInAttendanceReminderWindow,

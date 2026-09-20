@@ -1822,7 +1822,24 @@ export enum NotificationType {
   ACHIEVEMENT_REWARD = 'ACHIEVEMENT_REWARD',
   COIN_GIFT_RECEIVED = 'COIN_GIFT_RECEIVED',
   DIRECT_MESSAGE_RECEIVED = 'DIRECT_MESSAGE_RECEIVED',
+  JOIN_CREATED = 'JOIN_CREATED',
+  CLUB_JOIN_REQUESTED = 'CLUB_JOIN_REQUESTED',
+  CLUB_JOIN_REJECTED = 'CLUB_JOIN_REJECTED',
 }
+
+export type ScreenNotificationRadiusMode =
+  | 'KM_5'
+  | 'KM_10'
+  | 'KM_15'
+  | 'KM_30'
+  | 'SAME_ADMIN_REGION';
+
+export type FieldNotificationRegionMode = 'AUTO' | 'CUSTOM';
+
+export type FieldNotificationRegionDto = {
+  province: string;
+  cityCounty: string | null;
+};
 
 export enum JoinAlertDateMode {
   TODAY = 'TODAY',
@@ -1897,6 +1914,11 @@ export type NotificationPreferenceDto = {
   attendanceReminderEnabled: boolean;
   bookmarkUpdatesEnabled: boolean;
   profileMatchEnabled: boolean;
+  joinCreatedEnabled: boolean;
+  screenRadiusMode: ScreenNotificationRadiusMode;
+  fieldRegionMode: FieldNotificationRegionMode;
+  fieldRegions: FieldNotificationRegionDto[];
+  resolvedFieldRegions: FieldNotificationRegionDto[];
 };
 
 export type ProductEventType =

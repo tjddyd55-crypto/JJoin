@@ -131,15 +131,13 @@ export class GolfFriendsService {
     }
 
     const requesterNickname = await this.resolveNickname(viewerId);
-    await this.notifications.enqueueSafe({
+    await this.notifications.enqueueTypedSafe({
       userId: targetUserId,
       type: NotificationType.FRIEND_REQUEST_RECEIVED,
-      title: '골프친구 요청',
-      body: `${requesterNickname}님이 골프친구를 요청했습니다.`,
-      data: {
-        type: NotificationType.FRIEND_REQUEST_RECEIVED,
-        userId: viewerId,
-      },
+      targetEntityId: targetUserId,
+      actorUserId: viewerId,
+      context: { actorNickname: requesterNickname },
+      data: { userId: viewerId },
       eventKey: `friendship:${viewerId}:${targetUserId}:requested`,
     });
 
@@ -161,15 +159,13 @@ export class GolfFriendsService {
     });
 
     const accepterNickname = await this.resolveNickname(viewerId);
-    await this.notifications.enqueueSafe({
+    await this.notifications.enqueueTypedSafe({
       userId: row.requesterId,
       type: NotificationType.FRIEND_REQUEST_ACCEPTED,
-      title: '골프친구 수락',
-      body: `${accepterNickname}님이 골프친구 요청을 수락했습니다.`,
-      data: {
-        type: NotificationType.FRIEND_REQUEST_ACCEPTED,
-        userId: viewerId,
-      },
+      targetEntityId: viewerId,
+      actorUserId: viewerId,
+      context: { actorNickname: accepterNickname },
+      data: { userId: viewerId },
       eventKey: `friendship:${row.requesterId}:${viewerId}:accepted`,
     });
 
