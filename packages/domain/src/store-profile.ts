@@ -260,8 +260,6 @@ export function buildStoreFacilitySummary(input: {
     lines.push(`${brand} ${model}`);
   } else if (input.screenBrand !== 'OTHER') {
     lines.push(brand);
-  } else if (model) {
-    lines.push(model);
   }
   if (input.roomCount && input.roomCount > 0) {
     lines.push(`${input.roomCount}룸`);
