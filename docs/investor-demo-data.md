@@ -63,9 +63,10 @@ Railway TCP proxy처럼 RTT가 길면 Prisma 기본 인터랙티브 트랜잭션
 ## 지역
 
 - SCREEN: 서울·고양/일산·파주·김포·인천·부천·광명·안양·성남/분당·용인·수원·화성·남양주·의정부 + 부산·대구·대전·광주
-- FIELD: 오늘 밀도 슬롯은 수도권 hub 코스(서초·강남·마포)를 앞에 둡니다. 그다음 기존 DEV 실코스, 없으면 용인·이천 등 fallback
+- FIELD: 오늘 OPEN 슬롯은 잠실·송파·선릉·강남 hub에 고정. 좌표는 오늘 SCREEN 매장과 동일(홈 `NEARBY` 5km). 이후 주 슬롯은 전국 fallback
 - SCREEN 오늘 밀도: 강남·선릉·성수·잠실 마이크로 클러스터 (홈 `NEARBY` 5km). 이후 주 슬롯은 전국 매장
 - 홈 QA 프로브: 강남 37.50/127.03, 성수 37.54/127.06, 잠실 37.51/127.10 — 각 지점에서 오늘 SCREEN/FIELD ≥ 1
+- `clubsUiEnabled`는 시드가 켜지 않음 (기본 false). 클럽 데이터는 넣되 사용자 UI는 게이트 OFF
 
 ## 시각 자산
 
@@ -98,7 +99,7 @@ Discover `GET /joins/discover?date=오늘&regionMode=ALL&joinability=ALL`:
 
 - SCREEN `totalCount` ≥ 20 (OPEN, startAt 오늘 KST, scheduledEndAt > now)
 - FIELD `totalCount` ≥ 10
-- 홈은 같은 오늘 쿼리에 `regionMode=NEARBY` + `joinability=JOINABLE`. 오늘 밀도 슬롯은 강남·마포·송파 / 서초·강남·마포 hub
+- 홈은 같은 오늘 쿼리에 `regionMode=NEARBY` + `joinability=JOINABLE` + SCREEN/FIELD 각각 1회. 오늘 FIELD는 잠실·송파·선릉·강남 (SCREEN과 동일 좌표)
 
 Prisma OPEN 전체(내일 포함)는 SCREEN 96 / FIELD 48 근처. **원본 Prisma count는 pass 기준이 아닙니다.**
 

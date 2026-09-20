@@ -12,6 +12,7 @@ import {
   PrismaClient,
   VenueType,
 } from '@prisma/client';
+import { DEFAULT_FEATURE_FLAGS } from '../../packages/domain/src/feature-flags.ts';
 import { DEFAULT_HOST_MILESTONES, DEFAULT_PARTICIPATION_MILESTONES } from '../../packages/domain/src/attendance-rewards.ts';
 import { createJoinShareSlug } from '../../packages/domain/src/join-engagement.ts';
 import { TERMS_VERSION } from '../../apps/api/src/auth/consent-policy.ts';
@@ -33,7 +34,7 @@ import {
   DEMO_STORES,
   DEMO_BANNERS,
   DEMO_FIELD_COURSE_FALLBACKS,
-  DEMO_HUB_COURSE_SLUGS,
+  DEMO_TODAY_FIELD_SLUGS,
   DEMO_TODAY_SCREEN_VENUES,
   DEMO_FACILITY_KEY_PREFIX,
   DEMO_COURSE_EXTERNAL_PREFIX,
@@ -78,6 +79,7 @@ type SeedCtx = {
   users: Map<DemoPersonaSlug, { id: string; spec: DemoPersonaSpec }>;
   storeVenues: Map<string, { venueId: string; facilityId: string; ownershipId: string }>;
   fieldVenues: string[];
+  fieldVenuesBySlug: Map<string, string>;
 };
 
 export async function seedInvestorDemo(prisma: PrismaClient): Promise<SeedSummary> {
@@ -91,6 +93,7 @@ export async function seedInvestorDemo(prisma: PrismaClient): Promise<SeedSummar
     users: new Map(),
     storeVenues: new Map(),
     fieldVenues: [],
+    fieldVenuesBySlug: new Map(),
   };
   await ensureFeatureFlags(prisma);
   const upload = await uploadInvestorDemoAssets();
@@ -98,7 +101,9 @@ export async function seedInvestorDemo(prisma: PrismaClient): Promise<SeedSummar
   await seedUsers(ctx);
   await seedStores(ctx);
   await seedTodayScreenCluster(ctx);
-  ctx.fieldVenues = await seedFieldVenues(ctx);
+  const fieldSeed = await seedFieldVenues(ctx);
+  ctx.fieldVenues = fieldSeed.ids;
+  ctx.fieldVenuesBySlug = fieldSeed.bySlug;
   const joinPlans = buildJoinPlans(new Date());
   const joins = await seedJoins(ctx, joinPlans);
   const banners = await seedBanners(prisma);
@@ -139,13 +144,13 @@ async function ensureFeatureFlags(prisma: PrismaClient): Promise<void> {
       homeBannersEnabled: true,
       attendanceRewardsEnabled: true,
       storeProfilesEnabled: true,
-      clubsUiEnabled: true,
+      clubsUiEnabled: DEFAULT_FEATURE_FLAGS.clubsUiEnabled,
     },
     update: {
       homeBannersEnabled: true,
       attendanceRewardsEnabled: true,
       storeProfilesEnabled: true,
-      clubsUiEnabled: true,
+      clubsUiEnabled: DEFAULT_FEATURE_FLAGS.clubsUiEnabled,
     },
   });
 }
@@ -490,35 +495,53 @@ async function upsertStoreProfile(
   });
 }
 
-async function seedFieldVenues(ctx: SeedCtx): Promise<string[]> {
+async function seedFieldVenues(
+  ctx: SeedCtx,
+): Promise<{ ids: string[]; bySlug: Map<string, string> }> {
   const fallbacks = await createFallbackCourses(ctx);
-  const hubCourses = DEMO_HUB_COURSE_SLUGS.map(
-    (slug) => fallbacks.find((row) => row.externalId === `${DEMO_COURSE_EXTERNAL_PREFIX}${slug}`),
-  ).filter((row): row is NonNullable<typeof row> => Boolean(row));
-  const hubIds = new Set(hubCourses.map((row) => row.id));
+  const bySlug = new Map<string, string>();
+  const ids: string[] = [];
+  for (const course of fallbacks) {
+    const venue = await ensureFieldVenue(ctx, {
+      courseId: course.id,
+      slug: course.slug,
+      name: course.name,
+      lat: Number(course.latitude ?? 37.2),
+      lng: Number(course.longitude ?? 127.1),
+    });
+    ids.push(venue.id);
+    bySlug.set(course.slug, venue.id);
+  }
+  const hubIds = new Set(fallbacks.map((row) => row.id));
   const existing = await ctx.prisma.fieldGolfCourse.findMany({
     where: { isActive: true, latitude: { not: null }, sido: { not: null }, id: { notIn: [...hubIds] } },
     take: 13,
     orderBy: { name: 'asc' },
   });
-  const courses = [...hubCourses, ...existing];
-  const venueIds: string[] = [];
-  for (const [index, course] of courses.entries()) {
-    const venue = await ensureFieldVenue(
-      ctx,
-      course.id,
-      course.name,
-      index,
-      Number(course.latitude ?? 37.2),
-      Number(course.longitude ?? 127.1),
-    );
-    venueIds.push(venue.id);
+  for (const [index, course] of existing.entries()) {
+    const venue = await ensureFieldVenue(ctx, {
+      courseId: course.id,
+      slug: `odcloud-${index}`,
+      name: course.name,
+      lat: Number(course.latitude ?? 37.2),
+      lng: Number(course.longitude ?? 127.1),
+    });
+    ids.push(venue.id);
   }
-  return venueIds;
+  for (const slug of DEMO_TODAY_FIELD_SLUGS) {
+    if (!bySlug.has(slug)) throw new Error(`${INVESTOR_DEMO_TAG} missing today field hub ${slug}`);
+  }
+  return { ids, bySlug };
 }
 
 async function createFallbackCourses(ctx: SeedCtx) {
-  const created = [];
+  const created: Array<{
+    id: string;
+    slug: string;
+    name: string;
+    latitude: unknown;
+    longitude: unknown;
+  }> = [];
   for (const spec of DEMO_FIELD_COURSE_FALLBACKS) {
     const course = await ctx.prisma.fieldGolfCourse.upsert({
       where: {
@@ -542,21 +565,34 @@ async function createFallbackCourses(ctx: SeedCtx) {
         isActive: true,
         status: '영업',
       },
-      update: { isActive: true, name: spec.name },
+      update: {
+        isActive: true,
+        name: spec.name,
+        address: spec.address,
+        roadAddress: spec.address,
+        sido: spec.sido,
+        sigungu: spec.sigungu,
+        latitude: spec.lat,
+        longitude: spec.lng,
+        holeCount: spec.holeCount,
+      },
     });
-    created.push(course);
+    created.push({
+      id: course.id,
+      slug: spec.slug,
+      name: course.name,
+      latitude: course.latitude,
+      longitude: course.longitude,
+    });
   }
   return created;
 }
 
 async function ensureFieldVenue(
   ctx: SeedCtx,
-  courseId: string,
-  name: string,
-  index: number,
-  lat: number,
-  lng: number,
+  input: { courseId: string; slug: string; name: string; lat: number; lng: number },
 ) {
+  const { courseId, slug, name, lat, lng } = input;
   const linked = await ctx.prisma.venue.findFirst({ where: { fieldGolfCourseId: courseId } });
   if (linked) {
     return ctx.prisma.venue.update({
@@ -564,7 +600,7 @@ async function ensureFieldVenue(
       data: { venueType: VenueType.FIELD, fieldGolfCourseId: courseId, name, latitude: lat, longitude: lng },
     });
   }
-  const placeId = `${DEMO_VENUE_PLACE_PREFIX}field-${index}`;
+  const placeId = `${DEMO_VENUE_PLACE_PREFIX}field-${slug}`;
   const existing = await ctx.prisma.venue.findUnique({
     where: { provider_providerPlaceId: { provider: 'CUSTOM', providerPlaceId: placeId } },
   });
@@ -690,7 +726,11 @@ function resolveJoinVenue(ctx: SeedCtx, plan: DemoJoinPlan): string {
     if (!store) throw new Error(`missing store venue ${plan.storeSlug}`);
     return store.venueId;
   }
-  const index = plan.fieldIndex ?? 0;
+  if (plan.courseSlug) {
+    const bySlug = ctx.fieldVenuesBySlug.get(plan.courseSlug);
+    if (bySlug) return bySlug;
+  }
+  const index = plan.fieldIndex != null && plan.fieldIndex >= 0 ? plan.fieldIndex : 0;
   const venueId = ctx.fieldVenues[index % ctx.fieldVenues.length] ?? ctx.fieldVenues[0];
   if (!venueId) throw new Error('missing field venue');
   return venueId;

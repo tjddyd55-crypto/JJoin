@@ -14,7 +14,17 @@ import {
   listPlayerSlugs,
   type DemoPersonaSlug,
 } from './investor-demo-personas.ts';
-import { DEMO_STORES, DEMO_TODAY_SCREEN_SLUGS } from './investor-demo-venues.ts';
+import {
+  DEMO_FIELD_COURSE_FALLBACKS,
+  DEMO_HOME_NEARBY_PROBES,
+  DEMO_HOME_NEARBY_RADIUS_METERS,
+  DEMO_STORES,
+  DEMO_TODAY_FIELD_SLUGS,
+  DEMO_TODAY_SCREEN_SLUGS,
+  haversineMetersDemo,
+  pickTodayFieldCourseSlug,
+  resolveFieldJoinCoords,
+} from './investor-demo-venues.ts';
 import {
   TODAY_FIELD_SLOT_MIN,
   TODAY_SCREEN_SLOT_MIN,
@@ -58,6 +68,7 @@ export type DemoJoinPlan = {
   scheduledEndAt: Date;
   plannedPlayerCount: number;
   storeSlug?: string;
+  courseSlug?: string;
   fieldIndex?: number;
   bucket?: TimeBucket;
   isUrgent?: boolean;
@@ -72,7 +83,12 @@ function pickCapacity(key: string): number {
   return CAPACITIES[hashKey(key) % CAPACITIES.length]!;
 }
 
-function occupancyConfirmed(key: string, capacity: number, host: DemoPersonaSlug): DemoPersonaSlug[] {
+function occupancyConfirmed(
+  key: string,
+  capacity: number,
+  host: DemoPersonaSlug,
+  keepJoinable = false,
+): DemoPersonaSlug[] {
   const players = listPlayerSlugs().filter((slug) => slug !== host);
   const roll = hashKey(`${key}:occ`) % 100;
   let extra = 1;
@@ -80,7 +96,8 @@ function occupancyConfirmed(key: string, capacity: number, host: DemoPersonaSlug
   else if (roll < 55) extra = Math.min(1, capacity - 1);
   else if (roll < 88) extra = Math.max(1, capacity - 2);
   else extra = Math.max(0, capacity - 1);
-  extra = Math.min(extra, capacity - 1, players.length);
+  const maxExtra = keepJoinable ? Math.max(0, capacity - 2) : capacity - 1;
+  extra = Math.min(extra, maxExtra, players.length);
   const start = hashKey(`${key}:roster`) % players.length;
   return Array.from({ length: extra }, (_, i) => players[(start + i) % players.length]!);
 }
@@ -97,6 +114,11 @@ function ended(startAt: Date): Date {
 function pickStore(key: string, preferTodayCluster = false): string {
   const pool = preferTodayCluster ? DEMO_TODAY_SCREEN_SLUGS : DEMO_STORES.map((row) => row.slug);
   return pool[hashKey(`${key}:store`) % pool.length]!;
+}
+
+function pickRestFieldCourse(index: number): string {
+  const slugs = DEMO_FIELD_COURSE_FALLBACKS.map((row) => row.slug);
+  return slugs[index % slugs.length]!;
 }
 
 function pickCondition(key: string, track: 'SCREEN' | 'FIELD'): JoinCondition {
@@ -265,12 +287,23 @@ function toOpenPlan(input: {
   slot: SlotSpec;
   track: 'SCREEN' | 'FIELD';
   storeSlug?: string;
+  courseSlug?: string;
   fieldIndex?: number;
   isUrgent?: boolean;
+  keepJoinable?: boolean;
 }): DemoJoinPlan {
   const key = input.slot.key;
   const host = pickHost(key, input.track === 'FIELD' ? fieldHostSlugs() : undefined);
-  const capacity = input.track === 'FIELD' ? 1 + (hashKey(`${key}:spots`) % 3) + 1 : pickCapacity(key);
+  const capacity = input.track === 'FIELD' ? 2 + (hashKey(`${key}:spots`) % 3) : pickCapacity(key);
+  const condition = pickCondition(key, input.track);
+  if (input.keepJoinable) {
+    condition.preferredGender = 'ANY';
+    condition.minAge = null;
+    condition.maxAge = null;
+    condition.participantSkillMode = 'ANY';
+    condition.minScreenHandicap = null;
+    condition.maxScreenHandicap = null;
+  }
   return {
     key,
     title: input.track === 'SCREEN' ? screenTitle(key, input.storeSlug ?? 'gangnam') : fieldTitle(key),
@@ -279,16 +312,17 @@ function toOpenPlan(input: {
     status: JoinStatus.OPEN,
     host,
     completed: [],
-    confirmed: occupancyConfirmed(key, capacity, host),
+    confirmed: occupancyConfirmed(key, capacity, host, input.keepJoinable),
     startAt: input.slot.startAt,
     scheduledEndAt: input.slot.scheduledEndAt,
     plannedPlayerCount: capacity,
     storeSlug: input.storeSlug,
+    courseSlug: input.courseSlug,
     fieldIndex: input.fieldIndex,
     bucket: input.slot.bucket,
     isUrgent: input.isUrgent,
     greenFeePerPerson: input.track === 'FIELD' ? GREEN_FEES[hashKey(`${key}:fee`) % GREEN_FEES.length] : undefined,
-    condition: pickCondition(key, input.track),
+    condition,
   };
 }
 
@@ -325,12 +359,15 @@ export function buildOpenJoinPlans(now: Date): DemoJoinPlan[] {
     );
   }
   for (const [index, slot] of fieldSlots.entries()) {
-    const hubIndex = index < TODAY_FIELD_SLOT_MIN;
+    const todayHub = index < TODAY_FIELD_SLOT_MIN;
+    const courseSlug = todayHub ? pickTodayFieldCourseSlug(index) : pickRestFieldCourse(index);
     plans.push(
       toOpenPlan({
         slot,
         track: 'FIELD',
-        fieldIndex: hubIndex ? index % 3 : index % 12,
+        courseSlug,
+        fieldIndex: DEMO_TODAY_FIELD_SLUGS.indexOf(courseSlug as (typeof DEMO_TODAY_FIELD_SLUGS)[number]),
+        keepJoinable: todayHub,
       }),
     );
   }
@@ -360,6 +397,38 @@ export function assertTodayDiscoverableContract(plans: DemoJoinPlan[], now: Date
   }
 }
 
+function isTodayOpenField(plan: DemoJoinPlan, now: Date): boolean {
+  if (plan.status !== JoinStatus.OPEN || plan.track !== 'FIELD') return false;
+  if (!isSameKstDay(plan.startAt, now)) return false;
+  return plan.scheduledEndAt.getTime() > now.getTime();
+}
+
+export function assertTodayFieldHomeClusterContract(plans: DemoJoinPlan[], now: Date): void {
+  const todayField = plans.filter((plan) => isTodayOpenField(plan, now));
+  if (todayField.length < TODAY_FIELD_SLOT_MIN) {
+    throw new Error(`today_field_home_count ${todayField.length} < ${TODAY_FIELD_SLOT_MIN}`);
+  }
+  for (const plan of todayField) {
+    if (!plan.courseSlug || !DEMO_TODAY_FIELD_SLUGS.includes(plan.courseSlug)) {
+      throw new Error(`today_field_not_home_hub ${plan.key} ${plan.courseSlug ?? 'none'}`);
+    }
+    if (plan.confirmed.length + 1 >= plan.plannedPlayerCount) {
+      throw new Error(`today_field_not_joinable ${plan.key}`);
+    }
+  }
+  for (const probe of DEMO_HOME_NEARBY_PROBES) {
+    const near = todayField.filter((plan) => {
+      const coords = resolveFieldJoinCoords({
+        courseSlug: plan.courseSlug,
+        fieldIndex: plan.fieldIndex,
+      });
+      if (!coords) return false;
+      return haversineMetersDemo(probe.lat, probe.lng, coords.lat, coords.lng) <= DEMO_HOME_NEARBY_RADIUS_METERS;
+    });
+    if (near.length < 1) throw new Error(`home_nearby_field_empty ${probe.id}`);
+  }
+}
+
 export function buildJoinPlans(now = new Date()): DemoJoinPlan[] {
   const plans = [...buildHistoryJoinPlans(now), ...buildOpenJoinPlans(now)];
   const keys = new Set<string>();
@@ -370,6 +439,7 @@ export function buildJoinPlans(now = new Date()): DemoJoinPlan[] {
     assertSafeUiCopy(plan.description, `join.${plan.key}.body`);
   }
   assertTodayDiscoverableContract(plans, now);
+  assertTodayFieldHomeClusterContract(plans, now);
   return plans;
 }
 

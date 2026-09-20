@@ -14,7 +14,9 @@ import {
   INVESTOR_DEMO_JOIN_KEY_PREFIX,
   DEMO_HOME_NEARBY_PROBES,
   DEMO_HOME_NEARBY_RADIUS_METERS,
+  DEMO_TODAY_FIELD_SLUGS,
   DEMO_TODAY_SCREEN_SLUGS,
+  DEMO_TODAY_SCREEN_VENUES,
   haversineMetersDemo,
   resolveFieldJoinCoords,
   resolveScreenJoinCoords,
@@ -43,6 +45,24 @@ import {
 
 validatePersonaCatalog();
 validateVenueCatalog();
+
+const screenBySlug = new Map(DEMO_TODAY_SCREEN_VENUES.map((row) => [row.slug, row]));
+const fieldAlign: Array<{ field: string; screen: string }> = [
+  { field: 'jamsil-hub', screen: 'jamsil' },
+  { field: 'songpa-hub', screen: 'jamsil' },
+  { field: 'seolleung-hub', screen: 'seolleung' },
+  { field: 'gangnam-hub', screen: 'gangnam' },
+];
+for (const pair of fieldAlign) {
+  const field = resolveFieldJoinCoords({ courseSlug: pair.field });
+  const screen = screenBySlug.get(pair.screen);
+  assert.ok(field && screen, `align missing ${pair.field}`);
+  assert.ok(
+    haversineMetersDemo(field.lat, field.lng, screen.lat, screen.lng) <= 50,
+    `FIELD ${pair.field} not pinned to SCREEN ${pair.screen}`,
+  );
+}
+assert.deepEqual(DEMO_TODAY_FIELD_SLUGS, ['jamsil-hub', 'songpa-hub', 'seolleung-hub', 'gangnam-hub']);
 
 assert.equal(INVESTOR_DEMO_BATCH_VERSION, 'v2');
 assert.ok(DEMO_PERSONAS.length >= 20 && DEMO_PERSONAS.length <= 40, `personas=${DEMO_PERSONAS.length}`);
@@ -94,13 +114,19 @@ for (const late of lateClocks) {
   const todayScreen = latePlans.filter((plan) => plan.track === 'SCREEN' && plan.key.startsWith('screen-today-'));
   assert.ok(todayScreen.every((plan) => DEMO_TODAY_SCREEN_SLUGS.includes(plan.storeSlug as string)));
   const todayField = latePlans.filter((plan) => plan.track === 'FIELD' && plan.key.startsWith('field-today-'));
+  assert.equal(todayField.length, TODAY_FIELD_SLOT_MIN, `late FIELD today count ${late.toISOString()}`);
+  assert.ok(todayField.every((plan) => plan.courseSlug && DEMO_TODAY_FIELD_SLUGS.includes(plan.courseSlug)));
+  assert.ok(todayField.every((plan) => plan.confirmed.length + 1 < plan.plannedPlayerCount));
   for (const probe of DEMO_HOME_NEARBY_PROBES) {
     const screenNear = todayScreen.filter((plan) => {
       const coords = resolveScreenJoinCoords(plan.storeSlug);
       return coords != null && haversineMetersDemo(probe.lat, probe.lng, coords.lat, coords.lng) <= DEMO_HOME_NEARBY_RADIUS_METERS;
     });
     const fieldNear = todayField.filter((plan) => {
-      const coords = resolveFieldJoinCoords(plan.fieldIndex);
+      const coords = resolveFieldJoinCoords({
+        courseSlug: plan.courseSlug,
+        fieldIndex: plan.fieldIndex,
+      });
       return coords != null && haversineMetersDemo(probe.lat, probe.lng, coords.lat, coords.lng) <= DEMO_HOME_NEARBY_RADIUS_METERS;
     });
     assert.ok(screenNear.length >= 1, `home NEARBY SCREEN empty at ${probe.id}`);
@@ -152,6 +178,8 @@ assert.doesNotMatch(seedSource, /NotificationEventService/);
 assert.doesNotMatch(seedSource, /joins\.service/);
 assert.match(seedSource, /Prisma-only inserts/);
 assert.match(seedSource, /Mass OPEN joins do not grant/);
+assert.doesNotMatch(seedSource, /clubsUiEnabled:\s*true/);
+assert.match(seedSource, /clubsUiEnabled:\s*DEFAULT_FEATURE_FLAGS\.clubsUiEnabled/);
 
 const required = listRequiredDemoAssets();
 assert.ok(required.length >= 20 + 15 + 3, `assets=${required.length}`);

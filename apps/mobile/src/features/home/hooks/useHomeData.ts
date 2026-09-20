@@ -13,7 +13,7 @@ import type {
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore } from '../../../session/SessionContext';
 import { fetchDiscoverJoins } from '../../explore/discovery/api/join-discover-api';
-import { pickVenueDiscoverJoins } from '../home-format';
+import { mergeHomeDiscoverRows, pickVenueDiscoverJoins } from '../home-format';
 
 const HOME_DATA_STALE_MS = 60_000;
 const HOME_JOIN_LIMIT = 3;
@@ -91,17 +91,22 @@ export function useHomeData(userId: string | undefined, clubsUiEnabled = false) 
 
       const discoverTask = (async () => {
         if (!coords) return [] as DiscoverJoinCardDto[];
+        const nearby = {
+          date: todayKey,
+          regionMode: 'NEARBY' as const,
+          lat: coords.lat,
+          lng: coords.lng,
+          radiusMeters: DEFAULT_NEARBY_RADIUS_METERS,
+          sort: 'TIME' as const,
+          joinability: 'JOINABLE' as const,
+        };
         try {
-          const res = await fetchDiscoverJoins(api, {
-            date: todayKey,
-            regionMode: 'NEARBY',
-            lat: coords.lat,
-            lng: coords.lng,
-            radiusMeters: DEFAULT_NEARBY_RADIUS_METERS,
-            sort: 'TIME',
-            joinability: 'JOINABLE',
-          });
-          return [...res.ongoing, ...res.upcoming];
+          // Discover is venueType-scoped; omitted type defaults to SCREEN only.
+          const [screenRes, fieldRes] = await Promise.all([
+            fetchDiscoverJoins(api, { ...nearby, venueType: 'SCREEN' }),
+            fetchDiscoverJoins(api, { ...nearby, venueType: 'FIELD' }),
+          ]);
+          return mergeHomeDiscoverRows(screenRes, fieldRes);
         } catch {
           return [] as DiscoverJoinCardDto[];
         }
