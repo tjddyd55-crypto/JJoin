@@ -153,14 +153,32 @@ export async function deactivateCurrentPushDevice(api: ApiClient): Promise<void>
 export async function configureNotificationHandler(): Promise<void> {
   const Notifications = await loadNotifications();
   if (!Notifications) return;
+  const { shouldSuppressOsPushForActiveChat } = await import('./active-conversation');
   Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-    }),
+    handleNotification: async (notification) => {
+      const data = notification.request.content.data as Record<string, unknown> | undefined;
+      const suppress = shouldSuppressOsPushForActiveChat(data);
+      return {
+        shouldShowBanner: !suppress,
+        shouldShowList: !suppress,
+        shouldPlaySound: !suppress,
+        shouldSetBadge: false,
+      };
+    },
   });
+}
+
+export async function consumeLastNotificationResponse(): Promise<Record<string, unknown> | null> {
+  const Notifications = await loadNotifications();
+  if (!Notifications?.getLastNotificationResponseAsync) return null;
+  const last = await Notifications.getLastNotificationResponseAsync();
+  if (Notifications.clearLastNotificationResponseAsync) {
+    await Notifications.clearLastNotificationResponseAsync();
+  }
+  if (!last) return null;
+  const { claimNotificationResponseOnce } = await import('./push-response-consume');
+  if (!claimNotificationResponseOnce(last.notification.request.identifier)) return null;
+  return (last.notification.request.content.data ?? null) as Record<string, unknown> | null;
 }
 
 export async function addNotificationResponseListener(
@@ -168,7 +186,9 @@ export async function addNotificationResponseListener(
 ): Promise<{ remove: () => void } | null> {
   const Notifications = await loadNotifications();
   if (!Notifications) return null;
+  const { claimNotificationResponseOnce } = await import('./push-response-consume');
   const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+    if (!claimNotificationResponseOnce(response.notification.request.identifier)) return;
     const data = response.notification.request.content.data as Record<string, unknown>;
     listener(data);
   });

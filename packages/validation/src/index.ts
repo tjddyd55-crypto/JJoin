@@ -343,16 +343,29 @@ export type RegisterPushDeviceInput = z.infer<typeof registerPushDeviceSchema>;
 /** @deprecated alias — prefer registerPushDeviceSchema */
 export const registerPushDeviceSchemaAlias = registerPushDeviceSchema;
 
-export const notificationPreferenceSchema = z.object({
-  pushEnabled: z.boolean().optional(),
-  joinAlertsEnabled: z.boolean().optional(),
-  followedStoreEnabled: z.boolean().optional(),
-  urgentJoinEnabled: z.boolean().optional(),
-  invitationEnabled: z.boolean().optional(),
-  attendanceReminderEnabled: z.boolean().optional(),
-  bookmarkUpdatesEnabled: z.boolean().optional(),
-  profileMatchEnabled: z.boolean().optional(),
+const fieldNotificationRegionSchema = z.object({
+  province: z.string().trim().min(1).max(40),
+  cityCounty: z.string().trim().min(1).max(40).nullable().optional(),
 });
+
+export const notificationPreferenceSchema = z
+  .object({
+    pushEnabled: z.boolean().optional(),
+    joinAlertsEnabled: z.boolean().optional(),
+    followedStoreEnabled: z.boolean().optional(),
+    urgentJoinEnabled: z.boolean().optional(),
+    invitationEnabled: z.boolean().optional(),
+    attendanceReminderEnabled: z.boolean().optional(),
+    bookmarkUpdatesEnabled: z.boolean().optional(),
+    profileMatchEnabled: z.boolean().optional(),
+    joinCreatedEnabled: z.boolean().optional(),
+    screenRadiusMode: z
+      .enum(['KM_5', 'KM_10', 'KM_15', 'KM_30', 'SAME_ADMIN_REGION'])
+      .optional(),
+    fieldRegionMode: z.enum(['AUTO', 'CUSTOM']).optional(),
+    fieldRegions: z.array(fieldNotificationRegionSchema).max(20).optional(),
+    fieldRegionsResetToAuto: z.boolean().optional(),
+  });
 
 export type NotificationPreferenceInput = z.infer<typeof notificationPreferenceSchema>;
 /** @deprecated alias */

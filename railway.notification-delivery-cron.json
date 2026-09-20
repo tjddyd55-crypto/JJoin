@@ -1,7 +1,8 @@
-{
+﻿{
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS"
+    "builder": "RAILPACK",
+    "buildCommand": "echo notification-delivery-cron: skip monorepo nest build"
   },
   "deploy": {
     "preDeployCommand": [],

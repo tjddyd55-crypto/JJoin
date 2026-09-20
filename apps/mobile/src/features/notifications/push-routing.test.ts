@@ -68,3 +68,20 @@ test('friend accepted falls back to golf friends list', () => {
     { kind: 'golf-friends' },
   );
 });
+
+test('JOIN_CREATED routes to join detail', () => {
+  assert.deepEqual(
+    resolveNotificationRoute({
+      type: 'JOIN_CREATED',
+      data: { joinId: '11111111-1111-4111-8111-111111111111' },
+    }),
+    { kind: 'join', joinId: '11111111-1111-4111-8111-111111111111' },
+  );
+});
+
+test('deleted target without ids falls back to inbox', () => {
+  assert.deepEqual(
+    resolveNotificationRoute({ type: 'JOIN_CREATED', data: {} }),
+    { kind: 'notifications' },
+  );
+});

@@ -14,6 +14,7 @@ import type { DirectConversationDto, DirectMessageDto } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
 import { getSecureSessionStore, useSession } from '../../../session/SessionContext';
 import { NESTED_SCREEN_EDGES } from '../../../ui/nested-screen';
+import { setActiveConversationForPush } from '../../notifications/active-conversation';
 import {
   mergeDirectMessages,
   resolveDirectMessageIdempotencyKey,
@@ -57,8 +58,10 @@ export function DirectConversationThreadScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      setActiveConversationForPush(conversationId ?? null);
       void load();
-    }, [load]),
+      return () => setActiveConversationForPush(null);
+    }, [conversationId, load]),
   );
 
   useEffect(() => {

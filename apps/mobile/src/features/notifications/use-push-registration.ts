@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { useRouter } from 'expo-router';
-import { AuthAppState } from '@jjoin/types';
+import { AuthAppState, type FeatureFlagDto } from '@jjoin/types';
 import { applyClubsUiGateToPushRoute } from '../clubs/clubs-ui-gate';
 import { getApiClient } from '../../lib/api';
 import { getSecureSessionStore, useSessionOptional } from '../../session/SessionContext';
 import {
   addNotificationResponseListener,
   configureNotificationHandler,
+  consumeLastNotificationResponse,
   deactivateCurrentPushDevice,
   registerPushDeviceWithServer,
   resolvePushRoute,
@@ -22,6 +23,7 @@ export function usePushRegistration() {
   const session = useSessionOptional();
   const router = useRouter();
   const registeredForUser = useRef<string | null>(null);
+  const consumedColdStart = useRef(false);
   const api = getApiClient(getSecureSessionStore());
   const appState = session?.appState;
   const userId = session?.me?.userId;
@@ -61,27 +63,16 @@ export function usePushRegistration() {
     let remove: (() => void) | undefined;
     let cancelled = false;
     void (async () => {
-      const sub = await addNotificationResponseListener((data) => {
-        const target = applyClubsUiGateToPushRoute(resolvePushRoute(data), featureFlags);
-        if (target.kind === 'join') {
-          router.push(`/join/${target.joinId}`);
-        } else if (target.kind === 'golf-friends') {
-          router.push('/my/golf-friends');
-        } else if (target.kind === 'user') {
-          router.push(`/user/${target.userId}`);
-        } else if (target.kind === 'wallet' || target.kind === 'wallet-transactions') {
-          router.push('/my/wallet');
-        } else if (target.kind === 'unavailable') {
-          router.push('/unavailable');
-        } else if (target.kind === 'club') {
-          router.push(`/my/clubs/${target.clubId}`);
-        } else if (target.kind === 'club-notice') {
-          router.push(`/my/clubs/${target.clubId}/notices`);
-        } else if (target.kind === 'conversation') {
-          router.push(`/messages/${target.conversationId}`);
-        } else if (target.kind === 'notifications') {
-          router.push('/my/notifications');
+      if (!consumedColdStart.current) {
+        consumedColdStart.current = true;
+        const cold = await consumeLastNotificationResponse();
+        if (!cancelled && cold) {
+          navigateFromPushData(router, cold, featureFlags);
         }
+      }
+      if (cancelled) return;
+      const sub = await addNotificationResponseListener((data) => {
+        navigateFromPushData(router, data, featureFlags);
       });
       if (cancelled) {
         sub?.remove();
@@ -110,4 +101,22 @@ export function usePushRegistration() {
   }, [api]);
 
   return { onLogoutDeactivate };
+}
+
+function navigateFromPushData(
+  router: { push: (href: string) => void },
+  data: Record<string, unknown>,
+  featureFlags?: FeatureFlagDto | null,
+): void {
+  const target = applyClubsUiGateToPushRoute(resolvePushRoute(data), featureFlags);
+  if (target.kind === 'join') router.push(`/join/${target.joinId}`);
+  else if (target.kind === 'golf-friends') router.push('/my/golf-friends');
+  else if (target.kind === 'user') router.push(`/user/${target.userId}`);
+  else if (target.kind === 'wallet' || target.kind === 'wallet-transactions') {
+    router.push('/my/wallet');
+  } else if (target.kind === 'unavailable') router.push('/unavailable');
+  else if (target.kind === 'club') router.push(`/my/clubs/${target.clubId}`);
+  else if (target.kind === 'club-notice') router.push(`/my/clubs/${target.clubId}/notices`);
+  else if (target.kind === 'conversation') router.push(`/messages/${target.conversationId}`);
+  else if (target.kind === 'notifications') router.push('/my/notifications');
 }

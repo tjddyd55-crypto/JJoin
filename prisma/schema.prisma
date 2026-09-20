@@ -252,6 +252,9 @@ enum NotificationType {
   ACHIEVEMENT_REWARD
   COIN_GIFT_RECEIVED
   DIRECT_MESSAGE_RECEIVED
+  JOIN_CREATED
+  CLUB_JOIN_REQUESTED
+  CLUB_JOIN_REJECTED
 }
 
 /// Pre-game attendance intent — distinct from ParticipationStatus COMPLETED/NO_SHOW.
@@ -357,8 +360,24 @@ enum ProductEventType {
 
 enum NotificationOutboxStatus {
   PENDING
+  PROCESSING
+  RETRY
   SENT
   FAILED
+  FAILED_TERMINAL
+}
+
+enum ScreenNotificationRadius {
+  KM_5
+  KM_10
+  KM_15
+  KM_30
+  SAME_ADMIN_REGION
+}
+
+enum FieldNotificationRegionMode {
+  AUTO
+  CUSTOM
 }
 
 /// Opt-in "지금 조인 가능" — not the same as OS location permission.
@@ -468,19 +487,28 @@ model PushDevice {
 
 /// Per-user granular push preferences. In-app notifications may still be created when push is off.
 model NotificationPreference {
-  userId                    String   @id @map("user_id") @db.Uuid
-  joinAlertsEnabled         Boolean  @default(true) @map("join_alerts_enabled")
-  followedStoreEnabled      Boolean  @default(true) @map("followed_store_enabled")
-  urgentJoinEnabled         Boolean  @default(true) @map("urgent_join_enabled")
-  invitationEnabled         Boolean  @default(true) @map("invitation_enabled")
-  attendanceReminderEnabled Boolean  @default(true) @map("attendance_reminder_enabled")
-  bookmarkUpdatesEnabled    Boolean  @default(true) @map("bookmark_updates_enabled")
-  profileMatchEnabled       Boolean  @default(true) @map("profile_match_enabled")
-  createdAt                 DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                 DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  userId                    String                       @id @map("user_id") @db.Uuid
+  joinAlertsEnabled         Boolean                      @default(true) @map("join_alerts_enabled")
+  followedStoreEnabled      Boolean                      @default(true) @map("followed_store_enabled")
+  urgentJoinEnabled         Boolean                      @default(true) @map("urgent_join_enabled")
+  invitationEnabled         Boolean                      @default(true) @map("invitation_enabled")
+  attendanceReminderEnabled Boolean                      @default(true) @map("attendance_reminder_enabled")
+  bookmarkUpdatesEnabled    Boolean                      @default(true) @map("bookmark_updates_enabled")
+  profileMatchEnabled       Boolean                      @default(true) @map("profile_match_enabled")
+  joinCreatedEnabled        Boolean                      @default(true) @map("join_created_enabled")
+  screenRadiusMode          ScreenNotificationRadius     @default(KM_15) @map("screen_radius_mode")
+  fieldRegionMode           FieldNotificationRegionMode  @default(AUTO) @map("field_region_mode")
+  fieldRegions              Json                         @default("[]") @map("field_regions")
+  quietHoursEnabled         Boolean                      @default(false) @map("quiet_hours_enabled")
+  quietHoursStartMinutes    Int?                         @map("quiet_hours_start_minutes")
+  quietHoursEndMinutes      Int?                         @map("quiet_hours_end_minutes")
+  createdAt                 DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([screenRadiusMode, joinCreatedEnabled])
+  @@index([fieldRegionMode, joinCreatedEnabled])
   @@map("notification_preferences")
 }
 
@@ -521,6 +549,7 @@ model AppNotification {
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([userId, readAt])
+  @@index([userId, type, createdAt(sort: Desc)])
   @@map("notifications")
 }
 

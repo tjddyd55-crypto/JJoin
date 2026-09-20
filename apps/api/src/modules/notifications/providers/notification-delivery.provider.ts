@@ -5,6 +5,8 @@ export type PushMessage = {
   data?: Record<string, unknown>;
   sound?: 'default' | null;
   channelId?: string;
+  collapseId?: string;
+  tag?: string;
 };
 
 export type PushSendResult = {
