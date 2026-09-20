@@ -12,7 +12,12 @@ import {
   DEMO_STORES,
   INVESTOR_DEMO_BATCH_VERSION,
   INVESTOR_DEMO_JOIN_KEY_PREFIX,
-  DEMO_HUB_STORE_SLUGS,
+  DEMO_HOME_NEARBY_PROBES,
+  DEMO_HOME_NEARBY_RADIUS_METERS,
+  DEMO_TODAY_SCREEN_SLUGS,
+  haversineMetersDemo,
+  resolveFieldJoinCoords,
+  resolveScreenJoinCoords,
   buildJoinPlans,
   countTodayDiscoverablePlans,
   demoEmail,
@@ -87,7 +92,20 @@ for (const late of lateClocks) {
     );
   }
   const todayScreen = latePlans.filter((plan) => plan.track === 'SCREEN' && plan.key.startsWith('screen-today-'));
-  assert.ok(todayScreen.every((plan) => DEMO_HUB_STORE_SLUGS.includes(plan.storeSlug as (typeof DEMO_HUB_STORE_SLUGS)[number])));
+  assert.ok(todayScreen.every((plan) => DEMO_TODAY_SCREEN_SLUGS.includes(plan.storeSlug as string)));
+  const todayField = latePlans.filter((plan) => plan.track === 'FIELD' && plan.key.startsWith('field-today-'));
+  for (const probe of DEMO_HOME_NEARBY_PROBES) {
+    const screenNear = todayScreen.filter((plan) => {
+      const coords = resolveScreenJoinCoords(plan.storeSlug);
+      return coords != null && haversineMetersDemo(probe.lat, probe.lng, coords.lat, coords.lng) <= DEMO_HOME_NEARBY_RADIUS_METERS;
+    });
+    const fieldNear = todayField.filter((plan) => {
+      const coords = resolveFieldJoinCoords(plan.fieldIndex);
+      return coords != null && haversineMetersDemo(probe.lat, probe.lng, coords.lat, coords.lng) <= DEMO_HOME_NEARBY_RADIUS_METERS;
+    });
+    assert.ok(screenNear.length >= 1, `home NEARBY SCREEN empty at ${probe.id}`);
+    assert.ok(fieldNear.length >= 1, `home NEARBY FIELD empty at ${probe.id}`);
+  }
 }
 
 const hostCompleted = new Map<string, number>();

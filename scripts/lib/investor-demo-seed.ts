@@ -34,6 +34,7 @@ import {
   DEMO_BANNERS,
   DEMO_FIELD_COURSE_FALLBACKS,
   DEMO_HUB_COURSE_SLUGS,
+  DEMO_TODAY_SCREEN_VENUES,
   DEMO_FACILITY_KEY_PREFIX,
   DEMO_COURSE_EXTERNAL_PREFIX,
   DEMO_VENUE_PLACE_PREFIX,
@@ -96,6 +97,7 @@ export async function seedInvestorDemo(prisma: PrismaClient): Promise<SeedSummar
   const inspection = inspectDemoAssets();
   await seedUsers(ctx);
   await seedStores(ctx);
+  await seedTodayScreenCluster(ctx);
   ctx.fieldVenues = await seedFieldVenues(ctx);
   const joinPlans = buildJoinPlans(new Date());
   const joins = await seedJoins(ctx, joinPlans);
@@ -337,6 +339,65 @@ async function seedStores(ctx: SeedCtx): Promise<void> {
       venueId: venue.id,
       facilityId: facility.id,
       ownershipId: ownership.id,
+    });
+  }
+}
+
+async function seedTodayScreenCluster(ctx: SeedCtx): Promise<void> {
+  for (const spec of DEMO_TODAY_SCREEN_VENUES) {
+    if (spec.storeSlug) {
+      const existing = ctx.storeVenues.get(spec.storeSlug);
+      if (!existing) throw new Error(`${INVESTOR_DEMO_TAG} missing hub store ${spec.storeSlug}`);
+      ctx.storeVenues.set(spec.slug, existing);
+      continue;
+    }
+    const facilityKey = `${DEMO_FACILITY_KEY_PREFIX}${spec.slug}`;
+    let facility = await ctx.prisma.golfFacility.findFirst({
+      where: { governmentSourceKey: facilityKey },
+    });
+    if (!facility) {
+      facility = await ctx.prisma.golfFacility.create({
+        data: {
+          source: 'MANUAL',
+          governmentSourceKey: facilityKey,
+          managementNo: `INV-DEMO-${spec.slug}`,
+          localGovernmentCode: '11140',
+          sourceName: spec.name,
+          displayName: spec.name,
+          normalizedName: spec.name.toLowerCase(),
+          facilityType: 'SCREEN_GOLF',
+          latitude: spec.lat,
+          longitude: spec.lng,
+          coordinateStatus: 'VALID',
+          coordinateSource: 'MANUAL',
+          isActive: true,
+          isScreenJoinEligible: true,
+          hasScreenGolf: 'YES',
+          screenStatus: 'CONFIRMED',
+          sido: spec.sido,
+          sigungu: spec.sigungu,
+          roadAddress: `${spec.sido} ${spec.sigungu} ${spec.name}`,
+        },
+      });
+    } else {
+      await ctx.prisma.golfFacility.update({
+        where: { id: facility.id },
+        data: {
+          displayName: spec.name,
+          sido: spec.sido,
+          sigungu: spec.sigungu,
+          latitude: spec.lat,
+          longitude: spec.lng,
+          isActive: true,
+          isScreenJoinEligible: true,
+        },
+      });
+    }
+    const venue = await ensureScreenVenue(ctx, facility.id, spec.slug, spec.name, spec.lat, spec.lng);
+    ctx.storeVenues.set(spec.slug, {
+      venueId: venue.id,
+      facilityId: facility.id,
+      ownershipId: '',
     });
   }
 }

@@ -16,11 +16,107 @@ export type DemoStoreSpec = {
   galleryCount: number;
 };
 
-/** Capital-region stores used for today-dense / home NEARBY slots. */
-export const DEMO_HUB_STORE_SLUGS = ['gangnam', 'mapo', 'songpa'] as const;
+/** Home discover uses regionMode=NEARBY and this exact radius. */
+export const DEMO_HOME_NEARBY_RADIUS_METERS = 5000;
 
-/** Capital-region fallback courses placed first so today FIELD uses nearby venues. */
-export const DEMO_HUB_COURSE_SLUGS = ['seocho-hub', 'gangnam-hub', 'mapo-hub'] as const;
+/** Common DEV QA GPS points inside the Seoul micro-cluster. */
+export const DEMO_HOME_NEARBY_PROBES = [
+  { id: 'gangnam', lat: 37.4979, lng: 127.0276 },
+  { id: 'seongsu', lat: 37.5446, lng: 127.0559 },
+  { id: 'jamsil', lat: 37.5133, lng: 127.1028 },
+] as const;
+
+export type DemoTodayScreenVenue = {
+  slug: string;
+  name: string;
+  sido: string;
+  sigungu: string;
+  lat: number;
+  lng: number;
+  /** Reuse a catalog store (has photos). Omit for join-only satellite venues. */
+  storeSlug?: string;
+};
+
+/**
+ * Today-dense SCREEN venues inside 37.50–37.57 / 126.98–127.10.
+ * Gangnam + 선릉(bridge) + 성수 + 잠실 so each probe has a room ≤5km.
+ */
+export const DEMO_TODAY_SCREEN_VENUES: DemoTodayScreenVenue[] = [
+  {
+    slug: 'gangnam',
+    name: '강남 스크린 라운지',
+    sido: '서울특별시',
+    sigungu: '강남구',
+    lat: 37.4979,
+    lng: 127.0276,
+    storeSlug: 'gangnam',
+  },
+  {
+    slug: 'seolleung',
+    name: '선릉 스크린 스튜디오',
+    sido: '서울특별시',
+    sigungu: '강남구',
+    lat: 37.5046,
+    lng: 127.0491,
+  },
+  {
+    slug: 'seongsu',
+    name: '성수 스크린 클럽',
+    sido: '서울특별시',
+    sigungu: '성동구',
+    lat: 37.5446,
+    lng: 127.0559,
+  },
+  {
+    slug: 'jamsil',
+    name: '송파 잠실 스크린',
+    sido: '서울특별시',
+    sigungu: '송파구',
+    lat: 37.5133,
+    lng: 127.1028,
+    storeSlug: 'songpa',
+  },
+];
+
+export const DEMO_TODAY_SCREEN_SLUGS = DEMO_TODAY_SCREEN_VENUES.map((row) => row.slug);
+
+/** Legacy alias — today SCREEN assignment uses DEMO_TODAY_SCREEN_SLUGS. */
+export const DEMO_HUB_STORE_SLUGS = ['gangnam', 'songpa'] as const;
+
+/** Today FIELD courses placed first — same Seoul micro-cluster. */
+export const DEMO_HUB_COURSE_SLUGS = ['gangnam-hub', 'seongsu-hub', 'jamsil-hub'] as const;
+
+export function haversineMetersDemo(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const earthM = 6_371_000;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(bLat - aLat);
+  const dLng = toRad(bLng - aLng);
+  const lat1 = toRad(aLat);
+  const lat2 = toRad(bLat);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * earthM * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+export function resolveTodayScreenVenue(slug: string | undefined): DemoTodayScreenVenue | undefined {
+  if (!slug) return undefined;
+  return DEMO_TODAY_SCREEN_VENUES.find((row) => row.slug === slug || row.storeSlug === slug);
+}
+
+export function resolveScreenJoinCoords(storeSlug: string | undefined): { lat: number; lng: number } | null {
+  const today = resolveTodayScreenVenue(storeSlug);
+  if (today) return { lat: today.lat, lng: today.lng };
+  const store = DEMO_STORES.find((row) => row.slug === storeSlug);
+  if (!store) return null;
+  return { lat: store.lat, lng: store.lng };
+}
+
+export function resolveFieldJoinCoords(fieldIndex: number | undefined): { lat: number; lng: number } | null {
+  const hubs = DEMO_HUB_COURSE_SLUGS;
+  const slug = hubs[(fieldIndex ?? 0) % hubs.length];
+  const course = DEMO_FIELD_COURSE_FALLBACKS.find((row) => row.slug === slug);
+  if (!course) return null;
+  return { lat: course.lat, lng: course.lng };
+}
 
 export const DEMO_STORES: DemoStoreSpec[] = [
   store('gangnam', '강남 스크린 라운지', '서울특별시', '강남구', 'GOLFZON', 37.4979, 127.0276, 'doyun', 4),
@@ -86,16 +182,6 @@ export type DemoCourseFallback = {
 
 export const DEMO_FIELD_COURSE_FALLBACKS: DemoCourseFallback[] = [
   {
-    slug: 'seocho-hub',
-    name: '서초 근교 컨트리클럽',
-    sido: '서울특별시',
-    sigungu: '서초구',
-    address: '서울특별시 서초구',
-    lat: 37.483,
-    lng: 127.032,
-    holeCount: 18,
-  },
-  {
     slug: 'gangnam-hub',
     name: '강남 힐 컨트리클럽',
     sido: '서울특별시',
@@ -106,13 +192,23 @@ export const DEMO_FIELD_COURSE_FALLBACKS: DemoCourseFallback[] = [
     holeCount: 18,
   },
   {
-    slug: 'mapo-hub',
-    name: '마포 한강 컨트리클럽',
+    slug: 'seongsu-hub',
+    name: '성수 한강 컨트리클럽',
     sido: '서울특별시',
-    sigungu: '마포구',
-    address: '서울특별시 마포구',
-    lat: 37.557,
-    lng: 126.936,
+    sigungu: '성동구',
+    address: '서울특별시 성동구',
+    lat: 37.5462,
+    lng: 127.0584,
+    holeCount: 18,
+  },
+  {
+    slug: 'jamsil-hub',
+    name: '잠실 탄천 컨트리클럽',
+    sido: '서울특별시',
+    sigungu: '송파구',
+    address: '서울특별시 송파구',
+    lat: 37.5161,
+    lng: 127.0988,
     holeCount: 18,
   },
   {
@@ -370,6 +466,9 @@ export function validateVenueCatalog(): void {
     assertSafeUiCopy(row.name, `store.${row.slug}.name`);
     assertSafeUiCopy(row.intro, `store.${row.slug}.intro`);
     assertSafeUiCopy(row.vibe, `store.${row.slug}.vibe`);
+  }
+  for (const row of DEMO_TODAY_SCREEN_VENUES) {
+    assertSafeUiCopy(row.name, `today-screen.${row.slug}.name`);
   }
   for (const row of DEMO_FIELD_COURSE_FALLBACKS) {
     assertSafeUiCopy(row.name, `course.${row.slug}.name`);

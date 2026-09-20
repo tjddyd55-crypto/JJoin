@@ -14,7 +14,7 @@ import {
   listPlayerSlugs,
   type DemoPersonaSlug,
 } from './investor-demo-personas.ts';
-import { DEMO_HUB_STORE_SLUGS, DEMO_STORES } from './investor-demo-venues.ts';
+import { DEMO_STORES, DEMO_TODAY_SCREEN_SLUGS } from './investor-demo-venues.ts';
 import {
   TODAY_FIELD_SLOT_MIN,
   TODAY_SCREEN_SLOT_MIN,
@@ -94,8 +94,8 @@ function ended(startAt: Date): Date {
   return resolveDemoSlotEndAt(startAt, new Date(startAt.getTime() + 1));
 }
 
-function pickStore(key: string, preferHub = false): string {
-  const pool = preferHub ? DEMO_HUB_STORE_SLUGS : DEMO_STORES.map((row) => row.slug);
+function pickStore(key: string, preferTodayCluster = false): string {
+  const pool = preferTodayCluster ? DEMO_TODAY_SCREEN_SLUGS : DEMO_STORES.map((row) => row.slug);
   return pool[hashKey(`${key}:store`) % pool.length]!;
 }
 
