@@ -39,7 +39,10 @@
     "notification-delivery": "pnpm exec tsx scripts/run-notification-delivery.ts",
     "premium-renewal": "pnpm exec tsx scripts/run-premium-renewal.ts",
     "attendance-reminders": "pnpm exec tsx scripts/run-attendance-reminders.ts",
-    "payment:dev-smoke": "pnpm exec tsx scripts/payment-dev-smoke.ts"
+    "payment:dev-smoke": "pnpm exec tsx scripts/payment-dev-smoke.ts",
+    "update:dev": "pnpm exec tsx scripts/eas-update-publish.ts --channel development",
+    "update:prod": "pnpm exec tsx scripts/eas-update-publish.ts --channel production",
+    "update:prepublish-check": "pnpm exec tsx scripts/eas-update-prepublish-check.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",

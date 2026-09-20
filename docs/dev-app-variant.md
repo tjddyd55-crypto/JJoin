@@ -16,6 +16,8 @@
 
 SSOT: `APP_VARIANT` in `eas.json` profile `env` (and local shell / `.env` for Metro).
 
+OTA channels (do not mix with Metro): Development binary → `development`; Production/preview binaries → `production`. See [mobile-update-runbook.md](./mobile-update-runbook.md).
+
 `android/` is gitignored — EAS/prebuild regenerates native project from `app.config.ts`.
 Do not hand-edit package in a committed android tree.
 

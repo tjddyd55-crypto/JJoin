@@ -8,6 +8,11 @@ import {
   notificationIconFor,
   resolveAppVariant,
 } from './app-variant-identity.cjs';
+import {
+  RUNTIME_VERSION_POLICY,
+  updateChannelFor,
+  updatesConfigFor,
+} from './eas-update-policy.cjs';
 
 type AppVariant = 'development' | 'production';
 
@@ -109,6 +114,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 
   const plugins: ExpoConfig['plugins'] = [
     'expo-router',
+    'expo-updates',
     [
       'expo-splash-screen',
       {
@@ -204,6 +210,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     slug: identity.slug,
     owner: 'tjddyd55',
     version: '0.0.16',
+    // appVersion (not fingerprint): store binaries already bump version/versionCode.
+    // Channel + requestHeaders isolate DEV vs Production; do not rely on Metro.
+    runtimeVersion: RUNTIME_VERSION_POLICY,
+    updates: updatesConfigFor(variant, easProjectId),
     orientation: 'portrait',
     icon: appIcon,
     scheme: identity.scheme,
@@ -258,6 +268,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       googleLoginConfigured: Boolean(googleWebClientId),
       naverLoginConfigured: Boolean(naverClientId && naverClientSecret),
       googleServicesConfigured: hasGoogleServices,
+      gitSha:
+        process.env.EAS_BUILD_GIT_COMMIT_HASH?.trim() ||
+        process.env.EXPO_PUBLIC_GIT_SHA?.trim() ||
+        '',
+      easUpdateChannel: updateChannelFor(variant),
       eas: {
         projectId: easProjectId,
       },
