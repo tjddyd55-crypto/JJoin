@@ -86,10 +86,11 @@ function JoinListPreview() {
 
   return (
     <View style={styles.scene}>
-      <JoinDiscoveryAppBar regionLabel="거제" />
+      <JoinDiscoveryAppBar showTitle={false} regionLabel="거제" />
       <JoinListTextTabs
         tabs={[{ id: 'LIST', label: '리스트' }, { id: 'REGION', label: '지역별' }]}
         activeId="LIST"
+        density="compact"
         onChange={() => {}}
       />
       <WeekStrip
@@ -117,9 +118,9 @@ function JoinListPreview() {
           </View>
         ))}
         <View style={styles.filterSpacer} />
-        <Pressable accessibilityRole="button" accessibilityLabel="지도에서 보기">
+        <Pressable accessibilityRole="button" accessibilityLabel="지도에서 보기" style={styles.mapAction}>
           <Text variant="joinFilterChip" style={{ color: theme.colors.join.dday.text }}>
-            지도에서 보기
+            지도
           </Text>
         </Pressable>
       </View>
@@ -213,15 +214,22 @@ const styles = StyleSheet.create({
   },
   filterRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    minHeight: 36,
+    flexWrap: 'nowrap',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 32,
   },
   filterChip: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  mapAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minHeight: 32,
   },
   filterSpacer: {
     flex: 1,

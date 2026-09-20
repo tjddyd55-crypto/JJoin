@@ -4,6 +4,7 @@ import { useTheme } from '../../theme';
 
 export type JoinDiscoveryAppBarProps = {
   title?: string;
+  showTitle?: boolean;
   regionLabel: string;
   unreadCount?: number;
   onRegionPress?: () => void;
@@ -17,6 +18,7 @@ function formatUnreadBadge(count: number): string {
 
 export function JoinDiscoveryAppBar({
   title = '조인',
+  showTitle = true,
   regionLabel,
   unreadCount = 0,
   onRegionPress,
@@ -26,17 +28,20 @@ export function JoinDiscoveryAppBar({
   const badgeLabel = formatUnreadBadge(unreadCount);
 
   return (
-    <View style={styles.bar}>
-      <Text variant="joinScreenTitle" tone="primary" style={styles.title}>
-        {title}
-      </Text>
-      <View style={styles.trailing}>
+    <View style={[styles.bar, showTitle ? null : styles.barCompact]}>
+      {showTitle ? (
+        <Text variant="joinScreenTitle" tone="primary" style={styles.title}>
+          {title}
+        </Text>
+      ) : null}
+      <View style={[styles.trailing, showTitle ? null : styles.trailingFill]}>
         <Pressable
           onPress={onRegionPress}
           accessibilityRole="button"
           accessibilityLabel={`지역 ${regionLabel}`}
           style={[
             styles.regionChip,
+            showTitle ? null : styles.regionChipCompact,
             {
               backgroundColor: theme.colors.surface.card,
               borderColor: theme.colors.border.subtle,
@@ -52,7 +57,7 @@ export function JoinDiscoveryAppBar({
           accessibilityRole="button"
           accessibilityLabel={badgeLabel ? `알림, 읽지 않음 ${badgeLabel}개` : '알림'}
           hitSlop={8}
-          style={styles.notifyBtn}
+          style={[styles.notifyBtn, showTitle ? null : styles.notifyBtnCompact]}
         >
           <Text variant="joinTabLabel" tone="secondary">
             알림
@@ -87,6 +92,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 12,
   },
+  barCompact: {
+    minHeight: 40,
+    paddingVertical: 2,
+    gap: 8,
+  },
   title: {
     flexShrink: 0,
   },
@@ -97,6 +107,10 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     minWidth: 0,
   },
+  trailingFill: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
   regionChip: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 999,
@@ -104,11 +118,18 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     maxWidth: 140,
   },
+  regionChipCompact: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
   notifyBtn: {
     minHeight: 44,
     justifyContent: 'center',
     paddingHorizontal: 4,
     position: 'relative',
+  },
+  notifyBtnCompact: {
+    minHeight: 40,
   },
   unreadBadge: {
     position: 'absolute',

@@ -15,6 +15,8 @@ import {
 } from '@jjoin/domain';
 import {
   createInitialDiscoveryUiState,
+  parseJoinListVenueTypeParam,
+  resolveJoinListVenueType,
   type DiscoveryFilterPatch,
   type JoinDiscoveryUiState,
 } from './model/discovery-filter';
@@ -41,22 +43,19 @@ export function JoinDiscoveryProvider({
   initialVenueType,
 }: {
   children: ReactNode;
-  initialVenueType?: string;
+  initialVenueType?: string | string[];
 }) {
   const [filter, setFilter] = useState<JoinDiscoveryUiState>(() => {
     const base = createInitialDiscoveryUiState();
-    if (initialVenueType === 'FIELD' || initialVenueType === 'SCREEN') {
-      return { ...base, venueType: initialVenueType };
-    }
-    return base;
+    return { ...base, venueType: resolveJoinListVenueType(initialVenueType) };
   });
 
   useEffect(() => {
-    if (initialVenueType === 'FIELD' || initialVenueType === 'SCREEN') {
-      setFilter((prev) =>
-        prev.venueType === initialVenueType ? prev : { ...prev, venueType: initialVenueType },
-      );
-    }
+    const nextVenueType = parseJoinListVenueTypeParam(initialVenueType);
+    if (!nextVenueType) return;
+    setFilter((prev) =>
+      prev.venueType === nextVenueType ? prev : { ...prev, venueType: nextVenueType },
+    );
   }, [initialVenueType]);
 
   useEffect(() => {

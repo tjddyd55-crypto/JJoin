@@ -12,7 +12,11 @@ type QuickMenuItem = {
 };
 
 const ROW_1: QuickMenuItem[] = [
-  { label: '조인 찾기', icon: 'search', href: '/(tabs)/joins' },
+  {
+    label: '조인 찾기',
+    icon: 'search',
+    href: { pathname: '/(tabs)/joins', params: { venueType: 'SCREEN' } } as Href,
+  },
   { label: '쪼인몰', icon: 'coin', href: '/(tabs)/mall' as Href },
   { label: '스크린', icon: 'golf', href: '/(tabs)/screen' },
 ];
