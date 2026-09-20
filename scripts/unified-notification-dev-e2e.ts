@@ -37,7 +37,8 @@ async function mockSignIn(persona: string): Promise<string> {
     method: 'POST',
     body: { persona },
   });
-  const token = json.accessToken ?? json.token;
+  const session = (json.session ?? {}) as Record<string, unknown>;
+  const token = (session.accessToken ?? json.accessToken ?? json.token) as unknown;
   assert(typeof token === 'string' && token.length > 0, `missing token for ${persona}`);
   return token;
 }
