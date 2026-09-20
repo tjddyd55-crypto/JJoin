@@ -61,7 +61,7 @@ test('join list does not global-reset venueType on every focus', () => {
   assert.match(provider, /parseJoinListVenueTypeParam/);
 });
 
-test('join list screen removes title and in-list SCREEN\/FIELD toggle', () => {
+test('join list screen removes title and in-list SCREEN/FIELD toggle', () => {
   const screen = readMobile('src/features/explore/discovery/ExploreDiscoveryScreen.tsx');
   assert.doesNotMatch(screen, /스크린 조인/);
   assert.doesNotMatch(screen, /필드 조인/);
