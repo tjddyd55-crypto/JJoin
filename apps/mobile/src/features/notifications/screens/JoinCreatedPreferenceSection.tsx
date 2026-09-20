@@ -26,7 +26,6 @@ type Props = {
 };
 
 export function JoinCreatedPreferenceSection({ prefs, busy, onChange }: Props) {
-  const theme = useTheme();
   return (
     <>
       <Section title="스크린 조인 알림 거리" subtitle="저장된 위치 기준으로만 계산합니다">
