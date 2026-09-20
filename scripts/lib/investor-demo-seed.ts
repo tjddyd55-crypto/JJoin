@@ -1,5 +1,7 @@
 /**
- * Investor demo upserts. Idempotent on providerSubject / join client keys / banner titles.
+ * Investor demo upserts. Prisma-only inserts — never call live join-create
+ * APIs, so JOIN_CREATED push / notification outbox / inbox are not fan-out.
+ * Mass OPEN joins do not grant attendance or achievement rewards.
  */
 import { randomBytes, randomUUID } from 'node:crypto';
 import {
@@ -17,37 +19,52 @@ import { CoinLedgerService } from '../../apps/api/src/modules/wallet/coin-ledger
 import type { PrismaService } from '../../apps/api/src/prisma/prisma.service.ts';
 import { ensureFoundation } from '../../apps/api/src/foundation/ensure-foundation.ts';
 import {
-  DEMO_CLUB,
+  bannerAssetRef,
+  clubAssetRef,
+  inspectDemoAssets,
+  personaAvatarRef,
+  resolvePublicAssetUrl,
+  storeCoverRef,
+  storeGalleryRef,
+} from './investor-demo-assets.ts';
+import {
+  DEMO_CLUBS,
   DEMO_PERSONAS,
   DEMO_STORES,
   DEMO_BANNERS,
   DEMO_FIELD_COURSE_FALLBACKS,
   DEMO_FACILITY_KEY_PREFIX,
   DEMO_COURSE_EXTERNAL_PREFIX,
-  DEMO_JOIN_TITLE_PREFIX,
   DEMO_VENUE_PLACE_PREFIX,
-  type DemoPersonaSlug,
-  type DemoPersonaSpec,
-  demoAvatarUrl,
+  INVESTOR_DEMO_BATCH_VERSION,
+  buildJoinPlans,
   demoBannerTitle,
   demoClubName,
   demoEmail,
-  demoGalleryUrl,
   demoProviderSubject,
-  pexelsImageUrl,
+  joinIdempotencyKey,
+  summarizeJoinPlans,
+  type DemoJoinPlan,
+  type DemoPersonaSlug,
+  type DemoPersonaSpec,
 } from './investor-demo-catalog.ts';
+import { INVESTOR_DEMO_TAG } from './investor-demo-guard.ts';
 import { listRecentKstDates, seedAttendanceHistory, seedReachedMilestones, todayKstDate } from './investor-demo-rewards.ts';
+import { uploadInvestorDemoAssets } from './investor-demo-upload.ts';
 
 export type SeedSummary = {
+  batchVersion: string;
   users: Array<{ slug: string; nickname: string; userId: string }>;
   stores: number;
   fieldVenues: number;
   joins: number;
+  joinBreakdown: ReturnType<typeof summarizeJoinPlans>;
   banners: number;
   clubs: number;
   conversations: number;
   attendanceCreated: number;
   milestonesCreated: number;
+  assets: { present: number; required: number; uploaded: number; reused: number; skipped: boolean };
 };
 
 type SeedCtx = {
@@ -73,15 +90,19 @@ export async function seedInvestorDemo(prisma: PrismaClient): Promise<SeedSummar
     fieldVenues: [],
   };
   await ensureFeatureFlags(prisma);
+  const upload = await uploadInvestorDemoAssets();
+  const inspection = inspectDemoAssets();
   await seedUsers(ctx);
   await seedStores(ctx);
   ctx.fieldVenues = await seedFieldVenues(ctx);
-  const joins = await seedJoins(ctx);
+  const joinPlans = buildJoinPlans(new Date());
+  const joins = await seedJoins(ctx, joinPlans);
   const banners = await seedBanners(prisma);
-  const clubs = await seedClub(ctx);
+  const clubs = await seedClubs(ctx);
   const conversations = await seedDirectMessages(ctx);
   const rewards = await seedRewards(ctx);
   return {
+    batchVersion: INVESTOR_DEMO_BATCH_VERSION,
     users: [...ctx.users.values()].map((row) => ({
       slug: row.spec.slug,
       nickname: row.spec.nickname,
@@ -90,11 +111,19 @@ export async function seedInvestorDemo(prisma: PrismaClient): Promise<SeedSummar
     stores: ctx.storeVenues.size,
     fieldVenues: ctx.fieldVenues.length,
     joins,
+    joinBreakdown: summarizeJoinPlans(joinPlans),
     banners,
     clubs,
     conversations,
     attendanceCreated: rewards.attendanceCreated,
     milestonesCreated: rewards.milestonesCreated,
+    assets: {
+      present: inspection.present,
+      required: inspection.required,
+      uploaded: upload.uploaded,
+      reused: upload.reused,
+      skipped: upload.skipped,
+    },
   };
 }
 
@@ -182,8 +211,11 @@ async function upsertDemoProfile(ctx: SeedCtx, userId: string, spec: DemoPersona
       avatarAssetId: avatarId,
       gender: spec.gender,
       ageBand: spec.ageBand,
+      age: spec.age,
+      heightCm: spec.heightCm,
       bio: spec.bio,
       regionLabel: spec.regionLabel,
+      regionCode: spec.regionCode,
     },
   });
   await ctx.prisma.userSportProfile.upsert({
@@ -206,13 +238,14 @@ async function upsertDemoProfile(ctx: SeedCtx, userId: string, spec: DemoPersona
 }
 
 async function ensureAvatarAsset(prisma: PrismaClient, userId: string, slug: DemoPersonaSlug): Promise<string> {
+  const objectKey = personaAvatarRef(slug).objectKey;
   const existing = await prisma.mediaAsset.findFirst({
     where: { ownerUserId: userId, kind: 'AVATAR' },
   });
   if (existing) {
     await prisma.mediaAsset.update({
       where: { id: existing.id },
-      data: { storageKey: demoAvatarUrl(slug) },
+      data: { storageKey: objectKey, mimeType: 'image/jpeg' },
     });
     return existing.id;
   }
@@ -220,20 +253,18 @@ async function ensureAvatarAsset(prisma: PrismaClient, userId: string, slug: Dem
     data: {
       ownerUserId: userId,
       kind: 'AVATAR',
-      storageKey: demoAvatarUrl(slug),
-      mimeType: 'image/png',
+      storageKey: objectKey,
+      mimeType: 'image/jpeg',
     },
   });
   return created.id;
 }
 
 async function replaceProfilePhotos(prisma: PrismaClient, userId: string, slug: DemoPersonaSlug): Promise<void> {
+  const objectKey = personaAvatarRef(slug).objectKey;
   await prisma.userProfilePhoto.deleteMany({ where: { userId } });
-  await prisma.userProfilePhoto.createMany({
-    data: [
-      { userId, objectKey: demoAvatarUrl(slug), sortOrder: 0, isPrimary: true },
-      { userId, objectKey: demoGalleryUrl(slug, 1), sortOrder: 1, isPrimary: false },
-    ],
+  await prisma.userProfilePhoto.create({
+    data: { userId, objectKey, sortOrder: 0, isPrimary: true },
   });
 }
 
@@ -278,6 +309,11 @@ async function seedStores(ctx: SeedCtx): Promise<void> {
           roadAddress: `${store.sido} ${store.sigungu} ${store.name}`,
         },
       });
+    } else {
+      await ctx.prisma.golfFacility.update({
+        where: { id: facility.id },
+        data: { displayName: store.name, sourceName: store.name, sido: store.sido, sigungu: store.sigungu },
+      });
     }
     const venue = await ensureScreenVenue(ctx, facility.id, store.slug, store.name, store.lat, store.lng);
     const ownership = await ctx.prisma.storeOwnership.upsert({
@@ -285,7 +321,7 @@ async function seedStores(ctx: SeedCtx): Promise<void> {
       create: { userId: owner.id, golfFacilityId: facility.id, venueId: venue.id, status: 'ACTIVE' },
       update: { status: 'ACTIVE', venueId: venue.id },
     });
-    await upsertStoreProfile(ctx, ownership.id, store.intro, store.vibe, store.brand, store.brandOther, store.coverPexelsId);
+    await upsertStoreProfile(ctx, ownership.id, store);
     ctx.storeVenues.set(store.slug, {
       venueId: venue.id,
       facilityId: facility.id,
@@ -306,7 +342,12 @@ async function ensureScreenVenue(
   const existing = await ctx.prisma.venue.findFirst({
     where: { OR: [{ golfFacilityId: facilityId }, { providerPlaceId: placeId }] },
   });
-  if (existing) return existing;
+  if (existing) {
+    return ctx.prisma.venue.update({
+      where: { id: existing.id },
+      data: { name, address: `${name}`, latitude: lat, longitude: lng, region: name },
+    });
+  }
   return ctx.prisma.venue.create({
     data: {
       sportId: ctx.sportId,
@@ -326,39 +367,39 @@ async function ensureScreenVenue(
 async function upsertStoreProfile(
   ctx: SeedCtx,
   ownershipId: string,
-  intro: string,
-  vibe: string,
-  brand: 'GOLFZON' | 'KAKAO_VX' | 'SG_GOLF' | 'OTHER',
-  brandOther: string | undefined,
-  coverPexelsId: number,
+  store: (typeof DEMO_STORES)[number],
 ): Promise<void> {
-  const cover = pexelsImageUrl(coverPexelsId);
+  const cover = storeCoverRef(store.slug).objectKey;
+  const gallery = [cover];
+  for (let i = 1; i < store.galleryCount; i += 1) {
+    gallery.push(storeGalleryRef(store.slug, i).objectKey);
+  }
   const profile = await ctx.prisma.storeProfile.upsert({
     where: { ownershipId },
     create: {
       ownershipId,
-      intro,
-      vibe,
+      intro: store.intro,
+      vibe: store.vibe,
       amenities: ['PARKING', 'LOUNGE', 'SHOWER'],
-      screenBrand: brand,
-      screenBrandOther: brandOther ?? null,
+      screenBrand: store.brand,
+      screenBrandOther: store.brandOther ?? null,
       visibility: 'PUBLIC',
       coverObjectKey: cover,
       parkingAvailable: true,
       roomCount: 8,
     },
     update: {
-      intro,
-      vibe,
-      screenBrand: brand,
-      screenBrandOther: brandOther ?? null,
+      intro: store.intro,
+      vibe: store.vibe,
+      screenBrand: store.brand,
+      screenBrandOther: store.brandOther ?? null,
       visibility: 'PUBLIC',
       coverObjectKey: cover,
     },
   });
   await ctx.prisma.storeProfilePhoto.deleteMany({ where: { profileId: profile.id } });
-  await ctx.prisma.storeProfilePhoto.create({
-    data: { profileId: profile.id, objectKey: cover, sortOrder: 0 },
+  await ctx.prisma.storeProfilePhoto.createMany({
+    data: gallery.map((objectKey, sortOrder) => ({ profileId: profile.id, objectKey, sortOrder })),
   });
   await ctx.prisma.storeOperatingHours.deleteMany({ where: { profileId: profile.id } });
   await ctx.prisma.storeOperatingHours.createMany({
@@ -372,13 +413,20 @@ async function upsertStoreProfile(
 async function seedFieldVenues(ctx: SeedCtx): Promise<string[]> {
   const existing = await ctx.prisma.fieldGolfCourse.findMany({
     where: { isActive: true, latitude: { not: null }, sido: { not: null } },
-    take: 6,
+    take: 16,
     orderBy: { name: 'asc' },
   });
   const venueIds: string[] = [];
-  const courses = existing.length >= 2 ? existing.slice(0, 3) : await createFallbackCourses(ctx);
+  const courses = existing.length >= 4 ? existing.slice(0, 12) : await createFallbackCourses(ctx);
   for (const [index, course] of courses.entries()) {
-    const venue = await ensureFieldVenue(ctx, course.id, course.name, index, Number(course.latitude ?? 37.2), Number(course.longitude ?? 127.1));
+    const venue = await ensureFieldVenue(
+      ctx,
+      course.id,
+      course.name,
+      index,
+      Number(course.latitude ?? 37.2),
+      Number(course.longitude ?? 127.1),
+    );
     venueIds.push(venue.id);
   }
   return venueIds;
@@ -452,178 +500,60 @@ async function ensureFieldVenue(
   });
 }
 
-type JoinPlan = {
-  key: string;
-  title: string;
-  track: 'SCREEN' | 'FIELD';
-  status: JoinStatus;
-  host: DemoPersonaSlug;
-  completed: DemoPersonaSlug[];
-  confirmed: DemoPersonaSlug[];
-  startOffsetHours: number;
-  storeSlug?: string;
-  fieldIndex?: number;
-};
-
-function buildJoinPlans(): JoinPlan[] {
-  const plans: JoinPlan[] = [];
-  for (let i = 0; i < 5; i += 1) {
-    plans.push({
-      key: `screen-completed-${i + 1}`,
-      title: `강남 스크린 성사 #${i + 1}`,
-      track: 'SCREEN',
-      status: JoinStatus.COMPLETED,
-      host: 'hajun',
-      completed: i < 2 ? ['seoa', 'yerin'] : ['seoa'],
-      confirmed: [],
-      startOffsetHours: -24 * (3 + i * 2) - 19,
-      storeSlug: 'gangnam',
-    });
-  }
-  const fieldCompleted: DemoPersonaSlug[][] = [
-    ['hajun', 'jihu', 'minjae'],
-    ['jihu', 'minjae'],
-    ['haneul'],
-    ['haneul'],
-    ['haneul'],
-  ];
-  for (let i = 0; i < 5; i += 1) {
-    plans.push({
-      key: `field-completed-${i + 1}`,
-      title: `주말 필드 성사 #${i + 1}`,
-      track: 'FIELD',
-      status: JoinStatus.COMPLETED,
-      host: 'taehyun',
-      completed: fieldCompleted[i] ?? [],
-      confirmed: [],
-      startOffsetHours: -24 * (4 + i * 2) - 8,
-      fieldIndex: i % 3,
-    });
-  }
-  plans.push({
-    key: 'store-completed-1',
-    title: '수원 매장 매칭 성사',
-    track: 'SCREEN',
-    status: JoinStatus.COMPLETED,
-    host: 'doyun',
-    completed: [],
-    confirmed: [],
-    startOffsetHours: -24 * 6 - 20,
-    storeSlug: 'suwon',
-  });
-  plans.push({
-    key: 'club-completed-1',
-    title: '클럽 스크린 야간 성사',
-    track: 'SCREEN',
-    status: JoinStatus.COMPLETED,
-    host: 'minjae',
-    completed: [],
-    confirmed: [],
-    startOffsetHours: -24 * 8 - 21,
-    storeSlug: 'mapo',
-  });
-  plans.push({
-    key: 'screen-ongoing-1',
-    title: '분당 스크린 진행 중',
-    track: 'SCREEN',
-    status: JoinStatus.IN_PROGRESS,
-    host: 'hajun',
-    completed: [],
-    confirmed: ['seoa', 'jihu'],
-    startOffsetHours: -1,
-    storeSlug: 'bundang',
-  });
-  plans.push({
-    key: 'screen-upcoming-1',
-    title: '강남 스크린 오늘 저녁 번개',
-    track: 'SCREEN',
-    status: JoinStatus.OPEN,
-    host: 'hajun',
-    completed: [],
-    confirmed: ['yerin'],
-    startOffsetHours: 6,
-    storeSlug: 'gangnam',
-  });
-  plans.push({
-    key: 'screen-upcoming-2',
-    title: '마포 심야 스크린',
-    track: 'SCREEN',
-    status: JoinStatus.OPEN,
-    host: 'doyun',
-    completed: [],
-    confirmed: ['haneul'],
-    startOffsetHours: 10,
-    storeSlug: 'mapo',
-  });
-  plans.push({
-    key: 'field-upcoming-1',
-    title: '주말 필드 오전 티오프',
-    track: 'FIELD',
-    status: JoinStatus.OPEN,
-    host: 'taehyun',
-    completed: [],
-    confirmed: ['seoa', 'minjae'],
-    startOffsetHours: 36,
-    fieldIndex: 0,
-  });
-  plans.push({
-    key: 'field-upcoming-2',
-    title: '인천 오션 코스 모집',
-    track: 'FIELD',
-    status: JoinStatus.OPEN,
-    host: 'haneul',
-    completed: [],
-    confirmed: ['jihu'],
-    startOffsetHours: 60,
-    fieldIndex: 2,
-  });
-  return plans;
-}
-
-async function seedJoins(ctx: SeedCtx): Promise<number> {
-  const plans = buildJoinPlans();
+async function seedJoins(ctx: SeedCtx, plans: DemoJoinPlan[]): Promise<number> {
   for (const plan of plans) {
     await upsertJoin(ctx, plan);
   }
   return plans.length;
 }
 
-async function upsertJoin(ctx: SeedCtx, plan: JoinPlan): Promise<void> {
+async function upsertJoin(ctx: SeedCtx, plan: DemoJoinPlan): Promise<void> {
   const host = mustUser(ctx, plan.host);
   const venueId = resolveJoinVenue(ctx, plan);
-  const startAt = new Date(Date.now() + plan.startOffsetHours * 3600_000);
+  const startAt = plan.startAt;
   const endAt = new Date(startAt.getTime() + 3 * 3600_000);
-  const clientKey = `investor-demo:${plan.key}`;
+  const clientKey = joinIdempotencyKey(plan.key);
   const existing = await ctx.prisma.join.findUnique({
     where: {
       hostUserId_clientIdempotencyKey: { hostUserId: host.id, clientIdempotencyKey: clientKey },
     },
   });
   const joinId = existing?.id ?? randomUUID();
-  const title = `${DEMO_JOIN_TITLE_PREFIX}${plan.title}`;
   const roster = buildRoster(plan);
+  const data = {
+    title: plan.title,
+    description: plan.description,
+    status: plan.status,
+    startAt,
+    scheduledEndAt: endAt,
+    venueId,
+    plannedPlayerCount: plan.plannedPlayerCount,
+    confirmedPlayerCount: roster.length,
+    preferredGender: plan.condition.preferredGender,
+    minAge: plan.condition.minAge,
+    maxAge: plan.condition.maxAge,
+    participantSkillMode: plan.condition.participantSkillMode,
+    minScreenHandicap: plan.condition.minScreenHandicap,
+    maxScreenHandicap: plan.condition.maxScreenHandicap,
+    gameStyle: plan.condition.gameStyle,
+    afterPlan: plan.condition.afterPlan,
+    isUrgent: Boolean(plan.isUrgent),
+    urgentUntil: plan.isUrgent ? startAt : null,
+    urgentSeats: plan.isUrgent ? Math.max(1, plan.plannedPlayerCount - roster.length) : null,
+  };
   if (!existing) {
     await ctx.prisma.join.create({
       data: {
         id: joinId,
         sportId: ctx.sportId,
-        venueId,
         hostUserId: host.id,
-        title,
-        description: '초보·중급 환영 · 매너 라운드 · 정시 티오프',
-        status: plan.status,
-        startAt,
-        scheduledEndAt: endAt,
-        plannedPlayerCount: 4,
-        confirmedPlayerCount: roster.length,
         rewardPerParticipant: 0,
         coinAssetId: ctx.coinAssetId,
         roomCreationFeeAmount: 0,
         rewardHoldTotalAmount: 0,
         shareSlug: createJoinShareSlug(randomBytes(10)),
         clientIdempotencyKey: clientKey,
-        gameStyle: 'FRIENDLY',
-        afterPlan: 'NONE',
+        ...data,
         participants: {
           create: roster.map((row) => ({
             userId: mustUser(ctx, row.slug).id,
@@ -635,10 +565,7 @@ async function upsertJoin(ctx: SeedCtx, plan: JoinPlan): Promise<void> {
       },
     });
   } else {
-    await ctx.prisma.join.update({
-      where: { id: joinId },
-      data: { title, status: plan.status, startAt, scheduledEndAt: endAt, venueId },
-    });
+    await ctx.prisma.join.update({ where: { id: joinId }, data });
     await ctx.prisma.joinParticipant.deleteMany({ where: { joinId } });
     await ctx.prisma.joinParticipant.createMany({
       data: roster.map((row) => ({
@@ -654,7 +581,7 @@ async function upsertJoin(ctx: SeedCtx, plan: JoinPlan): Promise<void> {
       where: { joinId },
       create: {
         joinId,
-        greenFeePerPerson: 140000,
+        greenFeePerPerson: plan.greenFeePerPerson ?? 140000,
         greenFeePayer: 'EACH_PERSON',
         cartFeeTotal: 80000,
         cartFeePayer: 'EQUAL_SPLIT',
@@ -662,24 +589,26 @@ async function upsertJoin(ctx: SeedCtx, plan: JoinPlan): Promise<void> {
         roundHoles: 18,
         teeTimeMode: 'CONFIRMED',
       },
-      update: { greenFeePerPerson: 140000, roundHoles: 18 },
+      update: { greenFeePerPerson: plan.greenFeePerPerson ?? 140000, roundHoles: 18 },
     });
   }
 }
 
-function resolveJoinVenue(ctx: SeedCtx, plan: JoinPlan): string {
+function resolveJoinVenue(ctx: SeedCtx, plan: DemoJoinPlan): string {
   if (plan.track === 'SCREEN') {
     const store = ctx.storeVenues.get(plan.storeSlug ?? 'gangnam');
     if (!store) throw new Error(`missing store venue ${plan.storeSlug}`);
     return store.venueId;
   }
   const index = plan.fieldIndex ?? 0;
-  const venueId = ctx.fieldVenues[index] ?? ctx.fieldVenues[0];
+  const venueId = ctx.fieldVenues[index % ctx.fieldVenues.length] ?? ctx.fieldVenues[0];
   if (!venueId) throw new Error('missing field venue');
   return venueId;
 }
 
-function buildRoster(plan: JoinPlan): Array<{ slug: DemoPersonaSlug; role: ParticipantRole; status: ParticipationStatus }> {
+function buildRoster(
+  plan: DemoJoinPlan,
+): Array<{ slug: DemoPersonaSlug; role: ParticipantRole; status: ParticipationStatus }> {
   const rows: Array<{ slug: DemoPersonaSlug; role: ParticipantRole; status: ParticipationStatus }> = [
     {
       slug: plan.host,
@@ -702,10 +631,11 @@ async function seedBanners(prisma: PrismaClient): Promise<number> {
   for (const spec of DEMO_BANNERS) {
     const title = demoBannerTitle(spec);
     const existing = await prisma.homeBanner.findFirst({ where: { title } });
+    const imageObjectKey = bannerAssetRef(spec.slug).objectKey;
     const data = {
       title,
       subtitle: spec.subtitle,
-      imageObjectKey: pexelsImageUrl(spec.pexelsId),
+      imageObjectKey,
       href: spec.href,
       sortOrder: spec.sortOrder,
       active: true,
@@ -719,51 +649,56 @@ async function seedBanners(prisma: PrismaClient): Promise<number> {
   return DEMO_BANNERS.length;
 }
 
-async function seedClub(ctx: SeedCtx): Promise<number> {
-  const owner = mustUser(ctx, DEMO_CLUB.ownerSlug);
-  const venueId = ctx.storeVenues.get('gangnam')?.venueId ?? null;
-  const name = demoClubName();
-  const existing = await ctx.prisma.club.findFirst({ where: { name } });
-  const club = existing
-    ? await ctx.prisma.club.update({
-        where: { id: existing.id },
-        data: { intro: DEMO_CLUB.intro, coverImageUrl: pexelsImageUrl(114296) },
-      })
-    : await ctx.prisma.club.create({
-        data: {
-          name,
-          intro: DEMO_CLUB.intro,
-          region: DEMO_CLUB.region,
-          activityType: 'SCREEN_AND_FIELD',
-          joinMode: 'INSTANT',
-          visibility: 'PUBLIC',
-          ownerUserId: owner.id,
-          primaryVenueId: venueId,
-          primaryVenueName: '강남 스크린 라운지',
-          coverImageUrl: pexelsImageUrl(114296),
-          inviteCode: 'invdemo-weekend',
-        },
-      });
-  await ctx.prisma.clubMembership.upsert({
-    where: { clubId_userId: { clubId: club.id, userId: owner.id } },
-    create: {
-      clubId: club.id,
-      userId: owner.id,
-      role: 'OWNER',
-      status: 'ACTIVE',
-      joinedAt: new Date(),
-    },
-    update: { role: 'OWNER', status: 'ACTIVE' },
-  });
-  for (const slug of DEMO_CLUB.memberSlugs) {
-    const user = mustUser(ctx, slug);
-    await ctx.prisma.clubMembership.upsert({
-      where: { clubId_userId: { clubId: club.id, userId: user.id } },
-      create: { clubId: club.id, userId: user.id, role: 'MEMBER', status: 'ACTIVE', joinedAt: new Date() },
-      update: { status: 'ACTIVE' },
+async function seedClubs(ctx: SeedCtx): Promise<number> {
+  for (const spec of DEMO_CLUBS) {
+    const owner = mustUser(ctx, spec.ownerSlug);
+    const venueId = ctx.storeVenues.get('gangnam')?.venueId ?? null;
+    const name = demoClubName(spec.name);
+    const cover = resolvePublicAssetUrl(clubAssetRef(spec.coverAsset).objectKey);
+    const existing = await ctx.prisma.club.findFirst({
+      where: { OR: [{ inviteCode: spec.inviteCode }, { name }] },
     });
+    const club = existing
+      ? await ctx.prisma.club.update({
+          where: { id: existing.id },
+          data: { intro: spec.intro, coverImageUrl: cover, inviteCode: spec.inviteCode },
+        })
+      : await ctx.prisma.club.create({
+          data: {
+            name,
+            intro: spec.intro,
+            region: spec.region,
+            activityType: 'SCREEN_AND_FIELD',
+            joinMode: 'INSTANT',
+            visibility: 'PUBLIC',
+            ownerUserId: owner.id,
+            primaryVenueId: venueId,
+            primaryVenueName: '강남 스크린 라운지',
+            coverImageUrl: cover,
+            inviteCode: spec.inviteCode,
+          },
+        });
+    await ctx.prisma.clubMembership.upsert({
+      where: { clubId_userId: { clubId: club.id, userId: owner.id } },
+      create: {
+        clubId: club.id,
+        userId: owner.id,
+        role: 'OWNER',
+        status: 'ACTIVE',
+        joinedAt: new Date(),
+      },
+      update: { role: 'OWNER', status: 'ACTIVE' },
+    });
+    for (const slug of spec.memberSlugs) {
+      const user = mustUser(ctx, slug);
+      await ctx.prisma.clubMembership.upsert({
+        where: { clubId_userId: { clubId: club.id, userId: user.id } },
+        create: { clubId: club.id, userId: user.id, role: 'MEMBER', status: 'ACTIVE', joinedAt: new Date() },
+        update: { status: 'ACTIVE' },
+      });
+    }
   }
-  return 1;
+  return DEMO_CLUBS.length;
 }
 
 async function seedDirectMessages(ctx: SeedCtx): Promise<number> {
@@ -775,7 +710,11 @@ async function seedDirectMessages(ctx: SeedCtx): Promise<number> {
     { from: 'minjae', body: '주말 필드 그린피 어떻게 정산할까요?' },
     { from: 'taehyun', body: '각자 그린피, 카트는 더치로 맞출게요.' },
   ]);
-  return 2;
+  await upsertDemoConversation(ctx, 'dohyun', 'chaewon', [
+    { from: 'chaewon', body: '일산 저녁 타임 내일도 열까요?' },
+    { from: 'dohyun', body: '네, 여덟 시 반으로 올려둘게요.' },
+  ]);
+  return 3;
 }
 
 async function upsertDemoConversation(
@@ -854,6 +793,6 @@ async function seedRewards(ctx: SeedCtx): Promise<{ attendanceCreated: number; m
 
 function mustUser(ctx: SeedCtx, slug: DemoPersonaSlug): { id: string; spec: DemoPersonaSpec } {
   const row = ctx.users.get(slug);
-  if (!row) throw new Error(`demo persona missing: ${slug}`);
+  if (!row) throw new Error(`${INVESTOR_DEMO_TAG} persona missing: ${slug}`);
   return row;
 }

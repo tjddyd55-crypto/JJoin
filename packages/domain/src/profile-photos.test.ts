@@ -111,4 +111,18 @@ test('isPublicReadableObjectKey allows mall and profile media only', () => {
     }),
     false,
   );
+  assert.equal(
+    isPublicReadableObjectKey({
+      objectKey: 'development/investor-demo/v2/avatars/hajun.jpg',
+      environmentPrefix: 'development',
+    }),
+    true,
+  );
+  assert.equal(
+    isPublicReadableObjectKey({
+      objectKey: 'production/investor-demo/v2/avatars/hajun.jpg',
+      environmentPrefix: 'development',
+    }),
+    false,
+  );
 });

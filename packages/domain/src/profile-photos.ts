@@ -122,6 +122,13 @@ export function isPublicReadableObjectKey(params: {
     return restOrLeafCount(key.slice(bannerPrefix.length)) === 2;
   }
 
+  const investorPrefix = `${env}/investor-demo/`;
+  if (key.startsWith(investorPrefix)) {
+    const rest = key.slice(investorPrefix.length);
+    const parts = rest.split('/').filter(Boolean);
+    return parts.length === 3 && /^v\d+$/.test(parts[0] ?? '') && isPublicImageLeaf(key);
+  }
+
   const profilePrefix = `${env}/profiles/`;
   if (key.startsWith(profilePrefix)) {
     const rest = key.slice(profilePrefix.length);

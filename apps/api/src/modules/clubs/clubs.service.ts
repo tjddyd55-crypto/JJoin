@@ -81,6 +81,7 @@ import {
 import { MockMediaAdapter } from '../../providers/mock.adapters';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationEventService } from '../notifications/notification-event.service';
+import { ObjectStorageService } from '../storage/object-storage.service';
 import { ClubJoinLinkService } from './club-join-link.service';
 import { JoinChatService } from '../join-loop/join-chat.service';
 
@@ -99,6 +100,7 @@ export class ClubsService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationEventService,
     private readonly media: MockMediaAdapter,
+    private readonly storage: ObjectStorageService,
     private readonly clubJoinLink: ClubJoinLinkService,
     @Inject(forwardRef(() => JoinChatService))
     private readonly joinChat: JoinChatService,
@@ -1379,7 +1381,7 @@ export class ClubsService {
     return {
       id: club.id,
       name: club.name,
-      coverImageUrl: club.coverImageUrl,
+      coverImageUrl: this.resolveClubCoverUrl(club.coverImageUrl),
       intro: club.intro,
       region,
       activityRegions,
@@ -1394,6 +1396,14 @@ export class ClubsService {
       myRole: extra.myRole,
       myStatus: extra.myStatus,
     };
+  }
+
+  private resolveClubCoverUrl(coverImageUrl: string | null): string | null {
+    if (!coverImageUrl) return null;
+    if (coverImageUrl.startsWith('http://') || coverImageUrl.startsWith('https://')) {
+      return coverImageUrl;
+    }
+    return this.storage.getPublicUrl(coverImageUrl) ?? coverImageUrl;
   }
 
   private resolveActivityRegionsInput(

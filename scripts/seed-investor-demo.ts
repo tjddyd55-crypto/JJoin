@@ -9,13 +9,16 @@
  */
 import {
   DEMO_BANNERS,
+  DEMO_CLUBS,
   DEMO_PERSONAS,
   DEMO_STORES,
-  demoBannerTitle,
-  demoClubName,
+  INVESTOR_DEMO_BATCH_VERSION,
+  buildJoinPlans,
   demoEmail,
   demoProviderSubject,
+  summarizeJoinPlans,
 } from './lib/investor-demo-catalog.ts';
+import { inspectDemoAssets } from './lib/investor-demo-assets.ts';
 import {
   INVESTOR_DEMO_TAG,
   assertInvestorDemoAllowed,
@@ -38,16 +41,26 @@ function parseArgs(argv: string[]): CliArgs {
 }
 
 function printCatalogPlan(): void {
-  console.log(`${INVESTOR_DEMO_TAG} personas`);
+  const joins = summarizeJoinPlans(buildJoinPlans(new Date()));
+  const assets = inspectDemoAssets();
+  console.log(`${INVESTOR_DEMO_TAG} batchVersion=${INVESTOR_DEMO_BATCH_VERSION}`);
+  console.log(`${INVESTOR_DEMO_TAG} personas=${DEMO_PERSONAS.length}`);
   for (const persona of DEMO_PERSONAS) {
     console.log(
       `  - ${persona.nickname} <${demoEmail(persona.slug)}> subject=${demoProviderSubject(persona.slug)} ` +
         `attendance=${persona.attendanceDays} host=${persona.hostCompleted} play=${persona.participateCompleted}`,
     );
   }
-  console.log(`${INVESTOR_DEMO_TAG} stores ${DEMO_STORES.map((row) => row.name).join(', ')}`);
-  console.log(`${INVESTOR_DEMO_TAG} banners ${DEMO_BANNERS.map((row) => demoBannerTitle(row)).join(' | ')}`);
-  console.log(`${INVESTOR_DEMO_TAG} club ${demoClubName()}`);
+  console.log(`${INVESTOR_DEMO_TAG} stores=${DEMO_STORES.length} ${DEMO_STORES.map((row) => row.name).join(', ')}`);
+  console.log(`${INVESTOR_DEMO_TAG} banners=${DEMO_BANNERS.length} ${DEMO_BANNERS.map((row) => row.title).join(' | ')}`);
+  console.log(`${INVESTOR_DEMO_TAG} clubs=${DEMO_CLUBS.length} ${DEMO_CLUBS.map((row) => row.name).join(' | ')}`);
+  console.log(
+    `${INVESTOR_DEMO_TAG} joins screen=${joins.screenTotal} field=${joins.fieldTotal} ` +
+      `open_screen=${joins.screenOpen} open_field=${joins.fieldOpen} ` +
+      `completed_screen=${joins.screenCompleted} completed_field=${joins.fieldCompleted}`,
+  );
+  console.log(`${INVESTOR_DEMO_TAG} join_buckets ${JSON.stringify(joins.buckets)}`);
+  console.log(`${INVESTOR_DEMO_TAG} assets ${assets.present}/${assets.required} missing=${assets.missing.length}`);
 }
 
 async function main(): Promise<void> {

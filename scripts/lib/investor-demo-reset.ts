@@ -8,6 +8,9 @@ import {
   DEMO_FACILITY_KEY_PREFIX,
   DEMO_SUBJECT_PREFIX,
   DEMO_VENUE_PLACE_PREFIX,
+  demoBannerTitles,
+  demoClubInviteCodes,
+  demoClubNames,
   isProtectedNickname,
   isProtectedProviderSubject,
 } from './investor-demo-catalog.ts';
@@ -62,9 +65,10 @@ export async function collectDemoResetPlan(prisma: PrismaClient): Promise<DemoRe
     prisma.club.findMany({
       where: {
         OR: [
-          { inviteCode: 'invdemo-weekend' },
+          { inviteCode: { in: demoClubInviteCodes() } },
+          { inviteCode: { startsWith: 'invdemo-' } },
           { name: { startsWith: '[INVESTOR-DEMO] ' } },
-          { name: '주말스퀘어 클럽' },
+          { name: { in: demoClubNames() } },
         ],
       },
       select: { id: true },
@@ -73,15 +77,8 @@ export async function collectDemoResetPlan(prisma: PrismaClient): Promise<DemoRe
       where: {
         OR: [
           { title: { startsWith: '[INVESTOR-DEMO] ' } },
-          {
-            title: {
-              in: [
-                '주말 필드 조인, 지금 모집 중',
-                '강남 스크린에서 오늘 저녁 한 게임',
-                '출석하고 코인 받기',
-              ],
-            },
-          },
+          { title: { in: demoBannerTitles() } },
+          { title: '강남 스크린에서 오늘 저녁 한 게임' },
         ],
       },
       select: { id: true },
