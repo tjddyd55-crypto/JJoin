@@ -140,34 +140,41 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
   return (
     <View style={styles.root}>
       <View style={styles.filterRow}>
-        {filterChips.map((chip) => (
-          <Pressable
-            key={chip.id}
-            onPress={chip.onPress}
-            accessibilityRole="button"
-            accessibilityState={{ selected: chip.selected }}
-            style={[
-              styles.filterChip,
-              chip.selected
-                ? {
-                    backgroundColor: theme.colors.action.primary,
-                    borderColor: theme.colors.action.primary,
-                  }
-                : {
-                    backgroundColor: theme.colors.surface.card,
-                    borderColor: theme.colors.border.subtle,
-                  },
-            ]}
+        <View style={styles.filterChipsScroll}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterChipsContent}
           >
-            <Text
-              variant="joinFilterChip"
-              tone={chip.selected ? 'onPrimary' : 'secondary'}
-            >
-              {chip.label}
-            </Text>
-          </Pressable>
-        ))}
-        <View style={styles.filterSpacer} />
+            {filterChips.map((chip) => (
+              <Pressable
+                key={chip.id}
+                onPress={chip.onPress}
+                accessibilityRole="button"
+                accessibilityState={{ selected: chip.selected }}
+                style={[
+                  styles.filterChip,
+                  chip.selected
+                    ? {
+                        backgroundColor: theme.colors.action.primary,
+                        borderColor: theme.colors.action.primary,
+                      }
+                    : {
+                        backgroundColor: theme.colors.surface.card,
+                        borderColor: theme.colors.border.subtle,
+                      },
+                ]}
+              >
+                <Text
+                  variant="joinFilterChip"
+                  tone={chip.selected ? 'onPrimary' : 'secondary'}
+                >
+                  {chip.label}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
         <Pressable
           onPress={() => patchFilter({ view: 'MAP' })}
           accessibilityRole="button"
@@ -271,16 +278,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xxs,
   },
+  filterChipsScroll: {
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  filterChipsContent: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    alignItems: 'center',
+    gap: 6,
+  },
   filterChip: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 4,
     flexShrink: 0,
-  },
-  filterSpacer: {
-    flex: 1,
-    minWidth: 8,
   },
   mapAction: {
     flexDirection: 'row',

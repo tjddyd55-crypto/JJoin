@@ -91,6 +91,21 @@ test('sort row stays one compact row with short map action', () => {
   assert.match(source, /지금 진행 중/);
 });
 
+test('sort chips scroll horizontally while map stays a fixed trailing action', () => {
+  const source = readMobile(
+    'src/features/explore/discovery/components/DiscoverListPanel.tsx',
+  );
+  const chipsScroll = source.indexOf('filterChipsScroll');
+  const mapAction = source.indexOf('accessibilityLabel="지도에서 보기"');
+  const listRefresh = source.indexOf('RefreshControl');
+  assert.ok(chipsScroll > 0 && chipsScroll < mapAction && mapAction < listRefresh);
+  assert.match(source, /horizontal/);
+  assert.match(source, /filterChipsScroll/);
+  assert.match(source, /minWidth: 0/);
+  assert.doesNotMatch(source, /filterSpacer/);
+  assert.match(source, /flexWrap: 'nowrap'/);
+});
+
 test('discover list cards use compact padding without dropping fields', () => {
   const card = readMobile(
     'src/features/explore/discovery/components/DiscoverJoinCard.tsx',
