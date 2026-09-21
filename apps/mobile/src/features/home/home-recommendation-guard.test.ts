@@ -27,6 +27,9 @@ test('home venue join sections always render skeleton and empty copy', () => {
   assert.match(discover, /buildHomeNearbyDiscoverQuery\('FIELD'/);
   assert.match(discover, /venueType: 'FIELD'/);
   assert.match(discover, /regionMode: 'ALL'/);
+  assert.match(discover, /developmentVariant/);
+  assert.match(discover, /shouldFallbackHomeDiscoverNationwide/);
+  assert.match(hook, /isDevelopmentVariant\(\)/);
 });
 
 test('app fonts bootstrap loads IBM Plex Sans KR token families', () => {

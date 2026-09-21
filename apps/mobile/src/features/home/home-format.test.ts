@@ -4,8 +4,10 @@ import type { DiscoverJoinCardDto, RecommendedJoinDto } from '@jjoin/types';
 import { JoinStatus, VenueType } from '@jjoin/types';
 import {
   buildHomeFieldNationwideQuery,
+  buildHomeNationwideDiscoverQuery,
   buildHomeNearbyDiscoverQuery,
   selectHomeFieldDiscoverRows,
+  shouldFallbackHomeDiscoverNationwide,
 } from './home-discover';
 import {
   clubAttendanceLabel,
@@ -76,6 +78,45 @@ test('home discover asks for SCREEN and FIELD separately', () => {
   assert.equal(nationwide.venueType, 'FIELD');
   assert.equal(nationwide.regionMode, 'ALL');
   assert.equal(nationwide.joinability, 'JOINABLE');
+});
+
+test('home SCREEN nationwide fallback is development-only', () => {
+  const screen = buildHomeNationwideDiscoverQuery('SCREEN', '2026-09-21');
+  assert.equal(screen.venueType, 'SCREEN');
+  assert.equal(screen.regionMode, 'ALL');
+  assert.equal(screen.joinability, 'JOINABLE');
+  assert.equal(
+    shouldFallbackHomeDiscoverNationwide({
+      venueType: 'SCREEN',
+      nearbyCount: 0,
+      developmentVariant: false,
+    }),
+    false,
+  );
+  assert.equal(
+    shouldFallbackHomeDiscoverNationwide({
+      venueType: 'SCREEN',
+      nearbyCount: 0,
+      developmentVariant: true,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldFallbackHomeDiscoverNationwide({
+      venueType: 'FIELD',
+      nearbyCount: 0,
+      developmentVariant: false,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldFallbackHomeDiscoverNationwide({
+      venueType: 'SCREEN',
+      nearbyCount: 2,
+      developmentVariant: true,
+    }),
+    false,
+  );
 });
 
 test('home FIELD falls back to the nationwide list only when nearby is empty', () => {

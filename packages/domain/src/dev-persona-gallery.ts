@@ -22,6 +22,9 @@ export const DEV_PERSONA_GALLERY_EXTRA_OBJECT_KEYS = [
 
 const DEV_GALLERY_EXTRA_COUNT = 3;
 
+/** Storage prefix of the seeded DEV investor-demo pack. Production keys never use it. */
+export const DEV_INVESTOR_DEMO_KEY_MARKER = 'development/investor-demo/';
+
 export function isDevPersonaAvatarObjectKey(objectKey: string): boolean {
   const key = objectKey.trim();
   if (!key || key.startsWith('production/')) return false;

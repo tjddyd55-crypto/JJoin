@@ -11,6 +11,7 @@ import type {
   HomeBannerDto,
 } from '@jjoin/types';
 import { getApiClient } from '../../../lib/api';
+import { isDevelopmentVariant } from '../../../lib/app-variant';
 import { getSecureSessionStore } from '../../../session/SessionContext';
 import { loadHomeDiscoverRows } from '../home-discover';
 import { pickVenueDiscoverJoins } from '../home-format';
@@ -93,6 +94,7 @@ export function useHomeData(userId: string | undefined, clubsUiEnabled = false) 
         date: todayKey,
         coords,
         radiusMeters: DEFAULT_NEARBY_RADIUS_METERS,
+        developmentVariant: isDevelopmentVariant(),
       });
 
       const clubsTask = clubsUiEnabled
