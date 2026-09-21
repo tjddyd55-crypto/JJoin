@@ -71,7 +71,10 @@ export class JoinsController {
     return this.service.myJoins(userId);
   }
 
-  /** Must be registered before `@Get(':joinId')`. */
+  /**
+   * Must be registered before `@Get(':joinId')`.
+   * `venueType` omitted → SCREEN only. Pass FIELD or SCREEN explicitly.
+   */
   @Get('discover')
   @UseGuards(MockAuthGuard)
   async discover(

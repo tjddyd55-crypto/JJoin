@@ -342,6 +342,42 @@ export function isValidOnSelectedDate(
   return localDayKey(input.startAt, timeZone) === input.dateKey;
 }
 
+export type DiscoverListWhereInput = JoinTimeWindow & {
+  venueType: 'SCREEN' | 'FIELD';
+  requestedVenueType: 'SCREEN' | 'FIELD';
+  dateKey: string;
+  now?: Date;
+};
+
+/**
+ * Discover `venueType` query. Omitted / unknown → SCREEN only.
+ * Home must request FIELD and SCREEN separately; a single omit call never returns FIELD.
+ */
+export function resolveDiscoverVenueType(raw?: string | null): 'SCREEN' | 'FIELD' {
+  return raw === 'FIELD' ? 'FIELD' : 'SCREEN';
+}
+
+/**
+ * SSOT for GET /joins/discover Prisma where + venueType.
+ * Mirrors JoinDiscoveryService.findDiscoveryJoins:
+ * status ∈ DISCOVERY_JOIN_STATUSES
+ * startAt ∈ [kstDayStart, kstDayEnd)
+ * scheduledEndAt > now
+ * venue.venueType = requestedVenueType
+ *
+ * Region / joinability are applied after this in-memory.
+ */
+export function matchesDiscoverListWhere(input: DiscoverListWhereInput): boolean {
+  if (input.venueType !== input.requestedVenueType) return false;
+  return isValidOnSelectedDate({
+    status: input.status,
+    startAt: input.startAt,
+    scheduledEndAt: input.scheduledEndAt,
+    now: input.now,
+    dateKey: input.dateKey,
+  });
+}
+
 export function aggregateFacilityJoinActivityForDate(
   joins: JoinTimeWindow[],
   dateKey: string,
