@@ -75,7 +75,7 @@ test('MAX_PROFILE_GALLERY_PHOTOS is 5', () => {
   assert.equal(MAX_PROFILE_GALLERY_PHOTOS, 5);
 });
 
-test('isPublicReadableObjectKey allows mall and profile media only', () => {
+test('isPublicReadableObjectKey allows mall, profile, and DEV investor-demo media', () => {
   assert.equal(
     isPublicReadableObjectKey({
       objectKey: 'development/mall/products/p1/cover/a.png',
@@ -96,6 +96,20 @@ test('isPublicReadableObjectKey allows mall and profile media only', () => {
       environmentPrefix: 'development',
     }),
     true,
+  );
+  assert.equal(
+    isPublicReadableObjectKey({
+      objectKey: 'development/investor-demo/v2/banners/field-weekend.jpg',
+      environmentPrefix: 'development',
+    }),
+    true,
+  );
+  assert.equal(
+    isPublicReadableObjectKey({
+      objectKey: 'development/investor-demo/v2/banners/field-weekend.jpg',
+      environmentPrefix: 'production',
+    }),
+    false,
   );
   assert.equal(
     isPublicReadableObjectKey({
