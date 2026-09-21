@@ -3,6 +3,11 @@ import test from 'node:test';
 import type { DiscoverJoinCardDto, RecommendedJoinDto } from '@jjoin/types';
 import { JoinStatus, VenueType } from '@jjoin/types';
 import {
+  buildHomeFieldNationwideQuery,
+  buildHomeNearbyDiscoverQuery,
+  selectHomeFieldDiscoverRows,
+} from './home-discover';
+import {
   clubAttendanceLabel,
   formatHomeJoinTime,
   formatHomeRegionLabel,
@@ -53,6 +58,31 @@ test('formatHomeRegionLabel prefers sigungu', () => {
 test('formatRemainingSeats handles zero slots', () => {
   assert.equal(formatRemainingSeats(0), '마감');
   assert.equal(formatRemainingSeats(3), '3자리 남음');
+});
+
+test('home discover asks for SCREEN and FIELD separately', () => {
+  const nearby = {
+    date: '2026-09-21',
+    lat: 37.54,
+    lng: 127.05,
+    radiusMeters: 5000,
+  };
+  const screen = buildHomeNearbyDiscoverQuery('SCREEN', nearby);
+  const field = buildHomeNearbyDiscoverQuery('FIELD', nearby);
+  const nationwide = buildHomeFieldNationwideQuery(nearby.date);
+  assert.equal(screen.venueType, 'SCREEN');
+  assert.equal(field.venueType, 'FIELD');
+  assert.equal(field.regionMode, 'NEARBY');
+  assert.equal(nationwide.venueType, 'FIELD');
+  assert.equal(nationwide.regionMode, 'ALL');
+  assert.equal(nationwide.joinability, 'JOINABLE');
+});
+
+test('home FIELD falls back to the nationwide list only when nearby is empty', () => {
+  const nearby = [baseDiscover({ joinId: 'near', venueType: VenueType.FIELD })];
+  const nationwide = [baseDiscover({ joinId: 'far', venueType: VenueType.FIELD })];
+  assert.equal(selectHomeFieldDiscoverRows(nearby, nationwide)[0]?.joinId, 'near');
+  assert.equal(selectHomeFieldDiscoverRows([], nationwide)[0]?.joinId, 'far');
 });
 
 test('pickVenueDiscoverJoins filters by venue type and joinable state', () => {

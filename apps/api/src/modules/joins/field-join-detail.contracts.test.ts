@@ -4,6 +4,7 @@ import { createJoinSchema, firstZodIssueCode } from '@jjoin/validation';
 import { estimateFieldJoinCost } from '@jjoin/domain';
 import { joinCreateClientMessage } from './join-create-errors';
 import { mapFieldJoinDetailDto } from './field-join-detail.map';
+import { resolveJoinDetailHostAvatarKey } from './join-detail-avatar';
 
 const venueId = '11111111-1111-4111-8111-111111111111';
 const startAt = '2026-09-20T01:00:00.000Z';
@@ -108,4 +109,24 @@ test('SCREEN create still accepts 6 and foursome without mixing FIELD KRW', () =
     greenFeePayer: 'EACH_PERSON',
   });
   assert.equal(estimate.participantExpectedKrw, 80000);
+});
+
+test('join detail host avatar prefers the host profile key, then the roster row', () => {
+  const fromProfile = resolveJoinDetailHostAvatarKey({
+    host: { id: 'host', profile: { avatarAsset: { storageKey: 'development/investor-demo/v2/avatars/hajun.jpg' } } },
+    participants: [],
+  });
+  assert.equal(fromProfile, 'development/investor-demo/v2/avatars/hajun.jpg');
+
+  const fromRoster = resolveJoinDetailHostAvatarKey({
+    host: { id: 'host', profile: { avatarAsset: null } },
+    participants: [
+      {
+        role: 'HOST',
+        userId: 'host',
+        user: { profile: { avatarAsset: { storageKey: ' https://cdn.example/host.jpg ' } } },
+      },
+    ],
+  });
+  assert.equal(fromRoster, 'https://cdn.example/host.jpg');
 });

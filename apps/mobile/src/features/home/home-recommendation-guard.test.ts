@@ -20,7 +20,13 @@ test('home venue join sections always render skeleton and empty copy', () => {
   assert.match(hook, /isRefreshing/);
   assert.match(hook, /hasLoadedOnce/);
   assert.match(hook, /if \(seq !== loadSeqRef\.current\) return/);
+  assert.match(hook, /loadHomeDiscoverRows/);
   assert.doesNotMatch(hook, /getRecommendedJoins/);
+  const discover = readFileSync(join(mobileSrcRoot, 'features/home/home-discover.ts'), 'utf8');
+  assert.match(discover, /buildHomeNearbyDiscoverQuery\('SCREEN'/);
+  assert.match(discover, /buildHomeNearbyDiscoverQuery\('FIELD'/);
+  assert.match(discover, /venueType: 'FIELD'/);
+  assert.match(discover, /regionMode: 'ALL'/);
 });
 
 test('app fonts bootstrap loads IBM Plex Sans KR token families', () => {

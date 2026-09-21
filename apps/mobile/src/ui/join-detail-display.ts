@@ -62,7 +62,7 @@ export function buildJoinRosterSlots(detail: JoinDetailDto): JoinRosterSlot[] {
       userId: participant.userId,
       nickname: participant.nickname,
       isHost: false,
-      avatarUrl: null,
+      avatarUrl: participant.avatarUrl ?? null,
     });
   }
 

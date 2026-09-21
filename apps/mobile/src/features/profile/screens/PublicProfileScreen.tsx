@@ -24,6 +24,7 @@ import { StarRatingDisplay } from '../../../ui/patterns/StarRating';
 import { MemberActionMenu } from '../../member/components/MemberActionMenu';
 import { ProfileEditCtaButton } from '../components/ProfileEditCtaButton';
 import { ProfileGallerySliderModal } from '../components/ProfileGallerySliderModal';
+import { listRenderableProfilePhotos } from '../profile-gallery';
 
 const store = createExpoSecureSessionStore();
 
@@ -72,12 +73,13 @@ export function PublicProfileScreen() {
     };
   }, [userId]);
 
-  const gallerySlides = useMemo(
-    () =>
-      (profile?.profilePhotos ?? [])
-        .filter((photo) => Boolean(photo.imageUrl))
-        .map((photo) => ({ id: photo.id, imageUrl: photo.imageUrl as string })),
+  const gallery = useMemo(
+    () => listRenderableProfilePhotos(profile?.profilePhotos),
     [profile?.profilePhotos],
+  );
+  const gallerySlides = useMemo(
+    () => gallery.map((photo) => ({ id: photo.id, imageUrl: photo.imageUrl })),
+    [gallery],
   );
 
   if (loading) {
@@ -98,7 +100,6 @@ export function PublicProfileScreen() {
 
   const skill = profile.sportProfiles.find((s) => s.sportCode === 'SCREEN_GOLF');
   const hasReviews = (profile.reviewCount ?? 0) > 0 && profile.averageRatingDisplay;
-  const gallery = profile.profilePhotos ?? [];
 
   return (
     <ScrollScreenFrame edges={['top', 'left', 'right', 'bottom']} contentPaddingBottom={spacing.xl}>
