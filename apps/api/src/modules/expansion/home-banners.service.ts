@@ -4,13 +4,38 @@ import { selectVisibleHomeBanners } from '@jjoin/domain';
 import type { HomeBannerDto, UpsertHomeBannerRequest } from '@jjoin/types';
 import { upsertHomeBannerSchema } from '@jjoin/validation';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ObjectStorageService } from '../storage/object-storage.service';
 import { FeatureFlagsService } from './feature-flags.service';
+
+/**
+ * Admin upsert still writes an object key. If the client echoes a resolved
+ * `/media/objects?key=` URL, persist the key so the DB never stores delivery URLs.
+ */
+export function toStoredHomeBannerImageObjectKey(
+  imageUrl: string | null | undefined,
+): string | null {
+  const value = imageUrl?.trim() ?? '';
+  if (!value) return null;
+  try {
+    const parsed = new URL(value);
+    const isMediaObjects =
+      parsed.pathname === '/media/objects' || parsed.pathname.endsWith('/media/objects');
+    if (isMediaObjects) {
+      const key = parsed.searchParams.get('key')?.trim();
+      if (key) return key;
+    }
+  } catch {
+    // Bare object key or non-URL value — store as-is.
+  }
+  return value;
+}
 
 @Injectable()
 export class HomeBannersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly flags: FeatureFlagsService,
+    private readonly storage: ObjectStorageService,
   ) {}
 
   async listPublic(): Promise<HomeBannerDto[]> {
@@ -46,7 +71,7 @@ export class HomeBannersService {
         id: bannerId,
         title: data.title,
         subtitle: data.subtitle ?? null,
-        imageObjectKey: data.imageUrl ?? null,
+        imageObjectKey: toStoredHomeBannerImageObjectKey(data.imageUrl),
         href: data.href ?? null,
         sortOrder: data.sortOrder ?? 0,
         active: data.active ?? true,
@@ -57,7 +82,7 @@ export class HomeBannersService {
       update: {
         title: data.title,
         subtitle: data.subtitle ?? null,
-        imageObjectKey: data.imageUrl ?? null,
+        imageObjectKey: toStoredHomeBannerImageObjectKey(data.imageUrl),
         href: data.href ?? null,
         sortOrder: data.sortOrder ?? 0,
         active: data.active ?? true,
@@ -91,7 +116,7 @@ export class HomeBannersService {
       id: row.id,
       title: row.title,
       subtitle: row.subtitle,
-      imageUrl: row.imageObjectKey,
+      imageUrl: this.storage.getPublicUrl(row.imageObjectKey),
       href: row.href,
       sortOrder: row.sortOrder,
       active: row.active,

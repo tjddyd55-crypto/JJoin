@@ -130,6 +130,15 @@ export function isPublicReadableObjectKey(params: {
     return rest.split('/').length === 3;
   }
 
+  // DEV investor/demo photoreal pack (seed never writes production/ keys).
+  const investorPrefix = `${env}/investor-demo/`;
+  if (key.startsWith(investorPrefix)) {
+    const rest = key.slice(investorPrefix.length);
+    const parts = rest.split('/').filter(Boolean);
+    // development/investor-demo/v2/{avatars|stores|banners|field|clubs}/file.jpg
+    return parts.length === 3 && /^v\d+$/.test(parts[0] ?? '') && isPublicImageLeaf(key);
+  }
+
   return false;
 }
 
