@@ -9,7 +9,7 @@
 | package | `com.jjoin.app` | `com.jjoin.app.dev` |
 | scheme | `jjoin` | `jjoindev` |
 | Dev Client scheme | `exp+jjoin` (shared EAS slug) | `exp+jjoin` (shared EAS slug; custom scheme `jjoindev`) |
-| EAS profile | `production` / `preview` | `development` |
+| EAS profile | `production` / `preview` | `development` (Metro Dev Client) / `development-standalone` (OTA QA APK) |
 | Kakao Native App Key | PROD keys (`EXPO_PUBLIC_KAKAO_*` without `_DEV`) | DEV keys (`EXPO_PUBLIC_KAKAO_*_DEV` only; no fallback) |
 | API | Production Railway | Development Railway |
 | DB | Production Postgres | Development Postgres (isolated) |

@@ -14,6 +14,7 @@
     "prebuild:dev": "cross-env APP_VARIANT=development expo prebuild -p android",
     "prebuild:prod": "cross-env APP_VARIANT=production expo prebuild -p android",
     "config:dev": "cross-env APP_VARIANT=development expo config --type public",
+    "config:dev-standalone": "cross-env APP_VARIANT=development EAS_BUILD_PROFILE=development-standalone EXPO_PUBLIC_USE_DEV_CLIENT=false expo config --type public",
     "config:prod": "cross-env APP_VARIANT=production expo config --type public",
     "update:dev": "pnpm --dir ../.. exec tsx scripts/eas-update-publish.ts --channel development",
     "update:prod": "pnpm --dir ../.. exec tsx scripts/eas-update-publish.ts --channel production",

@@ -7,8 +7,11 @@ declare module './eas-update-policy.cjs' {
     readonly production: 'production';
   };
 
+  export const STANDALONE_DEV_BUILD_PROFILE: 'development-standalone';
+
   export const EAS_BUILD_PROFILE_CHANNELS: {
     readonly development: 'development';
+    readonly 'development-standalone': 'development';
     readonly preview: 'production';
     readonly production: 'production';
   };
@@ -17,6 +20,11 @@ declare module './eas-update-policy.cjs' {
   export const UPDATES_CHECK_AUTOMATICALLY: 'ON_LOAD';
   export const UPDATES_FALLBACK_TO_CACHE_TIMEOUT_MS: 0;
 
+  export function shouldIncludeExpoDevClient(input: {
+    variant: AppVariant;
+    easBuildProfile?: string;
+    useDevClient?: string;
+  }): boolean;
   export function updateChannelFor(variant: AppVariant): EasUpdateChannel;
   export function updatesUrlFor(projectId: string): string;
   export function updatesConfigFor(

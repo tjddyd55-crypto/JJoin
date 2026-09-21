@@ -17,6 +17,20 @@
         "buildType": "apk"
       }
     },
+    "development-standalone": {
+      "channel": "development",
+      "developmentClient": false,
+      "distribution": "internal",
+      "environment": "development",
+      "env": {
+        "APP_VARIANT": "development",
+        "EXPO_PUBLIC_API_URL": "https://api-development-e387.up.railway.app",
+        "EXPO_PUBLIC_USE_DEV_CLIENT": "false"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
     "preview": {
       "channel": "production",
       "distribution": "internal",

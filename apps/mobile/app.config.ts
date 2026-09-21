@@ -10,6 +10,7 @@ import {
 } from './app-variant-identity.cjs';
 import {
   RUNTIME_VERSION_POLICY,
+  shouldIncludeExpoDevClient,
   updateChannelFor,
   updatesConfigFor,
 } from './eas-update-policy.cjs';
@@ -165,9 +166,15 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     './plugins/with-toss-payment-queries.js',
   ];
 
-  // Dev Launcher only for Development identity (eas developmentClient).
-  // Production/preview standalone must not register expo-dev-client.
-  if (variant === 'development') {
+  // Dev Launcher only for Metro / EAS `development`.
+  // `development-standalone` keeps DEV identity + channel but launches the app.
+  if (
+    shouldIncludeExpoDevClient({
+      variant,
+      easBuildProfile: process.env.EAS_BUILD_PROFILE,
+      useDevClient: process.env.EXPO_PUBLIC_USE_DEV_CLIENT,
+    })
+  ) {
     plugins.splice(1, 0, 'expo-dev-client');
   }
 

@@ -18,7 +18,7 @@ adb reverse tcp:8082 tcp:8082
 
 Use a physical device in `device` state. Do not switch to wireless unless explicitly needed.
 
-OTA / channel / rollback: [mobile-update-runbook.md](./mobile-update-runbook.md). Metro Fast Refresh is not an EAS Update.
+OTA / channel / rollback: [mobile-update-runbook.md](./mobile-update-runbook.md). Metro Fast Refresh is not an EAS Update. OTA device QA uses the `development-standalone` APK, not this Dev Client.
 
 ## Start Metro (Dev Client)
 

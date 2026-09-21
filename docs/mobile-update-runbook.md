@@ -16,11 +16,11 @@ Preview 바이너리도 Production identity이므로 **channel `production`** �
 | 경로 | 무엇인가 | 언제 | 재설치 |
 |---|---|---|---|
 | **Metro / Fast Refresh** | USB Dev Client가 `127.0.0.1:8082` JS를 받는다 | 로컬 개발 | 불필요 |
-| **DEV OTA** | `eas update --channel development` | Metro 없이 DEV 바이너리에 JS를 밀어 넣을 때 | 불필요 (단, 아래에 적힌 네이티브 변경이면 필요) |
+| **DEV OTA** | `eas update --channel development` | Metro 없이 DEV standalone 바이너리에 JS를 밀어 넣을 때 | 불필요 (단, 아래에 적힌 네이티브 변경이면 필요) |
 | **PROD OTA** | `eas update --channel production` | 스토어/preview `com.jjoin.app` 바이너리에 JS를 밀어 넣을 때 | 불필요 (같은 조건) |
 | **APK / AAB** | EAS Build + (스토어) 제출 | 네이티브/권한/플러그인/applicationId 변경, 또는 `version`/`versionCode` 범프 | **필요** |
 
-Metro가 붙어 있으면 `expo-updates` 는 비활성인 경우가 많다. **DEV OTA 검증은 Metro를 끈 DEV 바이너리**에서 한다.
+Metro가 붙어 있으면 `expo-updates` 는 비활성인 경우가 많다. **DEV OTA 검증은 `development-standalone` APK**에서 한다. `development` Dev Client APK는 OTA PASS 증거가 아니다.
 
 ## runtimeVersion
 
@@ -83,11 +83,17 @@ EAS_UPDATE_ALLOW_PRODUCTION=1 pnpm update:prod --i-know-this-publishes-productio
 
 `apps/mobile/eas.json`
 
-| build profile | APP_VARIANT | package | channel |
-|---|---|---|---|
-| `development` | development | `com.jjoin.app.dev` | `development` |
-| `preview` | production | `com.jjoin.app` | `production` |
-| `production` | production | `com.jjoin.app` | `production` |
+| build profile | APP_VARIANT | package | channel | 용도 |
+|---|---|---|---|---|
+| `development` | development | `com.jjoin.app.dev` | `development` | Metro Dev Client only (`developmentClient: true`) |
+| `development-standalone` | development | `com.jjoin.app.dev` | `development` | OTA device QA APK (앱 바로 진입, Dev Launcher 없음) |
+| `preview` | production | `com.jjoin.app` | `production` | Production identity internal APK |
+| `production` | production | `com.jjoin.app` | `production` | Store AAB |
+
+```bash
+cd apps/mobile
+npx eas-cli build --profile development-standalone --platform android
+```
 
 `updates.url`: `https://u.expo.dev/<EAS projectId>`  
 기본 projectId: `7882917d-f3be-4832-bb62-754702a7d205` (`app.config.ts`).
@@ -129,14 +135,14 @@ JS/TS 화면, API 클라이언트, 카피만 바뀌면 OTA 또는 Metro 로 충�
 
 - [ ] `pnpm update:prepublish-check` → `OTA_SAFE`
 - [ ] mobile typecheck / 관련 unit test
-- [ ] DEV: `pnpm update:dev` 후 Metro 없이 `com.jjoin.app.dev` 에서 확인
+- [ ] DEV: `pnpm update:dev` 후 **`development-standalone` APK** (`com.jjoin.app.dev`) 에서 확인. Dev Client APK는 PASS로 쓰지 말 것.
 - [ ] MY → Internal tools → OTA debug (`jjoindev://dev/ota`) 에서 channel=`development`, runtime=`<version>`
 - [ ] Production channel 명령은 실행하지 않음 (이번 셋업 기준)
 
 ### Native / store binary
 
 - [ ] `version` + android `versionCode` 범프 (앱스토어/플레이 규칙)
-- [ ] EAS `development` / `preview` / `production` 프로파일이 올바른 channel 을 갖는지 확인
+- [ ] EAS `development` / `development-standalone` / `preview` / `production` 프로파일이 올바른 channel 을 갖는지 확인
 - [ ] 새 바이너리 설치 후에만 그 runtime 으로 OTA
 - [ ] Play Store 업로드는 이 런북의 범위가 아님
 
@@ -150,13 +156,16 @@ JS/TS 화면, API 클라이언트, 카피만 바뀌면 OTA 또는 Metro 로 충�
 
 ## DEV 기기 확인 (operator)
 
+OTA PASS는 **`development-standalone` APK** 만 사용한다. `development` 프로필은 Metro Dev Client 전용이다.
+
 1. EAS 로그인: `npx eas-cli whoami` (`apps/mobile`)
-2. `pnpm update:dev`
-3. DEV 앱을 **완전히 종료**. Metro 를 쓰지 않는다 (`adb reverse` 로 8082 가 살아 있어도 Dev Launcher 에서 Recently Opened Metro URL 을 열지 말 것).
-4. `쪼인존 DEV` (`com.jjoin.app.dev`) 실행
-5. `jjoindev://dev/ota` — channel / updateId / runtimeVersion / git SHA
-6. Soft OTA 배너가 보이면 “다시 시작” 또는 앱 재실행
-7. Production 앱 (`쪼인존`, `com.jjoin.app`) 을 열어 **같은 업데이트가 적용되지 않는지** 확인
+2. standalone DEV APK 설치: `npx eas-cli build --profile development-standalone --platform android`
+3. `pnpm update:dev`
+4. Metro 를 쓰지 않는다. Dev Launcher / `npx expo start` 화면이 보이면 잘못된 바이너리다.
+5. `쪼인존 DEV` (`com.jjoin.app.dev`) 가 로그인/홈으로 **바로** 실행되는지 확인
+6. `jjoindev://dev/ota` — channel / updateId / runtimeVersion / git SHA
+7. Soft OTA 배너가 보이면 “다시 시작” 또는 앱 재실행
+8. Production 앱 (`쪼인존`, `com.jjoin.app`) 을 열어 **같은 업데이트가 적용되지 않는지** 확인
 
 ## 구성 파일
 
