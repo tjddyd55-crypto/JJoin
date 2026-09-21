@@ -90,9 +90,12 @@ test('discover list filter row uses map text action instead of chip', () => {
     join(mobileRoot, 'src/features/explore/discovery/components/DiscoverListPanel.tsx'),
     'utf8',
   );
-  assert.match(source, /filterSpacer/);
-  assert.match(source, /지도에서 보기/);
+  assert.match(source, /filterChipsScroll/);
+  assert.match(source, /accessibilityLabel="지도에서 보기"/);
+  assert.match(source, /name="map"/);
+  assert.match(source, /\n\s+지도\n/);
   assert.doesNotMatch(source, /id: 'MAP'/);
+  assert.match(source, /flexWrap: 'nowrap'/);
 });
 
 test('join detail DEV QA requires explicit panel flag', () => {

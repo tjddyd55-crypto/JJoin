@@ -29,6 +29,7 @@ export function DiscoverJoinCard({ join, onPress }: Props) {
   const matching = isStoreMatchingJoin(join);
   const cardProps = mapDiscoverToJoinCardProps(join, onPress, {
     statusBadge: statusLabel(join),
+    variant: 'compact',
   });
 
   if (matching) {

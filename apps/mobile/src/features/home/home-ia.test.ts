@@ -35,3 +35,11 @@ test('quick menu no longer owns create; track owns list+create', () => {
   assert.equal(quickMenuLabels.includes('조인 만들기'), false);
   assert.equal(quickMenuLabels.includes('동호회'), false);
 });
+
+test('quick menu 조인 찾기 opens the SCREEN join list route', () => {
+  const quickMenu = readFileSync(
+    join(mobileSrcRoot, 'features/home/components/HomeQuickMenu.tsx'),
+    'utf8',
+  );
+  assert.match(quickMenu, /venueType: 'SCREEN'/);
+});

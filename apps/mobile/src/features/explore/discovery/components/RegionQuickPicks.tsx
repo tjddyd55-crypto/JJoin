@@ -85,17 +85,20 @@ export function RegionQuickPicks({
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.xxs,
   },
   row: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
     paddingHorizontal: spacing.md,
-    gap: spacing.sm,
+    gap: spacing.xs,
     alignItems: 'center',
   },
   chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 4,
     borderRadius: 999,
     borderWidth: 1,
+    flexShrink: 0,
   },
 });

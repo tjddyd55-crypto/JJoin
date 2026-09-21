@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
 import {
+  Icon,
   Text,
   Spacer,
   Stack,
@@ -139,42 +140,51 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
   return (
     <View style={styles.root}>
       <View style={styles.filterRow}>
-        {filterChips.map((chip) => (
-          <Pressable
-            key={chip.id}
-            onPress={chip.onPress}
-            accessibilityRole="button"
-            accessibilityState={{ selected: chip.selected }}
-            style={[
-              styles.filterChip,
-              chip.selected
-                ? {
-                    backgroundColor: theme.colors.action.primary,
-                    borderColor: theme.colors.action.primary,
-                  }
-                : {
-                    backgroundColor: theme.colors.surface.card,
-                    borderColor: theme.colors.border.subtle,
-                  },
-            ]}
+        <View style={styles.filterChipsScroll}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterChipsContent}
           >
-            <Text
-              variant="joinFilterChip"
-              tone={chip.selected ? 'onPrimary' : 'secondary'}
-            >
-              {chip.label}
-            </Text>
-          </Pressable>
-        ))}
-        <View style={styles.filterSpacer} />
+            {filterChips.map((chip) => (
+              <Pressable
+                key={chip.id}
+                onPress={chip.onPress}
+                accessibilityRole="button"
+                accessibilityState={{ selected: chip.selected }}
+                style={[
+                  styles.filterChip,
+                  chip.selected
+                    ? {
+                        backgroundColor: theme.colors.action.primary,
+                        borderColor: theme.colors.action.primary,
+                      }
+                    : {
+                        backgroundColor: theme.colors.surface.card,
+                        borderColor: theme.colors.border.subtle,
+                      },
+                ]}
+              >
+                <Text
+                  variant="joinFilterChip"
+                  tone={chip.selected ? 'onPrimary' : 'secondary'}
+                >
+                  {chip.label}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
         <Pressable
           onPress={() => patchFilter({ view: 'MAP' })}
           accessibilityRole="button"
           accessibilityLabel="지도에서 보기"
           hitSlop={8}
+          style={styles.mapAction}
         >
+          <Icon name="map" size="sm" tone="secondary" />
           <Text variant="joinFilterChip" style={{ color: theme.colors.join.dday.text }}>
-            지도에서 보기
+            지도
           </Text>
         </Pressable>
       </View>
@@ -216,7 +226,7 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
             <Text variant="joinSectionTitle" tone="primary">
               지금 진행 중
             </Text>
-            <Stack gap="sm">
+            <Stack gap="xs">
               {data!.ongoing.map((join) => (
                 <DiscoverJoinCard
                   key={join.joinId}
@@ -240,7 +250,7 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
                   {data!.totalCount}개
                 </Text>
               </View>
-              <Stack gap="sm">
+              <Stack gap="xs">
                 {data!.upcoming.map((join) => (
                   <DiscoverJoinCard
                     key={join.joinId}
@@ -261,36 +271,51 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   filterRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
     alignItems: 'center',
-    gap: 8,
-    minHeight: 36,
+    gap: 6,
+    minHeight: 32,
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
+    paddingBottom: spacing.xxs,
+  },
+  filterChipsScroll: {
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  filterChipsContent: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    alignItems: 'center',
+    gap: 6,
   },
   filterChip: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flexShrink: 0,
   },
-  filterSpacer: {
-    flex: 1,
-    minWidth: 8,
+  mapAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexShrink: 0,
+    minHeight: 32,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
     gap: 8,
-    minHeight: 28,
+    minHeight: 22,
   },
   list: {
     paddingHorizontal: spacing.md,
-    gap: 12,
+    gap: 8,
   },
   section: {
-    gap: 10,
+    gap: 6,
   },
   emptyBlock: {
     paddingTop: 4,

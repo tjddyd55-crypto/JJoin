@@ -33,3 +33,20 @@ export type DiscoveryFilterPatch = Partial<{
   view: ExploreDiscoveryView;
   weekAnchorDate: string;
 }>;
+
+export type JoinListVenueType = 'SCREEN' | 'FIELD';
+
+export function parseJoinListVenueTypeParam(
+  raw?: string | string[] | null,
+): JoinListVenueType | undefined {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (value === 'FIELD' || value === 'SCREEN') return value;
+  return undefined;
+}
+
+/** Route/entry lock: FIELD only when the route says so. Everything else is SCREEN. */
+export function resolveJoinListVenueType(
+  raw?: string | string[] | null,
+): JoinListVenueType {
+  return parseJoinListVenueTypeParam(raw) ?? 'SCREEN';
+}

@@ -7,6 +7,10 @@ import {
   type IconName,
 } from '@jjoin/design-system';
 import { t } from '@jjoin/i18n';
+import {
+  resolveTabPressParams,
+  shouldNavigateOnTabPress,
+} from '../../src/features/explore/discovery/model/join-tab-press';
 
 const TAB_ICONS: Record<string, IconName> = {
   index: 'home',
@@ -61,9 +65,11 @@ function ClubMinimalTabBar(props: {
               target: route.key,
               canPreventDefault: true,
             });
-            if (!focused && !event.defaultPrevented) {
-              navigation.navigate(route.name, route.params);
-            }
+            if (event.defaultPrevented) return;
+            if (!shouldNavigateOnTabPress(route.name, focused)) return;
+            // 조인 탭은 항상 SCREEN으로 명시. route.params 재사용 시
+            // 홈 FIELD 「전체보기」 leftover venueType이 그대로 남는다.
+            navigation.navigate(route.name, resolveTabPressParams(route));
           },
         };
       })}

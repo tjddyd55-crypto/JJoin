@@ -115,7 +115,7 @@ function DayCell({
           selected
             ? {
                 backgroundColor: theme.colors.join.surface.info,
-                borderRadius: 12,
+                borderRadius: 8,
               }
             : null,
         ]}
@@ -135,14 +135,14 @@ function DayCell({
 const styles = StyleSheet.create({
   outer: {
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.xs,
+    paddingBottom: spacing.xxs,
   },
   card: {
-    minHeight: 68,
-    borderRadius: 16,
+    minHeight: 48,
+    borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     justifyContent: 'center',
   },
   wrapCompact: {
@@ -157,12 +157,14 @@ const styles = StyleSheet.create({
   day: {
     flex: 1,
     alignItems: 'center',
-    gap: 4,
+    gap: 2,
     minWidth: 0,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   dayNum: {
-    width: 38,
-    height: 50,
+    width: 28,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },

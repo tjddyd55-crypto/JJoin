@@ -177,7 +177,7 @@ export function RegionJoinListPanel({
           <Text variant="joinSectionTitle" tone="primary">
             지금 진행 중
           </Text>
-          <Stack gap="sm">
+          <Stack gap="xs">
             {data!.ongoing.map((join) => (
               <DiscoverJoinCard
                 key={join.joinId}
@@ -196,7 +196,7 @@ export function RegionJoinListPanel({
             <Text variant="joinSectionTitle" tone="primary">
               {sectionTitle}
             </Text>
-            <Stack gap="sm">
+            <Stack gap="xs">
               {data!.upcoming.map((join) => (
                 <DiscoverJoinCard
                   key={join.joinId}
@@ -214,11 +214,12 @@ export function RegionJoinListPanel({
 
 const styles = StyleSheet.create({
   list: {
-    padding: spacing.md,
-    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
   },
   section: {
-    gap: 10,
+    gap: 6,
   },
   emptyBlock: {
     paddingTop: 4,

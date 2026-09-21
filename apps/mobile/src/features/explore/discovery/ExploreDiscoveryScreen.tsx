@@ -18,7 +18,8 @@ import type { MapCoordinate } from '../model/map-types';
 export function ExploreDiscoveryScreen({
   initialVenueType,
 }: {
-  initialVenueType?: string;
+  /** SCREEN/FIELD lock from route or home entry. No in-list track toggle. */
+  initialVenueType?: string | string[];
 }) {
   return (
     <JoinDiscoveryProvider initialVenueType={initialVenueType}>
@@ -65,10 +66,6 @@ function ExploreDiscoveryBody() {
     })();
   }, []);
 
-  const trackTabs = [
-    { id: 'SCREEN', label: '스크린 조인' },
-    { id: 'FIELD', label: '필드 조인' },
-  ];
   const listTabs = [
     { id: 'LIST', label: '리스트' },
     { id: 'REGION', label: '지역별' },
@@ -82,21 +79,16 @@ function ExploreDiscoveryBody() {
       {!isMap ? (
         <>
           <JoinDiscoveryAppBar
+            showTitle={false}
             regionLabel={regionDisplayLabel(filter)}
             unreadCount={unreadCount}
             onRegionPress={() => setRegionPickerOpen(true)}
             onNotificationPress={() => router.push('/my/notifications')}
           />
           <JoinListTextTabs
-            tabs={trackTabs}
-            activeId={filter.venueType}
-            onChange={(id: string) =>
-              patchFilter({ venueType: id === 'FIELD' ? 'FIELD' : 'SCREEN' })
-            }
-          />
-          <JoinListTextTabs
             tabs={listTabs}
             activeId={isRegion ? 'REGION' : 'LIST'}
+            density="compact"
             onChange={(id: string) => patchFilter({ view: id as 'LIST' | 'REGION' })}
           />
         </>
@@ -105,6 +97,7 @@ function ExploreDiscoveryBody() {
           <JoinListTextTabs
             tabs={[{ id: 'LIST', label: '리스트' }]}
             activeId="LIST"
+            density="compact"
             onChange={() => patchFilter({ view: 'LIST' })}
           />
         </View>
