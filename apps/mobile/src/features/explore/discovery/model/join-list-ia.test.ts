@@ -95,12 +95,16 @@ test('sort chips scroll horizontally while map stays a fixed trailing action', (
   const source = readMobile(
     'src/features/explore/discovery/components/DiscoverListPanel.tsx',
   );
-  const chipsScroll = source.indexOf('filterChipsScroll');
-  const mapAction = source.indexOf('accessibilityLabel="지도에서 보기"');
-  const listRefresh = source.indexOf('RefreshControl');
-  assert.ok(chipsScroll > 0 && chipsScroll < mapAction && mapAction < listRefresh);
-  assert.match(source, /horizontal/);
-  assert.match(source, /filterChipsScroll/);
+  const row = source.slice(
+    source.indexOf('style={styles.filterRow}'),
+    source.indexOf('refreshControl='),
+  );
+  assert.match(row, /filterChipsScroll/);
+  assert.match(row, /horizontal/);
+  assert.match(row, /accessibilityLabel="지도에서 보기"/);
+  assert.ok(
+    row.indexOf('filterChipsScroll') < row.indexOf('accessibilityLabel="지도에서 보기"'),
+  );
   assert.match(source, /minWidth: 0/);
   assert.doesNotMatch(source, /filterSpacer/);
   assert.match(source, /flexWrap: 'nowrap'/);
