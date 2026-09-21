@@ -37,6 +37,7 @@ import {
   computeMatchingRemainingSlots,
   isJoinWaitlistJoinable,
   isJoinVisibleInDiscoveryList,
+  resolveDiscoverVenueType,
   sundayOfWeek,
   formatStandardGenderCompositionLabel,
   hasValidKoreaMapCoords,
@@ -546,8 +547,9 @@ export class JoinDiscoveryService {
     );
   }
 
+  /** Omitted venueType is SCREEN-only. Home must fetch FIELD separately. */
   private resolveVenueType(raw?: string): VenueType {
-    return raw === 'FIELD' ? VenueType.FIELD : VenueType.SCREEN;
+    return resolveDiscoverVenueType(raw) === 'FIELD' ? VenueType.FIELD : VenueType.SCREEN;
   }
 
   private async findDiscoveryJoins(input: {

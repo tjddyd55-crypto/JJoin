@@ -1,6 +1,6 @@
 import { isTodayValidJoin, localDayKey } from '@jjoin/domain';
 import { VenueType } from '@jjoin/types';
-import type { DiscoverJoinCardDto, RecommendedJoinDto } from '@jjoin/types';
+import type { DiscoverJoinCardDto, DiscoverJoinsResponse, RecommendedJoinDto } from '@jjoin/types';
 
 export function formatHomeJoinTime(startAt: string, now = new Date()): string {
   const isToday = localDayKey(startAt) === localDayKey(now);
@@ -19,6 +19,13 @@ export function formatHomeRegionLabel(regionLabel: string | null | undefined, si
 
 export function formatRemainingSeats(count: number): string {
   return count <= 0 ? '마감' : `${count}자리 남음`;
+}
+
+export function mergeHomeDiscoverRows(
+  screen: Pick<DiscoverJoinsResponse, 'ongoing' | 'upcoming'>,
+  field: Pick<DiscoverJoinsResponse, 'ongoing' | 'upcoming'>,
+): DiscoverJoinCardDto[] {
+  return [...screen.ongoing, ...screen.upcoming, ...field.ongoing, ...field.upcoming];
 }
 
 export function pickVenueDiscoverJoins(

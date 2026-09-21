@@ -44,7 +44,7 @@ export function FeatureFlagsPage({ api }: { api: ApiFn }) {
   return (
     <section className="card" style={{ padding: 16 }}>
       <h1>기능 플래그</h1>
-      <p>동호회 데이터/API는 유지하고 사용자 UI만 끕니다. 기본값은 동호회 UI OFF입니다.</p>
+      <p>동호회 데이터/API는 유지하고 사용자 UI만 끕니다. 기본값과 투자자 데모 시드는 동호회 UI OFF입니다.</p>
       {LABELS.map((item) => (
         <label key={item.key} style={{ display: 'block', marginBottom: 10 }}>
           <input
