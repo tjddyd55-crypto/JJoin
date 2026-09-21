@@ -12,6 +12,16 @@ PR #36(EAS Update + `development-standalone`)과 PR #35(DEV 데모 클라이언�
 - DEV 더미 유저 / photoreal 프로필·매장·배너 에셋 + fail-closed 시드 툴링 (PR #35)
 - `development` 프로필은 그대로 Metro Dev Client (`developmentClient: true`)
 
+## Expo public config 확인
+
+```bash
+# standalone: expo-dev-client 없어야 함, expo-updates / channel development
+cd apps/mobile && pnpm config:dev-standalone
+
+# Metro Dev Client: expo-dev-client 있어야 함
+cd apps/mobile && pnpm config:dev
+```
+
 ## 빌드 (Metro-free standalone DEV APK)
 
 ```bash
