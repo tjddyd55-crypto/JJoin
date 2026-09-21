@@ -3,7 +3,13 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { AgeBand, type PublicUserProfileDto } from '@jjoin/types';
+import {
+  AgeBand,
+  DrinkingHabit,
+  SmokingHabit,
+  SportSkillLevel,
+  type PublicUserProfileDto,
+} from '@jjoin/types';
 import {
   buildPublicProfileDisplay,
   formatPublicProfileDemographicLine,
@@ -34,12 +40,12 @@ function fixture(overrides: Partial<PublicUserProfileDto> = {}): PublicUserProfi
     personality: null,
     age: 36,
     heightCm: 184,
-    drinking: 'SOMETIMES',
-    smoking: 'NONE',
+    drinking: DrinkingHabit.SOMETIMES,
+    smoking: SmokingHabit.NONE,
     sportProfiles: [
       {
         sportCode: 'SCREEN_GOLF',
-        skillLevel: 'INTERMEDIATE',
+        skillLevel: SportSkillLevel.INTERMEDIATE,
         fieldHandicap: 10,
         screenHandicap: 6,
       },
@@ -66,12 +72,12 @@ test('demographic line uses Korean age band, not raw enum', () => {
 });
 
 test('lifestyle values do not repeat the row label', () => {
-  assert.equal(formatPublicProfileDrinkingValue('NONE'), '안 함');
-  assert.equal(formatPublicProfileDrinkingValue('SOMETIMES'), '가끔');
-  assert.equal(formatPublicProfileSmokingValue('NONE'), '안 함');
-  assert.equal(formatPublicProfileSmokingValue('E_CIG'), '전자담배');
-  assert.doesNotMatch(formatPublicProfileDrinkingValue('NONE') ?? '', /음주/);
-  assert.doesNotMatch(formatPublicProfileSmokingValue('NONE') ?? '', /흡연/);
+  assert.equal(formatPublicProfileDrinkingValue(DrinkingHabit.NONE), '안 함');
+  assert.equal(formatPublicProfileDrinkingValue(DrinkingHabit.SOMETIMES), '가끔');
+  assert.equal(formatPublicProfileSmokingValue(SmokingHabit.NONE), '안 함');
+  assert.equal(formatPublicProfileSmokingValue(SmokingHabit.E_CIG), '전자담배');
+  assert.doesNotMatch(formatPublicProfileDrinkingValue(DrinkingHabit.NONE) ?? '', /음주/);
+  assert.doesNotMatch(formatPublicProfileSmokingValue(SmokingHabit.NONE) ?? '', /흡연/);
 });
 
 test('handicap value is numeric only so section labels are not duplicated', () => {
