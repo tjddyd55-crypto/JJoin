@@ -18,6 +18,7 @@ import { isInternalToolsEnabled } from '../src/lib/internal-tools';
 import { PushRegistrationHost } from '../src/features/notifications/PushRegistrationHost';
 import { AttendanceRewardHost } from '../src/features/rewards/AttendanceRewardHost';
 import { ProductionReleaseGate } from '../src/features/release/ProductionReleaseGate';
+import { SoftOtaReloadPrompt } from '../src/features/updates/components/SoftOtaReloadPrompt';
 import { useAppFonts } from '../src/bootstrap/useAppFonts';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
@@ -194,6 +195,7 @@ export default function RootLayout() {
             <AuthGateBootstrap>
               <PushBootstrap />
               <AttendanceRewardHost />
+              <SoftOtaReloadPrompt />
               <Stack
               screenOptions={{
                 headerShown: false,

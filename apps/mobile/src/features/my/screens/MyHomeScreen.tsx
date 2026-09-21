@@ -25,6 +25,7 @@ import { getSecureSessionStore, useSession } from '../../../session/SessionConte
 import { isClubsUiEnabled } from '../../clubs/clubs-ui-gate';
 import { legalDocumentRoute } from '../../auth/legal';
 import { ProfileEditCtaButton } from '../../profile/components/ProfileEditCtaButton';
+import { DevUpdateDebugCard } from '../../updates/components/DevUpdateDebugCard';
 
 function showWithdrawTbd() {
   Alert.alert(t('my.withdraw'), '회원탈퇴 기능은 아직 제공되지 않습니다.');
@@ -405,6 +406,12 @@ export function MyHomeScreen() {
             variant="secondary"
             onPress={() => router.push('/dev/qa-four-join' as Href)}
           />
+          <Button
+            label="OTA / binary debug"
+            variant="secondary"
+            onPress={() => router.push('/dev/ota' as Href)}
+          />
+          <DevUpdateDebugCard />
         </Section>
       ) : null}
     </ScrollScreenFrame>
