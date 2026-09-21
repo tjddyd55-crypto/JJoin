@@ -4,6 +4,7 @@ import { selectVisibleHomeBanners } from '@jjoin/domain';
 import type { HomeBannerDto, UpsertHomeBannerRequest } from '@jjoin/types';
 import { upsertHomeBannerSchema } from '@jjoin/validation';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ObjectStorageService } from '../storage/object-storage.service';
 import { FeatureFlagsService } from './feature-flags.service';
 
 @Injectable()
@@ -11,6 +12,7 @@ export class HomeBannersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly flags: FeatureFlagsService,
+    private readonly storage: ObjectStorageService,
   ) {}
 
   async listPublic(): Promise<HomeBannerDto[]> {
@@ -91,7 +93,7 @@ export class HomeBannersService {
       id: row.id,
       title: row.title,
       subtitle: row.subtitle,
-      imageUrl: row.imageObjectKey,
+      imageUrl: this.storage.getPublicUrl(row.imageObjectKey) ?? row.imageObjectKey,
       href: row.href,
       sortOrder: row.sortOrder,
       active: row.active,

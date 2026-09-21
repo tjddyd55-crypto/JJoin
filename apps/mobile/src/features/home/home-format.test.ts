@@ -7,6 +7,7 @@ import {
   formatHomeJoinTime,
   formatHomeRegionLabel,
   formatRemainingSeats,
+  mergeHomeDiscoverRows,
   pickTodayDiscoverJoins,
   pickUrgentJoins,
   pickVenueDiscoverJoins,
@@ -53,6 +54,21 @@ test('formatHomeRegionLabel prefers sigungu', () => {
 test('formatRemainingSeats handles zero slots', () => {
   assert.equal(formatRemainingSeats(0), '마감');
   assert.equal(formatRemainingSeats(3), '3자리 남음');
+});
+
+test('mergeHomeDiscoverRows keeps SCREEN and FIELD discover rows', () => {
+  const screen = {
+    ongoing: [baseDiscover({ joinId: 's-on', venueType: VenueType.SCREEN })],
+    upcoming: [baseDiscover({ joinId: 's-up', venueType: VenueType.SCREEN })],
+  };
+  const field = {
+    ongoing: [baseDiscover({ joinId: 'f-on', venueType: VenueType.FIELD })],
+    upcoming: [baseDiscover({ joinId: 'f-up', venueType: VenueType.FIELD })],
+  };
+  assert.deepEqual(
+    mergeHomeDiscoverRows(screen, field).map((row) => row.joinId),
+    ['s-on', 's-up', 'f-on', 'f-up'],
+  );
 });
 
 test('pickVenueDiscoverJoins filters by venue type and joinable state', () => {

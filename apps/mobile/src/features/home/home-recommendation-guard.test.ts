@@ -21,6 +21,8 @@ test('home venue join sections always render skeleton and empty copy', () => {
   assert.match(hook, /hasLoadedOnce/);
   assert.match(hook, /if \(seq !== loadSeqRef\.current\) return/);
   assert.doesNotMatch(hook, /getRecommendedJoins/);
+  assert.match(hook, /venueType: 'SCREEN'/);
+  assert.match(hook, /venueType: 'FIELD'/);
 });
 
 test('app fonts bootstrap loads IBM Plex Sans KR token families', () => {
