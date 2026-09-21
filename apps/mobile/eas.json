@@ -44,13 +44,5 @@
   },
   "submit": {
     "production": {}
-  },
-  "update": {
-    "development": {
-      "channel": "development"
-    },
-    "production": {
-      "channel": "production"
-    }
   }
 }

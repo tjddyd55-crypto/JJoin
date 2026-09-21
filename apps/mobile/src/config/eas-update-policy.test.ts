@@ -42,18 +42,16 @@ test('preview binaries share the production channel, never development', () => {
   assert.equal(EAS_BUILD_PROFILE_CHANNELS.production, 'production');
 });
 
-test('eas.json build/update profiles pin channels to the variant SSOT', () => {
+test('eas.json build profiles pin channels; eas-cli 24 forbids a top-level update key', () => {
   const easPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../eas.json');
   const eas = JSON.parse(fs.readFileSync(easPath, 'utf8')) as {
     build: Record<string, { channel?: string }>;
-    update: Record<string, { channel?: string }>;
+    update?: unknown;
   };
   assert.equal(eas.build.development.channel, EAS_BUILD_PROFILE_CHANNELS.development);
   assert.equal(eas.build.preview.channel, EAS_BUILD_PROFILE_CHANNELS.preview);
   assert.equal(eas.build.production.channel, EAS_BUILD_PROFILE_CHANNELS.production);
-  assert.equal(eas.update.development.channel, 'development');
-  assert.equal(eas.update.production.channel, 'production');
-  assert.equal(eas.update.preview, undefined);
+  assert.equal(eas.update, undefined);
 });
 
 test('updates.url and expo-channel-name header follow the EAS project + variant', () => {

@@ -161,7 +161,7 @@ JS/TS 화면, API 클라이언트, 카피만 바뀌면 OTA 또는 Metro 로 충�
 ## 구성 파일
 
 - `apps/mobile/app.config.ts` — `runtimeVersion`, `updates.url`, `updates.requestHeaders`
-- `apps/mobile/eas.json` — build `channel` + `update` profiles
+- `apps/mobile/eas.json` — build profile `channel` only (`eas-cli@24` rejects a top-level `update` key; publish scripts pass `--channel`)
 - `scripts/eas-update-publish.ts` — fail-closed publisher
 - `scripts/eas-update-prepublish-check.ts` — binary rebuild warning
 - `apps/mobile/src/features/updates/` — soft OTA UX + DEV debug
