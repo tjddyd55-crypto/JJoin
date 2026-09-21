@@ -91,8 +91,7 @@ EAS_UPDATE_ALLOW_PRODUCTION=1 pnpm update:prod --i-know-this-publishes-productio
 | `production` | production | `com.jjoin.app` | `production` | Store AAB |
 
 ```bash
-cd apps/mobile
-npx eas-cli build --profile development-standalone --platform android
+cd apps/mobile && npx eas-cli build --profile development-standalone --platform android --non-interactive
 ```
 
 `updates.url`: `https://u.expo.dev/<EAS projectId>`  
@@ -159,7 +158,7 @@ JS/TS 화면, API 클라이언트, 카피만 바뀌면 OTA 또는 Metro 로 충�
 OTA PASS는 **`development-standalone` APK** 만 사용한다. `development` 프로필은 Metro Dev Client 전용이다.
 
 1. EAS 로그인: `npx eas-cli whoami` (`apps/mobile`)
-2. standalone DEV APK 설치: `npx eas-cli build --profile development-standalone --platform android`
+2. standalone DEV APK 설치: `cd apps/mobile && npx eas-cli build --profile development-standalone --platform android --non-interactive`
 3. `pnpm update:dev`
 4. Metro 를 쓰지 않는다. Dev Launcher / `npx expo start` 화면이 보이면 잘못된 바이너리다.
 5. `쪼인존 DEV` (`com.jjoin.app.dev`) 가 로그인/홈으로 **바로** 실행되는지 확인
