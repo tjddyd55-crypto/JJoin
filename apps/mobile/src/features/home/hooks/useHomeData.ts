@@ -10,9 +10,14 @@ import type {
   GolfFriendCardDto,
   HomeBannerDto,
 } from '@jjoin/types';
+import * as Application from 'expo-application';
 import { getApiClient } from '../../../lib/api';
+import { resolveAppVariant } from '../../../lib/app-variant';
 import { getSecureSessionStore } from '../../../session/SessionContext';
-import { fetchDiscoverJoins } from '../../explore/discovery/api/join-discover-api';
+import {
+  loadHomeDiscoverRows,
+  resolveHomeDiscoverDevelopmentVariant,
+} from '../home-discover';
 import { pickVenueDiscoverJoins } from '../home-format';
 
 const HOME_DATA_STALE_MS = 60_000;
@@ -89,23 +94,15 @@ export function useHomeData(userId: string | undefined, clubsUiEnabled = false) 
       const todayKey = localDayKey(new Date());
       const coords = await resolveCoords();
 
-      const discoverTask = (async () => {
-        if (!coords) return [] as DiscoverJoinCardDto[];
-        try {
-          const res = await fetchDiscoverJoins(api, {
-            date: todayKey,
-            regionMode: 'NEARBY',
-            lat: coords.lat,
-            lng: coords.lng,
-            radiusMeters: DEFAULT_NEARBY_RADIUS_METERS,
-            sort: 'TIME',
-            joinability: 'JOINABLE',
-          });
-          return [...res.ongoing, ...res.upcoming];
-        } catch {
-          return [] as DiscoverJoinCardDto[];
-        }
-      })();
+      const discoverTask = loadHomeDiscoverRows(api, {
+        date: todayKey,
+        coords,
+        radiusMeters: DEFAULT_NEARBY_RADIUS_METERS,
+        developmentVariant: resolveHomeDiscoverDevelopmentVariant({
+          appVariant: resolveAppVariant(),
+          applicationId: Application.applicationId,
+        }),
+      });
 
       const clubsTask = clubsUiEnabled
         ? api.listMyClubs().catch(() => ({ items: [] }))

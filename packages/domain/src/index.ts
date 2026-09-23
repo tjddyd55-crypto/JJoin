@@ -1344,6 +1344,14 @@ export {
 } from './field-golf-course';
 
 export {
+  DEV_DEMO_RECOMMENDED_LIMIT,
+  isDevInvestorDemoAvatarStorageKey,
+  mergeDevDemoRecommendedUserIds,
+} from './dev-demo-visibility';
+
+export { DEV_INVESTOR_DEMO_KEY_MARKER, isDevPersonaAvatarObjectKey } from './dev-persona-gallery';
+
+export {
   ANDROID_MOBILE_RELEASE_SETTINGS_ID,
   MOBILE_ANDROID_RELEASE_LIMITS,
   isPublishableAndroidRelease,

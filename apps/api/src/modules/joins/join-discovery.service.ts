@@ -546,6 +546,7 @@ export class JoinDiscoveryService {
     );
   }
 
+  /** Omitted venueType is SCREEN. Home and other FIELD callers must pass venueType=FIELD. */
   private resolveVenueType(raw?: string): VenueType {
     return raw === 'FIELD' ? VenueType.FIELD : VenueType.SCREEN;
   }
