@@ -1,6 +1,20 @@
 import type { ApiClient } from '@jjoin/api-client';
+import {
+  buildDiscoverRegionApiQuery,
+  createDefaultDiscoveryFilter,
+} from '@jjoin/domain';
 import type { DiscoverJoinCardDto } from '@jjoin/types';
+import { identityFor } from '../../../app-variant-identity.cjs';
 import { fetchDiscoverJoins, type DiscoverQuery } from '../explore/discovery/api/join-discover-api';
+
+function applicationIds(variant: 'development' | 'production'): Set<string> {
+  const identity = identityFor(variant);
+  return new Set([identity.androidPackage, identity.iosBundleIdentifier]);
+}
+
+/** Installed binary identity. Metro `APP_VARIANT` does not change these. */
+const DEVELOPMENT_APPLICATION_IDS = applicationIds('development');
+const PRODUCTION_APPLICATION_IDS = applicationIds('production');
 
 type HomeNearbyInput = {
   date: string;
@@ -29,21 +43,28 @@ export function buildHomeNearbyDiscoverQuery(
   };
 }
 
-/** Same day/joinable scope as the join-list default (nationwide). */
+/**
+ * Same day / region / sort / joinability as 전체보기
+ * (`createDefaultDiscoveryFilter`: KST date, region ALL, sort TIME, joinability ALL).
+ * `venueType` is always sent. ALL does not send `radiusMeters` (NEARBY does).
+ */
 export function buildHomeNationwideDiscoverQuery(
   venueType: 'SCREEN' | 'FIELD',
   date: string,
 ): DiscoverQuery {
+  const defaults = createDefaultDiscoveryFilter();
+  const region = buildDiscoverRegionApiQuery({ region: defaults.region });
+  const regionFields = 'error' in region ? { regionMode: 'ALL' as const } : region;
   return {
     date,
-    regionMode: 'ALL',
-    sort: 'TIME',
-    joinability: 'JOINABLE',
+    sort: defaults.sort,
+    joinability: defaults.joinability,
     venueType,
+    ...regionFields,
   };
 }
 
-/** Same day/joinable scope as the join-list default (nationwide), FIELD only. */
+/** Nationwide FIELD query — same list defaults as SCREEN, venueType FIELD. */
 export function buildHomeFieldNationwideQuery(date: string): DiscoverQuery {
   return buildHomeNationwideDiscoverQuery('FIELD', date);
 }
@@ -67,9 +88,25 @@ export function selectHomeFieldDiscoverRows(
 }
 
 /**
+ * Development when the installed package is the DEV binary, even if Metro
+ * started without `APP_VARIANT` and rewrote `extra.appVariant` to production.
+ * The production package stays production even if Metro sets development.
+ * Unknown package (tests, web) follows `resolveAppVariant`, not the Metro dev flag.
+ */
+export function resolveHomeDiscoverDevelopmentVariant(input: {
+  appVariant: 'development' | 'production';
+  applicationId?: string | null;
+}): boolean {
+  const applicationId = input.applicationId ?? '';
+  if (PRODUCTION_APPLICATION_IDS.has(applicationId)) return false;
+  if (DEVELOPMENT_APPLICATION_IDS.has(applicationId)) return true;
+  return input.appVariant === 'development';
+}
+
+/**
  * FIELD nationwide fallback matches the join list for every build.
- * SCREEN nationwide fallback is Development only, so a Kakao login far from
- * seed venues still sees today's demo joins. Production SCREEN stays nearby-only.
+ * SCREEN nationwide fallback runs on the development binary so a login far
+ * from seed venues still sees today's joins. Production package stays nearby-only.
  */
 export function shouldFallbackHomeDiscoverNationwide(input: {
   venueType: 'SCREEN' | 'FIELD';

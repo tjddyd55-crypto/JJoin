@@ -29,7 +29,13 @@ test('home venue join sections always render skeleton and empty copy', () => {
   assert.match(discover, /regionMode: 'ALL'/);
   assert.match(discover, /developmentVariant/);
   assert.match(discover, /shouldFallbackHomeDiscoverNationwide/);
-  assert.match(hook, /isDevelopmentVariant\(\)/);
+  assert.match(discover, /resolveHomeDiscoverDevelopmentVariant/);
+  assert.match(discover, /applicationIds\('production'\)/);
+  assert.match(discover, /applicationIds\('development'\)/);
+  assert.doesNotMatch(discover, /__DEV__/);
+  assert.match(hook, /resolveHomeDiscoverDevelopmentVariant/);
+  assert.match(hook, /Application\.applicationId/);
+  assert.doesNotMatch(hook, /__DEV__/);
 });
 
 test('app fonts bootstrap loads IBM Plex Sans KR token families', () => {

@@ -10,10 +10,14 @@ import type {
   GolfFriendCardDto,
   HomeBannerDto,
 } from '@jjoin/types';
+import * as Application from 'expo-application';
 import { getApiClient } from '../../../lib/api';
-import { isDevelopmentVariant } from '../../../lib/app-variant';
+import { resolveAppVariant } from '../../../lib/app-variant';
 import { getSecureSessionStore } from '../../../session/SessionContext';
-import { loadHomeDiscoverRows } from '../home-discover';
+import {
+  loadHomeDiscoverRows,
+  resolveHomeDiscoverDevelopmentVariant,
+} from '../home-discover';
 import { pickVenueDiscoverJoins } from '../home-format';
 
 const HOME_DATA_STALE_MS = 60_000;
@@ -94,7 +98,10 @@ export function useHomeData(userId: string | undefined, clubsUiEnabled = false) 
         date: todayKey,
         coords,
         radiusMeters: DEFAULT_NEARBY_RADIUS_METERS,
-        developmentVariant: isDevelopmentVariant(),
+        developmentVariant: resolveHomeDiscoverDevelopmentVariant({
+          appVariant: resolveAppVariant(),
+          applicationId: Application.applicationId,
+        }),
       });
 
       const clubsTask = clubsUiEnabled

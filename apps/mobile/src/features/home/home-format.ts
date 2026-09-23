@@ -1,4 +1,4 @@
-import { isTodayValidJoin, localDayKey } from '@jjoin/domain';
+import { isJoinVisibleInDiscoveryList, isTodayValidJoin, localDayKey } from '@jjoin/domain';
 import { VenueType } from '@jjoin/types';
 import type { DiscoverJoinCardDto, RecommendedJoinDto } from '@jjoin/types';
 
@@ -21,16 +21,25 @@ export function formatRemainingSeats(count: number): string {
   return count <= 0 ? '마감' : `${count}자리 남음`;
 }
 
+/**
+ * Home section matches 전체보기's default list (joinability ALL).
+ * HOST / FULL cards the list still shows must not be dropped here.
+ */
 export function pickVenueDiscoverJoins(
   items: DiscoverJoinCardDto[],
   venueType: VenueType,
   limit = 3,
 ) {
-  const joinable = items.filter(
+  const visible = items.filter(
     (join) =>
-      (join.canJoinState === 'JOINABLE' || join.canJoin) && join.venueType === venueType,
+      join.venueType === venueType &&
+      isJoinVisibleInDiscoveryList({
+        joinability: 'ALL',
+        canJoin: join.canJoin,
+        canJoinState: join.canJoinState,
+      }),
   );
-  const sorted = [...joinable].sort(
+  const sorted = [...visible].sort(
     (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
   );
   return sorted.slice(0, limit);

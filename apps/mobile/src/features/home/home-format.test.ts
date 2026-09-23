@@ -1,11 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import type { ApiClient } from '@jjoin/api-client';
+import { createDefaultDiscoveryFilter } from '@jjoin/domain';
 import type { DiscoverJoinCardDto, RecommendedJoinDto } from '@jjoin/types';
 import { JoinStatus, VenueType } from '@jjoin/types';
+import type { DiscoverQuery } from '../explore/discovery/api/join-discover-api';
 import {
   buildHomeFieldNationwideQuery,
   buildHomeNationwideDiscoverQuery,
   buildHomeNearbyDiscoverQuery,
+  loadHomeDiscoverRows,
+  resolveHomeDiscoverDevelopmentVariant,
   selectHomeFieldDiscoverRows,
   shouldFallbackHomeDiscoverNationwide,
 } from './home-discover';
@@ -75,16 +80,35 @@ test('home discover asks for SCREEN and FIELD separately', () => {
   assert.equal(screen.venueType, 'SCREEN');
   assert.equal(field.venueType, 'FIELD');
   assert.equal(field.regionMode, 'NEARBY');
+  assert.equal(field.joinability, 'JOINABLE');
+  assert.equal(field.radiusMeters, nearby.radiusMeters);
   assert.equal(nationwide.venueType, 'FIELD');
   assert.equal(nationwide.regionMode, 'ALL');
-  assert.equal(nationwide.joinability, 'JOINABLE');
+  assert.equal(nationwide.joinability, 'ALL');
+  assert.equal(nationwide.radiusMeters, undefined);
+});
+
+test('home nationwide SCREEN query matches 전체보기 defaults', () => {
+  const now = new Date('2026-09-22T15:30:00.000Z');
+  const defaults = createDefaultDiscoveryFilter(now);
+  const screen = buildHomeNationwideDiscoverQuery('SCREEN', defaults.date);
+  assert.equal(defaults.date, '2026-09-23');
+  assert.equal(defaults.region.mode, 'ALL');
+  assert.equal(defaults.joinability, 'ALL');
+  assert.equal(defaults.sort, 'TIME');
+  assert.equal(screen.date, defaults.date);
+  assert.equal(screen.regionMode, defaults.region.mode);
+  assert.equal(screen.sort, defaults.sort);
+  assert.equal(screen.joinability, defaults.joinability);
+  assert.equal(screen.venueType, 'SCREEN');
+  assert.equal(screen.radiusMeters, undefined);
 });
 
 test('home SCREEN nationwide fallback is development-only', () => {
   const screen = buildHomeNationwideDiscoverQuery('SCREEN', '2026-09-21');
   assert.equal(screen.venueType, 'SCREEN');
   assert.equal(screen.regionMode, 'ALL');
-  assert.equal(screen.joinability, 'JOINABLE');
+  assert.equal(screen.joinability, 'ALL');
   assert.equal(
     shouldFallbackHomeDiscoverNationwide({
       venueType: 'SCREEN',
@@ -119,6 +143,37 @@ test('home SCREEN nationwide fallback is development-only', () => {
   );
 });
 
+test('DEV package enables SCREEN fallback when Metro reports production', () => {
+  assert.equal(
+    resolveHomeDiscoverDevelopmentVariant({
+      appVariant: 'production',
+      applicationId: 'com.jjoin.app.dev',
+    }),
+    true,
+  );
+  assert.equal(
+    resolveHomeDiscoverDevelopmentVariant({
+      appVariant: 'development',
+      applicationId: 'com.jjoin.app',
+    }),
+    false,
+  );
+  assert.equal(
+    resolveHomeDiscoverDevelopmentVariant({
+      appVariant: 'development',
+      applicationId: null,
+    }),
+    true,
+  );
+  assert.equal(
+    resolveHomeDiscoverDevelopmentVariant({
+      appVariant: 'production',
+      applicationId: null,
+    }),
+    false,
+  );
+});
+
 test('home FIELD falls back to the nationwide list only when nearby is empty', () => {
   const nearby = [baseDiscover({ joinId: 'near', venueType: VenueType.FIELD })];
   const nationwide = [baseDiscover({ joinId: 'far', venueType: VenueType.FIELD })];
@@ -126,16 +181,142 @@ test('home FIELD falls back to the nationwide list only when nearby is empty', (
   assert.equal(selectHomeFieldDiscoverRows([], nationwide)[0]?.joinId, 'far');
 });
 
-test('pickVenueDiscoverJoins filters by venue type and joinable state', () => {
+test('pickVenueDiscoverJoins keeps list-visible rows for the venue type', () => {
   const items = [
     baseDiscover({ joinId: 'f1', venueType: VenueType.FIELD, startAt: '2026-09-02T16:00:00.000Z' }),
     baseDiscover({ joinId: 's1', venueType: VenueType.SCREEN, startAt: '2026-09-02T15:00:00.000Z' }),
-    baseDiscover({ joinId: 'f2', venueType: VenueType.FIELD, canJoinState: 'FULL', canJoin: false }),
+    baseDiscover({
+      joinId: 'f2',
+      venueType: VenueType.FIELD,
+      canJoinState: 'FULL',
+      canJoin: false,
+      startAt: '2026-09-02T11:00:00.000Z',
+    }),
+    baseDiscover({
+      joinId: 's-host',
+      venueType: VenueType.SCREEN,
+      canJoinState: 'HOST',
+      canJoin: false,
+      startAt: '2026-09-02T09:00:00.000Z',
+    }),
   ];
   const field = pickVenueDiscoverJoins(items, VenueType.FIELD, 2);
   const screen = pickVenueDiscoverJoins(items, VenueType.SCREEN, 2);
-  assert.deepEqual(field.map((j) => j.joinId), ['f1']);
-  assert.deepEqual(screen.map((j) => j.joinId), ['s1']);
+  assert.deepEqual(field.map((j) => j.joinId), ['f2', 'f1']);
+  assert.deepEqual(screen.map((j) => j.joinId), ['s-host', 's1']);
+});
+
+function discoverApi(rowsFor: (query: DiscoverQuery) => DiscoverJoinCardDto[]) {
+  const calls: DiscoverQuery[] = [];
+  const api = {
+    async getDiscoverJoins(query: DiscoverQuery) {
+      calls.push(query);
+      const upcoming = rowsFor(query);
+      return {
+        date: query.date,
+        regionMode: query.regionMode,
+        regionLabel: query.regionMode,
+        sort: query.sort ?? 'TIME',
+        joinability: query.joinability ?? 'ALL',
+        ongoing: [],
+        upcoming,
+        totalCount: upcoming.length,
+      };
+    },
+  };
+  return { api: api as unknown as ApiClient, calls };
+}
+
+function nationwideWhenNearbyEmpty(query: DiscoverQuery): DiscoverJoinCardDto[] {
+  if (query.regionMode === 'NEARBY') return [];
+  if (query.venueType === 'SCREEN') {
+    return [
+      baseDiscover({
+        joinId: 'screen-nation',
+        venueType: VenueType.SCREEN,
+        canJoinState: 'FULL',
+        canJoin: false,
+      }),
+    ];
+  }
+  return [baseDiscover({ joinId: 'field-nation', venueType: VenueType.FIELD })];
+}
+
+test('nearby SCREEN empty still shows nationwide SCREEN rows on the DEV binary', async () => {
+  const { api, calls } = discoverApi(nationwideWhenNearbyEmpty);
+  const developmentVariant = resolveHomeDiscoverDevelopmentVariant({
+    appVariant: 'production',
+    applicationId: 'com.jjoin.app.dev',
+  });
+  const rows = await loadHomeDiscoverRows(api, {
+    date: '2026-09-23',
+    coords: { lat: 35.1, lng: 129.04 },
+    radiusMeters: 5000,
+    developmentVariant,
+  });
+  const screenCall = calls.find(
+    (query) => query.venueType === 'SCREEN' && query.regionMode === 'ALL',
+  );
+  assert.ok(screenCall);
+  assert.equal(screenCall?.date, '2026-09-23');
+  assert.equal(screenCall?.joinability, 'ALL');
+  assert.equal(screenCall?.sort, 'TIME');
+  assert.equal(screenCall?.radiusMeters, undefined);
+  const screen = pickVenueDiscoverJoins(rows, VenueType.SCREEN, 3);
+  const field = pickVenueDiscoverJoins(rows, VenueType.FIELD, 3);
+  assert.deepEqual(screen.map((join) => join.joinId), ['screen-nation']);
+  assert.deepEqual(field.map((join) => join.joinId), ['field-nation']);
+});
+
+test('production package keeps SCREEN nearby-only and still falls back FIELD', async () => {
+  const { api, calls } = discoverApi(nationwideWhenNearbyEmpty);
+  const developmentVariant = resolveHomeDiscoverDevelopmentVariant({
+    appVariant: 'development',
+    applicationId: 'com.jjoin.app',
+  });
+  const rows = await loadHomeDiscoverRows(api, {
+    date: '2026-09-23',
+    coords: { lat: 35.1, lng: 129.04 },
+    radiusMeters: 5000,
+    developmentVariant,
+  });
+  assert.equal(
+    calls.some((query) => query.venueType === 'SCREEN' && query.regionMode === 'ALL'),
+    false,
+  );
+  assert.equal(
+    calls.some((query) => query.venueType === 'FIELD' && query.regionMode === 'ALL'),
+    true,
+  );
+  assert.deepEqual(pickVenueDiscoverJoins(rows, VenueType.SCREEN, 3), []);
+  assert.deepEqual(
+    pickVenueDiscoverJoins(rows, VenueType.FIELD, 3).map((join) => join.joinId),
+    ['field-nation'],
+  );
+});
+
+test('nearby SCREEN rows win over the nationwide list', async () => {
+  const { api, calls } = discoverApi((query) => {
+    if (query.venueType === 'SCREEN' && query.regionMode === 'NEARBY') {
+      return [baseDiscover({ joinId: 'screen-near', venueType: VenueType.SCREEN })];
+    }
+    if (query.regionMode === 'NEARBY') return [];
+    return [baseDiscover({ joinId: 'field-nation', venueType: VenueType.FIELD })];
+  });
+  const rows = await loadHomeDiscoverRows(api, {
+    date: '2026-09-23',
+    coords: { lat: 37.5, lng: 127.0 },
+    radiusMeters: 5000,
+    developmentVariant: true,
+  });
+  assert.equal(
+    calls.some((query) => query.venueType === 'SCREEN' && query.regionMode === 'ALL'),
+    false,
+  );
+  assert.deepEqual(
+    pickVenueDiscoverJoins(rows, VenueType.SCREEN, 3).map((join) => join.joinId),
+    ['screen-near'],
+  );
 });
 
 test('pickTodayDiscoverJoins keeps joinable today items only', () => {
