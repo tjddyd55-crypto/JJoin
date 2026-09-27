@@ -11,7 +11,9 @@ import {
   buildHomeNearbyDiscoverQuery,
   loadHomeDiscoverRows,
   resolveHomeDiscoverDevelopmentVariant,
+  resolveWithin,
   selectHomeFieldDiscoverRows,
+  type HomeDiscoverTrace,
   shouldFallbackHomeDiscoverNationwide,
 } from './home-discover';
 import {
@@ -359,4 +361,89 @@ test('clubAttendanceLabel maps response codes', () => {
   assert.equal(clubAttendanceLabel('ATTENDING'), '참석');
   assert.equal(clubAttendanceLabel('NO_RESPONSE'), '미응답');
   assert.equal(clubAttendanceLabel(undefined), null);
+});
+
+/**
+ * Replays DEV `/joins/discover` on 2026-09-27 KST (10:43).
+ * 전체보기 SCREEN (date, ALL, TIME, joinability ALL) → 6 rows, one FULL.
+ * Home nearby SCREEN (5km, JOINABLE) from Seoul → 0 rows.
+ * Bundles without the DEV nationwide fallback therefore render an empty 스크린 조인.
+ */
+const DEV_20260927_SCREEN_LIST = [
+  ['d5fa8887', '2026-09-27T00:30:00.000Z', 'JOINABLE', '부천 중동 스크린'],
+  ['cda7f581', '2026-09-27T00:30:00.000Z', 'FULL', '수원 인계 파크'],
+  ['06ec2593', '2026-09-27T00:30:00.000Z', 'JOINABLE', '대구 수성 스크린'],
+  ['b821223b', '2026-09-27T02:00:00.000Z', 'JOINABLE', '광명 철산 스크린'],
+  ['bc96eef1', '2026-09-27T02:00:00.000Z', 'JOINABLE', '의정부 민락 스크린'],
+  ['50453b35', '2026-09-27T02:00:00.000Z', 'JOINABLE', '송파 잠실 스크린'],
+].map(([joinId, startAt, state, venueName]) =>
+  baseDiscover({
+    joinId,
+    startAt,
+    venueName,
+    venueType: VenueType.SCREEN,
+    canJoinState: state as DiscoverJoinCardDto['canJoinState'],
+    canJoin: state === 'JOINABLE',
+  }),
+);
+
+function dev20260927(query: DiscoverQuery): DiscoverJoinCardDto[] {
+  if (query.regionMode === 'NEARBY') return [];
+  if (query.venueType === 'SCREEN' && query.joinability === 'ALL') return DEV_20260927_SCREEN_LIST;
+  return [];
+}
+
+test('DEV 2026-09-27: home SCREEN shows the same first rows as 전체보기 when nearby is empty', async () => {
+  const { api, calls } = discoverApi(dev20260927);
+  const traces: HomeDiscoverTrace[] = [];
+  const rows = await loadHomeDiscoverRows(api, {
+    date: '2026-09-27',
+    coords: { lat: 37.566, lng: 126.978 },
+    radiusMeters: 5000,
+    developmentVariant: resolveHomeDiscoverDevelopmentVariant({
+      appVariant: 'production',
+      applicationId: 'com.jjoin.app.dev',
+    }),
+    onTrace: (trace) => traces.push(trace),
+  });
+  const listQuery = calls.find((q) => q.venueType === 'SCREEN' && q.regionMode === 'ALL');
+  assert.deepEqual(
+    { ...listQuery },
+    { date: '2026-09-27', sort: 'TIME', joinability: 'ALL', venueType: 'SCREEN', regionMode: 'ALL', lat: undefined, lng: undefined },
+  );
+  const screen = pickVenueDiscoverJoins(rows, VenueType.SCREEN, 3);
+  assert.deepEqual(screen.map((j) => j.joinId), ['d5fa8887', 'cda7f581', '06ec2593']);
+  assert.equal(traces.length, 1);
+  assert.equal(traces[0]?.screenNearby, 0);
+  assert.equal(traces[0]?.screenNationwide, 6);
+  assert.equal(traces[0]?.developmentVariant, true);
+});
+
+test('DEV 2026-09-27: without the fallback (nearby-only bundle) home SCREEN is empty', async () => {
+  const { api } = discoverApi(dev20260927);
+  const rows = await loadHomeDiscoverRows(api, {
+    date: '2026-09-27',
+    coords: { lat: 37.566, lng: 126.978 },
+    radiusMeters: 5000,
+    developmentVariant: false,
+  });
+  assert.deepEqual(pickVenueDiscoverJoins(rows, VenueType.SCREEN, 3), []);
+});
+
+test('DEV 2026-09-27: no location still shows nationwide SCREEN on the DEV binary', async () => {
+  const { api } = discoverApi(dev20260927);
+  const rows = await loadHomeDiscoverRows(api, {
+    date: '2026-09-27',
+    coords: null,
+    radiusMeters: 5000,
+    developmentVariant: true,
+  });
+  assert.equal(pickVenueDiscoverJoins(rows, VenueType.SCREEN, 3).length, 3);
+});
+
+test('resolveWithin falls back when the location task hangs or rejects', async () => {
+  const hang = new Promise<{ lat: number } | null>(() => {});
+  assert.equal(await resolveWithin(hang, 10, null), null);
+  assert.equal(await resolveWithin(Promise.reject(new Error('no fix')), 1000, null), null);
+  assert.deepEqual(await resolveWithin(Promise.resolve({ lat: 1 }), 1000, null), { lat: 1 });
 });

@@ -118,6 +118,35 @@ export function shouldFallbackHomeDiscoverNationwide(input: {
   return input.developmentVariant;
 }
 
+/** Home must not wait forever on a GPS fix (expo-location can hang on Android). */
+export const HOME_LOCATION_TIMEOUT_MS = 8_000;
+
+/** Resolve `task`, or `fallback` when it rejects or takes longer than `ms`. */
+export function resolveWithin<T>(task: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise<T>((resolve) => {
+    let settled = false;
+    const finish = (value: T) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+    const timer = setTimeout(() => finish(fallback), ms);
+    task.then(finish, () => finish(fallback));
+  });
+}
+
+/** What the home discover load decided. DEV logs this so a device run shows which path ran. */
+export type HomeDiscoverTrace = {
+  date: string;
+  hasCoords: boolean;
+  developmentVariant: boolean;
+  screenNearby: number;
+  screenNationwide: number;
+  fieldNearby: number;
+  fieldNationwide: number;
+};
+
 async function fetchHomeDiscoverRows(
   api: ApiClient,
   query: DiscoverQuery,
@@ -181,6 +210,7 @@ export async function loadHomeDiscoverRows(
     coords: { lat: number; lng: number } | null;
     radiusMeters: number;
     developmentVariant?: boolean;
+    onTrace?: (trace: HomeDiscoverTrace) => void;
   },
 ): Promise<DiscoverJoinCardDto[]> {
   const developmentVariant = input.developmentVariant === true;
@@ -199,6 +229,15 @@ export async function loadHomeDiscoverRows(
       developmentVariant,
     }),
   ]);
+  input.onTrace?.({
+    date: input.date,
+    hasCoords: input.coords != null,
+    developmentVariant,
+    screenNearby: screenRows.length,
+    screenNationwide: screenNationwide.length,
+    fieldNearby: fieldNearbyRows.length,
+    fieldNationwide: fieldNationwide.length,
+  });
   return [
     ...selectHomeDiscoverRowsWithFallback(screenRows, screenNationwide),
     ...selectHomeDiscoverRowsWithFallback(fieldNearbyRows, fieldNationwide),

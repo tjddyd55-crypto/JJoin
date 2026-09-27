@@ -15,8 +15,10 @@ import { getApiClient } from '../../../lib/api';
 import { resolveAppVariant } from '../../../lib/app-variant';
 import { getSecureSessionStore } from '../../../session/SessionContext';
 import {
+  HOME_LOCATION_TIMEOUT_MS,
   loadHomeDiscoverRows,
   resolveHomeDiscoverDevelopmentVariant,
+  resolveWithin,
 } from '../home-discover';
 import { pickVenueDiscoverJoins } from '../home-format';
 
@@ -67,18 +69,19 @@ export function useHomeData(userId: string | undefined, clubsUiEnabled = false) 
     if (coordsRef.current) return coordsRef.current;
     const permission = await Location.getForegroundPermissionsAsync();
     if (permission.status !== 'granted') return null;
-    try {
-      const pos = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      coordsRef.current = {
-        lat: roundCoord(pos.coords.latitude),
-        lng: roundCoord(pos.coords.longitude),
-      };
-      return coordsRef.current;
-    } catch {
-      return null;
-    }
+    const current = await resolveWithin(
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+      HOME_LOCATION_TIMEOUT_MS,
+      null,
+    );
+    const pos =
+      current ?? (await resolveWithin(Location.getLastKnownPositionAsync(), 2_000, null));
+    if (!pos) return null;
+    coordsRef.current = {
+      lat: roundCoord(pos.coords.latitude),
+      lng: roundCoord(pos.coords.longitude),
+    };
+    return coordsRef.current;
   }, []);
 
   const load = useCallback(
@@ -94,14 +97,25 @@ export function useHomeData(userId: string | undefined, clubsUiEnabled = false) 
       const todayKey = localDayKey(new Date());
       const coords = await resolveCoords();
 
+      const appVariant = resolveAppVariant();
+      const developmentVariant = resolveHomeDiscoverDevelopmentVariant({
+        appVariant,
+        applicationId: Application.applicationId,
+      });
       const discoverTask = loadHomeDiscoverRows(api, {
         date: todayKey,
         coords,
         radiusMeters: DEFAULT_NEARBY_RADIUS_METERS,
-        developmentVariant: resolveHomeDiscoverDevelopmentVariant({
-          appVariant: resolveAppVariant(),
-          applicationId: Application.applicationId,
-        }),
+        developmentVariant,
+        onTrace: developmentVariant
+          ? (trace) => {
+              // DEV only: Metro log shows which home path ran on the device.
+              console.info(
+                '[home-discover]',
+                JSON.stringify({ ...trace, appVariant, applicationId: Application.applicationId }),
+              );
+            }
+          : undefined,
       });
 
       const clubsTask = clubsUiEnabled
