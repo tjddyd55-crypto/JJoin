@@ -17,6 +17,7 @@ type Props = {
 };
 
 function statusLabel(join: DiscoverJoinCardDto): string {
+  if (join.isCompleted) return '완료';
   if (join.canJoinState === 'HOST') return '내 조인';
   if (join.canJoinState === 'ALREADY_JOINED') return '참가 중';
   if (join.canJoinState === 'FULL') return '마감';
@@ -32,7 +33,7 @@ export function DiscoverJoinCard({ join, onPress }: Props) {
     variant: 'compact',
   });
 
-  if (matching) {
+  if (matching && !join.isCompleted) {
     const slotLabel = matchingSlotProgressLabel(
       join.targetMaleCount,
       join.targetFemaleCount,

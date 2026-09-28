@@ -1691,6 +1691,8 @@ export type DiscoverJoinCardDto = {
   recruitCount?: number;
   applicationCount?: number;
   benefitLabels?: string[];
+  /** Finished join (ended or SETTLING/COMPLETED) — read-only "완료" card. Only sent with includeCompleted. */
+  isCompleted?: boolean;
 } & JoinRoomCharacterFields & MatchingJoinExtras;
 
 export type DiscoverJoinsResponse = {
@@ -1701,7 +1703,10 @@ export type DiscoverJoinsResponse = {
   joinability: JoinDiscoveryJoinability;
   ongoing: DiscoverJoinCardDto[];
   upcoming: DiscoverJoinCardDto[];
+  /** Active (ongoing + upcoming) count. */
   totalCount: number;
+  /** Finished joins of the selected day, most recent end first (opt-in via includeCompleted). */
+  completed?: DiscoverJoinCardDto[];
 };
 
 export type DiscoverWeeklyCountItemDto = {

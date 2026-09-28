@@ -1,4 +1,4 @@
-import { isJoinVisibleInDiscoveryList, isTodayValidJoin, localDayKey } from '@jjoin/domain';
+import { compareCompletedDiscoverJoinOrder, isJoinVisibleInDiscoveryList, isTodayValidJoin, localDayKey } from '@jjoin/domain';
 import { VenueType } from '@jjoin/types';
 import type { DiscoverJoinCardDto, RecommendedJoinDto } from '@jjoin/types';
 
@@ -39,10 +39,14 @@ export function pickVenueDiscoverJoins(
         canJoinState: join.canJoinState,
       }),
   );
-  const sorted = [...visible].sort(
-    (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
-  );
-  return sorted.slice(0, limit);
+  // Active first (start time asc), then finished joins (most recent end first) fill the rest.
+  const active = visible
+    .filter((join) => join.isCompleted !== true)
+    .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+  const completed = visible
+    .filter((join) => join.isCompleted === true)
+    .sort(compareCompletedDiscoverJoinOrder);
+  return [...active, ...completed].slice(0, limit);
 }
 
 export function pickTodayDiscoverJoins(items: DiscoverJoinCardDto[], limit = 2, now = new Date()) {

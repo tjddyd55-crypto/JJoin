@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
+  applyCompletedJoinCardProps,
   formatJoinDisplayTitle,
   formatJoinParticipantDisplay,
   recommendShortReasonLabels,
@@ -53,4 +54,24 @@ test('formatJoinDisplayTitle maps DEV QA names in dev builds', () => {
   (globalThis as { __DEV__?: boolean }).__DEV__ = true;
   assert.equal(formatJoinDisplayTitle('QA-Role-Coin-1788411173874'), '거제 오션뷰 스크린');
   assert.equal(formatJoinDisplayTitle('DEV E2E 스크린골프'), '퇴근 후 저녁 라운드');
+});
+
+test('applyCompletedJoinCardProps dims the card with a single 완료 badge and no seats/D-day', () => {
+  const props = applyCompletedJoinCardProps({
+    title: '조인',
+    venueName: '춘천 CC',
+    scheduleLabel: '오늘 07:20',
+    countLabel: '2/4명',
+    seatsHighlight: '2자리 남음',
+    ddayLabel: 'D-DAY',
+    statusBadges: [{ label: '모집 중', tone: 'open' }],
+    isUrgent: true,
+    onPress: () => {},
+  });
+  assert.equal(props.completed, true);
+  assert.equal(props.seatsHighlight, null);
+  assert.equal(props.ddayLabel, null);
+  assert.equal(props.isUrgent, false);
+  assert.deepEqual(props.statusBadges, [{ label: '완료', tone: 'closed' }]);
+  assert.equal(typeof props.onPress, 'function');
 });

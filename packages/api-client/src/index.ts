@@ -673,6 +673,7 @@ export class ApiClient {
       sort?: JoinDiscoverySort;
       joinability?: JoinDiscoveryJoinability;
       venueType?: VenueType | 'SCREEN' | 'FIELD';
+      includeCompleted?: boolean;
     },
     signal?: AbortSignal,
   ): Promise<DiscoverJoinsResponse> {

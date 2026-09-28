@@ -409,7 +409,7 @@ test('DEV 2026-09-27: home SCREEN shows the same first rows as 전체보기 when
   const listQuery = calls.find((q) => q.venueType === 'SCREEN' && q.regionMode === 'ALL');
   assert.deepEqual(
     { ...listQuery },
-    { date: '2026-09-27', sort: 'TIME', joinability: 'ALL', venueType: 'SCREEN', regionMode: 'ALL', lat: undefined, lng: undefined },
+    { date: '2026-09-27', sort: 'TIME', joinability: 'ALL', venueType: 'SCREEN', includeCompleted: true, regionMode: 'ALL', lat: undefined, lng: undefined },
   );
   const screen = pickVenueDiscoverJoins(rows, VenueType.SCREEN, 3);
   assert.deepEqual(screen.map((j) => j.joinId), ['d5fa8887', 'cda7f581', '06ec2593']);
@@ -446,4 +446,49 @@ test('resolveWithin falls back when the location task hangs or rejects', async (
   assert.equal(await resolveWithin(hang, 10, null), null);
   assert.equal(await resolveWithin(Promise.reject(new Error('no fix')), 1000, null), null);
   assert.deepEqual(await resolveWithin(Promise.resolve({ lat: 1 }), 1000, null), { lat: 1 });
+});
+
+test('pickVenueDiscoverJoins: active first, then completed (most recent end) fills the limit', () => {
+  const rows = [
+    baseDiscover({ joinId: 'done-early', venueType: VenueType.FIELD, isCompleted: true, canJoin: false, canJoinState: 'UNAVAILABLE', startAt: '2026-09-27T21:00:00.000Z', scheduledEndAt: '2026-09-27T23:00:00.000Z' }),
+    baseDiscover({ joinId: 'active-late', venueType: VenueType.FIELD, startAt: '2026-09-28T08:00:00.000Z', scheduledEndAt: '2026-09-28T10:00:00.000Z' }),
+    baseDiscover({ joinId: 'done-late', venueType: VenueType.FIELD, isCompleted: true, canJoin: false, canJoinState: 'UNAVAILABLE', startAt: '2026-09-27T22:20:00.000Z', scheduledEndAt: '2026-09-28T00:20:00.000Z' }),
+    baseDiscover({ joinId: 'active-early', venueType: VenueType.FIELD, startAt: '2026-09-28T05:00:00.000Z', scheduledEndAt: '2026-09-28T07:00:00.000Z' }),
+  ];
+  assert.deepEqual(
+    pickVenueDiscoverJoins(rows, VenueType.FIELD, 3).map((j) => j.joinId),
+    ['active-early', 'active-late', 'done-late'],
+  );
+  assert.deepEqual(
+    pickVenueDiscoverJoins(rows.filter((j) => j.isCompleted), VenueType.FIELD, 3).map((j) => j.joinId),
+    ['done-late', 'done-early'],
+  );
+});
+
+test('home discover requests completed joins and counts them before the nationwide fallback', async () => {
+  const calls: DiscoverQuery[] = [];
+  const done = baseDiscover({
+    joinId: 'field-done-nearby',
+    venueType: VenueType.FIELD,
+    isCompleted: true,
+    canJoin: false,
+    canJoinState: 'UNAVAILABLE',
+  });
+  const api = {
+    async getDiscoverJoins(query: DiscoverQuery) {
+      calls.push(query);
+      const completed = query.venueType === 'FIELD' && query.regionMode === 'NEARBY' ? [done] : [];
+      return { date: query.date, regionMode: query.regionMode, regionLabel: '', sort: 'TIME', joinability: 'ALL', ongoing: [], upcoming: [], totalCount: 0, completed };
+    },
+  } as unknown as ApiClient;
+  const rows = await loadHomeDiscoverRows(api, {
+    date: '2026-09-28',
+    coords: { lat: 35.2, lng: 128.5 },
+    radiusMeters: 5000,
+    developmentVariant: true,
+  });
+  assert.ok(calls.every((q) => q.includeCompleted === true));
+  // FIELD nearby had a completed join → no FIELD nationwide call.
+  assert.equal(calls.filter((q) => q.venueType === 'FIELD' && q.regionMode === 'ALL').length, 0);
+  assert.deepEqual(pickVenueDiscoverJoins(rows, VenueType.FIELD, 3).map((j) => j.joinId), ['field-done-nearby']);
 });

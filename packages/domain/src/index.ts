@@ -357,6 +357,10 @@ export {
 export {
   DEFAULT_NEARBY_RADIUS_METERS,
   DISCOVERY_JOIN_STATUSES,
+  COMPLETED_DISCOVERY_JOIN_STATUSES,
+  compareCompletedDiscoverJoinOrder,
+  isCompletedDiscoveryJoin,
+  orderActiveThenCompleted,
   MAX_JOIN_REGION_PREFERENCES,
   WEEKDAY_LABELS_KO,
   addCalendarDays,

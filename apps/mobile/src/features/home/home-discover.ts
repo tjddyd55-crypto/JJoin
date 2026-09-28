@@ -40,6 +40,7 @@ export function buildHomeNearbyDiscoverQuery(
     sort: 'TIME',
     joinability: 'JOINABLE',
     venueType,
+    includeCompleted: true,
   };
 }
 
@@ -60,6 +61,7 @@ export function buildHomeNationwideDiscoverQuery(
     sort: defaults.sort,
     joinability: defaults.joinability,
     venueType,
+    includeCompleted: true,
     ...regionFields,
   };
 }
@@ -153,7 +155,8 @@ async function fetchHomeDiscoverRows(
 ): Promise<DiscoverJoinCardDto[]> {
   try {
     const res = await fetchDiscoverJoins(api, query);
-    return [...res.ongoing, ...res.upcoming];
+    // Finished joins of the day stay visible (완료 cards) and count toward the nationwide fallback.
+    return [...res.ongoing, ...res.upcoming, ...(res.completed ?? [])];
   } catch {
     return [];
   }

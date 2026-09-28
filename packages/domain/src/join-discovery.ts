@@ -542,3 +542,56 @@ export function createDefaultDiscoveryFilter(now = new Date()): JoinDiscoveryFil
     venueType: 'SCREEN',
   };
 }
+
+/**
+ * Statuses whose joins may appear as "완료" (finished) cards in discovery lists.
+ * CANCELLED / DRAFT are never shown.
+ */
+export const COMPLETED_DISCOVERY_JOIN_STATUSES: readonly JoinStatus[] = [
+  JoinStatus.OPEN,
+  JoinStatus.FULL,
+  JoinStatus.CONFIRMED,
+  JoinStatus.IN_PROGRESS,
+  JoinStatus.SETTLING,
+  JoinStatus.COMPLETED,
+] as const;
+
+const COMPLETED_DISCOVERY_STATUS_SET = new Set<string>(COMPLETED_DISCOVERY_JOIN_STATUSES);
+
+/**
+ * A join is shown as "완료" in discovery when it finished (SETTLING/COMPLETED) or its
+ * scheduled end already passed while still in an active status. Cancelled joins never qualify.
+ */
+export function isCompletedDiscoveryJoin(
+  input: Pick<JoinTimeWindow, 'status' | 'scheduledEndAt'>,
+  now: Date = new Date(),
+): boolean {
+  if (!COMPLETED_DISCOVERY_STATUS_SET.has(String(input.status))) return false;
+  if (input.status === JoinStatus.SETTLING || input.status === JoinStatus.COMPLETED) return true;
+  return asDate(input.scheduledEndAt).getTime() <= now.getTime();
+}
+
+/** Completed cards: most recently ended first, then start desc, then id. */
+export function compareCompletedDiscoverJoinOrder(
+  a: { joinId?: string; startAt: Date | string; scheduledEndAt: Date | string },
+  b: { joinId?: string; startAt: Date | string; scheduledEndAt: Date | string },
+): number {
+  const endDiff = asDate(b.scheduledEndAt).getTime() - asDate(a.scheduledEndAt).getTime();
+  if (endDiff !== 0) return endDiff;
+  const startDiff = asDate(b.startAt).getTime() - asDate(a.startAt).getTime();
+  if (startDiff !== 0) return startDiff;
+  return String(a.joinId ?? '').localeCompare(String(b.joinId ?? ''));
+}
+
+/**
+ * Active (not completed) first — keeping their relative order — then completed by most recent end.
+ * `isCompleted` flag wins; otherwise derived from status/end time.
+ */
+export function orderActiveThenCompleted<
+  T extends { joinId?: string; status: JoinStatus | string; startAt: Date | string; scheduledEndAt: Date | string; isCompleted?: boolean },
+>(items: readonly T[], now: Date = new Date()): T[] {
+  const done = (j: T) => j.isCompleted === true || isCompletedDiscoveryJoin(j, now);
+  const active = items.filter((j) => !done(j));
+  const completed = items.filter(done).sort(compareCompletedDiscoverJoinOrder);
+  return [...active, ...completed];
+}

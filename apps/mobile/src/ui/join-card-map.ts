@@ -75,7 +75,28 @@ export function mapRecommendedToJoinCardProps(
   };
 }
 
+/** Finished join card: dimmed + "완료" watermark, no seats/D-day, single 완료 badge. */
+export function applyCompletedJoinCardProps(props: JoinCardProps): JoinCardProps {
+  return {
+    ...props,
+    completed: true,
+    ddayLabel: null,
+    seatsHighlight: null,
+    isUrgent: false,
+    statusBadges: [{ label: '완료', tone: 'closed' }],
+  };
+}
+
 export function mapDiscoverToJoinCardProps(
+  item: DiscoverJoinCardDto,
+  onPress: () => void,
+  options?: JoinCardMapperOptions,
+): JoinCardProps {
+  const props = mapDiscoverToJoinCardPropsBase(item, onPress, options);
+  return item.isCompleted ? applyCompletedJoinCardProps(props) : props;
+}
+
+function mapDiscoverToJoinCardPropsBase(
   item: DiscoverJoinCardDto,
   onPress: () => void,
   options?: JoinCardMapperOptions,

@@ -6,6 +6,9 @@ import {
   ADMIN_SIDO_GROUPS,
   DEFAULT_NEARBY_RADIUS_METERS,
   DISCOVERY_JOIN_STATUSES,
+  COMPLETED_DISCOVERY_JOIN_STATUSES,
+  compareCompletedDiscoverJoinOrder,
+  isCompletedDiscoveryJoin,
   addCalendarDays,
   aggregateWeeklyDayCounts,
   buildWeekStrip,
@@ -80,6 +83,8 @@ export type DiscoverJoinsQuery = {
   sort?: string;
   joinability?: string;
   venueType?: string;
+  /** When true, also return the day's finished joins in `completed` (read-only 완료 cards). */
+  includeCompleted?: boolean;
 };
 
 export type DiscoverWeeklyCountsQuery = {
@@ -253,6 +258,10 @@ export class JoinDiscoveryService {
       now,
     });
 
+    const completed = query.includeCompleted
+      ? await this.loadCompletedCards({ userId, dayStart, dayEnd, now, venueType, region })
+      : undefined;
+
     return {
       date,
       regionMode: region.mode,
@@ -262,7 +271,39 @@ export class JoinDiscoveryService {
       ongoing,
       upcoming,
       totalCount: cards.length,
+      ...(completed ? { completed } : {}),
     };
+  }
+
+  /**
+   * Finished joins of the day (ended or SETTLING/COMPLETED; never CANCELLED) as read-only cards.
+   * Not subject to the joinability filter — they are display-only "완료" cards.
+   */
+  private async loadCompletedCards(input: {
+    userId: string;
+    dayStart: Date;
+    dayEnd: Date;
+    now: Date;
+    venueType: VenueType;
+    region: ResolvedRegion;
+  }): Promise<DiscoverJoinCardDto[]> {
+    const rows = await this.findDiscoveryJoins({
+      startAtGte: input.dayStart,
+      startAtLt: input.dayEnd,
+      now: input.now,
+      venueType: input.venueType,
+      completed: true,
+    });
+    const finished = rows.filter((row) => isCompletedDiscoveryJoin(row, input.now));
+    return this.filterByRegion(finished, input.region)
+      .map((row) => ({
+        ...this.toCard(row, input.userId, input.region, input.now),
+        canJoin: false,
+        canJoinState: 'UNAVAILABLE' as const,
+        ctaLabel: null,
+        isCompleted: true,
+      }))
+      .sort(compareCompletedDiscoverJoinOrder);
   }
 
   async weeklyCounts(
@@ -556,14 +597,27 @@ export class JoinDiscoveryService {
     startAtLt: Date;
     now: Date;
     venueType: VenueType;
+    /** Finished joins instead of active ones (ended by time, or SETTLING/COMPLETED). */
+    completed?: boolean;
   }): Promise<DiscoveryJoinRow[]> {
+    const where: Prisma.JoinWhereInput = input.completed
+      ? {
+          status: { in: [...COMPLETED_DISCOVERY_JOIN_STATUSES] },
+          startAt: { gte: input.startAtGte, lt: input.startAtLt },
+          OR: [
+            { scheduledEndAt: { lte: input.now } },
+            { status: { in: ['SETTLING', 'COMPLETED'] } },
+          ],
+          venue: { venueType: input.venueType },
+        }
+      : {
+          status: { in: [...DISCOVERY_JOIN_STATUSES] },
+          startAt: { gte: input.startAtGte, lt: input.startAtLt },
+          scheduledEndAt: { gt: input.now },
+          venue: { venueType: input.venueType },
+        };
     return this.prisma.join.findMany({
-      where: {
-        status: { in: [...DISCOVERY_JOIN_STATUSES] },
-        startAt: { gte: input.startAtGte, lt: input.startAtLt },
-        scheduledEndAt: { gt: input.now },
-        venue: { venueType: input.venueType },
-      },
+      where,
       include: {
         venue: {
           include: {

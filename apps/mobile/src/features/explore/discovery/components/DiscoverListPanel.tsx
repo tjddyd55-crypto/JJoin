@@ -84,6 +84,7 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
           sort: filter.sort,
           joinability: filter.joinability,
           venueType: filter.venueType === 'FIELD' ? 'FIELD' : 'SCREEN',
+          includeCompleted: true,
           ...regionQuery,
         },
         abort.signal,
@@ -113,7 +114,9 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
   const todayKey = localDayKey(new Date());
   const sectionTitle =
     filter.date === todayKey ? '오늘 참여 가능한 조인' : '선택한 날 조인';
-  const empty = !loading && !error && (data?.totalCount ?? 0) === 0;
+  const completedJoins = data?.completed ?? [];
+  const empty =
+    !loading && !error && (data?.totalCount ?? 0) === 0 && completedJoins.length === 0;
   const listBottomPad = FAB_CLEARANCE;
 
   const filterChips: FilterChip[] = [
@@ -252,6 +255,31 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
               </View>
               <Stack gap="xs">
                 {data!.upcoming.map((join) => (
+                  <DiscoverJoinCard
+                    key={join.joinId}
+                    join={join}
+                    onPress={() => router.push(joinDetailHref(join.joinId))}
+                  />
+                ))}
+              </Stack>
+            </View>
+          </>
+        ) : null}
+
+        {completedJoins.length > 0 ? (
+          <>
+            <Spacer size="sm" />
+            <View style={styles.section}>
+              <View style={styles.sectionHeaderRow}>
+                <Text variant="joinSectionTitle" tone="secondary">
+                  완료된 조인
+                </Text>
+                <Text variant="joinMeta" tone="secondary">
+                  {completedJoins.length}개
+                </Text>
+              </View>
+              <Stack gap="xs">
+                {completedJoins.map((join) => (
                   <DiscoverJoinCard
                     key={join.joinId}
                     join={join}

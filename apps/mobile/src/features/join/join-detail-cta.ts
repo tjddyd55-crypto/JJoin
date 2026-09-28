@@ -59,7 +59,7 @@ export function resolveJoinDetailPrimaryCta(params: {
   }
 
   if (detail.status === JoinStatus.COMPLETED) {
-    return { label: '마감된 조인', disabled: true, presentation: 'closed' };
+    return { label: '완료된 조인', disabled: true, presentation: 'closed' };
   }
 
   const ended =
@@ -67,7 +67,7 @@ export function resolveJoinDetailPrimaryCta(params: {
     detail.status === JoinStatus.SETTLING;
 
   if (ended) {
-    return { label: '마감된 조인', disabled: true, presentation: 'closed' };
+    return { label: '완료된 조인', disabled: true, presentation: 'closed' };
   }
 
   if (mine) {
