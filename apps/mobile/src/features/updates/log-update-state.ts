@@ -1,11 +1,11 @@
-import * as Updates from 'expo-updates';
+﻿import * as Updates from 'expo-updates';
 import { isDevelopmentVariant } from '../../lib/app-variant';
 
 /**
  * Bump when publishing a DEV OTA you want to spot in logcat.
  * Log-only; never rendered.
  */
-export const DEV_OTA_MARKER = 'embedded';
+export const DEV_OTA_MARKER = 'ota-20260928-1';
 
 /** DEV binary only: one logcat line showing which JS bundle is running. */
 export function logDevUpdateState(): void {
