@@ -1,4 +1,4 @@
-﻿import * as Updates from 'expo-updates';
+import * as Updates from 'expo-updates';
 import { isDevelopmentVariant } from '../../lib/app-variant';
 
 /**
