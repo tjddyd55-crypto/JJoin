@@ -5,6 +5,7 @@
   },
   "build": {
     "development": {
+      "channel": "development",
       "developmentClient": true,
       "distribution": "internal",
       "environment": "development",
@@ -17,19 +18,21 @@
       }
     },
     "development-standalone": {
+      "channel": "development",
       "developmentClient": false,
       "distribution": "internal",
-      "channel": "development",
       "environment": "development",
       "env": {
         "APP_VARIANT": "development",
-        "EXPO_PUBLIC_API_URL": "https://api-development-e387.up.railway.app"
+        "EXPO_PUBLIC_API_URL": "https://api-development-e387.up.railway.app",
+        "EXPO_PUBLIC_USE_DEV_CLIENT": "false"
       },
       "android": {
         "buildType": "apk"
       }
     },
     "preview": {
+      "channel": "production",
       "distribution": "internal",
       "environment": "preview",
       "env": {
@@ -42,6 +45,7 @@
       }
     },
     "production": {
+      "channel": "production",
       "environment": "preview",
       "env": {
         "APP_VARIANT": "production",

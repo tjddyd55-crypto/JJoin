@@ -8,6 +8,12 @@ import {
   notificationIconFor,
   resolveAppVariant,
 } from './app-variant-identity.cjs';
+import {
+  RUNTIME_VERSION_POLICY,
+  shouldIncludeExpoDevClient,
+  updateChannelFor,
+  updatesConfigFor,
+} from './eas-update-policy.cjs';
 
 type AppVariant = 'development' | 'production';
 
@@ -109,6 +115,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 
   const plugins: ExpoConfig['plugins'] = [
     'expo-router',
+    'expo-updates',
     [
       'expo-splash-screen',
       {
@@ -159,9 +166,16 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     './plugins/with-toss-payment-queries.js',
   ];
 
-  // Dev Launcher only for Development identity (eas developmentClient).
-  // Production/preview standalone must not register expo-dev-client.
-  if (variant === 'development') {
+  // Dev Launcher only for Metro / EAS `development`.
+  // `development-standalone` keeps DEV identity + channel but launches the app.
+  // Production/preview never register expo-dev-client.
+  if (
+    shouldIncludeExpoDevClient({
+      variant,
+      easBuildProfile: process.env.EAS_BUILD_PROFILE,
+      useDevClient: process.env.EXPO_PUBLIC_USE_DEV_CLIENT,
+    })
+  ) {
     plugins.splice(1, 0, 'expo-dev-client');
   }
 
@@ -204,6 +218,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     slug: identity.slug,
     owner: 'tjddyd55',
     version: '0.0.16',
+    // appVersion: binaries already bump version/versionCode. Channel isolates DEV vs Production.
+    runtimeVersion: RUNTIME_VERSION_POLICY,
+    updates: updatesConfigFor(variant, easProjectId),
     orientation: 'portrait',
     icon: appIcon,
     scheme: identity.scheme,
@@ -258,6 +275,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       googleLoginConfigured: Boolean(googleWebClientId),
       naverLoginConfigured: Boolean(naverClientId && naverClientSecret),
       googleServicesConfigured: hasGoogleServices,
+      easUpdateChannel: updateChannelFor(variant),
       eas: {
         projectId: easProjectId,
       },

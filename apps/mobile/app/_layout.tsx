@@ -19,6 +19,7 @@ import { PushRegistrationHost } from '../src/features/notifications/PushRegistra
 import { AttendanceRewardHost } from '../src/features/rewards/AttendanceRewardHost';
 import { ProductionReleaseGate } from '../src/features/release/ProductionReleaseGate';
 import { useAppFonts } from '../src/bootstrap/useAppFonts';
+import { logDevUpdateState } from '../src/features/updates/log-update-state';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -157,6 +158,10 @@ function SplashBootstrapScreen() {
 
 export default function RootLayout() {
   const fontsLoaded = useAppFonts();
+
+  useEffect(() => {
+    logDevUpdateState();
+  }, []);
 
   useEffect(() => {
     if (fontsLoaded) {
