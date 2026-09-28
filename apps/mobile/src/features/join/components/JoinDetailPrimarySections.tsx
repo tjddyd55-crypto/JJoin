@@ -222,6 +222,7 @@ export function JoinDetailPrimarySections({
   const statusBadges = resolveJoinListStatusBadges({
     status: detail.status,
     sportCode: detail.sportCode,
+    venueType: detail.venue.venueType,
     isUrgent: detail.isUrgent,
     seatsLeft: detail.availableSlots,
     scheduledEndAt: detail.scheduledEndAt,

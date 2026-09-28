@@ -138,3 +138,10 @@ test('FIELD roster wires shared MemberActionMenu instead of local DM or gift', (
   assert.doesNotMatch(roster, /createDirectConversation|memberGiftHref|\/gift\/\[userId\]/);
   assert.doesNotMatch(memberCard, /메시지 보내기|코인 선물하기|createDirectConversation/);
 });
+
+test('detail status badges receive venueType so FIELD joins are not labelled 스크린', () => {
+  const sections = readFileSync(sectionsPath, 'utf8');
+  const call = sections.slice(sections.indexOf('resolveJoinListStatusBadges({'));
+  const args = call.slice(0, call.indexOf('});'));
+  assert.match(args, /venueType: detail\.venue\.venueType/);
+});
