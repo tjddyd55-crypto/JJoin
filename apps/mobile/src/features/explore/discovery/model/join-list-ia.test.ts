@@ -86,7 +86,7 @@ test('sort row stays one compact row with short map action', () => {
   assert.match(source, /flexWrap: 'nowrap'/);
   assert.match(source, /accessibilityLabel="지도에서 보기"/);
   assert.match(source, /name="map"/);
-  assert.match(source, /\n\s+지도\n/);
+  assert.match(source, /\r?\n\s+지도\r?\n/); // tolerate CRLF checkouts (Windows autocrlf)
   assert.doesNotMatch(source, /id: 'MAP'/);
   assert.match(source, /지금 진행 중/);
 });
