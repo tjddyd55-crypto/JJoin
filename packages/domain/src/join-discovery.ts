@@ -141,7 +141,12 @@ export function resolveJoinDiscoveryBadge(
         mapCaption: '',
       };
     case 'past':
-      return { kind, label: '종료', mapCaption: '' };
+      // Finished (completed / end time passed) → 완료; cancelled keeps its existing 종료 label.
+      return {
+        kind,
+        label: input.status === JoinStatus.CANCELLED ? '종료' : '완료',
+        mapCaption: '',
+      };
     default:
       return { kind, label: String(input.status), mapCaption: '' };
   }

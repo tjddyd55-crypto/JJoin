@@ -448,3 +448,15 @@ test('orderActiveThenCompleted keeps active order then completed by recent end',
   assert.deepEqual(orderActiveThenCompleted(rows, now).map((r) => r.joinId), ['a1', 'a2', 'c2', 'c1']);
   assert.ok(compareCompletedDiscoverJoinOrder(rows[2]!, rows[0]!) < 0);
 });
+
+test('resolveJoinDiscoveryBadge: finished joins read 완료, cancelled unchanged', () => {
+  const now = new Date('2026-08-26T10:00:00.000Z');
+  const base = {
+    startAt: '2026-08-26T05:00:00.000Z',
+    scheduledEndAt: '2026-08-26T08:00:00.000Z',
+    now,
+  };
+  assert.equal(resolveJoinDiscoveryBadge({ ...base, status: JoinStatus.COMPLETED }).label, '완료');
+  assert.equal(resolveJoinDiscoveryBadge({ ...base, status: JoinStatus.CONFIRMED }).label, '완료');
+  assert.equal(resolveJoinDiscoveryBadge({ ...base, status: JoinStatus.CANCELLED }).label, '종료');
+});

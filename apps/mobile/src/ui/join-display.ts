@@ -205,7 +205,8 @@ export function resolveJoinListStatusBadges(input: {
   const ended =
     input.scheduledEndAt != null && new Date(input.scheduledEndAt).getTime() <= now.getTime();
   if (ended || input.status === JoinStatus.SETTLING) {
-    badges.push({ label: '종료', tone: 'closed' });
+    // Finished rounds read as 완료 — same wording as the card stamp and detail CTA.
+    badges.push({ label: '완료', tone: 'closed' });
     return badges;
   }
 
