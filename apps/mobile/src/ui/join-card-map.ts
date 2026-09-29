@@ -14,6 +14,7 @@ import type { JoinCardProps } from '@jjoin/design-system';
 import {
   baseJoinCardFields,
   formatJoinDisplayTitle,
+  JOIN_FINISHED_STATUS_LABEL,
   type JoinCardMapperOptions,
 } from './join-display';
 
@@ -75,15 +76,16 @@ export function mapRecommendedToJoinCardProps(
   };
 }
 
-/** Finished join card: dimmed + "완료" watermark, no seats/D-day, single 완료 badge. */
+/** Finished join card: dimmed + watermark, no seats/D-day, single finished badge. */
 export function applyCompletedJoinCardProps(props: JoinCardProps): JoinCardProps {
   return {
     ...props,
     completed: true,
+    completedLabel: JOIN_FINISHED_STATUS_LABEL,
     ddayLabel: null,
     seatsHighlight: null,
     isUrgent: false,
-    statusBadges: [{ label: '완료', tone: 'closed' }],
+    statusBadges: [{ label: JOIN_FINISHED_STATUS_LABEL, tone: 'closed' }],
   };
 }
 

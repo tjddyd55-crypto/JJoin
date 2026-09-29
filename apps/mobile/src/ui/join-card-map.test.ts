@@ -56,7 +56,7 @@ test('formatJoinDisplayTitle maps DEV QA names in dev builds', () => {
   assert.equal(formatJoinDisplayTitle('DEV E2E 스크린골프'), '퇴근 후 저녁 라운드');
 });
 
-test('applyCompletedJoinCardProps dims the card with a single 완료 badge and no seats/D-day', () => {
+test('applyCompletedJoinCardProps dims the card with a single 조인 완료 badge and no seats/D-day', () => {
   const props = applyCompletedJoinCardProps({
     title: '조인',
     venueName: '춘천 CC',
@@ -72,6 +72,7 @@ test('applyCompletedJoinCardProps dims the card with a single 완료 badge and n
   assert.equal(props.seatsHighlight, null);
   assert.equal(props.ddayLabel, null);
   assert.equal(props.isUrgent, false);
-  assert.deepEqual(props.statusBadges, [{ label: '완료', tone: 'closed' }]);
+  assert.deepEqual(props.statusBadges, [{ label: '조인 완료', tone: 'closed' }]);
+  assert.equal(props.completedLabel, '조인 완료');
   assert.equal(typeof props.onPress, 'function');
 });

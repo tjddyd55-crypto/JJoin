@@ -12,6 +12,8 @@ import {
   identityFor,
   notificationIconFor,
   resolveAppVariant,
+  splashScreenFor,
+  DEVELOPMENT_SPLASH_IMAGE,
 } from '../../app-variant-identity.cjs';
 
 test('resolveAppVariant: only explicit development selects DEV', () => {
@@ -42,6 +44,15 @@ test('development identity uses wordmark icons and com.jjoin.app.dev', () => {
   assert.equal(adaptive.foregroundImage, DEVELOPMENT_ADAPTIVE_FOREGROUND);
   assert.equal(adaptive.backgroundColor, DEVELOPMENT_ADAPTIVE_BACKGROUND_COLOR);
   assert.equal(iconFor('development'), iconFor('production'));
+});
+
+test('development splash uses hero launch image; production keeps wordmark splash', () => {
+  const dev = splashScreenFor('development');
+  assert.equal(dev.image, DEVELOPMENT_SPLASH_IMAGE);
+  assert.equal(dev.resizeMode, 'cover');
+  const prod = splashScreenFor('production');
+  assert.equal(prod.image, './assets/images/splash-icon.png');
+  assert.equal(prod.resizeMode, 'contain');
 });
 
 test('notification plugin icons follow the same variant split', () => {

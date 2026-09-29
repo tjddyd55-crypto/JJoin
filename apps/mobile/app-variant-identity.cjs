@@ -84,6 +84,29 @@ function identityFor(variant) {
   };
 }
 
+/** DEV cold start — same asset as custom launch (native + JS seamless). */
+const DEVELOPMENT_SPLASH_IMAGE = './assets/images/dev-entry-launch.png';
+const DEVELOPMENT_SPLASH_BACKGROUND = '#1a2e1a';
+
+/**
+ * @param {AppVariant} variant
+ * @returns {{ image: string; resizeMode: 'cover' | 'contain'; backgroundColor: string }}
+ */
+function splashScreenFor(variant) {
+  if (variant === 'development') {
+    return {
+      image: DEVELOPMENT_SPLASH_IMAGE,
+      resizeMode: 'cover',
+      backgroundColor: DEVELOPMENT_SPLASH_BACKGROUND,
+    };
+  }
+  return {
+    image: './assets/images/splash-icon.png',
+    resizeMode: 'contain',
+    backgroundColor: '#F8F9F6',
+  };
+}
+
 /**
  * @param {AppVariant} variant
  */
@@ -114,4 +137,7 @@ module.exports = {
   androidAdaptiveIconFor,
   identityFor,
   notificationIconFor,
+  splashScreenFor,
+  DEVELOPMENT_SPLASH_IMAGE,
+  DEVELOPMENT_SPLASH_BACKGROUND,
 };

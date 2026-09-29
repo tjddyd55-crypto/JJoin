@@ -7,6 +7,7 @@ import {
   identityFor,
   notificationIconFor,
   resolveAppVariant,
+  splashScreenFor,
 } from './app-variant-identity.cjs';
 import {
   RUNTIME_VERSION_POLICY,
@@ -112,6 +113,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const hasGoogleServices = fs.existsSync(googleServicesPath);
 
   const notificationIcon = notificationIconFor(variant);
+  const splash = splashScreenFor(variant);
 
   const plugins: ExpoConfig['plugins'] = [
     'expo-router',
@@ -119,9 +121,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     [
       'expo-splash-screen',
       {
-        image: './assets/images/splash-icon.png',
-        resizeMode: 'contain',
-        backgroundColor: '#F8F9F6',
+        image: splash.image,
+        resizeMode: splash.resizeMode,
+        backgroundColor: splash.backgroundColor,
       },
     ],
     [

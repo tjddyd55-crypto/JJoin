@@ -20,6 +20,18 @@ import { AttendanceRewardHost } from '../src/features/rewards/AttendanceRewardHo
 import { ProductionReleaseGate } from '../src/features/release/ProductionReleaseGate';
 import { useAppFonts } from '../src/bootstrap/useAppFonts';
 import { logDevUpdateState } from '../src/features/updates/log-update-state';
+import {
+  DEV_ENTRY_LAUNCH_BACKGROUND,
+  DevEntryLaunchGate,
+  DevEntryLaunchScreen,
+} from '../src/features/bootstrap/DevEntryLaunchScreen';
+import { isDevelopmentVariant } from '../src/lib/app-variant';
+
+function devLaunchRootStyle() {
+  return isDevelopmentVariant()
+    ? { backgroundColor: DEV_ENTRY_LAUNCH_BACKGROUND }
+    : { backgroundColor: clubMinimalTheme.colors.app.background };
+}
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -44,6 +56,7 @@ function PushBootstrap() {
 
 function AuthGateBootstrap({ children }: { children: React.ReactNode }) {
   const { appState, bootstrapping, me } = useSession();
+  const devLaunch = isDevelopmentVariant();
   const segments = useSegments();
   const router = useRouter();
 
@@ -113,10 +126,14 @@ function AuthGateBootstrap({ children }: { children: React.ReactNode }) {
   }, [appState, bootstrapping, segments, router, me]);
 
   if (bootstrapping || appState === AuthAppState.BOOTSTRAPPING) {
-    return <SplashBootstrapScreen />;
+    return devLaunch ? <DevEntryLaunchScreen /> : <SplashBootstrapScreen />;
   }
 
-  return <>{children}</>;
+  return (
+    <DevEntryLaunchGate bootstrapping={false}>
+      {children}
+    </DevEntryLaunchGate>
+  );
 }
 
 const ONBOARDING_SCREENS = ['profile-setup', 'profile-photo', 'location'] as const;
@@ -164,19 +181,25 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
+    if (isDevelopmentVariant()) {
+      // Hero launch is the first frame — do not wait for fonts (avoids wordmark flash).
+      void SplashScreen.hideAsync();
+      return;
+    }
     if (fontsLoaded) {
       void SplashScreen.hideAsync();
     }
   }, [fontsLoaded]);
 
   if (!fontsLoaded) {
+    const preFontSplash = isDevelopmentVariant() ? (
+      <DevEntryLaunchScreen />
+    ) : (
+      <SplashBootstrapScreen />
+    );
     return (
-      <GestureHandlerRootView
-        style={[styles.root, { backgroundColor: clubMinimalTheme.colors.app.background }]}
-      >
-        <ThemeProvider theme={clubMinimalTheme}>
-          <SplashBootstrapScreen />
-        </ThemeProvider>
+      <GestureHandlerRootView style={[styles.root, devLaunchRootStyle()]}>
+        <ThemeProvider theme={clubMinimalTheme}>{preFontSplash}</ThemeProvider>
       </GestureHandlerRootView>
     );
   }
@@ -190,9 +213,7 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView
-      style={[styles.root, { backgroundColor: clubMinimalTheme.colors.app.background }]}
-    >
+    <GestureHandlerRootView style={[styles.root, devLaunchRootStyle()]}>
       <ThemeProvider theme={clubMinimalTheme}>
         <ProductionReleaseGate>
           <SessionProvider>

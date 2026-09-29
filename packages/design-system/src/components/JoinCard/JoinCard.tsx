@@ -41,7 +41,7 @@ export type JoinCardProps = {
   accessibilityLabel?: string;
   /** Finished join: dimmed card with a "완료" watermark. Stays pressable (read-only detail). */
   completed?: boolean;
-  /** Watermark text for completed cards (default "완료"). */
+  /** Watermark text for completed cards (default "조인 완료"). */
   completedLabel?: string;
 };
 
@@ -66,7 +66,7 @@ export function JoinCard({
   onPress,
   accessibilityLabel,
   completed = false,
-  completedLabel = '완료',
+  completedLabel = '조인 완료',
 }: JoinCardProps) {
   const theme = useTheme();
   const isCompact = variant === 'compact' || variant === 'preview';
