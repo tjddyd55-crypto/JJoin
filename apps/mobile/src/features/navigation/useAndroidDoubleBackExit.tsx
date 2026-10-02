@@ -1,10 +1,10 @@
-import { useCallback, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BackHandler, Platform, StyleSheet, View } from 'react-native';
 import { exitAndroidAppCompletely } from 'jjoin-app-exit';
 import { Text, useTheme } from '@jjoin/design-system';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useFocusEffect } from 'expo-router';
+import { useNavigation } from 'expo-router';
 import {
   ANDROID_DOUBLE_BACK_EXIT_WINDOW_MS,
   resolveAndroidDoubleBackExitAction,
@@ -14,44 +14,44 @@ const EXIT_TOAST_LABEL = '한 번 더 누르면 종료됩니다.';
 
 const EXIT_WINDOW_MS = ANDROID_DOUBLE_BACK_EXIT_WINDOW_MS;
 export function useAndroidDoubleBackExit(active: boolean) {
+  const navigation = useNavigation();
   const lastBackAt = useRef(0);
   const [visible, setVisible] = useState(false);
   const insets = useSafeAreaInsets();
   const theme = useTheme();
 
-  useFocusEffect(
-    useCallback(() => {
-      if (Platform.OS !== 'android' || !active) return;
+  useEffect(() => {
+    if (Platform.OS !== 'android' || !active) return;
 
-      let hideTimer: ReturnType<typeof setTimeout> | undefined;
+    let hideTimer: ReturnType<typeof setTimeout> | undefined;
 
-      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-        const now = Date.now();
-        // HomeScreen only: ignore global navigation history (e.g. after MY deep links).
-        const action = resolveAndroidDoubleBackExitAction({
-          canGoBack: false,
-          now,
-          lastBackAt: lastBackAt.current,
-          windowMs: EXIT_WINDOW_MS,
-        });
-        if (action === 'navigate') return false;
-        if (action === 'exit') {
-          exitAndroidAppCompletely();
-          return true;
-        }
-        lastBackAt.current = now;
-        setVisible(true);
-        if (hideTimer) clearTimeout(hideTimer);
-        hideTimer = setTimeout(() => setVisible(false), EXIT_WINDOW_MS);
-        return true;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!navigation.isFocused()) return false;
+
+      const now = Date.now();
+      const action = resolveAndroidDoubleBackExitAction({
+        canGoBack: false,
+        now,
+        lastBackAt: lastBackAt.current,
+        windowMs: EXIT_WINDOW_MS,
       });
+      if (action === 'navigate') return false;
+      if (action === 'exit') {
+        exitAndroidAppCompletely();
+        return true;
+      }
+      lastBackAt.current = now;
+      setVisible(true);
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => setVisible(false), EXIT_WINDOW_MS);
+      return true;
+    });
 
-      return () => {
-        sub.remove();
-        if (hideTimer) clearTimeout(hideTimer);
-      };
-    }, [active]),
-  );
+    return () => {
+      sub.remove();
+      if (hideTimer) clearTimeout(hideTimer);
+    };
+  }, [active, navigation]);
 
   const hint =
     visible && active ? (
