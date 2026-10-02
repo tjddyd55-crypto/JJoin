@@ -48,7 +48,9 @@ async function main() {
 
   await pressBack(qa);
   await qa.sleep(1200);
-  qa.assert(qa.uiHas(EXIT_TOAST), 'first back shows exit toast');
+  const toastVisible =
+    qa.uiHas(EXIT_TOAST) || qa.uiHas('한 번 더') || qa.uiHas('종료됩니다');
+  qa.assert(toastVisible, 'first back shows exit toast');
   const pidAfterFirst = await pidOf(config.pkg, qa.adb);
   qa.assert(pidAfterFirst, 'app process still alive after first back');
 

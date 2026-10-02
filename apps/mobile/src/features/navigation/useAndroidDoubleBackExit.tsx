@@ -57,9 +57,7 @@ export function useAndroidDoubleBackExit(active: boolean) {
     visible && active ? (
       <View
         pointerEvents="none"
-        accessible
         accessibilityLiveRegion="polite"
-        accessibilityLabel={EXIT_TOAST_LABEL}
         style={[
           styles.hint,
           {
@@ -68,7 +66,13 @@ export function useAndroidDoubleBackExit(active: boolean) {
           },
         ]}
       >
-        <Text variant="caption" tone="secondary" accessibilityElementsHidden importantForAccessibility="no">
+        <Text
+          variant="caption"
+          tone="secondary"
+          accessible
+          accessibilityRole="text"
+          accessibilityLabel={EXIT_TOAST_LABEL}
+        >
           {EXIT_TOAST_LABEL}
         </Text>
       </View>
