@@ -17,8 +17,6 @@ import { HomeClubSection } from '../components/HomeClubSection';
 import { useHomeData } from '../hooks/useHomeData';
 import { useNotificationUnreadCount } from '../../notifications/useNotificationUnreadCount';
 import { isClubsUiEnabled } from '../../clubs/clubs-ui-gate';
-import { useAndroidDoubleBackExit } from '../../navigation/useAndroidDoubleBackExit';
-
 function joinDetailHref(joinId: string): Href {
   return { pathname: '/join/[joinId]', params: { joinId } } as Href;
 }
@@ -30,7 +28,6 @@ function joinsListHref(venueType: 'FIELD' | 'SCREEN'): Href {
 export function HomeScreen() {
   const { me } = useSession();
   const router = useRouter();
-  const { exitHint } = useAndroidDoubleBackExit(true);
   const regionLabel = me?.publicProfile?.regionLabel ?? '내 주변';
   const userId = me?.userId;
 
@@ -57,7 +54,6 @@ export function HomeScreen() {
   );
 
   return (
-    <>
     <ScrollScreenFrame
       contentContainerStyle={styles.content}
       contentPaddingBottom={spacing.xl + 72}
@@ -139,8 +135,6 @@ export function HomeScreen() {
 
       <Spacer size="md" />
     </ScrollScreenFrame>
-    {exitHint}
-    </>
   );
 }
 
