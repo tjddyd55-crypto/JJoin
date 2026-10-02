@@ -1,11 +1,10 @@
 import { useCallback, useRef, useState } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
 import { BackHandler, Platform, StyleSheet, View } from 'react-native';
 import { exitAndroidAppCompletely } from 'jjoin-app-exit';
 import { Text, useTheme } from '@jjoin/design-system';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { usePathname, useRouter, useSegments } from 'expo-router';
+import { useFocusEffect, usePathname, useRouter, useSegments } from 'expo-router';
 import {
   ANDROID_DOUBLE_BACK_EXIT_WINDOW_MS,
   isAndroidHomeExitRootFromSegments,
