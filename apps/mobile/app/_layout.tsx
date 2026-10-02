@@ -23,11 +23,10 @@ import { logDevUpdateState } from '../src/features/updates/log-update-state';
 import {
   DEV_ENTRY_LAUNCH_BACKGROUND,
   DevEntryLaunchGate,
-  DevEntryLaunchScreen,
 } from '../src/features/bootstrap/DevEntryLaunchScreen';
 import { isDevelopmentVariant } from '../src/lib/app-variant';
-import { loadCachedAppLaunch } from '../src/features/bootstrap/app-launch-cache';
-import { setAppLaunchRuntime } from '../src/features/bootstrap/app-launch-runtime';
+import '../src/features/bootstrap/app-launch-boot-snapshot';
+import { hideNativeSplashOnce } from '../src/features/bootstrap/hide-native-splash-once';
 
 function devLaunchRootStyle() {
   return isDevelopmentVariant()
@@ -36,13 +35,6 @@ function devLaunchRootStyle() {
 }
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
-
-void loadCachedAppLaunch().then((cached) => {
-  setAppLaunchRuntime({
-    displayDurationMs: cached.displayDurationMs,
-    enabled: cached.enabled,
-  });
-});
 
 if (__DEV__) {
   console.log('[BOOT 01] module _layout loaded');
@@ -134,12 +126,16 @@ function AuthGateBootstrap({ children }: { children: React.ReactNode }) {
     }
   }, [appState, bootstrapping, segments, router, me]);
 
-  if (bootstrapping || appState === AuthAppState.BOOTSTRAPPING) {
-    return devLaunch ? <DevEntryLaunchScreen /> : <SplashBootstrapScreen />;
+  const launching =
+    bootstrapping ||
+    appState === AuthAppState.BOOTSTRAPPING;
+
+  if (!devLaunch && launching) {
+    return <SplashBootstrapScreen />;
   }
 
   return (
-    <DevEntryLaunchGate bootstrapping={false}>
+    <DevEntryLaunchGate bootstrapping={launching}>
       {children}
     </DevEntryLaunchGate>
   );
@@ -191,24 +187,20 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (isDevelopmentVariant()) {
-      // Hero launch is the first frame — do not wait for fonts (avoids wordmark flash).
-      void SplashScreen.hideAsync();
       return;
     }
     if (fontsLoaded) {
-      void SplashScreen.hideAsync();
+      void hideNativeSplashOnce();
     }
   }, [fontsLoaded]);
 
-  if (!fontsLoaded) {
-    const preFontSplash = isDevelopmentVariant() ? (
-      <DevEntryLaunchScreen />
-    ) : (
-      <SplashBootstrapScreen />
-    );
+  const devVariant = isDevelopmentVariant();
+  if (!fontsLoaded && !devVariant) {
     return (
       <GestureHandlerRootView style={[styles.root, devLaunchRootStyle()]}>
-        <ThemeProvider theme={clubMinimalTheme}>{preFontSplash}</ThemeProvider>
+        <ThemeProvider theme={clubMinimalTheme}>
+          <SplashBootstrapScreen />
+        </ThemeProvider>
       </GestureHandlerRootView>
     );
   }

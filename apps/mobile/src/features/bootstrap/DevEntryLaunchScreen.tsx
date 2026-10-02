@@ -18,6 +18,11 @@ import {
   refreshAppLaunchCacheInBackground,
   type CachedAppLaunch,
 } from './app-launch-cache';
+import {
+  appLaunchBootSnapshotReady,
+  readAppLaunchBootSnapshot,
+} from './app-launch-boot-snapshot';
+import { hideNativeSplashOnce } from './hide-native-splash-once';
 
 export {
   DEV_ENTRY_LAUNCH_BACKGROUND,
@@ -26,29 +31,54 @@ export {
   devEntryLaunchStartedAt,
 } from './dev-entry-launch-timing';
 
-export function DevEntryLaunchScreen() {
-  const [cache, setCache] = useState<CachedAppLaunch | null>(null);
+type DevEntryLaunchScreenProps = {
+  onHeroPainted?: () => void;
+};
+
+export function DevEntryLaunchScreen({ onHeroPainted }: DevEntryLaunchScreenProps) {
+  const [cache, setCache] = useState<CachedAppLaunch | null>(() => readAppLaunchBootSnapshot());
+  const embedded = useMemo(() => readEmbeddedLaunchImageSource(), []);
 
   useEffect(() => {
-    void loadCachedAppLaunch().then((loaded) => {
-      setCache(loaded);
+    if (cache) return;
+    void appLaunchBootSnapshotReady.then(setCache);
+  }, [cache]);
+
+  useEffect(() => {
+    void refreshAppLaunchCacheInBackground().then(async () => {
+      const refreshed = await loadCachedAppLaunch();
+      setCache(refreshed);
       setAppLaunchRuntime({
-        displayDurationMs: loaded.displayDurationMs,
-        enabled: loaded.enabled,
+        displayDurationMs: refreshed.displayDurationMs,
+        enabled: refreshed.enabled,
       });
     });
-    void refreshAppLaunchCacheInBackground();
   }, []);
 
   const source: ImageSourcePropType = useMemo(() => {
     if (cache?.imageUri) return { uri: cache.imageUri };
-    return readEmbeddedLaunchImageSource();
-  }, [cache?.imageUri]);
+    return embedded;
+  }, [cache?.imageUri, embedded]);
+
+  const onHeroLoadEnd = () => {
+    if (isDevelopmentVariant()) {
+      void hideNativeSplashOnce();
+    }
+    onHeroPainted?.();
+  };
 
   return (
     <View style={styles.root} accessibilityRole="image" accessibilityLabel="쪼인존">
       <StatusBar hidden />
-      <Image source={source} style={styles.image} resizeMode="cover" accessibilityIgnoresInvertColors />
+      <Image
+        source={source}
+        defaultSource={embedded}
+        style={styles.image}
+        resizeMode="cover"
+        fadeDuration={0}
+        onLoadEnd={onHeroLoadEnd}
+        accessibilityIgnoresInvertColors
+      />
     </View>
   );
 }
@@ -60,11 +90,11 @@ type DevEntryLaunchGateProps = {
 
 export function DevEntryLaunchGate({ bootstrapping, children }: DevEntryLaunchGateProps) {
   const enabled = isDevelopmentVariant() && isAppLaunchEnabled();
-  const [showOverlay, setShowOverlay] = useState(enabled);
+  const [overlayDismissed, setOverlayDismissed] = useState(false);
 
   useEffect(() => {
     if (!enabled) {
-      setShowOverlay(false);
+      void hideNativeSplashOnce();
       return;
     }
 
@@ -73,11 +103,11 @@ export function DevEntryLaunchGate({ bootstrapping, children }: DevEntryLaunchGa
     const tick = () => {
       const elapsed = Date.now() - devEntryLaunchStartedAt;
       if (elapsed >= DEV_ENTRY_LAUNCH_SAFETY_MAX_MS) {
-        setShowOverlay(false);
+        setOverlayDismissed(true);
         return;
       }
       if (!bootstrapping && elapsed >= minMs) {
-        setShowOverlay(false);
+        setOverlayDismissed(true);
       }
     };
 
@@ -86,14 +116,21 @@ export function DevEntryLaunchGate({ bootstrapping, children }: DevEntryLaunchGa
     return () => clearInterval(id);
   }, [enabled, bootstrapping]);
 
+  const heroVisible = enabled && !overlayDismissed;
+
   if (!enabled) {
     return <>{children}</>;
   }
 
   return (
     <View style={styles.gateRoot}>
-      {children}
-      {showOverlay ? (
+      <View
+        style={[styles.appUnderlay, heroVisible && styles.appHiddenWhileHero]}
+        pointerEvents={heroVisible ? 'none' : 'auto'}
+      >
+        {children}
+      </View>
+      {heroVisible ? (
         <View style={styles.overlay} pointerEvents="auto">
           <DevEntryLaunchScreen />
         </View>
@@ -114,10 +151,18 @@ const styles = StyleSheet.create({
   },
   gateRoot: {
     flex: 1,
+    backgroundColor: DEV_ENTRY_LAUNCH_BACKGROUND,
+  },
+  appUnderlay: {
+    flex: 1,
+  },
+  appHiddenWhileHero: {
+    opacity: 0,
   },
   overlay: {
     ...StyleSheet.absoluteFill,
     zIndex: 9999,
     elevation: 9999,
+    backgroundColor: DEV_ENTRY_LAUNCH_BACKGROUND,
   },
 });
