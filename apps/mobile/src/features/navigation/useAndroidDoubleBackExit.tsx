@@ -4,19 +4,16 @@ import { exitAndroidAppCompletely } from 'jjoin-app-exit';
 import { Text, useTheme } from '@jjoin/design-system';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useFocusEffect, usePathname, useRouter, useSegments } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import {
   ANDROID_DOUBLE_BACK_EXIT_WINDOW_MS,
-  isAndroidHomeExitRootFromSegments,
-  isAndroidHomeExitRootPath,
   resolveAndroidDoubleBackExitAction,
 } from './android-double-back-exit-logic';
 
+const EXIT_TOAST_LABEL = '한 번 더 누르면 종료됩니다.';
+
 const EXIT_WINDOW_MS = ANDROID_DOUBLE_BACK_EXIT_WINDOW_MS;
 export function useAndroidDoubleBackExit(active: boolean) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const segments = useSegments();
   const lastBackAt = useRef(0);
   const [visible, setVisible] = useState(false);
   const insets = useSafeAreaInsets();
@@ -30,10 +27,9 @@ export function useAndroidDoubleBackExit(active: boolean) {
 
       const sub = BackHandler.addEventListener('hardwareBackPress', () => {
         const now = Date.now();
-        const atHomeExitRoot =
-          isAndroidHomeExitRootPath(pathname) || isAndroidHomeExitRootFromSegments(segments);
+        // HomeScreen only: ignore global navigation history (e.g. after MY deep links).
         const action = resolveAndroidDoubleBackExitAction({
-          canGoBack: router.canGoBack() && !atHomeExitRoot,
+          canGoBack: false,
           now,
           lastBackAt: lastBackAt.current,
           windowMs: EXIT_WINDOW_MS,
@@ -54,13 +50,16 @@ export function useAndroidDoubleBackExit(active: boolean) {
         sub.remove();
         if (hideTimer) clearTimeout(hideTimer);
       };
-    }, [active, pathname, router, segments]),
+    }, [active]),
   );
 
   const hint =
     visible && active ? (
       <View
         pointerEvents="none"
+        accessible
+        accessibilityLiveRegion="polite"
+        accessibilityLabel={EXIT_TOAST_LABEL}
         style={[
           styles.hint,
           {
@@ -69,8 +68,8 @@ export function useAndroidDoubleBackExit(active: boolean) {
           },
         ]}
       >
-        <Text variant="caption" tone="secondary">
-          한 번 더 누르면 종료됩니다.
+        <Text variant="caption" tone="secondary" accessibilityElementsHidden importantForAccessibility="no">
+          {EXIT_TOAST_LABEL}
         </Text>
       </View>
     ) : null;

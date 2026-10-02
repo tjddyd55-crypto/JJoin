@@ -11,7 +11,7 @@ import {
 } from './lib/android-dev-qa.ts';
 
 const TAG = '[real-exit-device]';
-const EXIT_TOAST = '한 번 더 누르면 종료됩니다';
+const EXIT_TOAST = '한 번 더 누르면 종료됩니다.';
 
 async function pidOf(pkg: string, adb: (args: string[]) => string): Promise<string | null> {
   try {
