@@ -13,6 +13,12 @@ export function isAndroidHomeExitRootPath(pathname: string): boolean {
   );
 }
 
+export function isAndroidHomeExitRootFromSegments(segments: readonly string[]): boolean {
+  if (segments[0] !== '(tabs)') return false;
+  const tab = segments[1];
+  return tab === undefined || tab === 'index';
+}
+
 export function resolveAndroidDoubleBackExitAction(input: {
   canGoBack: boolean;
   now: number;

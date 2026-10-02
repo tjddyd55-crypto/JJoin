@@ -1,12 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { BackHandler, Platform, StyleSheet, View } from 'react-native';
 import { exitAndroidAppCompletely } from 'jjoin-app-exit';
 import { Text, useTheme } from '@jjoin/design-system';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { usePathname, useRouter } from 'expo-router';
+import { usePathname, useRouter, useSegments } from 'expo-router';
 import {
   ANDROID_DOUBLE_BACK_EXIT_WINDOW_MS,
+  isAndroidHomeExitRootFromSegments,
   isAndroidHomeExitRootPath,
   resolveAndroidDoubleBackExitAction,
 } from './android-double-back-exit-logic';
@@ -15,42 +17,46 @@ const EXIT_WINDOW_MS = ANDROID_DOUBLE_BACK_EXIT_WINDOW_MS;
 export function useAndroidDoubleBackExit(active: boolean) {
   const router = useRouter();
   const pathname = usePathname();
+  const segments = useSegments();
   const lastBackAt = useRef(0);
   const [visible, setVisible] = useState(false);
   const insets = useSafeAreaInsets();
   const theme = useTheme();
 
-  useEffect(() => {
-    if (Platform.OS !== 'android' || !active) return;
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android' || !active) return;
 
-    let hideTimer: ReturnType<typeof setTimeout> | undefined;
+      let hideTimer: ReturnType<typeof setTimeout> | undefined;
 
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      const now = Date.now();
-      const atHomeExitRoot = isAndroidHomeExitRootPath(pathname);
-      const action = resolveAndroidDoubleBackExitAction({
-        canGoBack: router.canGoBack() && !atHomeExitRoot,
-        now,
-        lastBackAt: lastBackAt.current,
-        windowMs: EXIT_WINDOW_MS,
-      });
-      if (action === 'navigate') return false;
-      if (action === 'exit') {
-        exitAndroidAppCompletely();
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        const now = Date.now();
+        const atHomeExitRoot =
+          isAndroidHomeExitRootPath(pathname) || isAndroidHomeExitRootFromSegments(segments);
+        const action = resolveAndroidDoubleBackExitAction({
+          canGoBack: router.canGoBack() && !atHomeExitRoot,
+          now,
+          lastBackAt: lastBackAt.current,
+          windowMs: EXIT_WINDOW_MS,
+        });
+        if (action === 'navigate') return false;
+        if (action === 'exit') {
+          exitAndroidAppCompletely();
+          return true;
+        }
+        lastBackAt.current = now;
+        setVisible(true);
+        if (hideTimer) clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => setVisible(false), EXIT_WINDOW_MS);
         return true;
-      }
-      lastBackAt.current = now;
-      setVisible(true);
-      if (hideTimer) clearTimeout(hideTimer);
-      hideTimer = setTimeout(() => setVisible(false), EXIT_WINDOW_MS);
-      return true;
-    });
+      });
 
-    return () => {
-      sub.remove();
-      if (hideTimer) clearTimeout(hideTimer);
-    };
-  }, [active, pathname, router]);
+      return () => {
+        sub.remove();
+        if (hideTimer) clearTimeout(hideTimer);
+      };
+    }, [active, pathname, router, segments]),
+  );
 
   const hint =
     visible && active ? (
