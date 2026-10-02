@@ -56,12 +56,12 @@ test('development splash uses hero launch image; production keeps wordmark splas
   assert.equal(prod.resizeMode, 'contain');
 });
 
-test('development expo splash plugin uses fullscreen hero (not default imageWidth 100)', () => {
+test('development expo splash plugin widens Android icon; JS overlay supplies fullscreen hero', () => {
   const dev = expoSplashPluginConfigFor('development');
   assert.equal(dev.resizeMode, 'cover');
   assert.equal(dev.enableFullScreenImage_legacy, true);
   assert.equal(dev.android?.resizeMode, 'cover');
-  assert.equal(dev.imageWidth, undefined);
+  assert.equal(dev.android?.imageWidth, 288);
   const prod = expoSplashPluginConfigFor('production');
   assert.equal(prod.imageWidth, 200);
 });

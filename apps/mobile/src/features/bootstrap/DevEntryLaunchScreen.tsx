@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Image, StyleSheet, View, type ImageSourcePropType } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { isDevelopmentVariant } from '../../lib/app-variant';
 import {
   DEV_ENTRY_LAUNCH_BACKGROUND,
   DEV_ENTRY_LAUNCH_SAFETY_MAX_MS,
@@ -23,6 +22,7 @@ import {
   readAppLaunchBootSnapshot,
 } from './app-launch-boot-snapshot';
 import { hideNativeSplashOnce } from './hide-native-splash-once';
+import { isDevelopmentVariant } from '../../lib/app-variant';
 
 export {
   DEV_ENTRY_LAUNCH_BACKGROUND,
@@ -30,11 +30,6 @@ export {
   DEV_ENTRY_LAUNCH_SAFETY_MAX_MS,
   devEntryLaunchStartedAt,
 } from './dev-entry-launch-timing';
-
-/** Admin-uploaded hero only — default launch uses native fullscreen splash (no JS duplicate). */
-export function shouldUseCustomLaunchHeroOverlay(cache: CachedAppLaunch | null): boolean {
-  return Boolean(cache?.imageUri?.trim());
-}
 
 type DevEntryLaunchScreenProps = {
   cache: CachedAppLaunch | null;
@@ -68,15 +63,13 @@ type DevEntryLaunchGateProps = {
 
 export function DevEntryLaunchGate({ bootstrapping, children }: DevEntryLaunchGateProps) {
   const enabled = isDevelopmentVariant() && isAppLaunchEnabled();
-  const [cache, setCache] = useState<CachedAppLaunch | null>(() => readAppLaunchBootSnapshot());
+  const [launchCache] = useState<CachedAppLaunch | null>(() => readAppLaunchBootSnapshot());
   const [overlayDismissed, setOverlayDismissed] = useState(false);
 
   useEffect(() => {
-    if (cache) return;
-    void appLaunchBootSnapshotReady.then(setCache);
-  }, [cache]);
+    void appLaunchBootSnapshotReady.catch(() => undefined);
+  }, []);
 
-  const useJsHero = shouldUseCustomLaunchHeroOverlay(cache);
   const launchBlocking = enabled && !overlayDismissed;
 
   useEffect(() => {
@@ -84,6 +77,13 @@ export function DevEntryLaunchGate({ bootstrapping, children }: DevEntryLaunchGa
       void hideNativeSplashOnce();
       return;
     }
+    if (!launchBlocking) return;
+    // Android 12+ native splash is a small centered icon — hide as soon as JS hero mounts.
+    void hideNativeSplashOnce();
+  }, [enabled, launchBlocking]);
+
+  useEffect(() => {
+    if (!enabled) return;
 
     const minMs = getAppLaunchDurationMs();
 
@@ -105,10 +105,8 @@ export function DevEntryLaunchGate({ bootstrapping, children }: DevEntryLaunchGa
 
   useEffect(() => {
     if (!overlayDismissed) return;
-    void hideNativeSplashOnce();
     void refreshAppLaunchCacheInBackground().then(async () => {
       const refreshed = await loadCachedAppLaunch();
-      setCache(refreshed);
       setAppLaunchRuntime({
         displayDurationMs: refreshed.displayDurationMs,
         enabled: refreshed.enabled,
@@ -128,9 +126,9 @@ export function DevEntryLaunchGate({ bootstrapping, children }: DevEntryLaunchGa
       >
         {children}
       </View>
-      {launchBlocking && useJsHero ? (
+      {launchBlocking ? (
         <View style={styles.overlay} pointerEvents="auto">
-          <DevEntryLaunchScreen cache={cache} />
+          <DevEntryLaunchScreen cache={launchCache} />
         </View>
       ) : null}
     </View>

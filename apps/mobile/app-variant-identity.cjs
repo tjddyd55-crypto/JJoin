@@ -108,7 +108,8 @@ function splashScreenFor(variant) {
 }
 
 /**
- * expo-splash-screen plugin SSOT — DEV hero must be fullscreen (default imageWidth=100 is a small centered logo).
+ * expo-splash-screen plugin SSOT.
+ * Android 12+ uses a small centered splash icon (imageWidth); DEV fullscreen hero is JS overlay (OTA).
  *
  * @param {AppVariant} variant
  */
@@ -124,6 +125,7 @@ function expoSplashPluginConfigFor(variant) {
         image: splash.image,
         resizeMode: 'cover',
         backgroundColor: splash.backgroundColor,
+        imageWidth: 288,
       },
     };
   }
