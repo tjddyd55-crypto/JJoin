@@ -1227,6 +1227,7 @@ export {
   JOIN_SESSION_REVIEW_TITLE_MAX,
   buildJoinSessionReviewPhotoObjectKey,
   evaluateJoinSessionReviewAuthorEligibility,
+  isJoinSessionReviewPhotoObjectKey,
   normalizeJoinSessionReviewContent,
   normalizeJoinSessionReviewTitle,
 } from './join-session-review';

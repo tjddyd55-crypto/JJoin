@@ -8,6 +8,7 @@ import {
   buildMallProductContentObjectKey,
   buildMallProductGalleryObjectKey,
   buildPublicObjectUrl,
+  isJoinSessionReviewPhotoObjectKey,
   isOwnedProfileObjectKey,
   isOwnedStoreProfileObjectKey,
   isOwnedMallProductObjectKey,
@@ -292,13 +293,16 @@ export class ObjectStorageService {
   async deleteObject(objectKey: string, ownerUserId: string): Promise<void> {
     if (!objectKey || objectKey.startsWith('mock://') || objectKey.startsWith('http')) return;
     if (!this.client || !this.config.enabled) return;
-    if (
-      !isOwnedProfileObjectKey({
-        objectKey,
-        environmentPrefix: this.config.environmentPrefix,
-        userId: ownerUserId,
-      })
-    ) {
+    const ownedProfile = isOwnedProfileObjectKey({
+      objectKey,
+      environmentPrefix: this.config.environmentPrefix,
+      userId: ownerUserId,
+    });
+    const ownedJoinReviewPhoto = isJoinSessionReviewPhotoObjectKey({
+      objectKey,
+      environmentPrefix: this.config.environmentPrefix,
+    });
+    if (!ownedProfile && !ownedJoinReviewPhoto) {
       this.logger.warn(`skip_delete_unowned_object user=${ownerUserId}`);
       return;
     }

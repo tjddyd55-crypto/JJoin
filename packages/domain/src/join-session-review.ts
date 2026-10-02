@@ -55,3 +55,18 @@ export function buildJoinSessionReviewPhotoObjectKey(params: {
   const ext = params.extension === 'jpg' ? 'jpg' : params.extension;
   return `${params.environmentPrefix}/join-reviews/${params.reviewId}/${params.fileId}.${ext}`;
 }
+
+const JOIN_SESSION_REVIEW_PHOTO_LEAF = /\.(jpg|jpeg|png|webp)$/i;
+
+/** R2 keys for join session review photos (author eligibility checked before delete). */
+export function isJoinSessionReviewPhotoObjectKey(params: {
+  objectKey: string;
+  environmentPrefix: 'development' | 'production';
+}): boolean {
+  const key = params.objectKey.replace(/^\/+/, '');
+  const prefix = `${params.environmentPrefix}/join-reviews/`;
+  if (!key.startsWith(prefix) || !JOIN_SESSION_REVIEW_PHOTO_LEAF.test(key)) return false;
+  const rest = key.slice(prefix.length);
+  const segments = rest.split('/').filter(Boolean);
+  return segments.length === 2;
+}

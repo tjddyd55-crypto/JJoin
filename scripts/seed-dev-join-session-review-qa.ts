@@ -30,6 +30,7 @@ async function resolvePersonaUserId(subject: string, nicknames: string[]): Promi
 }
 
 async function ensureVenue(params: {
+  sportId: string;
   name: string;
   venueType: 'FIELD' | 'SCREEN';
   facilityKey: string;
@@ -38,15 +39,26 @@ async function ensureVenue(params: {
     where: { governmentSourceKey: `${TAG}-${params.facilityKey}` },
   });
   if (!facility) {
+    const facilityType = params.venueType === 'SCREEN' ? 'SCREEN_GOLF' : 'PRACTICE_RANGE';
     facility = await prisma.golfFacility.create({
       data: {
-        displayName: params.name,
+        source: 'MANUAL',
         governmentSourceKey: `${TAG}-${params.facilityKey}`,
-        sido: '경기',
-        sigungu: '성남',
-        isActive: true,
+        managementNo: `${TAG}-mgmt-${params.facilityKey}`,
+        localGovernmentCode: '41135',
+        sourceName: params.name,
+        displayName: params.name,
+        normalizedName: `qa join session review ${params.facilityKey}`,
+        facilityType,
         latitude: 37.4,
         longitude: 127.1,
+        coordinateStatus: 'VALID',
+        coordinateSource: 'MANUAL',
+        isActive: true,
+        isScreenJoinEligible: params.venueType === 'SCREEN',
+        sido: '경기',
+        sigungu: '성남',
+        roadAddress: `${TAG} road ${params.facilityKey}`,
       },
     });
   }
@@ -56,6 +68,7 @@ async function ensureVenue(params: {
   if (!venue) {
     venue = await prisma.venue.create({
       data: {
+        sportId: params.sportId,
         name: params.name,
         venueType: params.venueType,
         golfFacilityId: facility.id,
@@ -97,6 +110,7 @@ async function main() {
     { kind: 'SCREEN' as const, title: `${TAG} 완료 SCREEN 쪼인` },
   ]) {
     const venue = await ensureVenue({
+      sportId: sport.id,
       name: `${TAG} ${spec.kind} venue`,
       venueType: spec.kind,
       facilityKey: spec.kind.toLowerCase(),
