@@ -1,18 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { BackHandler, Platform, StyleSheet, View } from 'react-native';
 import { exitAndroidAppCompletely } from 'jjoin-app-exit';
-import { useRouter } from 'expo-router';
 import { Text, useTheme } from '@jjoin/design-system';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { usePathname, useRouter } from 'expo-router';
 import {
   ANDROID_DOUBLE_BACK_EXIT_WINDOW_MS,
+  isAndroidHomeExitRootPath,
   resolveAndroidDoubleBackExitAction,
 } from './android-double-back-exit-logic';
 
 const EXIT_WINDOW_MS = ANDROID_DOUBLE_BACK_EXIT_WINDOW_MS;
 export function useAndroidDoubleBackExit(active: boolean) {
   const router = useRouter();
+  const pathname = usePathname();
   const lastBackAt = useRef(0);
   const [visible, setVisible] = useState(false);
   const insets = useSafeAreaInsets();
@@ -25,8 +27,9 @@ export function useAndroidDoubleBackExit(active: boolean) {
 
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       const now = Date.now();
+      const atHomeExitRoot = isAndroidHomeExitRootPath(pathname);
       const action = resolveAndroidDoubleBackExitAction({
-        canGoBack: router.canGoBack(),
+        canGoBack: router.canGoBack() && !atHomeExitRoot,
         now,
         lastBackAt: lastBackAt.current,
         windowMs: EXIT_WINDOW_MS,
@@ -47,7 +50,7 @@ export function useAndroidDoubleBackExit(active: boolean) {
       sub.remove();
       if (hideTimer) clearTimeout(hideTimer);
     };
-  }, [active, router]);
+  }, [active, pathname, router]);
 
   const hint =
     visible && active ? (

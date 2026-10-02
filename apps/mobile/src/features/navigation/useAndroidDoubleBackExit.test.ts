@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { resolveAndroidDoubleBackExitAction } from './android-double-back-exit-logic';
+import {
+  isAndroidHomeExitRootPath,
+  resolveAndroidDoubleBackExitAction,
+} from './android-double-back-exit-logic';
 
 describe('Android double-back exit', () => {
   test('delegates to navigation when stack can go back', () => {
@@ -22,6 +25,11 @@ describe('Android double-back exit', () => {
       resolveAndroidDoubleBackExitAction({ canGoBack: false, now: 2500, lastBackAt: 1000 }),
       'exit',
     );
+  });
+
+  test('home tab index paths are exit roots', () => {
+    assert.equal(isAndroidHomeExitRootPath('/(tabs)/index'), true);
+    assert.equal(isAndroidHomeExitRootPath('/join/abc'), false);
   });
 
   test('back after window resets to hint', () => {

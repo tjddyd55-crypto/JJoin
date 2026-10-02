@@ -2,6 +2,17 @@ export const ANDROID_DOUBLE_BACK_EXIT_WINDOW_MS = 2000;
 
 export type AndroidDoubleBackExitAction = 'navigate' | 'hint' | 'exit';
 
+/** Expo Router home tab index — double-back exit applies even if stack history exists. */
+export function isAndroidHomeExitRootPath(pathname: string): boolean {
+  const path = pathname.replace(/\/+$/, '') || '/';
+  return (
+    path === '/' ||
+    path === '/index' ||
+    path === '/(tabs)' ||
+    path === '/(tabs)/index'
+  );
+}
+
 export function resolveAndroidDoubleBackExitAction(input: {
   canGoBack: boolean;
   now: number;
