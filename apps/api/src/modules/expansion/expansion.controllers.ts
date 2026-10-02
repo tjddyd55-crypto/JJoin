@@ -26,8 +26,6 @@ import { StoreBannerAdsService } from './store-banner-ads.service';
 import { StoreProfilePhotoService } from './store-profile-photo.service';
 import { StoreProfilesService } from './store-profiles.service';
 import { AppLaunchService } from './app-launch.service';
-import { JoinSessionReviewService } from '../join-loop/join-session-review.service';
-import type { JoinSessionReviewDto } from '@jjoin/types';
 
 type UploadedImageFile = {
   buffer: Buffer;
@@ -175,7 +173,6 @@ export class AdminExpansionController {
     private readonly ads: StoreBannerAdsService,
     private readonly stores: StoreProfilesService,
     private readonly appLaunch: AppLaunchService,
-    private readonly joinSessionReviews: JoinSessionReviewService,
   ) {}
 
   @Get('feature-flags')
@@ -206,23 +203,6 @@ export class AdminExpansionController {
   @Put('app-launch')
   updateAppLaunch(@Body() body: unknown, @Req() req: Request) {
     return this.appLaunch.update(body, (req as Request & { userId?: string }).userId);
-  }
-
-  @Get('join-session-reviews')
-  listJoinSessionReviews(@Query('limit') limit?: string): Promise<JoinSessionReviewDto[]> {
-    const parsed = limit ? Number.parseInt(limit, 10) : 50;
-    return this.joinSessionReviews.listAdmin(Number.isFinite(parsed) ? parsed : 50);
-  }
-
-  @Delete('join-session-reviews/:reviewId')
-  deleteJoinSessionReview(
-    @Param('reviewId') reviewId: string,
-    @Req() req: Request,
-  ): Promise<void> {
-    return this.joinSessionReviews.deleteReviewAsAdmin(
-      reviewId,
-      (req as Request & { userId?: string }).userId ?? 'admin',
-    );
   }
 
   @Post('app-launch/image')

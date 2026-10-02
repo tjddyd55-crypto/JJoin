@@ -3,7 +3,9 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { AnalyticsModule } from '../analytics/analytics.module';
 import { JoinsModule } from '../joins/joins.module';
 import { SettlementModule } from '../settlement/settlement.module';
+import { AdminGuard } from '../../common/admin.guard';
 import { JoinLoopController } from './join-loop.controller';
+import { JoinSessionReviewAdminController } from './join-session-review-admin.controller';
 import { MeJoinLoopController } from './me-join-loop.controller';
 import { UserReputationController } from './user-reputation.controller';
 import { UrgentVacancyService } from './urgent-vacancy.service';
@@ -24,7 +26,12 @@ import { StorageModule } from '../storage/storage.module';
     StorageModule,
     forwardRef(() => JoinsModule),
   ],
-  controllers: [JoinLoopController, MeJoinLoopController, UserReputationController],
+  controllers: [
+    JoinLoopController,
+    MeJoinLoopController,
+    UserReputationController,
+    JoinSessionReviewAdminController,
+  ],
   providers: [
     UrgentVacancyService,
     AttendanceIntentService,
@@ -34,6 +41,7 @@ import { StorageModule } from '../storage/storage.module';
     PlayerReviewService,
     JoinSessionReviewService,
     ParticipationTrustService,
+    AdminGuard,
   ],
   exports: [
     UrgentVacancyService,

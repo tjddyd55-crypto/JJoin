@@ -17,10 +17,8 @@ import { StoreBannerAdsService } from './store-banner-ads.service';
 import { StoreProfilePhotoService } from './store-profile-photo.service';
 import { StoreProfilesService } from './store-profiles.service';
 import { AppLaunchService } from './app-launch.service';
-import { JoinLoopModule } from '../join-loop/join-loop.module';
-
 @Module({
-  imports: [WalletModule, NotificationsModule, PaymentsModule, StorageModule, JoinLoopModule],
+  imports: [WalletModule, NotificationsModule, PaymentsModule, StorageModule],
   controllers: [PublicExpansionController, MeExpansionController, AdminExpansionController],
   providers: [
     FeatureFlagsService,
