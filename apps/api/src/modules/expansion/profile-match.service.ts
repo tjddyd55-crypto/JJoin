@@ -130,8 +130,8 @@ export class ProfileMatchService {
       await this.notifications.enqueueSafe({
         userId: pref.userId,
         type: NotificationType.PROFILE_MATCH_JOIN,
-        title: '프로필 조건에 맞는 조인',
-        body: `${host.profile?.nickname ?? '호스트'}님의 조인이 조건과 맞습니다.`,
+        title: '프로필 조건에 맞는 쪼인',
+        body: `${host.profile?.nickname ?? '호스트'}님의 쪼인이 조건과 맞습니다.`,
         data: { type: NotificationType.PROFILE_MATCH_JOIN, joinId: join.id },
         eventKey: profileMatchNotificationEventKey({
           subscriberUserId: pref.userId,

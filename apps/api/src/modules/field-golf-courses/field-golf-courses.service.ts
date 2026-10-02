@@ -121,7 +121,7 @@ export class FieldGolfCoursesService {
     if (!course.isActive) {
       throw new BadRequestException({
         code: 'FIELD_COURSE_INACTIVE',
-        message: '조인 장소로 활성화할 수 없는 골프장입니다.',
+        message: '쪼인 장소로 활성화할 수 없는 골프장입니다.',
       });
     }
 

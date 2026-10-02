@@ -17,9 +17,9 @@ test('recommendShortReasonLabels returns max 2 short tags', () => {
     seatsLeft: 2,
     isUrgent: false,
     reasonCode: 'NEARBY',
-    reasonLabel: '내 주변 조인이에요',
+    reasonLabel: '내 주변 쪼인이에요',
     reasons: [
-      { code: 'NEARBY', label: '내 주변 조인이에요' },
+      { code: 'NEARBY', label: '내 주변 쪼인이에요' },
       { code: 'PREFERRED_TIME', label: '자주 가는 시간대' },
       { code: 'URGENT', label: '오늘 긴급 모집' },
     ],
@@ -56,9 +56,9 @@ test('formatJoinDisplayTitle maps DEV QA names in dev builds', () => {
   assert.equal(formatJoinDisplayTitle('DEV E2E 스크린골프'), '퇴근 후 저녁 라운드');
 });
 
-test('applyCompletedJoinCardProps dims the card with a single 조인 완료 badge and no seats/D-day', () => {
+test('applyCompletedJoinCardProps dims the card with a single 쪼인 완료 badge and no seats/D-day', () => {
   const props = applyCompletedJoinCardProps({
-    title: '조인',
+    title: '쪼인',
     venueName: '춘천 CC',
     scheduleLabel: '오늘 07:20',
     countLabel: '2/4명',
@@ -72,7 +72,7 @@ test('applyCompletedJoinCardProps dims the card with a single 조인 완료 badg
   assert.equal(props.seatsHighlight, null);
   assert.equal(props.ddayLabel, null);
   assert.equal(props.isUrgent, false);
-  assert.deepEqual(props.statusBadges, [{ label: '조인 완료', tone: 'closed' }]);
-  assert.equal(props.completedLabel, '조인 완료');
+  assert.deepEqual(props.statusBadges, [{ label: '쪼인 완료', tone: 'closed' }]);
+  assert.equal(props.completedLabel, '쪼인 완료');
   assert.equal(typeof props.onPress, 'function');
 });

@@ -16,7 +16,7 @@ test('messageForJoinCreateError maps insufficient balance', () => {
       statusCode: 400,
     }),
   );
-  assert.equal(messageForJoinCreateError(error), '조인을 만들기 위한 코인이 부족합니다.');
+  assert.equal(messageForJoinCreateError(error), '쪼인을 만들기 위한 코인이 부족합니다.');
 });
 
 test('messageForJoinCreateError maps host gender quota', () => {
@@ -64,7 +64,7 @@ test('messageForJoinCreateError maps store ownership and schedule codes', () => 
   );
   assert.equal(
     messageForJoinCreateError(ownership),
-    '승인된 매장이 있어야 모집 조인을 만들 수 있습니다.',
+    '승인된 매장이 있어야 모집 쪼인을 만들 수 있습니다.',
   );
 
   const schedule = new ApiRequestError(

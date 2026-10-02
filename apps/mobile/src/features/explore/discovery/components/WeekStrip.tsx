@@ -89,7 +89,7 @@ function DayCell({
     `${cell.weekdayLabel}요일 ${cell.dayOfMonth}일`,
     cell.isToday ? '오늘' : null,
     selected ? '선택됨' : null,
-    count > 0 ? `조인 ${count}개` : null,
+    count > 0 ? `쪼인 ${count}개` : null,
   ]
     .filter(Boolean)
     .join(', ');

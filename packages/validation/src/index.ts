@@ -1064,6 +1064,17 @@ export const upsertStoreProfileSchema = z.object({
   priceSlots: z.array(storePriceSlotInputSchema).max(24).optional(),
 });
 
+export const updateAppLaunchSettingSchema = z.object({
+  enabled: z.boolean().optional(),
+  displayDurationMs: z.number().int().min(500).max(5000).optional(),
+  imageObjectKey: z.string().trim().max(400).nullable().optional(),
+});
+
+export const upsertJoinSessionReviewSchema = z.object({
+  title: z.string().trim().min(1).max(60),
+  content: z.string().trim().min(1).max(2000),
+});
+
 export const upsertHomeBannerSchema = z.object({
   title: z.string().trim().min(1).max(60),
   subtitle: z.string().trim().max(120).nullable().optional(),

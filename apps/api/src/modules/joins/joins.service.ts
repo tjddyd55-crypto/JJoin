@@ -1,4 +1,4 @@
-﻿import {
+import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
@@ -623,7 +623,7 @@ export class JoinsService {
         }
         throw new ConflictException({
           code: 'join_create_conflict',
-          message: '조인 생성이 중복 요청되었습니다. 잠시 후 다시 시도해주세요.',
+          message: '쪼인 생성이 중복 요청되었습니다. 잠시 후 다시 시도해주세요.',
         });
       }
       throw e;
@@ -1717,7 +1717,7 @@ export class JoinsService {
     });
   }
 
-  /** Phase F “오늘 조인”: discovery statuses, today-valid or ongoing, not ended. */
+  /** Phase F “오늘 쪼인”: discovery statuses, today-valid or ongoing, not ended. */
   async listOpenJoinVenuesNear(input: {
     centerLat: number;
     centerLng: number;

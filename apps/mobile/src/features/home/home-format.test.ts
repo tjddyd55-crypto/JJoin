@@ -350,7 +350,7 @@ test('pickUrgentJoins returns urgent recommended joins', () => {
       seatsLeft: 2,
       isUrgent: false,
       reasonCode: 'TODAY_NEARBY',
-      reasonLabel: '가까운 조인',
+      reasonLabel: '가까운 쪼인',
     },
   ];
   const picked = pickUrgentJoins([], recommended, 2);
@@ -367,7 +367,7 @@ test('clubAttendanceLabel maps response codes', () => {
  * Replays DEV `/joins/discover` on 2026-09-27 KST (10:43).
  * 전체보기 SCREEN (date, ALL, TIME, joinability ALL) → 6 rows, one FULL.
  * Home nearby SCREEN (5km, JOINABLE) from Seoul → 0 rows.
- * Bundles without the DEV nationwide fallback therefore render an empty 스크린 조인.
+ * Bundles without the DEV nationwide fallback therefore render an empty 스크린 쪼인.
  */
 const DEV_20260927_SCREEN_LIST = [
   ['d5fa8887', '2026-09-27T00:30:00.000Z', 'JOINABLE', '부천 중동 스크린'],

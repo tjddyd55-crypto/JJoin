@@ -58,7 +58,7 @@ export function HostOperationsScreen() {
       }
       setAttendance(initial);
     } catch {
-      setError('조인을 불러오지 못했습니다.');
+      setError('쪼인을 불러오지 못했습니다.');
     }
   }, [api, joinId]);
 
@@ -156,17 +156,17 @@ export function HostOperationsScreen() {
     return (
       <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
         <Text tone="secondary">
-          모집형 조인은 조인 상세 화면에서 참석 확인을 진행해 주세요.
+          모집형 쪼인은 쪼인 상세 화면에서 참석 확인을 진행해 주세요.
         </Text>
         <Spacer size="md" />
-        <Button label="조인 상세로" onPress={() => router.back()} />
+        <Button label="쪼인 상세로" onPress={() => router.back()} />
       </ScrollScreenFrame>
     );
   }
 
   return (
     <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
-      <Section title="조인 정보">
+      <Section title="쪼인 정보">
         <Card variant="elevated" padding="md">
           <Text variant="bodyStrong" tone="primary">
             {detail.title ?? detail.venue.name}

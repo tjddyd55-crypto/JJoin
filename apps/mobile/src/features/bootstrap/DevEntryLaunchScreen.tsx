@@ -1,13 +1,23 @@
-import React, { useEffect, useState } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Image, StyleSheet, View, type ImageSourcePropType } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { isDevelopmentVariant } from '../../lib/app-variant';
 import {
   DEV_ENTRY_LAUNCH_BACKGROUND,
-  DEV_ENTRY_LAUNCH_MIN_MS,
   DEV_ENTRY_LAUNCH_SAFETY_MAX_MS,
   devEntryLaunchStartedAt,
 } from './dev-entry-launch-timing';
+import {
+  getAppLaunchDurationMs,
+  isAppLaunchEnabled,
+  setAppLaunchRuntime,
+} from './app-launch-runtime';
+import {
+  loadCachedAppLaunch,
+  readEmbeddedLaunchImageSource,
+  refreshAppLaunchCacheInBackground,
+  type CachedAppLaunch,
+} from './app-launch-cache';
 
 export {
   DEV_ENTRY_LAUNCH_BACKGROUND,
@@ -16,13 +26,29 @@ export {
   devEntryLaunchStartedAt,
 } from './dev-entry-launch-timing';
 
-const launchImage = require('../../../assets/images/dev-entry-launch.png');
-
 export function DevEntryLaunchScreen() {
+  const [cache, setCache] = useState<CachedAppLaunch | null>(null);
+
+  useEffect(() => {
+    void loadCachedAppLaunch().then((loaded) => {
+      setCache(loaded);
+      setAppLaunchRuntime({
+        displayDurationMs: loaded.displayDurationMs,
+        enabled: loaded.enabled,
+      });
+    });
+    void refreshAppLaunchCacheInBackground();
+  }, []);
+
+  const source: ImageSourcePropType = useMemo(() => {
+    if (cache?.imageUri) return { uri: cache.imageUri };
+    return readEmbeddedLaunchImageSource();
+  }, [cache?.imageUri]);
+
   return (
     <View style={styles.root} accessibilityRole="image" accessibilityLabel="쪼인존">
       <StatusBar hidden />
-      <Image source={launchImage} style={styles.image} resizeMode="cover" accessibilityIgnoresInvertColors />
+      <Image source={source} style={styles.image} resizeMode="cover" accessibilityIgnoresInvertColors />
     </View>
   );
 }
@@ -32,12 +58,8 @@ type DevEntryLaunchGateProps = {
   children: React.ReactNode;
 };
 
-/**
- * Development-only overlay: keeps the hero visible until session bootstrap finishes
- * and a short minimum display time passes (without blocking bootstrap work).
- */
 export function DevEntryLaunchGate({ bootstrapping, children }: DevEntryLaunchGateProps) {
-  const enabled = isDevelopmentVariant();
+  const enabled = isDevelopmentVariant() && isAppLaunchEnabled();
   const [showOverlay, setShowOverlay] = useState(enabled);
 
   useEffect(() => {
@@ -46,13 +68,15 @@ export function DevEntryLaunchGate({ bootstrapping, children }: DevEntryLaunchGa
       return;
     }
 
+    const minMs = getAppLaunchDurationMs();
+
     const tick = () => {
       const elapsed = Date.now() - devEntryLaunchStartedAt;
       if (elapsed >= DEV_ENTRY_LAUNCH_SAFETY_MAX_MS) {
         setShowOverlay(false);
         return;
       }
-      if (!bootstrapping && elapsed >= DEV_ENTRY_LAUNCH_MIN_MS) {
+      if (!bootstrapping && elapsed >= minMs) {
         setShowOverlay(false);
       }
     };

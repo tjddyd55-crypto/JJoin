@@ -91,7 +91,7 @@ test('store profile edit requires ACTIVE owner or admin', () => {
 
 test('home banner and reward policy admin schemas', () => {
   assert.equal(
-    upsertHomeBannerSchema.safeParse({ title: '가을 조인' }).success,
+    upsertHomeBannerSchema.safeParse({ title: '가을 쪼인' }).success,
     true,
   );
   assert.equal(updateRewardPolicySchema.safeParse({ hostThreshold: 0 }).success, false);

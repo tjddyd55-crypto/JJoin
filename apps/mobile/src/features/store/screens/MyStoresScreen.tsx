@@ -279,7 +279,7 @@ export function MyStoresScreen() {
       {activeStores.length > 0 ? (
         <>
           <Button
-            label="모집 조인 만들기"
+            label="모집 쪼인 만들기"
             onPress={() =>
               router.push({
                 pathname: '/my/create-store-join',
@@ -290,7 +290,7 @@ export function MyStoresScreen() {
           />
           <Spacer size="sm" />
           <Button
-            label="정기 조인"
+            label="정기 쪼인"
             variant="secondary"
             onPress={() => router.push('/my/recurring-joins')}
             fullWidth

@@ -14,7 +14,7 @@ import type { JoinCardProps, JoinCardStatusBadge, JoinStatusBadgeTone } from '@j
 const TZ = 'Asia/Seoul';
 
 /** Join round finished (ended / settling / completed) — not generic “완료” elsewhere. */
-export const JOIN_FINISHED_STATUS_LABEL = '조인 완료';
+export const JOIN_FINISHED_STATUS_LABEL = '쪼인 완료';
 
 export function formatJoinDisplayTitle(title: string): string {
   const isDev = typeof __DEV__ !== 'undefined' && __DEV__;

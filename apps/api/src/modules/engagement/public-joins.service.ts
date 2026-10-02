@@ -24,7 +24,7 @@ export class PublicJoinsService {
     if (!slug) {
       throw new NotFoundException({
         code: 'PUBLIC_JOIN_NOT_FOUND',
-        message: '공유 조인을 찾을 수 없습니다.',
+        message: '공유 쪼인을 찾을 수 없습니다.',
       });
     }
 
@@ -41,7 +41,7 @@ export class PublicJoinsService {
     if (!join) {
       throw new NotFoundException({
         code: 'PUBLIC_JOIN_NOT_FOUND',
-        message: '공유 조인을 찾을 수 없습니다.',
+        message: '공유 쪼인을 찾을 수 없습니다.',
       });
     }
 

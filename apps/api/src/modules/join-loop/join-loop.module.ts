@@ -13,12 +13,15 @@ import { PlayedTogetherService } from './played-together.service';
 import { JoinInvitationService } from './join-invitation.service';
 import { PlayerReviewService } from './player-review.service';
 import { ParticipationTrustService } from './participation-trust.service';
+import { JoinSessionReviewService } from './join-session-review.service';
+import { StorageModule } from '../storage/storage.module';
 
 @Module({
   imports: [
     NotificationsModule,
     AnalyticsModule,
     SettlementModule,
+    StorageModule,
     forwardRef(() => JoinsModule),
   ],
   controllers: [JoinLoopController, MeJoinLoopController, UserReputationController],
@@ -29,6 +32,7 @@ import { ParticipationTrustService } from './participation-trust.service';
     PlayedTogetherService,
     JoinInvitationService,
     PlayerReviewService,
+    JoinSessionReviewService,
     ParticipationTrustService,
   ],
   exports: [
@@ -38,6 +42,7 @@ import { ParticipationTrustService } from './participation-trust.service';
     PlayedTogetherService,
     JoinInvitationService,
     PlayerReviewService,
+    JoinSessionReviewService,
     ParticipationTrustService,
   ],
 })

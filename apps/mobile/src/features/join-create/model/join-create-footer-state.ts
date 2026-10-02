@@ -40,9 +40,9 @@ export function resolveJoinCreateFooterState(params: Params): JoinCreateFooterSt
 
   const createLabel = identityVerified
     ? canCreate
-      ? '조인 생성'
+      ? '쪼인 생성'
       : insufficientCtaLabel
-    : '조인 생성';
+    : '쪼인 생성';
 
   if (submitting) {
     return { helperText: null, showWalletCta: false, createDisabled, createLabel };
@@ -69,7 +69,7 @@ export function resolveJoinCreateFooterState(params: Params): JoinCreateFooterSt
   if (identityVerified && !canCreate) {
     if (preview?.walletAvailable != null && preview.totalRequiredCoin != null) {
       return {
-        helperText: `보유 ${formatCoin(preview.walletAvailable)} · 조인 생성에 ${formatCoin(preview.totalRequiredCoin)} 필요`,
+        helperText: `보유 ${formatCoin(preview.walletAvailable)} · 쪼인 생성에 ${formatCoin(preview.totalRequiredCoin)} 필요`,
         showWalletCta: true,
         createDisabled,
         createLabel,

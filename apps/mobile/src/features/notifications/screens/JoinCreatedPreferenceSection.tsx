@@ -32,7 +32,7 @@ type Props = {
 export function JoinCreatedPreferenceSection({ prefs, busy, onChange }: Props) {
   return (
     <>
-      <Section title="스크린 조인 알림 거리" subtitle="저장된 위치 기준으로만 계산합니다">
+      <Section title="스크린 쪼인 알림 거리" subtitle="저장된 위치 기준으로만 계산합니다">
         <Card variant="base" padding="md">
           <View style={styles.chipRow}>
             {RADIUS_OPTIONS.map((option) => (
@@ -48,7 +48,7 @@ export function JoinCreatedPreferenceSection({ prefs, busy, onChange }: Props) {
         </Card>
       </Section>
 
-      <Section title="필드 조인 알림 지역" subtitle="거리 대신 광역/시군 기준으로 받습니다">
+      <Section title="필드 쪼인 알림 지역" subtitle="거리 대신 광역/시군 기준으로 받습니다">
         <Card variant="base" padding="md">
           <View style={styles.chipRow}>
             <Chip

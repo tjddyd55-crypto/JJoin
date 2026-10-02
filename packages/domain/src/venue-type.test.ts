@@ -30,6 +30,6 @@ test('map coords require Korea bounds and reject 0,0 sentinels', () => {
 });
 
 test('user-facing track labels stay SCREEN/FIELD', () => {
-  assert.equal(formatJoinVenueTypeLabel('SCREEN'), '스크린 조인');
-  assert.equal(formatJoinVenueTypeLabel('FIELD'), '필드 조인');
+  assert.equal(formatJoinVenueTypeLabel('SCREEN'), '스크린 쪼인');
+  assert.equal(formatJoinVenueTypeLabel('FIELD'), '필드 쪼인');
 });

@@ -26,6 +26,8 @@ import {
   DevEntryLaunchScreen,
 } from '../src/features/bootstrap/DevEntryLaunchScreen';
 import { isDevelopmentVariant } from '../src/lib/app-variant';
+import { loadCachedAppLaunch } from '../src/features/bootstrap/app-launch-cache';
+import { setAppLaunchRuntime } from '../src/features/bootstrap/app-launch-runtime';
 
 function devLaunchRootStyle() {
   return isDevelopmentVariant()
@@ -34,6 +36,13 @@ function devLaunchRootStyle() {
 }
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
+
+void loadCachedAppLaunch().then((cached) => {
+  setAppLaunchRuntime({
+    displayDurationMs: cached.displayDurationMs,
+    enabled: cached.enabled,
+  });
+});
 
 if (__DEV__) {
   console.log('[BOOT 01] module _layout loaded');

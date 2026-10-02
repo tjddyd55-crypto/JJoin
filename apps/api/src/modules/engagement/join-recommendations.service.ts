@@ -316,7 +316,7 @@ export class JoinRecommendationsService {
       await this.notifications.enqueueSafe({
         userId,
         type: NotificationType.JOIN_RECOMMENDATION,
-        title: '추천 조인',
+        title: '추천 쪼인',
         body: item.reasonLabel,
         data: {
           type: DomainNotificationType.JOIN_RECOMMENDATION,

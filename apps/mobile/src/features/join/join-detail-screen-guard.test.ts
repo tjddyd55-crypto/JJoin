@@ -30,9 +30,9 @@ const opsPath = join(
 );
 
 const FORBIDDEN_BODY_ACTIONS = [
-  'label="내 조인"',
+  'label="내 쪼인"',
   'label="닫기"',
-  'label="조인 상태 보기"',
+  'label="쪼인 상태 보기"',
   'label="뒤로"',
 ] as const;
 
@@ -50,7 +50,7 @@ test('join detail screen body excludes duplicate navigation actions', () => {
 test('join detail screen removes AppBar and uses hardware back fallback', () => {
   const source = readFileSync(screenPath, 'utf8');
   assert.doesNotMatch(source, /<AppBar/);
-  assert.doesNotMatch(source, /title="조인 상세"/);
+  assert.doesNotMatch(source, /title="쪼인 상세"/);
   assert.match(source, /BackHandler\.addEventListener\('hardwareBackPress'/);
   assert.match(source, /router\.replace\('\/\(tabs\)\/joins'\)/);
 });

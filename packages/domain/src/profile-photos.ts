@@ -122,6 +122,17 @@ export function isPublicReadableObjectKey(params: {
     return restOrLeafCount(key.slice(bannerPrefix.length)) === 2;
   }
 
+  const launchPrefix = `${env}/app-launch/`;
+  if (key.startsWith(launchPrefix)) {
+    return restOrLeafCount(key.slice(launchPrefix.length)) === 1;
+  }
+
+  const joinReviewPrefix = `${env}/join-reviews/`;
+  if (key.startsWith(joinReviewPrefix)) {
+    const rest = key.slice(joinReviewPrefix.length);
+    return rest.split('/').filter(Boolean).length === 2;
+  }
+
   const profilePrefix = `${env}/profiles/`;
   if (key.startsWith(profilePrefix)) {
     const rest = key.slice(profilePrefix.length);

@@ -3441,6 +3441,47 @@ export type UpsertHomeBannerRequest = {
   endsAt?: string | null;
 };
 
+export type AppLaunchConfigDto = {
+  enabled: boolean;
+  imageUrl: string | null;
+  displayDurationMs: number;
+  updatedAt: string;
+};
+
+export type AdminAppLaunchSettingDto = AppLaunchConfigDto & {
+  imageObjectKey: string | null;
+};
+
+export type UpdateAppLaunchSettingRequest = {
+  enabled?: boolean;
+  displayDurationMs?: number;
+  imageObjectKey?: string | null;
+};
+
+export type JoinSessionReviewPhotoDto = {
+  photoId: string;
+  imageUrl: string;
+  sortOrder: number;
+};
+
+export type JoinSessionReviewDto = {
+  reviewId: string;
+  joinId: string;
+  authorUserId: string;
+  authorNickname: string;
+  authorAvatarUrl: string | null;
+  title: string;
+  content: string;
+  photos: JoinSessionReviewPhotoDto[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type UpsertJoinSessionReviewRequest = {
+  title: string;
+  content: string;
+};
+
 export type StoreBannerAdRequestDto = {
   id: string;
   ownershipId: string;

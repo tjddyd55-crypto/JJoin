@@ -396,7 +396,7 @@ export function resolveMapJoinCaptionForDate(
   if (dateKey && todayKey && dateKey === todayKey) {
     return count > 1 ? String(count) : '오늘';
   }
-  return count > 1 ? String(count) : '조인';
+  return count > 1 ? String(count) : '쪼인';
 }
 
 export function compareDiscoverJoinOrder(

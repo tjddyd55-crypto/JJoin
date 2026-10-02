@@ -157,7 +157,7 @@ export function useHomeData(userId: string | undefined, clubsUiEnabled = false) 
         hasLoadedOnce: true,
         discoverError:
           discoverFailed && prev.fieldJoins.length === 0 && prev.screenJoins.length === 0
-            ? '조인 목록을 불러오지 못했습니다.'
+            ? '쪼인 목록을 불러오지 못했습니다.'
             : null,
       }));
 

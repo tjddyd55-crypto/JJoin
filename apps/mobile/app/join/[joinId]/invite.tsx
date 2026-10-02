@@ -116,7 +116,7 @@ export default function JoinInviteScreen() {
         ) : null}
         {!loading && people.length === 0 ? (
           <Text variant="body" tone="secondary">
-            함께 친 사람이 없습니다. 조인을 완료하면 여기에 표시됩니다.
+            함께 친 사람이 없습니다. 쪼인을 완료하면 여기에 표시됩니다.
           </Text>
         ) : null}
 

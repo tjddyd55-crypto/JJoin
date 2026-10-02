@@ -152,7 +152,7 @@ test('public profile screen composes sectioned design-system layout', () => {
   assert.match(sections, /JoinDetailSection/);
   assert.match(sections, /JoinMiniStatGrid/);
   assert.match(sections, /소개/);
-  assert.match(sections, /조인 활동/);
+  assert.match(sections, /쪼인 활동/);
   assert.doesNotMatch(screen, /DEMO|데모/);
   assert.doesNotMatch(sections, /DEMO|데모/);
   assert.doesNotMatch(screen, /formatFieldHandicap|formatScreenHandicap/);

@@ -20,7 +20,7 @@ export function parseJoinVenueType(
 }
 
 export function formatJoinVenueTypeLabel(venueType: JoinVenueType): string {
-  return venueType === 'FIELD' ? '필드 조인' : '스크린 조인';
+  return venueType === 'FIELD' ? '필드 쪼인' : '스크린 쪼인';
 }
 
 export function formatJoinVenueTypeShortLabel(venueType: JoinVenueType): string {

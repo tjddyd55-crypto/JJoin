@@ -3,7 +3,7 @@ import { Redirect, useLocalSearchParams } from 'expo-router';
 /**
  * Legacy Explore alias.
  * - venuePick → 스크린 탭 (장소 선택)
- * - 그 외 → 조인 탭
+ * - 그 외 → 쪼인 탭
  */
 export default function ExploreAlias() {
   const params = useLocalSearchParams<{ venuePick?: string }>();

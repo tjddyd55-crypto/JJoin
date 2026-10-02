@@ -64,7 +64,7 @@ export default function JoinAlertsScreen() {
     try {
       setItems(await api.listJoinAlerts());
     } catch {
-      setError('조인 알림을 불러오지 못했습니다.');
+      setError('쪼인 알림을 불러오지 못했습니다.');
     } finally {
       setLoading(false);
     }
@@ -117,7 +117,7 @@ export default function JoinAlertsScreen() {
   return (
     <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       <Text variant="body" tone="secondary">
-        조건에 맞는 새 조인이 올라오면 알려드립니다.
+        조건에 맞는 새 쪼인이 올라오면 알려드립니다.
       </Text>
       <Spacer size="md" />
 

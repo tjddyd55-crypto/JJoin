@@ -11,7 +11,7 @@ import type { SecureSessionStore } from '../session/secure-session-store';
  * Localhost is no longer the silent default. Override explicitly when needed:
  * EXPO_PUBLIC_API_URL=http://127.0.0.1:3000
  */
-function resolveApiBaseUrl(): string {
+export function resolveApiBaseUrl(): string {
   const fromEnv = (process.env.EXPO_PUBLIC_API_URL ?? '').trim();
   if (fromEnv) return fromEnv;
 

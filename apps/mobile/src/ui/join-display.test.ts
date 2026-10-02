@@ -98,18 +98,18 @@ test('baseJoinCardFields maps FIELD cost and track badges without throwing', () 
   assert.equal(card.statusBadges?.some((badge) => badge.label === '스크린'), false);
 });
 
-test('finished joins show 조인 완료 status badge (end passed / SETTLING / COMPLETED); cancelled unchanged', () => {
+test('finished joins show 쪼인 완료 status badge (end passed / SETTLING / COMPLETED); cancelled unchanged', () => {
   const now = new Date('2026-09-28T03:00:00.000Z');
   const labels = (input: Parameters<typeof resolveJoinListStatusBadges>[0]) =>
     resolveJoinListStatusBadges({ venueType: 'FIELD', now, ...input }).map((b) => b.label);
   const ended = labels({ status: JoinStatus.CONFIRMED, scheduledEndAt: '2026-09-28T02:00:00.000Z' });
-  assert.ok(ended.includes('조인 완료'));
+  assert.ok(ended.includes('쪼인 완료'));
   assert.equal(ended.includes('종료'), false);
-  assert.ok(labels({ status: JoinStatus.SETTLING }).includes('조인 완료'));
-  assert.ok(labels({ status: JoinStatus.COMPLETED }).includes('조인 완료'));
+  assert.ok(labels({ status: JoinStatus.SETTLING }).includes('쪼인 완료'));
+  assert.ok(labels({ status: JoinStatus.COMPLETED }).includes('쪼인 완료'));
   assert.ok(labels({ status: JoinStatus.CANCELLED }).includes('취소'));
   assert.equal(
-    labels({ status: JoinStatus.OPEN, scheduledEndAt: '2026-09-28T09:00:00.000Z' }).includes('조인 완료'),
+    labels({ status: JoinStatus.OPEN, scheduledEndAt: '2026-09-28T09:00:00.000Z' }).includes('쪼인 완료'),
     false,
   );
 });

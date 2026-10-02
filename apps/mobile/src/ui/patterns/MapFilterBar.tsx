@@ -6,7 +6,7 @@ const FILTERS: { id: ExploreFilterId; label: string }[] = [
   { id: 'ALL', label: '전체' },
   { id: 'VENUE', label: '스크린' },
   { id: 'USER', label: '사람' },
-  { id: 'TODAY_JOIN', label: '오늘 조인' },
+  { id: 'TODAY_JOIN', label: '오늘 쪼인' },
 ];
 
 export type MapFilterBarProps = {

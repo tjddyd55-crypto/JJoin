@@ -1,4 +1,4 @@
-﻿import fs from 'node:fs';
+import fs from 'node:fs';
 import path from 'node:path';
 import { ExpoConfig, ConfigContext } from 'expo/config';
 import {
@@ -130,7 +130,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       'expo-location',
       {
         locationWhenInUsePermission:
-          '주변 스크린골프장과 조인을 찾기 위해 현재 위치를 사용합니다.',
+          '주변 스크린골프장과 쪼인을 찾기 위해 현재 위치를 사용합니다.',
       },
     ],
     [
@@ -232,7 +232,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       bundleIdentifier: identity.iosBundleIdentifier,
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
-          '주변 스크린골프장과 조인을 찾기 위해 현재 위치를 사용합니다.',
+          '주변 스크린골프장과 쪼인을 찾기 위해 현재 위치를 사용합니다.',
         // Toss card/bank App-to-App schemes — merged further by with-toss-payment-queries.
         LSApplicationQueriesSchemes: [
           'supertoss',

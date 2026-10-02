@@ -23,7 +23,7 @@ const baseDetail: JoinDetailDto = {
   status: JoinStatus.OPEN,
   joinMethod: JoinMethod.OPEN,
   sportCode: 'SCREEN_GOLF',
-  title: '테스트 조인',
+  title: '테스트 쪼인',
   description: null,
   startAt: '2026-12-01T10:00:00.000Z',
   scheduledEndAt: '2026-12-01T14:00:00.000Z',

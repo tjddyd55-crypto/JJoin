@@ -30,21 +30,21 @@ type ToggleKey =
   | 'joinCreatedEnabled';
 
 const TOGGLES: Array<{ key: ToggleKey; label: string; description: string }> = [
-  { key: 'joinCreatedEnabled', label: '근처 새 조인', description: '스크린 거리 / 필드 지역 추천' },
-  { key: 'joinAlertsEnabled', label: '새 조인 알림', description: '조건에 맞는 조인' },
-  { key: 'followedStoreEnabled', label: '팔로우 매장 알림', description: '관심 매장 새 조인' },
+  { key: 'joinCreatedEnabled', label: '근처 새 쪼인', description: '스크린 거리 / 필드 지역 추천' },
+  { key: 'joinAlertsEnabled', label: '새 쪼인 알림', description: '조건에 맞는 쪼인' },
+  { key: 'followedStoreEnabled', label: '팔로우 매장 알림', description: '관심 매장 새 쪼인' },
   { key: 'urgentJoinEnabled', label: '긴급 모집', description: '긴급 자리 알림' },
-  { key: 'invitationEnabled', label: '참가자 초대', description: '조인 초대' },
+  { key: 'invitationEnabled', label: '참가자 초대', description: '쪼인 초대' },
   {
     key: 'attendanceReminderEnabled',
     label: '참석 리마인더',
-    description: '조인 시작 전 참석 확인',
+    description: '쪼인 시작 전 참석 확인',
   },
-  { key: 'bookmarkUpdatesEnabled', label: '찜한 조인', description: '상태 변경 알림' },
+  { key: 'bookmarkUpdatesEnabled', label: '찜한 쪼인', description: '상태 변경 알림' },
   {
     key: 'profileMatchEnabled',
     label: '프로필 매칭 알림',
-    description: '조건에 맞는 호스트의 새 조인 (조인 알림과 별도)',
+    description: '조건에 맞는 호스트의 새 쪼인 (쪼인 알림과 별도)',
   },
 ];
 

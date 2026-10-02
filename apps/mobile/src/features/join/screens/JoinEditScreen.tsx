@@ -87,7 +87,7 @@ export function JoinEditScreen() {
       setJoinMethod(detail.joinMethod);
       setDescription(detail.description ?? '');
     } catch {
-      setError('조인 정보를 불러올 수 없습니다.');
+      setError('쪼인 정보를 불러올 수 없습니다.');
     } finally {
       setLoading(false);
     }
@@ -140,7 +140,7 @@ export function JoinEditScreen() {
   return (
     <FormScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       <Stack gap="md">
-        <Text variant="screenTitle">조인 정보 수정</Text>
+        <Text variant="screenTitle">쪼인 정보 수정</Text>
         <JoinCreateGenderCompositionSection
           totalCapacity={plannedPlayerCount}
           value={genderComposition}

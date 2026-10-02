@@ -66,7 +66,7 @@ export class JoinChatService {
         data: { joinId, status: 'ACTIVE' },
       });
       roomId = created.id;
-      await this.postSystemMessage(roomId, '조인 채팅방이 열렸습니다.');
+      await this.postSystemMessage(roomId, '쪼인 채팅방이 열렸습니다.');
     }
 
     await this.syncMembers(roomId, join);
@@ -113,7 +113,7 @@ export class JoinChatService {
   async onJoinTimeChanged(joinId: string): Promise<void> {
     const room = await this.prisma.joinChatRoom.findUnique({ where: { joinId } });
     if (!room || room.status !== 'ACTIVE') return;
-    await this.postSystemMessage(room.id, '조인 시간이 변경되었습니다.');
+    await this.postSystemMessage(room.id, '쪼인 시간이 변경되었습니다.');
   }
 
   async onJoinTerminal(joinId: string, kind: 'COMPLETED' | 'CANCELLED'): Promise<void> {
@@ -133,8 +133,8 @@ export class JoinChatService {
 
     const body =
       kind === 'CANCELLED'
-        ? '조인이 취소되어 채팅이 읽기 전용으로 전환되었습니다.'
-        : '조인이 종료되어 채팅이 읽기 전용으로 전환되었습니다.';
+        ? '쪼인이 취소되어 채팅이 읽기 전용으로 전환되었습니다.'
+        : '쪼인이 종료되어 채팅이 읽기 전용으로 전환되었습니다.';
     await this.postSystemMessage(room.id, body);
   }
 

@@ -125,7 +125,7 @@ export function PublicProfileActivitySection({
   stats: PublicProfileFact[];
 }) {
   return (
-    <JoinDetailSection title="조인 활동">
+    <JoinDetailSection title="쪼인 활동">
       {trustLabel ? <Badge label={trustLabel} variant={trustVariant} /> : null}
       <JoinMiniStatGrid items={stats} />
     </JoinDetailSection>

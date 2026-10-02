@@ -18,7 +18,7 @@ type Props = {
 
 function statusLabel(join: DiscoverJoinCardDto): string {
   if (join.isCompleted) return JOIN_FINISHED_STATUS_LABEL;
-  if (join.canJoinState === 'HOST') return '내 조인';
+  if (join.canJoinState === 'HOST') return '내 쪼인';
   if (join.canJoinState === 'ALREADY_JOINED') return '참가 중';
   if (join.canJoinState === 'FULL') return '마감';
   const matchingLabel = matchingDisplayStatusLabel(join, 'host');

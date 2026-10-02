@@ -9,7 +9,7 @@ export function MallHeroBanner() {
       <View style={[styles.inner, { backgroundColor: theme.colors.action.primary }]}>
         <Text variant="caption" style={styles.kicker}>JJOIN 리워드 몰</Text>
         <Text variant="sectionTitle" style={styles.title}>
-          조인하고 받은 코인으로{'\n'}리워드 상품을 만나보세요
+          쪼인하고 받은 코인으로{'\n'}리워드 상품을 만나보세요
         </Text>
         <Text variant="body" style={styles.subtitle}>
           보유 코인으로 교환 가능한 상품을 모았습니다

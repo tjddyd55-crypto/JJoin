@@ -89,7 +89,7 @@ export default function FollowedStoresScreen() {
                     />
                   ) : (
                     <Text variant="caption" tone="tertiary">
-                      오늘 모집 중인 조인 없음
+                      오늘 모집 중인 쪼인 없음
                     </Text>
                   )}
                   <Text variant="caption" tone="secondary">

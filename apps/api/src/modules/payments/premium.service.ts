@@ -64,7 +64,7 @@ export class PremiumService {
       throw new ForbiddenException({
         code: 'JOIN_HOST_LIMIT',
         message:
-          '일반 회원은 동시에 운영 중인 조인 생성 수에 제한이 있습니다. 프리미엄 회원은 제한 없이 조인을 만들 수 있습니다.',
+          '일반 회원은 동시에 운영 중인 쪼인 생성 수에 제한이 있습니다. 프리미엄 회원은 제한 없이 쪼인을 만들 수 있습니다.',
         limit: NORMAL_USER_ACTIVE_HOST_JOIN_LIMIT,
         activeHostedCount: activeCount,
       });

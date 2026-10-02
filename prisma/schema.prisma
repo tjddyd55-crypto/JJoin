@@ -462,6 +462,8 @@ model User {
   storeBannerAdsRequested  StoreBannerAdRequest[]     @relation("StoreBannerAdApplicant")
   storeBannerAdsReviewed   StoreBannerAdRequest[]     @relation("StoreBannerAdReviewer")
   homeBannersUpdated       HomeBanner[]               @relation("HomeBannerUpdater")
+  appLaunchSettingsUpdated AppLaunchSetting[]         @relation("AppLaunchSettingUpdater")
+  joinSessionReviews       JoinSessionReview[]        @relation("JoinSessionReviewAuthor")
 
   @@map("users")
 }
@@ -941,6 +943,7 @@ model Join {
   chatRoom       JoinChatRoom?
   invitations    JoinInvitation[]
   playerReviews  PlayerReview[]
+  sessionReviews JoinSessionReview[]
   fieldDetail    FieldJoinDetail?
 
   @@index([venueId, startAt])
@@ -2615,6 +2618,50 @@ model StoreProfilePhoto {
 
   @@index([profileId, sortOrder])
   @@map("store_profile_photos")
+}
+
+model AppLaunchSetting {
+  appVariant        String   @id @map("app_variant")
+  enabled           Boolean  @default(true)
+  imageObjectKey    String?  @map("image_object_key")
+  displayDurationMs Int      @default(2000) @map("display_duration_ms")
+  updatedByUserId   String?  @map("updated_by_user_id") @db.Uuid
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  updatedBy User? @relation("AppLaunchSettingUpdater", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@map("app_launch_settings")
+}
+
+model JoinSessionReview {
+  id           String   @id @default(uuid()) @db.Uuid
+  joinId       String   @map("join_id") @db.Uuid
+  authorUserId String   @map("author_user_id") @db.Uuid
+  title        String   @db.VarChar(60)
+  content      String   @db.VarChar(2000)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  join   Join                      @relation(fields: [joinId], references: [id], onDelete: Cascade)
+  author User                      @relation("JoinSessionReviewAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  photos JoinSessionReviewPhoto[]
+
+  @@unique([joinId, authorUserId])
+  @@index([joinId])
+  @@map("join_session_reviews")
+}
+
+model JoinSessionReviewPhoto {
+  id        String   @id @default(uuid()) @db.Uuid
+  reviewId  String   @map("review_id") @db.Uuid
+  objectKey String   @map("object_key")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  review JoinSessionReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId, sortOrder])
+  @@map("join_session_review_photos")
 }
 
 model HomeBanner {

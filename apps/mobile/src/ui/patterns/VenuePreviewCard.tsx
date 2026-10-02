@@ -31,7 +31,7 @@ export function VenuePreviewCard({
     todayJoinCount > 0 ? `오늘 ${todayJoinCount}` : null,
     urgentJoinCount > 0 ? `긴급 ${urgentJoinCount}` : null,
     openJoinCount > 0 && todayJoinCount === 0 && ongoingJoinCount === 0
-      ? `열린 조인 ${openJoinCount}`
+      ? `열린 쪼인 ${openJoinCount}`
       : null,
   ]
     .filter(Boolean)
@@ -66,7 +66,7 @@ export function VenuePreviewCard({
             </Row>
           ) : (
             <Text variant="bodyStrong" style={{ color: theme.colors.action.primary }}>
-              열린 조인 0
+              열린 쪼인 0
             </Text>
           )}
         </Stack>

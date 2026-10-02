@@ -196,7 +196,7 @@ export function MyHomeScreen() {
           ) : (
             <>
               <Text variant="body" tone="secondary">
-                더 자유롭게 조인을 만들어보세요.
+                더 자유롭게 쪼인을 만들어보세요.
               </Text>
             </>
           )}
@@ -226,7 +226,7 @@ export function MyHomeScreen() {
             />
             {hasActiveStores ? (
               <ListRow
-                label="모집 조인 만들기"
+                label="모집 쪼인 만들기"
                 icon="calendar"
                 onPress={() => router.push('/my/create-store-join')}
                 showSeparator={false}
@@ -280,7 +280,7 @@ export function MyHomeScreen() {
             {flags?.profileMatchAlertsEnabled !== false ? (
               <ListRow
                 label="프로필 매칭 알림"
-                subtitle="조건에 맞는 호스트 조인"
+                subtitle="조건에 맞는 호스트 쪼인"
                 icon="notification"
                 onPress={() => router.push('/my/profile-match' as Href)}
                 showSeparator={false}
@@ -294,12 +294,12 @@ export function MyHomeScreen() {
         <Card variant="base" padding="none" style={styles.settingsCard}>
           <View style={styles.settingsInner}>
             <ListRow
-              label="조인 알림"
+              label="쪼인 알림"
               icon="notification"
               onPress={() => router.push('/my/join-alerts' as Href)}
             />
             <ListRow
-              label="찜한 조인"
+              label="찜한 쪼인"
               icon="calendar"
               onPress={() => router.push('/my/bookmarks' as Href)}
             />
@@ -320,7 +320,7 @@ export function MyHomeScreen() {
               onPress={() => router.push('/my/golf-friends' as Href)}
             />
             <ListRow
-              label="반복 조인"
+              label="반복 쪼인"
               icon="calendar"
               onPress={() => router.push('/my/recurring-joins' as Href)}
             />

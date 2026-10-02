@@ -132,6 +132,9 @@ import {
   type CreateClubNoticeRequest,
   type FeatureFlagDto,
   type HomeBannerDto,
+  type AppLaunchConfigDto,
+  type JoinSessionReviewDto,
+  type UpsertJoinSessionReviewRequest,
   type PublicStoreListItemDto,
   type PublicStoreDetailDto,
   type StoreProfileDto,
@@ -2306,6 +2309,52 @@ export class ApiClient {
       headers: await this.headers(false),
     });
     return parseJson(res);
+  }
+
+  async getAppLaunchConfig(): Promise<AppLaunchConfigDto> {
+    const res = await request(`${this.config.baseUrl}/app-config/launch`, {
+      headers: await this.headers(false),
+    });
+    return parseJson(res);
+  }
+
+  async listJoinSessionReviews(joinId: string): Promise<JoinSessionReviewDto[]> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/session-reviews`, {
+      headers: await this.headers(false),
+    });
+    return parseJson(res);
+  }
+
+  async getMyJoinSessionReview(joinId: string): Promise<JoinSessionReviewDto | null> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/session-reviews/me`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async upsertJoinSessionReview(
+    joinId: string,
+    body: UpsertJoinSessionReviewRequest,
+  ): Promise<JoinSessionReviewDto> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/session-reviews`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async deleteMyJoinSessionReview(joinId: string, reviewId: string): Promise<void> {
+    const res = await request(
+      `${this.config.baseUrl}/joins/${joinId}/session-reviews/${reviewId}`,
+      {
+        method: 'DELETE',
+        headers: await this.headers(true),
+      },
+    );
+    if (!res.ok) {
+      throw new Error(`delete_join_session_review_failed:${res.status}`);
+    }
   }
 
   async listScreenStores(query?: { sido?: string; sigungu?: string }): Promise<PublicStoreListItemDto[]> {

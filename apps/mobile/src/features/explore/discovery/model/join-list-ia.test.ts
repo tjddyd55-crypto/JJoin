@@ -63,8 +63,8 @@ test('join list does not global-reset venueType on every focus', () => {
 
 test('join list screen removes title and in-list SCREEN/FIELD toggle', () => {
   const screen = readMobile('src/features/explore/discovery/ExploreDiscoveryScreen.tsx');
-  assert.doesNotMatch(screen, /스크린 조인/);
-  assert.doesNotMatch(screen, /필드 조인/);
+  assert.doesNotMatch(screen, /스크린 쪼인/);
+  assert.doesNotMatch(screen, /필드 쪼인/);
   assert.doesNotMatch(screen, /trackTabs/);
   assert.match(screen, /showTitle=\{false\}/);
   assert.match(screen, /density="compact"/);
@@ -76,7 +76,7 @@ test('provider only applies an explicit route venueType', () => {
   const source = readMobile('src/features/explore/discovery/JoinDiscoveryContext.tsx');
   assert.match(source, /parseJoinListVenueTypeParam/);
   assert.match(source, /resolveJoinListVenueType/);
-  assert.doesNotMatch(source, /스크린 조인/);
+  assert.doesNotMatch(source, /스크린 쪼인/);
 });
 
 test('sort row stays one compact row with short map action', () => {

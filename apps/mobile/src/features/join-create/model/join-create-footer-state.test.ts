@@ -42,7 +42,7 @@ test('shows coin shortfall with wallet CTA', () => {
       canCreate: false,
     },
   });
-  assert.equal(state.helperText, '보유 0C · 조인 생성에 100C 필요');
+  assert.equal(state.helperText, '보유 0C · 쪼인 생성에 100C 필요');
   assert.equal(state.showWalletCta, true);
   assert.equal(state.createDisabled, true);
   assert.equal(state.createLabel, 'Coin이 부족합니다');
@@ -52,5 +52,5 @@ test('allows create when venue and coin are ready', () => {
   const state = resolveJoinCreateFooterState(base);
   assert.equal(state.helperText, null);
   assert.equal(state.createDisabled, false);
-  assert.equal(state.createLabel, '조인 생성');
+  assert.equal(state.createLabel, '쪼인 생성');
 });
