@@ -64,7 +64,7 @@ async function main() {
   }
 
   const devA = await signIn(MockAuthPersona.DEV_A);
-  const devB = await signIn(MockAuthPersona.DEV_B);
+  const devC = await signIn(MockAuthPersona.DEV_C);
 
   const hub = await json<MyJoinSessionReviewsHubDto>('/me/join-session-reviews', {
     headers: { Authorization: `Bearer ${devA}` },
@@ -146,7 +146,7 @@ async function main() {
   const forbiddenEdit = await json(`/joins/${joinId}/session-reviews`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${devB}`,
+      Authorization: `Bearer ${devC}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ title: 'x', content: 'y' }),
