@@ -108,6 +108,34 @@ function splashScreenFor(variant) {
 }
 
 /**
+ * expo-splash-screen plugin SSOT — DEV hero must be fullscreen (default imageWidth=100 is a small centered logo).
+ *
+ * @param {AppVariant} variant
+ */
+function expoSplashPluginConfigFor(variant) {
+  const splash = splashScreenFor(variant);
+  if (variant === 'development') {
+    return {
+      image: splash.image,
+      resizeMode: 'cover',
+      backgroundColor: splash.backgroundColor,
+      enableFullScreenImage_legacy: true,
+      android: {
+        image: splash.image,
+        resizeMode: 'cover',
+        backgroundColor: splash.backgroundColor,
+      },
+    };
+  }
+  return {
+    image: splash.image,
+    resizeMode: splash.resizeMode,
+    backgroundColor: splash.backgroundColor,
+    imageWidth: 200,
+  };
+}
+
+/**
  * @param {AppVariant} variant
  */
 function notificationIconFor(variant) {
@@ -138,6 +166,7 @@ module.exports = {
   identityFor,
   notificationIconFor,
   splashScreenFor,
+  expoSplashPluginConfigFor,
   DEVELOPMENT_SPLASH_IMAGE,
   DEVELOPMENT_SPLASH_BACKGROUND,
 };

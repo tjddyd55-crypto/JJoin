@@ -7,6 +7,7 @@ import {
   identityFor,
   notificationIconFor,
   resolveAppVariant,
+  expoSplashPluginConfigFor,
   splashScreenFor,
 } from './app-variant-identity.cjs';
 import {
@@ -114,18 +115,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 
   const notificationIcon = notificationIconFor(variant);
   const splash = splashScreenFor(variant);
+  const splashPlugin = expoSplashPluginConfigFor(variant);
 
   const plugins: ExpoConfig['plugins'] = [
     'expo-router',
     'expo-updates',
-    [
-      'expo-splash-screen',
-      {
-        image: splash.image,
-        resizeMode: splash.resizeMode,
-        backgroundColor: splash.backgroundColor,
-      },
-    ],
+    ['expo-splash-screen', splashPlugin],
     [
       'expo-location',
       {

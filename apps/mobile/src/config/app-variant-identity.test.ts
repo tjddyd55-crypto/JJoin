@@ -13,6 +13,7 @@ import {
   notificationIconFor,
   resolveAppVariant,
   splashScreenFor,
+  expoSplashPluginConfigFor,
   DEVELOPMENT_SPLASH_IMAGE,
 } from '../../app-variant-identity.cjs';
 
@@ -53,6 +54,16 @@ test('development splash uses hero launch image; production keeps wordmark splas
   const prod = splashScreenFor('production');
   assert.equal(prod.image, './assets/images/splash-icon.png');
   assert.equal(prod.resizeMode, 'contain');
+});
+
+test('development expo splash plugin uses fullscreen hero (not default imageWidth 100)', () => {
+  const dev = expoSplashPluginConfigFor('development');
+  assert.equal(dev.resizeMode, 'cover');
+  assert.equal(dev.enableFullScreenImage_legacy, true);
+  assert.equal(dev.android?.resizeMode, 'cover');
+  assert.equal(dev.imageWidth, undefined);
+  const prod = expoSplashPluginConfigFor('production');
+  assert.equal(prod.imageWidth, 200);
 });
 
 test('notification plugin icons follow the same variant split', () => {

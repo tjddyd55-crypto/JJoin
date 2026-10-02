@@ -31,52 +31,30 @@ export {
   devEntryLaunchStartedAt,
 } from './dev-entry-launch-timing';
 
+/** Admin-uploaded hero only — default launch uses native fullscreen splash (no JS duplicate). */
+export function shouldUseCustomLaunchHeroOverlay(cache: CachedAppLaunch | null): boolean {
+  return Boolean(cache?.imageUri?.trim());
+}
+
 type DevEntryLaunchScreenProps = {
-  onHeroPainted?: () => void;
+  cache: CachedAppLaunch | null;
 };
 
-export function DevEntryLaunchScreen({ onHeroPainted }: DevEntryLaunchScreenProps) {
-  const [cache, setCache] = useState<CachedAppLaunch | null>(() => readAppLaunchBootSnapshot());
+export function DevEntryLaunchScreen({ cache }: DevEntryLaunchScreenProps) {
   const embedded = useMemo(() => readEmbeddedLaunchImageSource(), []);
-
-  useEffect(() => {
-    if (cache) return;
-    void appLaunchBootSnapshotReady.then(setCache);
-  }, [cache]);
-
-  useEffect(() => {
-    void refreshAppLaunchCacheInBackground().then(async () => {
-      const refreshed = await loadCachedAppLaunch();
-      setCache(refreshed);
-      setAppLaunchRuntime({
-        displayDurationMs: refreshed.displayDurationMs,
-        enabled: refreshed.enabled,
-      });
-    });
-  }, []);
-
   const source: ImageSourcePropType = useMemo(() => {
     if (cache?.imageUri) return { uri: cache.imageUri };
     return embedded;
   }, [cache?.imageUri, embedded]);
-
-  const onHeroLoadEnd = () => {
-    if (isDevelopmentVariant()) {
-      void hideNativeSplashOnce();
-    }
-    onHeroPainted?.();
-  };
 
   return (
     <View style={styles.root} accessibilityRole="image" accessibilityLabel="쪼인존">
       <StatusBar hidden />
       <Image
         source={source}
-        defaultSource={embedded}
         style={styles.image}
         resizeMode="cover"
         fadeDuration={0}
-        onLoadEnd={onHeroLoadEnd}
         accessibilityIgnoresInvertColors
       />
     </View>
@@ -90,7 +68,16 @@ type DevEntryLaunchGateProps = {
 
 export function DevEntryLaunchGate({ bootstrapping, children }: DevEntryLaunchGateProps) {
   const enabled = isDevelopmentVariant() && isAppLaunchEnabled();
+  const [cache, setCache] = useState<CachedAppLaunch | null>(() => readAppLaunchBootSnapshot());
   const [overlayDismissed, setOverlayDismissed] = useState(false);
+
+  useEffect(() => {
+    if (cache) return;
+    void appLaunchBootSnapshotReady.then(setCache);
+  }, [cache]);
+
+  const useJsHero = shouldUseCustomLaunchHeroOverlay(cache);
+  const launchBlocking = enabled && !overlayDismissed;
 
   useEffect(() => {
     if (!enabled) {
@@ -116,7 +103,18 @@ export function DevEntryLaunchGate({ bootstrapping, children }: DevEntryLaunchGa
     return () => clearInterval(id);
   }, [enabled, bootstrapping]);
 
-  const heroVisible = enabled && !overlayDismissed;
+  useEffect(() => {
+    if (!overlayDismissed) return;
+    void hideNativeSplashOnce();
+    void refreshAppLaunchCacheInBackground().then(async () => {
+      const refreshed = await loadCachedAppLaunch();
+      setCache(refreshed);
+      setAppLaunchRuntime({
+        displayDurationMs: refreshed.displayDurationMs,
+        enabled: refreshed.enabled,
+      });
+    });
+  }, [overlayDismissed]);
 
   if (!enabled) {
     return <>{children}</>;
@@ -125,14 +123,14 @@ export function DevEntryLaunchGate({ bootstrapping, children }: DevEntryLaunchGa
   return (
     <View style={styles.gateRoot}>
       <View
-        style={[styles.appUnderlay, heroVisible && styles.appHiddenWhileHero]}
-        pointerEvents={heroVisible ? 'none' : 'auto'}
+        style={[styles.appUnderlay, launchBlocking && styles.appHiddenWhileHero]}
+        pointerEvents={launchBlocking ? 'none' : 'auto'}
       >
         {children}
       </View>
-      {heroVisible ? (
+      {launchBlocking && useJsHero ? (
         <View style={styles.overlay} pointerEvents="auto">
-          <DevEntryLaunchScreen />
+          <DevEntryLaunchScreen cache={cache} />
         </View>
       ) : null}
     </View>

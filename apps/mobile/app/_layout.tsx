@@ -35,6 +35,9 @@ function devLaunchRootStyle() {
 }
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
+if (isDevelopmentVariant()) {
+  SplashScreen.setOptions({ fade: false, duration: 0 });
+}
 
 if (__DEV__) {
   console.log('[BOOT 01] module _layout loaded');
