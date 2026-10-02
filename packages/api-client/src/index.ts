@@ -134,6 +134,7 @@ import {
   type HomeBannerDto,
   type AppLaunchConfigDto,
   type JoinSessionReviewDto,
+  type MyJoinSessionReviewsHubDto,
   type UpsertJoinSessionReviewRequest,
   type PublicStoreListItemDto,
   type PublicStoreDetailDto,
@@ -2340,6 +2341,13 @@ export class ApiClient {
       method: 'POST',
       headers: await this.headers(true),
       body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async getMyJoinSessionReviewsHub(): Promise<MyJoinSessionReviewsHubDto> {
+    const res = await request(`${this.config.baseUrl}/me/join-session-reviews`, {
+      headers: await this.headers(true),
     });
     return parseJson(res);
   }

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { BackHandler, Platform, StyleSheet, View } from 'react-native';
+import { exitAndroidAppCompletely } from 'jjoin-app-exit';
 import { useRouter } from 'expo-router';
 import { Text, useTheme } from '@jjoin/design-system';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,7 +33,7 @@ export function useAndroidDoubleBackExit(active: boolean) {
       });
       if (action === 'navigate') return false;
       if (action === 'exit') {
-        BackHandler.exitApp();
+        exitAndroidAppCompletely();
         return true;
       }
       lastBackAt.current = now;

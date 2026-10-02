@@ -11,7 +11,14 @@ import {
   normalizeJoinSessionReviewContent,
   normalizeJoinSessionReviewTitle,
 } from '@jjoin/domain';
-import type { JoinSessionReviewDto, UpsertJoinSessionReviewRequest } from '@jjoin/types';
+import type {
+  JoinSessionReviewDto,
+  JoinSessionReviewEligibleItemDto,
+  JoinSessionReviewJoinSummaryDto,
+  JoinSessionReviewMineItemDto,
+  MyJoinSessionReviewsHubDto,
+  UpsertJoinSessionReviewRequest,
+} from '@jjoin/types';
 import { upsertJoinSessionReviewSchema } from '@jjoin/validation';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -154,6 +161,66 @@ export class JoinSessionReviewService {
     return this.toDto(refreshed);
   }
 
+  async listEligibleForUser(userId: string): Promise<JoinSessionReviewEligibleItemDto[]> {
+    const reviewedJoinIds = new Set(
+      (
+        await this.prisma.joinSessionReview.findMany({
+          where: { authorUserId: userId },
+          select: { joinId: true },
+        })
+      ).map((row) => row.joinId),
+    );
+
+    const participations = await this.prisma.joinParticipant.findMany({
+      where: {
+        userId,
+        participationStatus: { in: ['CONFIRMED', 'COMPLETED'] },
+      },
+      include: { join: { include: { venue: true } } },
+    });
+
+    const eligible: JoinSessionReviewEligibleItemDto[] = [];
+    for (const row of participations) {
+      if (reviewedJoinIds.has(row.joinId)) continue;
+      const eligibility = evaluateJoinSessionReviewAuthorEligibility({
+        joinStatus: row.join.status,
+        scheduledEndAt: row.join.scheduledEndAt,
+        participationStatus: row.participationStatus,
+      });
+      if (!eligibility.ok) continue;
+      eligible.push(this.toJoinSummary(row.join));
+    }
+
+    eligible.sort(
+      (a, b) => new Date(b.scheduledEndAt).getTime() - new Date(a.scheduledEndAt).getTime(),
+    );
+    return eligible;
+  }
+
+  async listMineForUser(userId: string): Promise<JoinSessionReviewMineItemDto[]> {
+    const rows = await this.prisma.joinSessionReview.findMany({
+      where: { authorUserId: userId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        join: { include: { venue: true } },
+        author: { include: { profile: { include: { avatarAsset: true } } } },
+        photos: { orderBy: { sortOrder: 'asc' } },
+      },
+    });
+    return rows.map((row) => ({
+      ...this.toDto(row),
+      join: this.toJoinSummary(row.join),
+    }));
+  }
+
+  async getHubForUser(userId: string): Promise<MyJoinSessionReviewsHubDto> {
+    const [eligible, mine] = await Promise.all([
+      this.listEligibleForUser(userId),
+      this.listMineForUser(userId),
+    ]);
+    return { eligible, mine };
+  }
+
   async deletePhoto(
     joinId: string,
     photoId: string,
@@ -174,6 +241,23 @@ export class JoinSessionReviewService {
       },
     });
     return this.toDto(review);
+  }
+
+  private toJoinSummary(join: {
+    id: string;
+    title: string | null;
+    startAt: Date;
+    scheduledEndAt: Date;
+    venue: { name: string; venueType: string };
+  }): JoinSessionReviewJoinSummaryDto {
+    return {
+      joinId: join.id,
+      title: join.title,
+      venueType: join.venue.venueType as JoinSessionReviewJoinSummaryDto['venueType'],
+      venueName: join.venue.name,
+      startAt: join.startAt.toISOString(),
+      scheduledEndAt: join.scheduledEndAt.toISOString(),
+    };
   }
 
   private async assertAuthorEligible(joinId: string, userId: string) {

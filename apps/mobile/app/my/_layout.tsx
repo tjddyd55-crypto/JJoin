@@ -28,6 +28,7 @@ export default function MyLayout() {
         <Stack.Screen name="create-recurring-join" options={{ title: '정기 쪼인 만들기' }} />
         <Stack.Screen name="join-alerts" options={{ title: '쪼인 알림' }} />
         <Stack.Screen name="bookmarks" options={{ title: '찜한 쪼인' }} />
+        <Stack.Screen name="join-session-reviews" options={{ title: '쪼인 후기' }} />
         <Stack.Screen name="followed-stores" options={{ title: '팔로우한 매장' }} />
         <Stack.Screen name="played-together" options={{ title: '함께 친 사람' }} />
         <Stack.Screen name="wallet" options={{ title: '월렛' }} />

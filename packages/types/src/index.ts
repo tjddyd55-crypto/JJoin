@@ -3482,6 +3482,26 @@ export type UpsertJoinSessionReviewRequest = {
   content: string;
 };
 
+export type JoinSessionReviewJoinSummaryDto = {
+  joinId: string;
+  title: string | null;
+  venueType: VenueType;
+  venueName: string;
+  startAt: string;
+  scheduledEndAt: string;
+};
+
+export type JoinSessionReviewEligibleItemDto = JoinSessionReviewJoinSummaryDto;
+
+export type JoinSessionReviewMineItemDto = JoinSessionReviewDto & {
+  join: JoinSessionReviewJoinSummaryDto;
+};
+
+export type MyJoinSessionReviewsHubDto = {
+  eligible: JoinSessionReviewEligibleItemDto[];
+  mine: JoinSessionReviewMineItemDto[];
+};
+
 export type StoreBannerAdRequestDto = {
   id: string;
   ownershipId: string;
