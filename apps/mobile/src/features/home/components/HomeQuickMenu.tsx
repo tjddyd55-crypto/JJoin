@@ -3,37 +3,66 @@ import { useRouter, type Href } from 'expo-router';
 import { Icon, Text, spacing, useTheme } from '@jjoin/design-system';
 import type { IconName, IconTone } from '@jjoin/design-system';
 
-type QuickMenuItem = {
+type HomeMenuItem = {
   label: string;
+  description: string;
   icon: IconName;
   href: Href;
   iconTone?: IconTone;
-  accent?: boolean;
 };
 
-const ROW_1: QuickMenuItem[] = [
+const HOME_MENU_ITEMS: HomeMenuItem[] = [
   {
-    label: '쪼인 찾기',
-    icon: 'search',
+    label: '필드 쪼인',
+    description: '필드 라운드 찾기',
+    icon: 'golf',
+    href: { pathname: '/(tabs)/joins', params: { venueType: 'FIELD' } } as Href,
+  },
+  {
+    label: '스크린 쪼인',
+    description: '스크린 쪼인 찾기',
+    icon: 'venue',
     href: { pathname: '/(tabs)/joins', params: { venueType: 'SCREEN' } } as Href,
   },
-  { label: '쪼인몰', icon: 'coin', href: '/(tabs)/mall' as Href },
-  { label: '스크린', icon: 'golf', href: '/(tabs)/screen' },
+  {
+    label: '쪼인 후기',
+    description: '작성 가능 · 내가 쓴 후기',
+    icon: 'edit',
+    href: '/my/join-session-reviews' as Href,
+  },
+  {
+    label: '쪼인몰',
+    description: '코인으로 상품 구매',
+    icon: 'coin',
+    href: '/(tabs)/mall' as Href,
+  },
+  {
+    label: '골프친구',
+    description: '함께할 골퍼 찾기',
+    icon: 'people',
+    href: '/my/golf-friends' as Href,
+  },
+  {
+    label: '스크린 매장',
+    description: '주변 매장 찾기',
+    icon: 'location',
+    href: '/stores' as Href,
+  },
+  {
+    label: '내 쪼인',
+    description: '참여 · 개설 내역',
+    icon: 'calendar',
+    href: '/(tabs)/my-joins' as Href,
+  },
+  {
+    label: '코인',
+    description: '충전 · 사용 내역',
+    icon: 'wallet',
+    href: '/my/wallet' as Href,
+  },
 ];
 
-function buildRow2(clubsUiEnabled: boolean): QuickMenuItem[] {
-  return [
-    clubsUiEnabled
-      ? { label: '동호회', icon: 'people', href: '/my/clubs/discover' as Href }
-      : { label: '스크린 매장', icon: 'golf', href: '/stores' as Href },
-    { label: '내 쪼인', icon: 'people', href: '/(tabs)/my-joins' },
-    { label: '골프친구', icon: 'people', href: '/my/golf-friends' as Href },
-    { label: '알림', icon: 'notification', href: '/my/notifications' },
-    { label: '코인', icon: 'coin', href: '/my/wallet' },
-  ];
-}
-
-function QuickMenuCell({ item }: { item: QuickMenuItem }) {
+function HomeMenuCard({ item }: { item: HomeMenuItem }) {
   const theme = useTheme();
   const router = useRouter();
 
@@ -42,77 +71,91 @@ function QuickMenuCell({ item }: { item: QuickMenuItem }) {
       accessibilityRole="button"
       accessibilityLabel={item.label}
       onPress={() => router.push(item.href)}
-      style={({ pressed }) => [styles.cell, { opacity: pressed ? 0.88 : 1 }]}
+      style={({ pressed }) => [
+        styles.card,
+        {
+          backgroundColor: theme.colors.surface.elevated,
+          borderColor: theme.colors.border.subtle,
+          opacity: pressed ? 0.9 : 1,
+        },
+      ]}
     >
       <View
         style={[
-          styles.tile,
+          styles.iconPlate,
           {
-            backgroundColor: theme.colors.surface.elevated,
+            backgroundColor: theme.colors.surface.soft,
             borderRadius: theme.radius.md,
-            borderColor: item.accent ? theme.colors.state.active : 'transparent',
-            borderWidth: item.accent ? StyleSheet.hairlineWidth : 0,
           },
         ]}
       >
-        <Icon
-          name={item.icon}
-          size="md"
-          tone={item.iconTone ?? 'primary'}
-        />
+        <Icon name={item.icon} size="md" tone={item.iconTone ?? 'primary'} />
       </View>
-      <Text
-        variant="quickMenuLabel"
-        tone={item.accent ? 'success' : 'secondary'}
-        style={styles.label}
-        numberOfLines={1}
-      >
-        {item.label}
-      </Text>
+
+      <View style={styles.copy}>
+        <Text variant="bodyStrong" tone="primary" numberOfLines={1}>
+          {item.label}
+        </Text>
+        <Text variant="caption" tone="secondary" numberOfLines={2}>
+          {item.description}
+        </Text>
+      </View>
     </Pressable>
   );
 }
 
-export function HomeQuickMenu({ clubsUiEnabled = false }: { clubsUiEnabled?: boolean }) {
+/**
+ * Home is a navigation hub: one large two-column card per destination.
+ * Review creation is intentionally not duplicated; "쪼인 후기" opens the review hub.
+ */
+export function HomeQuickMenu() {
+  const rows: HomeMenuItem[][] = [];
+  for (let index = 0; index < HOME_MENU_ITEMS.length; index += 2) {
+    rows.push(HOME_MENU_ITEMS.slice(index, index + 2));
+  }
+
   return (
     <View style={styles.grid}>
-      {[ROW_1, buildRow2(clubsUiEnabled)].map((row, rowIndex) => (
-        <View key={rowIndex} style={styles.row}>
+      {rows.map((row) => (
+        <View key={row[0]?.label} style={styles.row}>
           {row.map((item) => (
-            <QuickMenuCell key={item.label} item={item} />
+            <HomeMenuCard key={item.label} item={item} />
           ))}
+          {row.length === 1 ? <View style={styles.cardSpacer} /> : null}
         </View>
       ))}
     </View>
   );
 }
 
-const TILE = 50;
-
 const styles = StyleSheet.create({
   grid: {
-    gap: spacing.xs,
+    gap: spacing.sm,
+    marginTop: spacing.sm,
   },
   row: {
     flexDirection: 'row',
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
-  cell: {
+  card: {
     flex: 1,
-    alignItems: 'center',
-    gap: 4,
     minWidth: 0,
-    minHeight: 44,
-    paddingVertical: 2,
+    minHeight: 116,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 16,
+    padding: spacing.sm,
+    justifyContent: 'space-between',
   },
-  tile: {
-    width: TILE,
-    height: TILE,
+  cardSpacer: {
+    flex: 1,
+  },
+  iconPlate: {
+    width: 42,
+    height: 42,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  label: {
-    textAlign: 'center',
-    maxWidth: '100%',
+  copy: {
+    gap: 3,
   },
 });
