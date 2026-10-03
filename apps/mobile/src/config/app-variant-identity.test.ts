@@ -12,6 +12,9 @@ import {
   identityFor,
   notificationIconFor,
   resolveAppVariant,
+  splashScreenFor,
+  expoSplashPluginConfigFor,
+  DEVELOPMENT_SPLASH_IMAGE,
 } from '../../app-variant-identity.cjs';
 
 test('resolveAppVariant: only explicit development selects DEV', () => {
@@ -42,6 +45,26 @@ test('development identity uses wordmark icons and com.jjoin.app.dev', () => {
   assert.equal(adaptive.foregroundImage, DEVELOPMENT_ADAPTIVE_FOREGROUND);
   assert.equal(adaptive.backgroundColor, DEVELOPMENT_ADAPTIVE_BACKGROUND_COLOR);
   assert.equal(iconFor('development'), iconFor('production'));
+});
+
+test('development native splash is transparent; production keeps wordmark splash', () => {
+  const dev = splashScreenFor('development');
+  assert.equal(dev.image, DEVELOPMENT_SPLASH_IMAGE);
+  assert.equal(dev.resizeMode, 'contain');
+  const prod = splashScreenFor('production');
+  assert.equal(prod.image, './assets/images/splash-icon.png');
+  assert.equal(prod.resizeMode, 'contain');
+});
+
+test('development expo splash plugin renders no visible Android icon; JS owns the hero', () => {
+  const dev = expoSplashPluginConfigFor('development');
+  assert.equal(dev.resizeMode, 'contain');
+  assert.equal(dev.imageWidth, 1);
+  assert.equal('enableFullScreenImage_legacy' in dev, false);
+  assert.equal(dev.android?.resizeMode, 'contain');
+  assert.equal(dev.android?.imageWidth, 1);
+  const prod = expoSplashPluginConfigFor('production');
+  assert.equal(prod.imageWidth, 200);
 });
 
 test('notification plugin icons follow the same variant split', () => {

@@ -261,7 +261,7 @@ export class MatchingJoinsService {
         }
         throw new ConflictException({
           code: 'store_join_create_conflict',
-          message: '조인 생성이 중복 요청되었습니다. 잠시 후 다시 시도해주세요.',
+          message: '쪼인 생성이 중복 요청되었습니다. 잠시 후 다시 시도해주세요.',
         });
       }
       throw e;

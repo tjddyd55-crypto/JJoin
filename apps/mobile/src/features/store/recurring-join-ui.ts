@@ -105,5 +105,5 @@ export function recurringScheduleTitle(schedule: {
 }): string {
   if (schedule.title?.trim()) return schedule.title.trim();
   if (schedule.facilityName?.trim()) return schedule.facilityName.trim();
-  return schedule.kind === 'HOST_JOIN' ? '반복 조인' : '정기 조인';
+  return schedule.kind === 'HOST_JOIN' ? '반복 쪼인' : '정기 쪼인';
 }

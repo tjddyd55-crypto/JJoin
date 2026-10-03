@@ -1,4 +1,5 @@
 import type { AppVariantName } from './app-variant';
+import { isJoinReviewPostPhotoObjectKey } from './join-review-post';
 
 export const MAX_PROFILE_GALLERY_PHOTOS = 5;
 export const PROFILE_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
@@ -122,12 +123,36 @@ export function isPublicReadableObjectKey(params: {
     return restOrLeafCount(key.slice(bannerPrefix.length)) === 2;
   }
 
+  const launchPrefix = `${env}/app-launch/`;
+  if (key.startsWith(launchPrefix)) {
+    return restOrLeafCount(key.slice(launchPrefix.length)) === 1;
+  }
+
+  const joinReviewPrefix = `${env}/join-reviews/`;
+  if (key.startsWith(joinReviewPrefix)) {
+    const rest = key.slice(joinReviewPrefix.length);
+    return rest.split('/').filter(Boolean).length === 2;
+  }
+
+  if (isJoinReviewPostPhotoObjectKey({ objectKey: key, environmentPrefix: env })) {
+    return true;
+  }
+
   const profilePrefix = `${env}/profiles/`;
   if (key.startsWith(profilePrefix)) {
     const rest = key.slice(profilePrefix.length);
     const [, kind] = rest.split('/');
     if (kind !== 'avatar' && kind !== 'gallery') return false;
     return rest.split('/').length === 3;
+  }
+
+  // DEV investor/demo photoreal pack (seed never writes production/ keys).
+  const investorPrefix = `${env}/investor-demo/`;
+  if (key.startsWith(investorPrefix)) {
+    const rest = key.slice(investorPrefix.length);
+    const parts = rest.split('/').filter(Boolean);
+    // development/investor-demo/v2/{avatars|stores|banners|field|clubs}/file.jpg
+    return parts.length === 3 && /^v\d+$/.test(parts[0] ?? '') && isPublicImageLeaf(key);
   }
 
   return false;

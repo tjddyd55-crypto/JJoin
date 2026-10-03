@@ -17,7 +17,7 @@ function fieldDetail(overrides: Partial<JoinDetailDto> = {}): JoinDetailDto {
     status: 'OPEN',
     joinMethod: 'APPROVAL',
     sportCode: 'SCREEN_GOLF',
-    title: '필드 조인',
+    title: '필드 쪼인',
     description: null,
     startAt: '2026-09-20T01:00:00.000Z',
     scheduledEndAt: '2026-09-20T06:00:00.000Z',

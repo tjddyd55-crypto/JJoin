@@ -59,7 +59,7 @@ export default function PlayedTogetherScreen() {
   return (
     <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       <Text variant="caption" tone="secondary">
-        완료된 조인에서 함께 플레이한 사람들입니다.
+        완료된 쪼인에서 함께 플레이한 사람들입니다.
       </Text>
       <Spacer size="md" />
       {loading ? (
@@ -78,7 +78,7 @@ export default function PlayedTogetherScreen() {
             아직 함께 플레이한 사람이 없어요.
           </Text>
           <Text variant="caption" tone="tertiary">
-            조인에 참가하면 함께 플레이한 사람이 여기에 쌓입니다.
+            쪼인에 참가하면 함께 플레이한 사람이 여기에 쌓입니다.
           </Text>
         </Stack>
       ) : null}

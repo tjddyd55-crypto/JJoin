@@ -48,7 +48,7 @@ export function JoinCreateRecurrenceSection({
 
   return (
     <View style={styles.wrap}>
-      <Text variant="sectionTitle" tone="primary">반복 조인</Text>
+      <Text variant="sectionTitle" tone="primary">반복 쪼인</Text>
       <View style={styles.row}>
         <Chip
           label="반복 안 함"

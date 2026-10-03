@@ -38,7 +38,7 @@ export function FacilityFollowWeeklySection(props: {
         setWeekly(res);
         setSelectedDate(res.selectedDate);
       } catch {
-        setWeeklyError('이번 주 조인을 불러오지 못했습니다.');
+        setWeeklyError('이번 주 쪼인을 불러오지 못했습니다.');
         setWeekly(null);
       }
     },
@@ -86,7 +86,7 @@ export function FacilityFollowWeeklySection(props: {
         onPress={() => void onToggleFollow()}
       />
       <Text variant="meta" tone="secondary">
-        이번 주 조인
+        이번 주 쪼인
       </Text>
       <WeekStrip
         weekAnchorDate={weekAnchorDate}
@@ -117,7 +117,7 @@ export function FacilityFollowWeeklySection(props: {
       ) : null}
       {joins.length === 0 && !weeklyError ? (
         <Text variant="caption" tone="tertiary">
-          선택한 날짜에 조인이 없습니다.
+          선택한 날짜에 쪼인이 없습니다.
         </Text>
       ) : (
         <Stack gap="sm">

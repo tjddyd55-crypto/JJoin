@@ -318,11 +318,11 @@ export class StoreOwnershipService {
     const benefitLabel =
       joinPricing.effectiveFeeCoinAmount === 0
         ? joinPricing.reason === 'PREMIUM_BENEFIT'
-          ? 'Premium 혜택 · 조인방 생성 무료'
+          ? 'Premium 혜택 · 쪼인방 생성 무료'
           : joinPricing.reason === 'OWNER_BENEFIT' ||
               joinPricing.reason === 'OWNER_PREMIUM_BEST'
-            ? '업주 혜택 · 조인방 생성 무료'
-            : '조인방 생성 무료'
+            ? '업주 혜택 · 쪼인방 생성 무료'
+            : '쪼인방 생성 무료'
         : joinPricing.owner.eligible &&
             joinPricing.effectiveFeeCoinAmount < joinPricing.base.feeCoinAmount
           ? '업주 혜택 적용'

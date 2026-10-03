@@ -19,8 +19,25 @@ import { PushRegistrationHost } from '../src/features/notifications/PushRegistra
 import { AttendanceRewardHost } from '../src/features/rewards/AttendanceRewardHost';
 import { ProductionReleaseGate } from '../src/features/release/ProductionReleaseGate';
 import { useAppFonts } from '../src/bootstrap/useAppFonts';
+import { logDevUpdateState } from '../src/features/updates/log-update-state';
+import {
+  DEV_ENTRY_LAUNCH_BACKGROUND,
+  DevEntryLaunchGate,
+} from '../src/features/bootstrap/DevEntryLaunchScreen';
+import { isDevelopmentVariant } from '../src/lib/app-variant';
+import '../src/features/bootstrap/app-launch-boot-snapshot';
+import { hideNativeSplashOnce } from '../src/features/bootstrap/hide-native-splash-once';
+
+function devLaunchRootStyle() {
+  return isDevelopmentVariant()
+    ? { backgroundColor: DEV_ENTRY_LAUNCH_BACKGROUND }
+    : { backgroundColor: clubMinimalTheme.colors.app.background };
+}
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
+if (isDevelopmentVariant()) {
+  SplashScreen.setOptions({ fade: false, duration: 0 });
+}
 
 if (__DEV__) {
   console.log('[BOOT 01] module _layout loaded');
@@ -43,6 +60,7 @@ function PushBootstrap() {
 
 function AuthGateBootstrap({ children }: { children: React.ReactNode }) {
   const { appState, bootstrapping, me } = useSession();
+  const devLaunch = isDevelopmentVariant();
   const segments = useSegments();
   const router = useRouter();
 
@@ -111,11 +129,19 @@ function AuthGateBootstrap({ children }: { children: React.ReactNode }) {
     }
   }, [appState, bootstrapping, segments, router, me]);
 
-  if (bootstrapping || appState === AuthAppState.BOOTSTRAPPING) {
+  const launching =
+    bootstrapping ||
+    appState === AuthAppState.BOOTSTRAPPING;
+
+  if (!devLaunch && launching) {
     return <SplashBootstrapScreen />;
   }
 
-  return <>{children}</>;
+  return (
+    <DevEntryLaunchGate bootstrapping={launching}>
+      {children}
+    </DevEntryLaunchGate>
+  );
 }
 
 const ONBOARDING_SCREENS = ['profile-setup', 'profile-photo', 'location'] as const;
@@ -159,16 +185,22 @@ export default function RootLayout() {
   const fontsLoaded = useAppFonts();
 
   useEffect(() => {
+    logDevUpdateState();
+  }, []);
+
+  useEffect(() => {
+    if (isDevelopmentVariant()) {
+      return;
+    }
     if (fontsLoaded) {
-      void SplashScreen.hideAsync();
+      void hideNativeSplashOnce();
     }
   }, [fontsLoaded]);
 
-  if (!fontsLoaded) {
+  const devVariant = isDevelopmentVariant();
+  if (!fontsLoaded && !devVariant) {
     return (
-      <GestureHandlerRootView
-        style={[styles.root, { backgroundColor: clubMinimalTheme.colors.app.background }]}
-      >
+      <GestureHandlerRootView style={[styles.root, devLaunchRootStyle()]}>
         <ThemeProvider theme={clubMinimalTheme}>
           <SplashBootstrapScreen />
         </ThemeProvider>
@@ -185,9 +217,7 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView
-      style={[styles.root, { backgroundColor: clubMinimalTheme.colors.app.background }]}
-    >
+    <GestureHandlerRootView style={[styles.root, devLaunchRootStyle()]}>
       <ThemeProvider theme={clubMinimalTheme}>
         <ProductionReleaseGate>
           <SessionProvider>
@@ -206,6 +236,7 @@ export default function RootLayout() {
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="auth" />
               <Stack.Screen name="my" />
+              <Stack.Screen name="reviews" options={{ headerShown: false }} />
               <Stack.Screen name="mall" options={{ headerShown: false }} />
               <Stack.Screen name="join/[joinId]" options={{ headerShown: false }} />
               <Stack.Screen name="user/[userId]" />

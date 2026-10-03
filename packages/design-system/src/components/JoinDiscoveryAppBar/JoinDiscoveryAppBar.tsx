@@ -17,7 +17,7 @@ function formatUnreadBadge(count: number): string {
 }
 
 export function JoinDiscoveryAppBar({
-  title = '조인',
+  title = '쪼인',
   showTitle = true,
   regionLabel,
   unreadCount = 0,

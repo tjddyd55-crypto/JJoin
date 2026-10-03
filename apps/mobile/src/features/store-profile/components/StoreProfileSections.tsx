@@ -160,8 +160,8 @@ export function StoreJoinCta({
 }) {
   return (
     <View style={styles.section}>
-      <Text variant="sectionTitle">이 매장의 조인</Text>
-      <Button label="이 매장에서 조인 만들기" onPress={onPress} />
+      <Text variant="sectionTitle">이 매장의 쪼인</Text>
+      <Button label="이 매장에서 쪼인 만들기" onPress={onPress} />
     </View>
   );
 }

@@ -25,6 +25,7 @@ import { RewardsService } from './rewards.service';
 import { StoreBannerAdsService } from './store-banner-ads.service';
 import { StoreProfilePhotoService } from './store-profile-photo.service';
 import { StoreProfilesService } from './store-profiles.service';
+import { AppLaunchService } from './app-launch.service';
 
 type UploadedImageFile = {
   buffer: Buffer;
@@ -36,6 +37,7 @@ export class PublicExpansionController {
     private readonly flags: FeatureFlagsService,
     private readonly banners: HomeBannersService,
     private readonly stores: StoreProfilesService,
+    private readonly appLaunch: AppLaunchService,
   ) {}
 
   @Get('feature-flags')
@@ -46,6 +48,11 @@ export class PublicExpansionController {
   @Get('home-banners')
   homeBanners() {
     return this.banners.listPublic();
+  }
+
+  @Get('app-config/launch')
+  appLaunchConfig() {
+    return this.appLaunch.getPublic();
   }
 
   @Get('screen-stores')
@@ -165,6 +172,7 @@ export class AdminExpansionController {
     private readonly rewards: RewardsService,
     private readonly ads: StoreBannerAdsService,
     private readonly stores: StoreProfilesService,
+    private readonly appLaunch: AppLaunchService,
   ) {}
 
   @Get('feature-flags')
@@ -185,6 +193,29 @@ export class AdminExpansionController {
   @Put('reward-policy')
   updateRewardPolicy(@Body() body: unknown, @Req() req: Request) {
     return this.rewards.updatePolicy(body, (req as Request & { userId?: string }).userId);
+  }
+
+  @Get('app-launch')
+  getAppLaunch() {
+    return this.appLaunch.getAdmin();
+  }
+
+  @Put('app-launch')
+  updateAppLaunch(@Body() body: unknown, @Req() req: Request) {
+    return this.appLaunch.update(body, (req as Request & { userId?: string }).userId);
+  }
+
+  @Post('app-launch/image')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadAppLaunchImage(
+    @UploadedFile() file: UploadedImageFile | undefined,
+    @Req() req: Request,
+  ) {
+    if (!file?.buffer?.length) throw new BadRequestException('file_required');
+    return this.appLaunch.uploadLaunchImage(
+      file.buffer,
+      (req as Request & { userId?: string }).userId,
+    );
   }
 
   @Get('home-banners')

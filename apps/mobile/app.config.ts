@@ -1,4 +1,4 @@
-﻿import fs from 'node:fs';
+import fs from 'node:fs';
 import path from 'node:path';
 import { ExpoConfig, ConfigContext } from 'expo/config';
 import {
@@ -7,7 +7,15 @@ import {
   identityFor,
   notificationIconFor,
   resolveAppVariant,
+  expoSplashPluginConfigFor,
+  splashScreenFor,
 } from './app-variant-identity.cjs';
+import {
+  RUNTIME_VERSION_POLICY,
+  shouldIncludeExpoDevClient,
+  updateChannelFor,
+  updatesConfigFor,
+} from './eas-update-policy.cjs';
 
 type AppVariant = 'development' | 'production';
 
@@ -106,22 +114,18 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const hasGoogleServices = fs.existsSync(googleServicesPath);
 
   const notificationIcon = notificationIconFor(variant);
+  const splash = splashScreenFor(variant);
+  const splashPlugin = expoSplashPluginConfigFor(variant);
 
   const plugins: ExpoConfig['plugins'] = [
     'expo-router',
-    [
-      'expo-splash-screen',
-      {
-        image: './assets/images/splash-icon.png',
-        resizeMode: 'contain',
-        backgroundColor: '#F8F9F6',
-      },
-    ],
+    'expo-updates',
+    ['expo-splash-screen', splashPlugin],
     [
       'expo-location',
       {
         locationWhenInUsePermission:
-          '주변 스크린골프장과 조인을 찾기 위해 현재 위치를 사용합니다.',
+          '주변 스크린골프장과 쪼인을 찾기 위해 현재 위치를 사용합니다.',
       },
     ],
     [
@@ -159,9 +163,16 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     './plugins/with-toss-payment-queries.js',
   ];
 
-  // Dev Launcher only for Development identity (eas developmentClient).
-  // Production/preview standalone must not register expo-dev-client.
-  if (variant === 'development') {
+  // Dev Launcher only for Metro / EAS `development`.
+  // `development-standalone` keeps DEV identity + channel but launches the app.
+  // Production/preview never register expo-dev-client.
+  if (
+    shouldIncludeExpoDevClient({
+      variant,
+      easBuildProfile: process.env.EAS_BUILD_PROFILE,
+      useDevClient: process.env.EXPO_PUBLIC_USE_DEV_CLIENT,
+    })
+  ) {
     plugins.splice(1, 0, 'expo-dev-client');
   }
 
@@ -204,6 +215,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     slug: identity.slug,
     owner: 'tjddyd55',
     version: '0.0.16',
+    // appVersion: binaries already bump version/versionCode. Channel isolates DEV vs Production.
+    runtimeVersion: RUNTIME_VERSION_POLICY,
+    updates: updatesConfigFor(variant, easProjectId),
     orientation: 'portrait',
     icon: appIcon,
     scheme: identity.scheme,
@@ -213,7 +227,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       bundleIdentifier: identity.iosBundleIdentifier,
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
-          '주변 스크린골프장과 조인을 찾기 위해 현재 위치를 사용합니다.',
+          '주변 스크린골프장과 쪼인을 찾기 위해 현재 위치를 사용합니다.',
         // Toss card/bank App-to-App schemes — merged further by with-toss-payment-queries.
         LSApplicationQueriesSchemes: [
           'supertoss',
@@ -258,6 +272,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       googleLoginConfigured: Boolean(googleWebClientId),
       naverLoginConfigured: Boolean(naverClientId && naverClientSecret),
       googleServicesConfigured: hasGoogleServices,
+      easUpdateChannel: updateChannelFor(variant),
       eas: {
         projectId: easProjectId,
       },

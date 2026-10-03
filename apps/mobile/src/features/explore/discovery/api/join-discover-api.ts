@@ -21,6 +21,8 @@ export type DiscoverQuery = {
   sort?: JoinDiscoverySort;
   joinability?: JoinDiscoveryJoinability;
   venueType?: 'SCREEN' | 'FIELD';
+  /** Also return the day's finished joins (`completed`) as read-only 완료 cards. */
+  includeCompleted?: boolean;
 };
 
 export type WeeklyQuery = {

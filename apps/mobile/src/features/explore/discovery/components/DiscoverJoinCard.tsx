@@ -9,7 +9,7 @@ import {
 } from '../../../store/matching-join-ui';
 import { hasFixedGenderComposition, formatStandardGenderCompositionLabel } from '@jjoin/domain';
 import { mapDiscoverToJoinCardProps } from '../../../../ui/join-card-map';
-import { splitJoinCapacityDisplay } from '../../../../ui/join-display';
+import { JOIN_FINISHED_STATUS_LABEL, splitJoinCapacityDisplay } from '../../../../ui/join-display';
 
 type Props = {
   join: DiscoverJoinCardDto;
@@ -17,7 +17,8 @@ type Props = {
 };
 
 function statusLabel(join: DiscoverJoinCardDto): string {
-  if (join.canJoinState === 'HOST') return '내 조인';
+  if (join.isCompleted) return JOIN_FINISHED_STATUS_LABEL;
+  if (join.canJoinState === 'HOST') return '내 쪼인';
   if (join.canJoinState === 'ALREADY_JOINED') return '참가 중';
   if (join.canJoinState === 'FULL') return '마감';
   const matchingLabel = matchingDisplayStatusLabel(join, 'host');
@@ -32,7 +33,7 @@ export function DiscoverJoinCard({ join, onPress }: Props) {
     variant: 'compact',
   });
 
-  if (matching) {
+  if (matching && !join.isCompleted) {
     const slotLabel = matchingSlotProgressLabel(
       join.targetMaleCount,
       join.targetFemaleCount,

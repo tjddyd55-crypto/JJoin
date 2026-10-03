@@ -84,7 +84,7 @@ export default function ProfileMatchScreen() {
   return (
     <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       <Text variant="body" tone="secondary">
-        조인 알림과 별도로, 호스트 프로필이 조건에 맞는 새 조인을 알려줍니다.
+        쪼인 알림과 별도로, 호스트 프로필이 조건에 맞는 새 쪼인을 알려줍니다.
       </Text>
       <Spacer size="md" />
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>

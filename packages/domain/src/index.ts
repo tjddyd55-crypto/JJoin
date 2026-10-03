@@ -357,6 +357,10 @@ export {
 export {
   DEFAULT_NEARBY_RADIUS_METERS,
   DISCOVERY_JOIN_STATUSES,
+  COMPLETED_DISCOVERY_JOIN_STATUSES,
+  compareCompletedDiscoverJoinOrder,
+  isCompletedDiscoveryJoin,
+  orderActiveThenCompleted,
   MAX_JOIN_REGION_PREFERENCES,
   WEEKDAY_LABELS_KO,
   addCalendarDays,
@@ -1210,6 +1214,39 @@ export {
 } from './store-profile';
 
 export {
+  APP_LAUNCH_DURATION_DEFAULT_MS,
+  APP_LAUNCH_DURATION_MAX_MS,
+  APP_LAUNCH_DURATION_MIN_MS,
+  buildAppLaunchObjectKey,
+  clampAppLaunchDurationMs,
+} from './app-launch';
+
+export {
+  JOIN_SESSION_REVIEW_CONTENT_MAX,
+  JOIN_SESSION_REVIEW_PHOTO_MAX,
+  JOIN_SESSION_REVIEW_TITLE_MAX,
+  buildJoinSessionReviewPhotoObjectKey,
+  evaluateJoinSessionReviewAuthorEligibility,
+  isJoinSessionReviewPhotoObjectKey,
+  normalizeJoinSessionReviewContent,
+  normalizeJoinSessionReviewTitle,
+} from './join-session-review';
+
+export {
+  JOIN_REVIEW_POST_CONTENT_MAX,
+  JOIN_REVIEW_POST_CONTENT_PREVIEW_MAX,
+  JOIN_REVIEW_POST_LIST_DEFAULT_LIMIT,
+  JOIN_REVIEW_POST_LIST_MAX_LIMIT,
+  JOIN_REVIEW_POST_PHOTO_MAX,
+  JOIN_REVIEW_POST_TITLE_MAX,
+  buildJoinReviewPostContentPreview,
+  buildJoinReviewPostPhotoObjectKey,
+  isJoinReviewPostPhotoObjectKey,
+  normalizeJoinReviewPostContent,
+  normalizeJoinReviewPostTitle,
+} from './join-review-post';
+
+export {
   HOME_BANNER_AUTO_SLIDE_MS,
   HOME_BANNER_SUBTITLE_MAX,
   HOME_BANNER_TITLE_MAX,
@@ -1342,6 +1379,14 @@ export {
   type FieldGolfSearchQuery,
   type NormalizedFieldGolfCourse,
 } from './field-golf-course';
+
+export {
+  DEV_DEMO_RECOMMENDED_LIMIT,
+  isDevInvestorDemoAvatarStorageKey,
+  mergeDevDemoRecommendedUserIds,
+} from './dev-demo-visibility';
+
+export { DEV_INVESTOR_DEMO_KEY_MARKER, isDevPersonaAvatarObjectKey } from './dev-persona-gallery';
 
 export {
   ANDROID_MOBILE_RELEASE_SETTINGS_ID,

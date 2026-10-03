@@ -31,7 +31,7 @@ export default function BookmarksScreen() {
     try {
       setItems(await api.listJoinBookmarks());
     } catch {
-      setError('찜한 조인을 불러오지 못했습니다.');
+      setError('찜한 쪼인을 불러오지 못했습니다.');
     } finally {
       setLoading(false);
     }
@@ -55,7 +55,7 @@ export default function BookmarksScreen() {
       ) : null}
       {!loading && items.length === 0 ? (
         <Text variant="body" tone="secondary">
-          찜한 조인이 없습니다.
+          찜한 쪼인이 없습니다.
         </Text>
       ) : null}
       <Stack gap="sm">

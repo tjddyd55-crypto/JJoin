@@ -75,7 +75,7 @@ export function RegionJoinListPanel({
         setData(null);
         setError(
           locationDenied
-            ? '위치 권한이 없어 내 주변 조인을 불러올 수 없습니다.'
+            ? '위치 권한이 없어 내 주변 쪼인을 불러올 수 없습니다.'
             : '위치를 확인하는 중입니다.',
         );
         return;
@@ -97,7 +97,7 @@ export function RegionJoinListPanel({
     } catch {
       if (seq !== requestSeq.current) return;
       setData(null);
-      setError('조인을 불러오지 못했습니다.');
+      setError('쪼인을 불러오지 못했습니다.');
     } finally {
       if (seq === requestSeq.current) setLoading(false);
     }
@@ -142,7 +142,7 @@ export function RegionJoinListPanel({
 
   const todayKey = localDayKey(new Date());
   const sectionTitle =
-    date === todayKey ? '오늘 참여 가능한 조인' : '선택한 날 조인';
+    date === todayKey ? '오늘 참여 가능한 쪼인' : '선택한 날 쪼인';
   const empty = !loading && (data?.totalCount ?? 0) === 0;
 
   return (
@@ -154,14 +154,14 @@ export function RegionJoinListPanel({
     >
       {(data?.totalCount ?? 0) > 0 ? (
         <Text variant="joinMeta" tone="secondary">
-          총 조인 {data!.totalCount}개
+          총 쪼인 {data!.totalCount}개
         </Text>
       ) : null}
 
       {empty ? (
         <Stack gap="sm" style={styles.emptyBlock}>
           <Text variant="joinMeta" tone="secondary">
-            이 지역에 조인이 없습니다.
+            이 지역에 쪼인이 없습니다.
           </Text>
           {onBrowseOtherRegions ? (
             <CompactTextAction

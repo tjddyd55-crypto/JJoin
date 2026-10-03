@@ -23,11 +23,12 @@ export default function MyLayout() {
         <Stack.Screen name="store-verification" options={{ title: '스크린골프 매장 인증' }} />
         <Stack.Screen name="stores" options={{ title: '내 매장' }} />
         <Stack.Screen name="store-dashboard" options={{ title: '운영 대시보드' }} />
-        <Stack.Screen name="create-store-join" options={{ title: '모집 조인 만들기' }} />
-        <Stack.Screen name="recurring-joins" options={{ title: '반복 조인' }} />
-        <Stack.Screen name="create-recurring-join" options={{ title: '정기 조인 만들기' }} />
-        <Stack.Screen name="join-alerts" options={{ title: '조인 알림' }} />
-        <Stack.Screen name="bookmarks" options={{ title: '찜한 조인' }} />
+        <Stack.Screen name="create-store-join" options={{ title: '모집 쪼인 만들기' }} />
+        <Stack.Screen name="recurring-joins" options={{ title: '반복 쪼인' }} />
+        <Stack.Screen name="create-recurring-join" options={{ title: '정기 쪼인 만들기' }} />
+        <Stack.Screen name="join-alerts" options={{ title: '쪼인 알림' }} />
+        <Stack.Screen name="bookmarks" options={{ title: '찜한 쪼인' }} />
+        <Stack.Screen name="join-session-reviews" options={{ title: '쪼인 후기' }} />
         <Stack.Screen name="followed-stores" options={{ title: '팔로우한 매장' }} />
         <Stack.Screen name="played-together" options={{ title: '함께 친 사람' }} />
         <Stack.Screen name="wallet" options={{ title: '월렛' }} />

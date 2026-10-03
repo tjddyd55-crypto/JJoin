@@ -38,13 +38,13 @@ test('joins tab passes route venueType into discovery', () => {
   assert.match(source, /useLocalSearchParams/);
 });
 
-test('home and bottom paths still reach SCREEN and FIELD lists', () => {
+test('home hub and bottom paths still reach SCREEN and FIELD lists', () => {
   const home = readMobile('src/features/home/screens/HomeScreen.tsx');
   const quickMenu = readMobile('src/features/home/components/HomeQuickMenu.tsx');
   const tabs = readMobile('app/(tabs)/_layout.tsx');
 
-  assert.match(home, /joinsListHref\('FIELD'\)/);
-  assert.match(home, /joinsListHref\('SCREEN'\)/);
+  assert.match(home, /<HomeQuickMenu/);
+  assert.match(quickMenu, /venueType: 'FIELD'/);
   assert.match(quickMenu, /venueType: 'SCREEN'/);
   assert.match(tabs, /name="joins"/);
   assert.match(tabs, /name="index"/);
@@ -63,8 +63,8 @@ test('join list does not global-reset venueType on every focus', () => {
 
 test('join list screen removes title and in-list SCREEN/FIELD toggle', () => {
   const screen = readMobile('src/features/explore/discovery/ExploreDiscoveryScreen.tsx');
-  assert.doesNotMatch(screen, /스크린 조인/);
-  assert.doesNotMatch(screen, /필드 조인/);
+  assert.doesNotMatch(screen, /스크린 쪼인/);
+  assert.doesNotMatch(screen, /필드 쪼인/);
   assert.doesNotMatch(screen, /trackTabs/);
   assert.match(screen, /showTitle=\{false\}/);
   assert.match(screen, /density="compact"/);
@@ -76,7 +76,7 @@ test('provider only applies an explicit route venueType', () => {
   const source = readMobile('src/features/explore/discovery/JoinDiscoveryContext.tsx');
   assert.match(source, /parseJoinListVenueTypeParam/);
   assert.match(source, /resolveJoinListVenueType/);
-  assert.doesNotMatch(source, /스크린 조인/);
+  assert.doesNotMatch(source, /스크린 쪼인/);
 });
 
 test('sort row stays one compact row with short map action', () => {
@@ -86,7 +86,7 @@ test('sort row stays one compact row with short map action', () => {
   assert.match(source, /flexWrap: 'nowrap'/);
   assert.match(source, /accessibilityLabel="지도에서 보기"/);
   assert.match(source, /name="map"/);
-  assert.match(source, /\n\s+지도\n/);
+  assert.match(source, /\r?\n\s+지도\r?\n/); // tolerate CRLF checkouts (Windows autocrlf)
   assert.doesNotMatch(source, /id: 'MAP'/);
   assert.match(source, /지금 진행 중/);
 });

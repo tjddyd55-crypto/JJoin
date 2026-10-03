@@ -115,7 +115,7 @@ test('host is excluded from JOIN_CREATED audience', () => {
 });
 
 test('formatter copy for spec events', () => {
-  assert.equal(buildNotificationContent('JOIN_CREATED', { venueName: '스크린A' }).title, '근처 새 조인');
+  assert.equal(buildNotificationContent('JOIN_CREATED', { venueName: '스크린A' }).title, '근처 새 쪼인');
   assert.match(
     buildNotificationContent('DIRECT_MESSAGE_RECEIVED', {
       actorNickname: '민수',
@@ -153,15 +153,15 @@ test('idempotency key includes messageId for DMs', () => {
 
 test('JOIN_UPDATED same operation retry dedupes; distinct edits do not', () => {
   const previousUpdatedAt = '2026-09-20T03:00:00.000Z';
-  const firstMutation = { title: '저녁 조인', description: '첫 수정' };
-  const secondMutation = { title: '저녁 조인', description: '두번째 수정' };
+  const firstMutation = { title: '저녁 쪼인', description: '첫 수정' };
+  const secondMutation = { title: '저녁 쪼인', description: '두번째 수정' };
   const firstOp = buildJoinUpdateOperationId({
     previousUpdatedAt,
     mutation: firstMutation,
   });
   const retryOp = buildJoinUpdateOperationId({
     previousUpdatedAt,
-    mutation: { description: '첫 수정', title: '저녁 조인' },
+    mutation: { description: '첫 수정', title: '저녁 쪼인' },
   });
   const secondOp = buildJoinUpdateOperationId({
     previousUpdatedAt: '2026-09-20T03:10:00.000Z',

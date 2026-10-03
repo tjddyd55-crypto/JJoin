@@ -113,8 +113,8 @@ export class JoinInvitationService {
         await this.notifications.enqueueSafe({
           userId: inviteeUserId,
           type: NotificationType.JOIN_INVITATION,
-          title: '조인 초대',
-          body: `${join.host.profile?.nickname ?? '호스트'}님이 ${join.venue.name} 조인에 초대했습니다.`,
+          title: '쪼인 초대',
+          body: `${join.host.profile?.nickname ?? '호스트'}님이 ${join.venue.name} 쪼인에 초대했습니다.`,
           data: {
             type: NotificationType.JOIN_INVITATION,
             joinId,

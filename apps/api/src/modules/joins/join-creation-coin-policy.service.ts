@@ -29,14 +29,14 @@ function benefitLabelKo(
   if (effective.effectiveFeeCoinAmount === 0) {
     if (effective.reason === 'OWNER_BENEFIT' || effective.reason === 'OWNER_PREMIUM_BEST') {
       if (effective.owner.eligible && effective.owner.feeCoinAmount === 0) {
-        return '업주 혜택 · 조인방 생성 무료';
+        return '업주 혜택 · 쪼인방 생성 무료';
       }
     }
     if (effective.reason === 'PREMIUM_BENEFIT') {
-      return 'Premium 혜택 · 조인방 생성 무료';
+      return 'Premium 혜택 · 쪼인방 생성 무료';
     }
     if (effective.base.mode === 'FREE') return null;
-    return '조인방 생성 무료';
+    return '쪼인방 생성 무료';
   }
   if (effective.owner.eligible && effective.effectiveFeeCoinAmount < effective.base.feeCoinAmount) {
     return '업주 혜택 적용';

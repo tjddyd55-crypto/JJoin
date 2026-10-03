@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { AuthAppState, type FeatureFlagDto } from '@jjoin/types';
 import { applyClubsUiGateToPushRoute } from '../clubs/clubs-ui-gate';
 import { getApiClient } from '../../lib/api';
@@ -104,20 +104,22 @@ export function usePushRegistration() {
 }
 
 function navigateFromPushData(
-  router: { push: (href: string) => void },
+  router: { push: (href: Href) => void },
   data: Record<string, unknown>,
   featureFlags?: FeatureFlagDto | null,
 ): void {
+  // Push targets are built from runtime ids, so they are plain strings; typed-routes needs Href.
+  const push = (href: string) => router.push(href as Href);
   const target = applyClubsUiGateToPushRoute(resolvePushRoute(data), featureFlags);
-  if (target.kind === 'join') router.push(`/join/${target.joinId}`);
-  else if (target.kind === 'golf-friends') router.push('/my/golf-friends');
-  else if (target.kind === 'user') router.push(`/user/${target.userId}`);
+  if (target.kind === 'join') push(`/join/${target.joinId}`);
+  else if (target.kind === 'golf-friends') push('/my/golf-friends');
+  else if (target.kind === 'user') push(`/user/${target.userId}`);
   else if (target.kind === 'wallet' || target.kind === 'wallet-transactions') {
-    router.push('/my/wallet');
-  } else if (target.kind === 'rewards') router.push('/my/rewards');
-  else if (target.kind === 'unavailable') router.push('/unavailable');
-  else if (target.kind === 'club') router.push(`/my/clubs/${target.clubId}`);
-  else if (target.kind === 'club-notice') router.push(`/my/clubs/${target.clubId}/notices`);
-  else if (target.kind === 'conversation') router.push(`/messages/${target.conversationId}`);
-  else if (target.kind === 'notifications') router.push('/my/notifications');
+    push('/my/wallet');
+  } else if (target.kind === 'rewards') push('/my/rewards');
+  else if (target.kind === 'unavailable') push('/unavailable');
+  else if (target.kind === 'club') push(`/my/clubs/${target.clubId}`);
+  else if (target.kind === 'club-notice') push(`/my/clubs/${target.clubId}/notices`);
+  else if (target.kind === 'conversation') push(`/messages/${target.conversationId}`);
+  else if (target.kind === 'notifications') push('/my/notifications');
 }

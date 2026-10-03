@@ -317,7 +317,7 @@ export class GolfFacilitiesService {
     if (!facility.isActive) {
       throw new BadRequestException({
         code: 'FACILITY_NOT_JOIN_ELIGIBLE',
-        message: '조인 장소로 활성화할 수 없는 시설입니다.',
+        message: '쪼인 장소로 활성화할 수 없는 시설입니다.',
       });
     }
 
@@ -328,7 +328,7 @@ export class GolfFacilitiesService {
     ) {
       throw new BadRequestException({
         code: 'FACILITY_COORDINATE_REQUIRED',
-        message: '좌표가 없어 조인 장소로 활성화할 수 없습니다.',
+        message: '좌표가 없어 쪼인 장소로 활성화할 수 없습니다.',
       });
     }
 

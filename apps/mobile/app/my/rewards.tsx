@@ -69,7 +69,7 @@ export default function RewardsScreen() {
     <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       <Text variant="screenTitle">활동 보상</Text>
       <Text variant="body" tone="secondary">
-        앱에 들어오면 KST 날짜 기준으로 하루 1회 자동 출석됩니다. 호스트/참가 업적은 조인
+        앱에 들어오면 KST 날짜 기준으로 하루 1회 자동 출석됩니다. 호스트/참가 업적은 쪼인
         COMPLETED만 집계합니다.
       </Text>
       {toast ? (

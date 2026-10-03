@@ -561,7 +561,7 @@ export default function CreateScreen() {
         teamSize: venueType === 'FIELD' || playFormat !== JoinPlayFormat.TEAM ? null : teamSize,
         teamCount: venueType === 'FIELD' || playFormat !== JoinPlayFormat.TEAM ? null : teamCount,
         joinMethod: venueType === 'FIELD' ? JoinMethod.APPROVAL : joinMethod,
-        title: routeTitle ?? `${selectedVenue.name} ${venueType === 'FIELD' ? '필드 조인' : '스크린골프'}`,
+        title: routeTitle ?? `${selectedVenue.name} ${venueType === 'FIELD' ? '필드 쪼인' : '스크린골프'}`,
         description: description.trim() || null,
         rewardPerParticipant: venueType === 'FIELD' ? fieldEffectiveReward : rewardPerParticipant,
         recruitCount: venueType === 'FIELD' ? plannedPlayerCountToRecruitCount(players) : undefined,
@@ -612,8 +612,8 @@ export default function CreateScreen() {
       }
       if (isJoinHostLimitError(e)) {
         Alert.alert(
-          '조인 생성 제한',
-          '일반 회원은 동시에 운영 중인 조인 수에 제한이 있습니다. 프리미엄 회원은 제한 없이 조인을 만들 수 있습니다.',
+          '쪼인 생성 제한',
+          '일반 회원은 동시에 운영 중인 쪼인 수에 제한이 있습니다. 프리미엄 회원은 제한 없이 쪼인을 만들 수 있습니다.',
           [
             { text: '닫기', style: 'cancel' },
             { text: '프리미엄 알아보기', onPress: () => router.push('/my/premium') },
@@ -715,15 +715,15 @@ export default function CreateScreen() {
     return (
       <FormScreenFrame>
         <Stack gap="md">
-          <Text variant="sectionTitle" tone="primary">반복 조인 등록 완료</Text>
+          <Text variant="sectionTitle" tone="primary">반복 쪼인 등록 완료</Text>
           <Text variant="body" tone="secondary">
-            매주 자동으로 조인이 생성됩니다. MY → 반복 조인에서 관리할 수 있습니다.
+            매주 자동으로 쪼인이 생성됩니다. MY → 반복 쪼인에서 관리할 수 있습니다.
           </Text>
           <Button
-            label="반복 조인 관리"
+            label="반복 쪼인 관리"
             onPress={() => router.push('/my/recurring-joins' as Href)}
           />
-          <Button label="내 조인" variant="secondary" onPress={() => router.push('/(tabs)/my-joins')} />
+          <Button label="내 쪼인" variant="secondary" onPress={() => router.push('/(tabs)/my-joins')} />
         </Stack>
       </FormScreenFrame>
     );
@@ -733,17 +733,17 @@ export default function CreateScreen() {
     return (
       <FormScreenFrame>
         <Stack gap="md">
-          <Text variant="sectionTitle" tone="primary">조인 생성 완료</Text>
+          <Text variant="sectionTitle" tone="primary">쪼인 생성 완료</Text>
           <Text variant="body" tone="secondary">
-            조인이 생성되었습니다. 상세에서 참가자를 확인하세요.
+            쪼인이 생성되었습니다. 상세에서 참가자를 확인하세요.
           </Text>
           <Button
-            label="조인 상세"
+            label="쪼인 상세"
             onPress={() =>
               router.push({ pathname: '/join/[joinId]', params: { joinId: doneJoinId } } as Href)
             }
           />
-          <Button label="내 조인" variant="secondary" onPress={() => router.push('/(tabs)/my-joins')} />
+          <Button label="내 쪼인" variant="secondary" onPress={() => router.push('/(tabs)/my-joins')} />
         </Stack>
       </FormScreenFrame>
     );
@@ -769,7 +769,7 @@ export default function CreateScreen() {
             ? !fieldQuickReady || footerState.createDisabled
             : footerState.createDisabled && recurrenceMode === 'NONE'
         }
-        label={recurrenceMode === 'WEEKLY' ? '반복 조인 만들기' : footerState.createLabel}
+        label={recurrenceMode === 'WEEKLY' ? '반복 쪼인 만들기' : footerState.createLabel}
         loading={submitting}
         onPress={() => void onCreate()}
       />
@@ -792,7 +792,7 @@ export default function CreateScreen() {
     <FormScreenFrame>
       <Stack gap="md">
         <Text variant="screenTitle" tone="primary">
-          {venueType === 'FIELD' ? '필드 조인 만들기' : '스크린 조인 만들기'}
+          {venueType === 'FIELD' ? '필드 쪼인 만들기' : '스크린 쪼인 만들기'}
         </Text>
         {venueType === 'FIELD' ? (
           <FieldJoinQuickCreateForm
@@ -1095,7 +1095,7 @@ export default function CreateScreen() {
             </Card>
             {recurrenceMode === 'WEEKLY' ? (
               <Text variant="caption" tone="secondary">
-                반복 조인은 회차별 생성 시점에 생성비가 차감됩니다.
+                반복 쪼인은 회차별 생성 시점에 생성비가 차감됩니다.
               </Text>
             ) : (
               <JoinCreatePricingSummary

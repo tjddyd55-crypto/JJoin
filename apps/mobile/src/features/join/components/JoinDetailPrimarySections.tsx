@@ -55,9 +55,9 @@ function formatHostMetaLine(detail: JoinDetailDto): string | null {
     parts.push(`매너 ${host.averageRatingDisplay}`);
   }
   if (host.playedCountWithViewer != null && host.playedCountWithViewer > 0) {
-    parts.push(`함께한 조인 ${host.playedCountWithViewer}회`);
+    parts.push(`함께한 쪼인 ${host.playedCountWithViewer}회`);
   } else if (host.completedJoinCount != null) {
-    parts.push(`함께한 조인 ${host.completedJoinCount}회`);
+    parts.push(`함께한 쪼인 ${host.completedJoinCount}회`);
   }
   return parts.length > 0 ? parts.join(' · ') : null;
 }
@@ -222,6 +222,7 @@ export function JoinDetailPrimarySections({
   const statusBadges = resolveJoinListStatusBadges({
     status: detail.status,
     sportCode: detail.sportCode,
+    venueType: detail.venue.venueType,
     isUrgent: detail.isUrgent,
     seatsLeft: detail.availableSlots,
     scheduledEndAt: detail.scheduledEndAt,
@@ -241,7 +242,7 @@ export function JoinDetailPrimarySections({
     (recruitment.femaleTarget ?? 0) > 0 ||
     (recruitment.minimumPlayers ?? 0) > 0;
 
-  const trackLabel = detail.venue.venueType === 'FIELD' ? '필드 조인' : '스크린 조인';
+  const trackLabel = detail.venue.venueType === 'FIELD' ? '필드 쪼인' : '스크린 쪼인';
   const canOpenMap = detail.venue.hasMapCoords !== false && Boolean(detail.venue.latitude || detail.venue.longitude);
 
   const openMap = () => {
@@ -281,7 +282,7 @@ export function JoinDetailPrimarySections({
             ))}
             <Badge label={trackLabel} variant="neutral" />
             {detail.recurringScheduleId ? (
-              <Badge label="반복 조인" variant="neutral" />
+              <Badge label="반복 쪼인" variant="neutral" />
             ) : null}
           </View>
           {(onToggleBookmark || onShare) ? (

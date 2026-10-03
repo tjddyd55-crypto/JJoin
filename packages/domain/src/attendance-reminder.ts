@@ -50,12 +50,12 @@ export function attendanceReminderCopy(
   const when = kind === '24h' ? '내일' : '곧';
   if (attendanceIntent === 'CONFIRMED') {
     return {
-      title: '조인 시작 안내',
-      body: `${when} ${venueName} 조인이 시작됩니다.`,
+      title: '쪼인 시작 안내',
+      body: `${when} ${venueName} 쪼인이 시작됩니다.`,
     };
   }
   return {
     title: '참석 확인이 필요합니다',
-    body: `${when} ${venueName} 조인 — 앱에서 참석 여부를 확인해 주세요.`,
+    body: `${when} ${venueName} 쪼인 — 앱에서 참석 여부를 확인해 주세요.`,
   };
 }

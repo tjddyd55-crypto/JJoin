@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path';
 
 const mobileSrcRoot = join(dirname(fileURLToPath(import.meta.url)), '../..');
 
-test('home venue join sections always render skeleton and empty copy', () => {
+test('home hub no longer renders venue previews while discover loader remains stable', () => {
   const home = readFileSync(join(mobileSrcRoot, 'features/home/screens/HomeScreen.tsx'), 'utf8');
   const section = readFileSync(
     join(mobileSrcRoot, 'features/home/components/HomeVenueJoinSection.tsx'),
@@ -14,13 +14,28 @@ test('home venue join sections always render skeleton and empty copy', () => {
   );
   const hook = readFileSync(join(mobileSrcRoot, 'features/home/hooks/useHomeData.ts'), 'utf8');
 
-  assert.match(home, /HomeVenueJoinSection/);
+  assert.doesNotMatch(home, /HomeVenueJoinSection/);
   assert.match(section, /JoinCardSkeleton/);
   assert.match(section, /emptyMessage/);
   assert.match(hook, /isRefreshing/);
   assert.match(hook, /hasLoadedOnce/);
   assert.match(hook, /if \(seq !== loadSeqRef\.current\) return/);
+  assert.match(hook, /loadHomeDiscoverRows/);
   assert.doesNotMatch(hook, /getRecommendedJoins/);
+  const discover = readFileSync(join(mobileSrcRoot, 'features/home/home-discover.ts'), 'utf8');
+  assert.match(discover, /buildHomeNearbyDiscoverQuery\('SCREEN'/);
+  assert.match(discover, /buildHomeNearbyDiscoverQuery\('FIELD'/);
+  assert.match(discover, /venueType: 'FIELD'/);
+  assert.match(discover, /regionMode: 'ALL'/);
+  assert.match(discover, /developmentVariant/);
+  assert.match(discover, /shouldFallbackHomeDiscoverNationwide/);
+  assert.match(discover, /resolveHomeDiscoverDevelopmentVariant/);
+  assert.match(discover, /applicationIds\('production'\)/);
+  assert.match(discover, /applicationIds\('development'\)/);
+  assert.doesNotMatch(discover, /__DEV__/);
+  assert.match(hook, /resolveHomeDiscoverDevelopmentVariant/);
+  assert.match(hook, /Application\.applicationId/);
+  assert.doesNotMatch(hook, /__DEV__/);
 });
 
 test('app fonts bootstrap loads IBM Plex Sans KR token families', () => {

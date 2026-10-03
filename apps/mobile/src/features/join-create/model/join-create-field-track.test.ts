@@ -11,7 +11,7 @@ test('create route venueType defaults to SCREEN for existing deep links', () => 
 test('weekly FIELD create title and template stay on the FIELD track', () => {
   const venueType = parseJoinVenueType('FIELD');
   assert.equal(venueType, 'FIELD');
-  assert.equal(`라데나골프클럽 ${venueType === 'FIELD' ? '필드 조인' : '스크린골프'}`, '라데나골프클럽 필드 조인');
+  assert.equal(`라데나골프클럽 ${venueType === 'FIELD' ? '필드 쪼인' : '스크린골프'}`, '라데나골프클럽 필드 쪼인');
 });
 
 test('FIELD create stays one screen and does not expose foursome steps', () => {

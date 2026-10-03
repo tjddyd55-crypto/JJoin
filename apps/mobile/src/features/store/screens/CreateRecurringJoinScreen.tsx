@@ -106,7 +106,7 @@ export function CreateRecurringJoinScreen() {
       await api.createRecurringJoin(parsed.data as CreateRecurringJoinScheduleRequest);
       router.replace('/my/recurring-joins');
     } catch {
-      setError('정기 조인 생성에 실패했습니다.');
+      setError('정기 쪼인 생성에 실패했습니다.');
     } finally {
       setSubmitting(false);
     }
@@ -118,7 +118,7 @@ export function CreateRecurringJoinScreen() {
       footer={
         <StickyActionFrame>
           <Button
-            label="정기 조인 만들기"
+            label="정기 쪼인 만들기"
             loading={submitting}
             disabled={!storeOwnershipId || submitting}
             onPress={() => void onCreate()}
@@ -128,7 +128,7 @@ export function CreateRecurringJoinScreen() {
       }
     >
       <Text variant="body" tone="secondary">
-        매주 지정한 요일·시간에 모집 조인을 자동으로 생성합니다.
+        매주 지정한 요일·시간에 모집 쪼인을 자동으로 생성합니다.
       </Text>
 
       {stores.length === 0 ? (

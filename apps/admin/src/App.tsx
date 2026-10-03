@@ -40,6 +40,8 @@ import { FeatureFlagsPage } from './FeatureFlagsPage';
 import { RewardPolicyPage } from './RewardPolicyPage';
 import { MemberMessagePolicyPage } from './MemberMessagePolicyPage';
 import { HomeBannerEditPage, HomeBannersListPage } from './HomeBannersAdminPages';
+import { AppLaunchAdminPage } from './AppLaunchAdminPage';
+import { JoinSessionReviewsAdminPage } from './JoinSessionReviewsAdminPage';
 import { StoreBannerAdDetailPage, StoreBannerAdsListPage } from './StoreBannerAdsAdminPages';
 import { StoreProfileEditPage } from './StoreProfileEditPage';
 
@@ -215,7 +217,7 @@ function Shell({ children }: { children: React.ReactNode }) {
           Premium 플랜
         </Link>
         <Link to="/join-coin-policy" className={joinCoinPolicyActive ? 'nav-active' : undefined}>
-          조인 생성 코인
+          쪼인 생성 코인
         </Link>
         <Link to="/feature-flags" className={featureFlagsActive ? 'nav-active' : undefined}>
           기능 플래그
@@ -231,6 +233,15 @@ function Shell({ children }: { children: React.ReactNode }) {
         </Link>
         <Link to="/home-banners" className={homeBannersActive ? 'nav-active' : undefined}>
           홈 배너
+        </Link>
+        <Link to="/app-launch" className={loc.pathname.startsWith('/app-launch') ? 'nav-active' : undefined}>
+          시작화면
+        </Link>
+        <Link
+          to="/join-session-reviews"
+          className={loc.pathname.startsWith('/join-session-reviews') ? 'nav-active' : undefined}
+        >
+          쪼인 후기
         </Link>
         <Link to="/store-banner-ads" className={storeBannerAdsActive ? 'nav-active' : undefined}>
           매장 배너 광고
@@ -1266,7 +1277,7 @@ function GrowthAnalyticsPage() {
       </div>
 
       <section className="card" style={{ padding: 16, marginBottom: 12 }}>
-        <h2>추천 조인</h2>
+        <h2>추천 쪼인</h2>
         <p>
           노출 {data.recommendation.impressions} · 클릭 {data.recommendation.clicks} · 참가{' '}
           {data.recommendation.joined}
@@ -1302,7 +1313,7 @@ function GrowthAnalyticsPage() {
       </section>
 
       <section className="card" style={{ padding: 16, marginBottom: 12 }}>
-        <h2>정기 조인</h2>
+        <h2>정기 쪼인</h2>
         <p>
           생성 {data.recurring.occurrencesCreated} · 성사 {data.recurring.filled} · 성사율{' '}
           {data.recurring.fillRatePercent ?? '—'}%
@@ -1555,7 +1566,7 @@ function JoinCoinPolicyPage() {
       const previewData = await api<JoinCreationPricingPreviewDto>('/admin/join-coin-policy/preview');
       setDraft(updated);
       setPreview(previewData);
-      setMessage('저장되었습니다. 새로 생성되는 조인부터 적용됩니다.');
+      setMessage('저장되었습니다. 새로 생성되는 쪼인부터 적용됩니다.');
     } catch (e) {
       setMessage(e instanceof Error ? e.message : '저장 실패');
     } finally {
@@ -1583,7 +1594,7 @@ function JoinCoinPolicyPage() {
 
   return (
     <div>
-      <h1>조인방 생성 정책</h1>
+      <h1>쪼인방 생성 정책</h1>
       <p style={{ color: '#555', maxWidth: 720 }}>
         기본 플랫폼 정책 + 업주/Premium 혜택입니다. 참가 보상 HOLD와 별도입니다.
         (1 Coin = {COIN_KRW_RATE}원)
@@ -1801,6 +1812,8 @@ export function App() {
         <Route path="/member-message-policy" element={<MemberMessagePolicyPage api={api} />} />
         <Route path="/home-banners" element={<HomeBannersListPage api={api} />} />
         <Route path="/home-banners/:id" element={<HomeBannerEditPage api={api} />} />
+        <Route path="/app-launch" element={<AppLaunchAdminPage api={api} />} />
+        <Route path="/join-session-reviews" element={<JoinSessionReviewsAdminPage api={api} />} />
         <Route path="/store-banner-ads" element={<StoreBannerAdsListPage api={api} />} />
         <Route path="/store-banner-ads/:id" element={<StoreBannerAdDetailPage api={api} />} />
         <Route path="/analytics" element={<GrowthAnalyticsPage />} />

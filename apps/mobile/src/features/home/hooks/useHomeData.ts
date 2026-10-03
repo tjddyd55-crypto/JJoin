@@ -10,9 +10,16 @@ import type {
   GolfFriendCardDto,
   HomeBannerDto,
 } from '@jjoin/types';
+import * as Application from 'expo-application';
 import { getApiClient } from '../../../lib/api';
+import { resolveAppVariant } from '../../../lib/app-variant';
 import { getSecureSessionStore } from '../../../session/SessionContext';
-import { fetchDiscoverJoins } from '../../explore/discovery/api/join-discover-api';
+import {
+  HOME_LOCATION_TIMEOUT_MS,
+  loadHomeDiscoverRows,
+  resolveHomeDiscoverDevelopmentVariant,
+  resolveWithin,
+} from '../home-discover';
 import { pickVenueDiscoverJoins } from '../home-format';
 
 const HOME_DATA_STALE_MS = 60_000;
@@ -62,18 +69,19 @@ export function useHomeData(userId: string | undefined, clubsUiEnabled = false) 
     if (coordsRef.current) return coordsRef.current;
     const permission = await Location.getForegroundPermissionsAsync();
     if (permission.status !== 'granted') return null;
-    try {
-      const pos = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      coordsRef.current = {
-        lat: roundCoord(pos.coords.latitude),
-        lng: roundCoord(pos.coords.longitude),
-      };
-      return coordsRef.current;
-    } catch {
-      return null;
-    }
+    const current = await resolveWithin(
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+      HOME_LOCATION_TIMEOUT_MS,
+      null,
+    );
+    const pos =
+      current ?? (await resolveWithin(Location.getLastKnownPositionAsync(), 2_000, null));
+    if (!pos) return null;
+    coordsRef.current = {
+      lat: roundCoord(pos.coords.latitude),
+      lng: roundCoord(pos.coords.longitude),
+    };
+    return coordsRef.current;
   }, []);
 
   const load = useCallback(
@@ -89,23 +97,26 @@ export function useHomeData(userId: string | undefined, clubsUiEnabled = false) 
       const todayKey = localDayKey(new Date());
       const coords = await resolveCoords();
 
-      const discoverTask = (async () => {
-        if (!coords) return [] as DiscoverJoinCardDto[];
-        try {
-          const res = await fetchDiscoverJoins(api, {
-            date: todayKey,
-            regionMode: 'NEARBY',
-            lat: coords.lat,
-            lng: coords.lng,
-            radiusMeters: DEFAULT_NEARBY_RADIUS_METERS,
-            sort: 'TIME',
-            joinability: 'JOINABLE',
-          });
-          return [...res.ongoing, ...res.upcoming];
-        } catch {
-          return [] as DiscoverJoinCardDto[];
-        }
-      })();
+      const appVariant = resolveAppVariant();
+      const developmentVariant = resolveHomeDiscoverDevelopmentVariant({
+        appVariant,
+        applicationId: Application.applicationId,
+      });
+      const discoverTask = loadHomeDiscoverRows(api, {
+        date: todayKey,
+        coords,
+        radiusMeters: DEFAULT_NEARBY_RADIUS_METERS,
+        developmentVariant,
+        onTrace: developmentVariant
+          ? (trace) => {
+              // DEV only: Metro log shows which home path ran on the device.
+              console.info(
+                '[home-discover]',
+                JSON.stringify({ ...trace, appVariant, applicationId: Application.applicationId }),
+              );
+            }
+          : undefined,
+      });
 
       const clubsTask = clubsUiEnabled
         ? api.listMyClubs().catch(() => ({ items: [] }))
@@ -146,7 +157,7 @@ export function useHomeData(userId: string | undefined, clubsUiEnabled = false) 
         hasLoadedOnce: true,
         discoverError:
           discoverFailed && prev.fieldJoins.length === 0 && prev.screenJoins.length === 0
-            ? '조인 목록을 불러오지 못했습니다.'
+            ? '쪼인 목록을 불러오지 못했습니다.'
             : null,
       }));
 

@@ -38,7 +38,7 @@ export function HomeBannerCarousel({ banners }: Props) {
             {
               id: 'placeholder-1',
               title: '오늘도 좋은 사람들과 라운딩 어때요?',
-              subtitle: '나와 잘 맞는 조인을 찾아보세요',
+              subtitle: '나와 잘 맞는 쪼인을 찾아보세요',
               imageUrl: null,
               href: null,
               sortOrder: 0,

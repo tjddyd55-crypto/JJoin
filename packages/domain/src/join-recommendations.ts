@@ -70,10 +70,10 @@ export const RECOMMEND_SCORE = {
 } as const;
 
 export const RECOMMEND_REASON_LABEL_KO: Record<RecommendReasonCode, string> = {
-  PLAYED_TOGETHER_HOST: '전에 같이 친 분이 만든 조인이에요',
+  PLAYED_TOGETHER_HOST: '전에 같이 친 분이 만든 쪼인이에요',
   PLAYED_TOGETHER_PARTICIPANT: '같이 친 사람이 참여 중이에요',
   ALMOST_FILLED: '1명만 더 모이면 성사돼요',
-  NEARBY: '내 주변 조인이에요',
+  NEARBY: '내 주변 쪼인이에요',
   CLOSING_SOON: '곧 모집이 마감돼요',
   HIGH_RATED_HOST: '평점이 좋은 방장이에요',
   FREQUENT_VENUE: '자주 이용한 매장이에요',
@@ -84,7 +84,7 @@ export const RECOMMEND_REASON_LABEL_KO: Record<RecommendReasonCode, string> = {
   PREFERRED_TIME: '자주 가는 시간대',
   URGENT: '오늘 긴급 모집',
   TODAY_NEARBY: '근처에서 오늘 모집 중',
-  JOINABLE_FALLBACK: '지금 참가 가능한 조인',
+  JOINABLE_FALLBACK: '지금 참가 가능한 쪼인',
 };
 
 /** Short UI tags for join cards (max 2). Push/alerts may use RECOMMEND_REASON_LABEL_KO. */

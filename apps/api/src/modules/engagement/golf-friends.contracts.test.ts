@@ -2,12 +2,25 @@
  * Golf friends + join member preference contract tests (no Nest/Prisma).
  */
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import test from 'node:test';
 import {
   hasJoinMemberPreferences,
   validateJoinMemberPreferences,
 } from '@jjoin/domain';
 import { GolfFriendRelationship, JoinPreferredGender } from '@jjoin/types';
+
+test('DEV recommended list pins investor-demo personas for any viewer', () => {
+  const source = readFileSync(
+    join(process.cwd(), 'src/modules/engagement/golf-friends.service.ts'),
+    'utf8',
+  );
+  assert.match(source, /isDevelopmentUnsafePathAllowed/);
+  assert.match(source, /mergeDevDemoRecommendedUserIds/);
+  assert.match(source, /DEV_INVESTOR_DEMO_KEY_MARKER/);
+  assert.doesNotMatch(source, /investor flag|ADMIN_USER_IDS|viewerId === '/);
+});
 
 test('GolfFriendRelationship covers lifecycle states', () => {
   assert.deepEqual(

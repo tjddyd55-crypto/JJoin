@@ -36,11 +36,11 @@ export function logJoinCreateFailure(error: unknown): void {
 }
 
 const CODE_MESSAGES: Record<string, string> = {
-  INSUFFICIENT_BALANCE: '조인을 만들기 위한 코인이 부족합니다.',
-  JOIN_HOST_LIMIT: '현재 생성 가능한 조인 수를 초과했습니다.',
-  STORE_OWNERSHIP_REQUIRED: '승인된 매장이 있어야 모집 조인을 만들 수 있습니다.',
-  IDENTITY_REQUIRED: '본인 인증 후 조인을 만들 수 있습니다.',
-  identity_verification_required: '본인 인증 후 조인을 만들 수 있습니다.',
+  INSUFFICIENT_BALANCE: '쪼인을 만들기 위한 코인이 부족합니다.',
+  JOIN_HOST_LIMIT: '현재 생성 가능한 쪼인 수를 초과했습니다.',
+  STORE_OWNERSHIP_REQUIRED: '승인된 매장이 있어야 모집 쪼인을 만들 수 있습니다.',
+  IDENTITY_REQUIRED: '본인 인증 후 쪼인을 만들 수 있습니다.',
+  identity_verification_required: '본인 인증 후 쪼인을 만들 수 있습니다.',
   gender_composition_sum_mismatch: '남녀 모집 인원 구성을 확인해주세요.',
   invalid_gender_composition: '남녀 모집 인원 구성을 확인해주세요.',
   invalid_target_composition: '남녀 모집 인원 구성을 확인해주세요.',
@@ -48,11 +48,11 @@ const CODE_MESSAGES: Record<string, string> = {
   invalid_age_range: '모집 나이 범위를 확인해주세요.',
   invalid_handicap_range: '핸디 범위를 확인해주세요.',
   handicap_range_required: '핸디 범위를 확인해주세요.',
-  field_capacity_not_allowed: '필드 조인은 2·3·4명만 모집할 수 있습니다.',
+  field_capacity_not_allowed: '필드 쪼인은 2·3·4명만 모집할 수 있습니다.',
   field_foursome_v1_2v2_only: '필드 포썸은 2대2만 지원합니다.',
-  field_details_not_allowed: '스크린 조인에는 필드 비용 정보를 넣을 수 없습니다.',
+  field_details_not_allowed: '스크린 쪼인에는 필드 비용 정보를 넣을 수 없습니다.',
   field_nocaddie_fee_must_be_zero: '노캐디일 때는 캐디피를 0으로 두세요.',
-  field_tee_time_must_be_confirmed: '필드 조인은 확정 티타임이 필요합니다.',
+  field_tee_time_must_be_confirmed: '필드 쪼인은 확정 티타임이 필요합니다.',
   invalid_field_green_fee: '그린피를 확인해주세요.',
   invalid_field_cart_fee: '카트비를 확인해주세요.',
   invalid_field_caddie_fee: '캐디피를 확인해주세요.',
@@ -73,14 +73,14 @@ const CODE_MESSAGES: Record<string, string> = {
   invalid_create_join: '입력 정보를 확인해주세요. 장소·인원·시간을 다시 확인해 주세요.',
   invalid_store_matching_join: '입력 정보를 확인해주세요. 매장·인원·시간을 다시 확인해 주세요.',
   venue_or_venueId_required: '장소를 선택해주세요.',
-  venue_type_mismatch: '선택한 장소가 조인 유형과 맞지 않습니다.',
+  venue_type_mismatch: '선택한 장소가 쪼인 유형과 맞지 않습니다.',
   VENUE_NOT_FOUND: '장소 정보를 확인할 수 없습니다. 다시 선택해 주세요.',
   VENUE_NOT_ACTIVATED: '장소 정보를 확인할 수 없습니다. 다시 선택해 주세요.',
   FACILITY_NOT_FOUND: '매장 시설 정보를 확인할 수 없습니다.',
-  FACILITY_NOT_JOIN_ELIGIBLE: '이 매장에서는 조인을 만들 수 없습니다.',
-  FACILITY_COORDINATE_REQUIRED: '매장 위치 정보가 없어 조인을 만들 수 없습니다.',
-  join_create_conflict: '조인 생성이 중복 요청되었습니다. 잠시 후 다시 시도해주세요.',
-  store_join_create_conflict: '조인 생성이 중복 요청되었습니다. 잠시 후 다시 시도해주세요.',
+  FACILITY_NOT_JOIN_ELIGIBLE: '이 매장에서는 쪼인을 만들 수 없습니다.',
+  FACILITY_COORDINATE_REQUIRED: '매장 위치 정보가 없어 쪼인을 만들 수 없습니다.',
+  join_create_conflict: '쪼인 생성이 중복 요청되었습니다. 잠시 후 다시 시도해주세요.',
+  store_join_create_conflict: '쪼인 생성이 중복 요청되었습니다. 잠시 후 다시 시도해주세요.',
 };
 
 function messageFromCode(code: string | null, apiMessage: string | null): string | null {
@@ -101,7 +101,7 @@ export function messageForJoinCreateError(error: unknown): string {
   if (isApiRequestError(error)) {
     if (error.status === 401) return '로그인이 필요합니다. 다시 로그인해 주세요.';
     if (error.status >= 500) {
-      return '조인 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+      return '쪼인 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
     }
     const mapped = messageFromCode(error.code, error.apiMessage);
     if (mapped) return mapped;
@@ -124,7 +124,7 @@ export function messageForJoinCreateError(error: unknown): string {
     return CODE_MESSAGES.invalid_minimum_players;
   }
 
-  return '조인 생성에 실패했습니다. 입력 정보와 네트워크 상태를 확인한 뒤 다시 시도해주세요.';
+  return '쪼인 생성에 실패했습니다. 입력 정보와 네트워크 상태를 확인한 뒤 다시 시도해주세요.';
 }
 
 export function isJoinHostLimitError(error: unknown): boolean {
