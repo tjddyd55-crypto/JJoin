@@ -38,13 +38,13 @@ test('joins tab passes route venueType into discovery', () => {
   assert.match(source, /useLocalSearchParams/);
 });
 
-test('home and bottom paths still reach SCREEN and FIELD lists', () => {
+test('home hub and bottom paths still reach SCREEN and FIELD lists', () => {
   const home = readMobile('src/features/home/screens/HomeScreen.tsx');
   const quickMenu = readMobile('src/features/home/components/HomeQuickMenu.tsx');
   const tabs = readMobile('app/(tabs)/_layout.tsx');
 
-  assert.match(home, /joinsListHref\('FIELD'\)/);
-  assert.match(home, /joinsListHref\('SCREEN'\)/);
+  assert.match(home, /<HomeQuickMenu/);
+  assert.match(quickMenu, /venueType: 'FIELD'/);
   assert.match(quickMenu, /venueType: 'SCREEN'/);
   assert.match(tabs, /name="joins"/);
   assert.match(tabs, /name="index"/);
