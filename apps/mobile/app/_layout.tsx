@@ -236,6 +236,7 @@ export default function RootLayout() {
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="auth" />
               <Stack.Screen name="my" />
+              <Stack.Screen name="reviews" options={{ headerShown: false }} />
               <Stack.Screen name="mall" options={{ headerShown: false }} />
               <Stack.Screen name="join/[joinId]" options={{ headerShown: false }} />
               <Stack.Screen name="user/[userId]" />

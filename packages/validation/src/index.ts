@@ -1075,6 +1075,20 @@ export const upsertJoinSessionReviewSchema = z.object({
   content: z.string().trim().min(1).max(2000),
 });
 
+export const createJoinReviewPostSchema = z.object({
+  title: z.string().trim().min(1).max(60),
+  content: z.string().trim().min(1).max(2000),
+});
+
+export const updateJoinReviewPostSchema = z
+  .object({
+    title: z.string().trim().min(1).max(60).optional(),
+    content: z.string().trim().min(1).max(2000).optional(),
+  })
+  .refine((value) => value.title != null || value.content != null, {
+    message: 'empty_update',
+  });
+
 export const upsertHomeBannerSchema = z.object({
   title: z.string().trim().min(1).max(60),
   subtitle: z.string().trim().max(120).nullable().optional(),

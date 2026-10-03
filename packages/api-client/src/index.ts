@@ -136,6 +136,10 @@ import {
   type JoinSessionReviewDto,
   type MyJoinSessionReviewsHubDto,
   type UpsertJoinSessionReviewRequest,
+  type JoinReviewPostListResponseDto,
+  type JoinReviewPostDetailDto,
+  type CreateJoinReviewPostRequest,
+  type UpdateJoinReviewPostRequest,
   type PublicStoreListItemDto,
   type PublicStoreDetailDto,
   type StoreProfileDto,
@@ -2363,6 +2367,72 @@ export class ApiClient {
     if (!res.ok) {
       throw new Error(`delete_join_session_review_failed:${res.status}`);
     }
+  }
+
+  async listJoinReviewPosts(params?: {
+    cursor?: string;
+    limit?: number;
+  }): Promise<JoinReviewPostListResponseDto> {
+    const search = new URLSearchParams();
+    if (params?.cursor) search.set('cursor', params.cursor);
+    if (params?.limit != null) search.set('limit', String(params.limit));
+    const qs = search.toString();
+    const res = await request(`${this.config.baseUrl}/join-reviews${qs ? `?${qs}` : ''}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getJoinReviewPost(reviewId: string): Promise<JoinReviewPostDetailDto> {
+    const res = await request(`${this.config.baseUrl}/join-reviews/${reviewId}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async createJoinReviewPost(body: CreateJoinReviewPostRequest): Promise<JoinReviewPostDetailDto> {
+    const res = await request(`${this.config.baseUrl}/join-reviews`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async updateJoinReviewPost(
+    reviewId: string,
+    body: UpdateJoinReviewPostRequest,
+  ): Promise<JoinReviewPostDetailDto> {
+    const res = await request(`${this.config.baseUrl}/join-reviews/${reviewId}`, {
+      method: 'PATCH',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async deleteJoinReviewPost(reviewId: string): Promise<void> {
+    const res = await request(`${this.config.baseUrl}/join-reviews/${reviewId}`, {
+      method: 'DELETE',
+      headers: await this.headers(true),
+    });
+    if (!res.ok) {
+      throw new Error(`delete_join_review_post_failed:${res.status}`);
+    }
+  }
+
+  async deleteJoinReviewPostPhoto(
+    reviewId: string,
+    photoId: string,
+  ): Promise<JoinReviewPostDetailDto> {
+    const res = await request(
+      `${this.config.baseUrl}/join-reviews/${reviewId}/photos/${photoId}`,
+      {
+        method: 'DELETE',
+        headers: await this.headers(true),
+      },
+    );
+    return parseJson(res);
   }
 
   async listScreenStores(query?: { sido?: string; sigungu?: string }): Promise<PublicStoreListItemDto[]> {

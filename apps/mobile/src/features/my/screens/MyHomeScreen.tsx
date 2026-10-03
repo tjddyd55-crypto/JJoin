@@ -307,7 +307,7 @@ export function MyHomeScreen() {
               label="쪼인 후기"
               subtitle="완료된 쪼인 후기 작성·관리"
               icon="edit"
-              onPress={() => router.push('/my/join-session-reviews' as Href)}
+              onPress={() => router.push('/reviews' as Href)}
             />
             <ListRow
               label="팔로우한 매장"

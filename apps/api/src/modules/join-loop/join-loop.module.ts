@@ -6,6 +6,7 @@ import { SettlementModule } from '../settlement/settlement.module';
 import { AdminGuard } from '../../common/admin.guard';
 import { JoinLoopController } from './join-loop.controller';
 import { JoinSessionReviewAdminController } from './join-session-review-admin.controller';
+import { JoinReviewPostController } from './join-review-post.controller';
 import { MeJoinLoopController } from './me-join-loop.controller';
 import { UserReputationController } from './user-reputation.controller';
 import { UrgentVacancyService } from './urgent-vacancy.service';
@@ -16,6 +17,7 @@ import { JoinInvitationService } from './join-invitation.service';
 import { PlayerReviewService } from './player-review.service';
 import { ParticipationTrustService } from './participation-trust.service';
 import { JoinSessionReviewService } from './join-session-review.service';
+import { JoinReviewPostService } from './join-review-post.service';
 import { StorageModule } from '../storage/storage.module';
 
 @Module({
@@ -31,6 +33,7 @@ import { StorageModule } from '../storage/storage.module';
     MeJoinLoopController,
     UserReputationController,
     JoinSessionReviewAdminController,
+    JoinReviewPostController,
   ],
   providers: [
     UrgentVacancyService,
@@ -40,6 +43,7 @@ import { StorageModule } from '../storage/storage.module';
     JoinInvitationService,
     PlayerReviewService,
     JoinSessionReviewService,
+    JoinReviewPostService,
     ParticipationTrustService,
     AdminGuard,
   ],
@@ -51,6 +55,7 @@ import { StorageModule } from '../storage/storage.module';
     JoinInvitationService,
     PlayerReviewService,
     JoinSessionReviewService,
+    JoinReviewPostService,
     ParticipationTrustService,
   ],
 })

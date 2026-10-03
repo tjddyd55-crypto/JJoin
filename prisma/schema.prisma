@@ -464,6 +464,7 @@ model User {
   homeBannersUpdated       HomeBanner[]               @relation("HomeBannerUpdater")
   appLaunchSettingsUpdated AppLaunchSetting[]         @relation("AppLaunchSettingUpdater")
   joinSessionReviews       JoinSessionReview[]        @relation("JoinSessionReviewAuthor")
+  joinReviewPosts          JoinReviewPost[]           @relation("JoinReviewPostAuthor")
 
   @@map("users")
 }
@@ -2662,6 +2663,37 @@ model JoinSessionReviewPhoto {
 
   @@index([reviewId, sortOrder])
   @@map("join_session_review_photos")
+}
+
+/// Community join review board (not tied to a Join).
+model JoinReviewPost {
+  id           String    @id @default(uuid()) @db.Uuid
+  authorUserId String    @map("author_user_id") @db.Uuid
+  title        String    @db.VarChar(60)
+  content      String    @db.VarChar(2000)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  author User                 @relation("JoinReviewPostAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  photos JoinReviewPostPhoto[]
+
+  @@index([createdAt(sort: Desc)])
+  @@index([authorUserId, createdAt(sort: Desc)])
+  @@map("join_review_posts")
+}
+
+model JoinReviewPostPhoto {
+  id        String   @id @default(uuid()) @db.Uuid
+  postId    String   @map("post_id") @db.Uuid
+  objectKey String   @map("object_key")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  post JoinReviewPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, sortOrder])
+  @@map("join_review_post_photos")
 }
 
 model HomeBanner {

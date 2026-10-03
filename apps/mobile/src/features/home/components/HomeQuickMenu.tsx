@@ -40,7 +40,7 @@ const HOME_MENU_ITEMS: HomeMenuItem[] = [
     label: '쪼인 후기',
     description: '작성 가능 · 내가 쓴 후기',
     icon: 'edit',
-    href: '/my/join-session-reviews' as Href,
+    href: '/reviews' as Href,
     visual: 'review',
   },
   {

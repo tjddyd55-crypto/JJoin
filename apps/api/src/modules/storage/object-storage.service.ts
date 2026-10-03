@@ -9,6 +9,7 @@ import {
   buildMallProductGalleryObjectKey,
   buildPublicObjectUrl,
   isJoinSessionReviewPhotoObjectKey,
+  isJoinReviewPostPhotoObjectKey,
   isOwnedProfileObjectKey,
   isOwnedStoreProfileObjectKey,
   isOwnedMallProductObjectKey,
@@ -302,7 +303,11 @@ export class ObjectStorageService {
       objectKey,
       environmentPrefix: this.config.environmentPrefix,
     });
-    if (!ownedProfile && !ownedJoinReviewPhoto) {
+    const ownedJoinReviewPostPhoto = isJoinReviewPostPhotoObjectKey({
+      objectKey,
+      environmentPrefix: this.config.environmentPrefix,
+    });
+    if (!ownedProfile && !ownedJoinReviewPhoto && !ownedJoinReviewPostPhoto) {
       this.logger.warn(`skip_delete_unowned_object user=${ownerUserId}`);
       return;
     }

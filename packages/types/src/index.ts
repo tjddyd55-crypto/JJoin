@@ -3502,6 +3502,54 @@ export type MyJoinSessionReviewsHubDto = {
   mine: JoinSessionReviewMineItemDto[];
 };
 
+export type JoinReviewPostPhotoDto = {
+  photoId: string;
+  imageUrl: string;
+  sortOrder: number;
+};
+
+export type JoinReviewPostAuthorDto = {
+  userId: string;
+  nickname: string;
+  avatarUrl: string | null;
+};
+
+export type JoinReviewPostListItemDto = {
+  reviewId: string;
+  title: string;
+  contentPreview: string;
+  author: JoinReviewPostAuthorDto;
+  thumbnailUrl: string | null;
+  photoCount: number;
+  createdAt: string;
+};
+
+export type JoinReviewPostDetailDto = {
+  reviewId: string;
+  title: string;
+  content: string;
+  author: JoinReviewPostAuthorDto;
+  photos: JoinReviewPostPhotoDto[];
+  createdAt: string;
+  updatedAt: string;
+  isMine: boolean;
+};
+
+export type JoinReviewPostListResponseDto = {
+  items: JoinReviewPostListItemDto[];
+  nextCursor: string | null;
+};
+
+export type CreateJoinReviewPostRequest = {
+  title: string;
+  content: string;
+};
+
+export type UpdateJoinReviewPostRequest = {
+  title?: string;
+  content?: string;
+};
+
 export type StoreBannerAdRequestDto = {
   id: string;
   ownershipId: string;

@@ -36,7 +36,7 @@ test('home hub exposes one review entry and does not duplicate review creation',
   );
 
   assert.equal((menu.match(/label: '쪼인 후기'/g) ?? []).length, 1);
-  assert.match(menu, /href: '\/my\/join-session-reviews'/);
+  assert.match(menu, /href: '\/reviews'/);
   assert.doesNotMatch(menu, /label: '후기 작성'/);
 });
 
