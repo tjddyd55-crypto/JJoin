@@ -47,21 +47,22 @@ test('development identity uses wordmark icons and com.jjoin.app.dev', () => {
   assert.equal(iconFor('development'), iconFor('production'));
 });
 
-test('development splash uses hero launch image; production keeps wordmark splash', () => {
+test('development native splash is transparent; production keeps wordmark splash', () => {
   const dev = splashScreenFor('development');
   assert.equal(dev.image, DEVELOPMENT_SPLASH_IMAGE);
-  assert.equal(dev.resizeMode, 'cover');
+  assert.equal(dev.resizeMode, 'contain');
   const prod = splashScreenFor('production');
   assert.equal(prod.image, './assets/images/splash-icon.png');
   assert.equal(prod.resizeMode, 'contain');
 });
 
-test('development expo splash plugin widens Android icon; JS overlay supplies fullscreen hero', () => {
+test('development expo splash plugin renders no visible Android icon; JS owns the hero', () => {
   const dev = expoSplashPluginConfigFor('development');
-  assert.equal(dev.resizeMode, 'cover');
-  assert.equal(dev.enableFullScreenImage_legacy, true);
-  assert.equal(dev.android?.resizeMode, 'cover');
-  assert.equal(dev.android?.imageWidth, 288);
+  assert.equal(dev.resizeMode, 'contain');
+  assert.equal(dev.imageWidth, 1);
+  assert.equal(dev.enableFullScreenImage_legacy, undefined);
+  assert.equal(dev.android?.resizeMode, 'contain');
+  assert.equal(dev.android?.imageWidth, 1);
   const prod = expoSplashPluginConfigFor('production');
   assert.equal(prod.imageWidth, 200);
 });

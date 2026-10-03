@@ -84,8 +84,8 @@ function identityFor(variant) {
   };
 }
 
-/** DEV cold start — same asset as custom launch (native + JS seamless). */
-const DEVELOPMENT_SPLASH_IMAGE = './assets/images/dev-entry-launch.png';
+/** DEV native splash is intentionally transparent; fullscreen hero is rendered only by JS. */
+const DEVELOPMENT_SPLASH_IMAGE = './assets/images/dev-native-splash-transparent.png';
 const DEVELOPMENT_SPLASH_BACKGROUND = '#1a2e1a';
 
 /**
@@ -96,7 +96,7 @@ function splashScreenFor(variant) {
   if (variant === 'development') {
     return {
       image: DEVELOPMENT_SPLASH_IMAGE,
-      resizeMode: 'cover',
+      resizeMode: 'contain',
       backgroundColor: DEVELOPMENT_SPLASH_BACKGROUND,
     };
   }
@@ -109,7 +109,8 @@ function splashScreenFor(variant) {
 
 /**
  * expo-splash-screen plugin SSOT.
- * Android 12+ uses a small centered splash icon (imageWidth); DEV fullscreen hero is JS overlay (OTA).
+ * Android 12+ always owns the native splash layer, so DEV uses a 1px transparent
+ * image there. The visible fullscreen hero is rendered exactly once by the JS overlay.
  *
  * @param {AppVariant} variant
  */
@@ -118,14 +119,14 @@ function expoSplashPluginConfigFor(variant) {
   if (variant === 'development') {
     return {
       image: splash.image,
-      resizeMode: 'cover',
+      resizeMode: 'contain',
       backgroundColor: splash.backgroundColor,
-      enableFullScreenImage_legacy: true,
+      imageWidth: 1,
       android: {
         image: splash.image,
-        resizeMode: 'cover',
+        resizeMode: 'contain',
         backgroundColor: splash.backgroundColor,
-        imageWidth: 288,
+        imageWidth: 1,
       },
     };
   }
