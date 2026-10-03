@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 import { createApiClient, type ApiClient } from '@jjoin/api-client';
 import type { SecureSessionStore } from '../session/secure-session-store';
+import { uploadMultipartNativeRaw } from './native-multipart-upload';
 
 /**
  * API base URL — SSOT order:
@@ -45,6 +46,8 @@ export function getApiClient(store: SecureSessionStore): ApiClient {
     client = createApiClient({
       baseUrl: baseUrl || 'http://invalid.local',
       getAccessToken: () => store.getToken(),
+      multipartUploader: (absoluteUrl, fieldName, file, headers) =>
+        uploadMultipartNativeRaw(absoluteUrl, fieldName, file, headers),
     });
     clientBaseUrl = baseUrl;
   }

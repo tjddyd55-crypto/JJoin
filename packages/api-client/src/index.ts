@@ -191,9 +191,24 @@ import { ApiRequestError } from './api-error';
 export { ApiRequestError, isApiRequestError, parseApiErrorBody } from './api-error';
 export type { ParsedApiErrorBody } from './api-error';
 
+export type MultipartUploadFile = {
+  uri: string;
+  name?: string;
+  type?: string;
+};
+
+export type MultipartUploader = (
+  absoluteUrl: string,
+  fieldName: string,
+  file: MultipartUploadFile,
+  headers: Record<string, string>,
+) => Promise<{ status: number; body: string }>;
+
 export type ApiClientConfig = {
   baseUrl: string;
   getAccessToken?: () => string | null | Promise<string | null>;
+  /** React Native: expo-file-system native multipart (fetch FormData is unreliable). */
+  multipartUploader?: MultipartUploader;
 };
 
 async function parseJson<T>(res: Response): Promise<T> {
@@ -242,23 +257,35 @@ export class ApiClient {
     return headers;
   }
 
-  private async uploadMultipart(path: string, file: {
-    uri: string;
-    name?: string;
-    type?: string;
-  }): Promise<MeDto> {
+  private async uploadMultipartAt<T>(
+    path: string,
+    file: MultipartUploadFile,
+  ): Promise<T> {
+    const url = `${this.config.baseUrl}${path}`;
+    const headers = await this.authHeaders(true);
+    if (this.config.multipartUploader) {
+      const result = await this.config.multipartUploader(url, 'file', file, headers);
+      if (result.status < 200 || result.status >= 300) {
+        throw new ApiRequestError(result.status, result.body);
+      }
+      return JSON.parse(result.body) as T;
+    }
     const form = new FormData();
     form.append('file', {
       uri: file.uri,
       name: file.name ?? 'photo.jpg',
       type: file.type ?? 'image/jpeg',
     } as unknown as Blob);
-    const res = await request(`${this.config.baseUrl}${path}`, {
+    const res = await request(url, {
       method: 'POST',
-      headers: await this.authHeaders(true),
+      headers,
       body: form,
     });
     return parseJson(res);
+  }
+
+  private async uploadMultipart(path: string, file: MultipartUploadFile): Promise<MeDto> {
+    return this.uploadMultipartAt<MeDto>(path, file);
   }
 
   async getHealth(): Promise<{ status: string }> {
@@ -2433,6 +2460,20 @@ export class ApiClient {
       },
     );
     return parseJson(res);
+  }
+
+  async addJoinReviewPostPhoto(
+    reviewId: string,
+    file: MultipartUploadFile,
+  ): Promise<JoinReviewPostDetailDto> {
+    return this.uploadMultipartAt<JoinReviewPostDetailDto>(
+      `/join-reviews/${reviewId}/photos`,
+      {
+        uri: file.uri,
+        name: file.name ?? 'review.jpg',
+        type: file.type ?? 'image/jpeg',
+      },
+    );
   }
 
   async listScreenStores(query?: { sido?: string; sigungu?: string }): Promise<PublicStoreListItemDto[]> {

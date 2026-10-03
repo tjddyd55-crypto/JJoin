@@ -1,4 +1,5 @@
 import type { AppVariantName } from './app-variant';
+import { isJoinReviewPostPhotoObjectKey } from './join-review-post';
 
 export const MAX_PROFILE_GALLERY_PHOTOS = 5;
 export const PROFILE_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
@@ -131,6 +132,10 @@ export function isPublicReadableObjectKey(params: {
   if (key.startsWith(joinReviewPrefix)) {
     const rest = key.slice(joinReviewPrefix.length);
     return rest.split('/').filter(Boolean).length === 2;
+  }
+
+  if (isJoinReviewPostPhotoObjectKey({ objectKey: key, environmentPrefix: env })) {
+    return true;
   }
 
   const profilePrefix = `${env}/profiles/`;
