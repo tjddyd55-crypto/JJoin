@@ -1793,44 +1793,35 @@ export function App() {
   return (
     <Shell>
       <Routes>
-        <Route path="/" element={<CoinSupplyPage />} />
-        <Route path="/coin" element={<CoinSupplyPage />} />
-        <Route path="/coin/issuances/:issuanceId" element={<IssuanceDetailPage />} />
-        <Route path="/coin/users/:userId" element={<UserCoinPage />} />
-        <Route path="/disputes" element={<DisputeListPage />} />
-        <Route path="/disputes/:disputeId" element={<DisputeDetailPage />} />
-        <Route path="/store-verifications" element={<StoreVerificationListPage />} />
-        <Route path="/store-verifications/:requestId" element={<StoreVerificationDetailPage />} />
-        <Route path="/stores" element={<ApprovedStoresPage />} />
-        <Route path="/stores/:ownershipId" element={<ApprovedStoreDetailPage />} />
-        <Route
-          path="/stores/:ownershipId/profile"
-          element={<StoreProfileEditPage api={api} />}
-        />
-        <Route path="/feature-flags" element={<FeatureFlagsPage api={api} />} />
-        <Route path="/reward-policy" element={<RewardPolicyPage api={api} />} />
-        <Route path="/member-message-policy" element={<MemberMessagePolicyPage api={api} />} />
-        <Route path="/home-banners" element={<HomeBannersListPage api={api} />} />
-        <Route path="/home-banners/:id" element={<HomeBannerEditPage api={api} />} />
-        <Route path="/app-launch" element={<AppLaunchAdminPage api={api} />} />
-        <Route path="/join-session-reviews" element={<JoinSessionReviewsAdminPage api={api} />} />
-        <Route path="/store-banner-ads" element={<StoreBannerAdsListPage api={api} />} />
-        <Route path="/store-banner-ads/:id" element={<StoreBannerAdDetailPage api={api} />} />
-        <Route path="/analytics" element={<GrowthAnalyticsPage />} />
-        <Route path="/payment-settings" element={<PaymentSettingsPage />} />
-        <Route path="/payments" element={<PaymentsAdminListPage />} />
-        <Route path="/join-coin-policy" element={<JoinCoinPolicyPage />} />
-        <Route path="/mall/products" element={<MallAdminListPage />} />
-        <Route path="/mall/products/:productId" element={<MallAdminEditPage />} />
-        <Route
-          path="/service-operator-profile"
-          element={<ServiceOperatorProfilePage api={api} />}
-        />
-        <Route
-          path="/mobile-release/android"
-          element={<MobileAndroidReleasePage api={api} />}
-        />
-        <Route path="/premium-plans" element={<PremiumPlansPage />} />
+        <Route index element={<CoinSupplyPage />} />
+        <Route path="coin" element={<CoinSupplyPage />} />
+        <Route path="coin/issuances/:issuanceId" element={<IssuanceDetailPage />} />
+        <Route path="coin/users/:userId" element={<UserCoinPage />} />
+        <Route path="disputes" element={<DisputeListPage />} />
+        <Route path="disputes/:disputeId" element={<DisputeDetailPage />} />
+        <Route path="store-verifications" element={<StoreVerificationListPage />} />
+        <Route path="store-verifications/:requestId" element={<StoreVerificationDetailPage />} />
+        <Route path="stores" element={<ApprovedStoresPage />} />
+        <Route path="stores/:ownershipId" element={<ApprovedStoreDetailPage />} />
+        <Route path="stores/:ownershipId/profile" element={<StoreProfileEditPage api={api} />} />
+        <Route path="feature-flags" element={<FeatureFlagsPage api={api} />} />
+        <Route path="reward-policy" element={<RewardPolicyPage api={api} />} />
+        <Route path="member-message-policy" element={<MemberMessagePolicyPage api={api} />} />
+        <Route path="home-banners" element={<HomeBannersListPage api={api} />} />
+        <Route path="home-banners/:id" element={<HomeBannerEditPage api={api} />} />
+        <Route path="app-launch" element={<AppLaunchAdminPage api={api} />} />
+        <Route path="join-session-reviews" element={<JoinSessionReviewsAdminPage api={api} />} />
+        <Route path="store-banner-ads" element={<StoreBannerAdsListPage api={api} />} />
+        <Route path="store-banner-ads/:id" element={<StoreBannerAdDetailPage api={api} />} />
+        <Route path="analytics" element={<GrowthAnalyticsPage />} />
+        <Route path="payment-settings" element={<PaymentSettingsPage />} />
+        <Route path="payments" element={<PaymentsAdminListPage />} />
+        <Route path="join-coin-policy" element={<JoinCoinPolicyPage />} />
+        <Route path="mall/products" element={<MallAdminListPage />} />
+        <Route path="mall/products/:productId" element={<MallAdminEditPage />} />
+        <Route path="service-operator-profile" element={<ServiceOperatorProfilePage api={api} />} />
+        <Route path="mobile-release/android" element={<MobileAndroidReleasePage api={api} />} />
+        <Route path="premium-plans" element={<PremiumPlansPage />} />
       </Routes>
     </Shell>
   );
