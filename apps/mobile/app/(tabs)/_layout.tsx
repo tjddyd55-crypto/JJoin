@@ -67,7 +67,7 @@ function ClubMinimalTabBar(props: {
             });
             if (event.defaultPrevented) return;
             if (!shouldNavigateOnTabPress(route.name, focused)) return;
-            // 조인 탭은 항상 SCREEN으로 명시. route.params 재사용 시
+            // 쪼인 탭은 항상 SCREEN으로 명시. route.params 재사용 시
             // 홈 FIELD 「전체보기」 leftover venueType이 그대로 남는다.
             navigation.navigate(route.name, resolveTabPressParams(route));
           },

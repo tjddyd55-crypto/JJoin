@@ -70,7 +70,7 @@ export function JoinHostManagementSection({
       {hasSecondary ? (
         <View style={styles.secondaryRow}>
           {onEdit ? (
-            <SecondaryAction label="조인 정보 수정" onPress={onEdit} disabled={busy} />
+            <SecondaryAction label="쪼인 정보 수정" onPress={onEdit} disabled={busy} />
           ) : null}
           {onInvite ? (
             <SecondaryAction label="참가자 초대" onPress={onInvite} disabled={busy} />

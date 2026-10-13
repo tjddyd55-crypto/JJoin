@@ -151,8 +151,8 @@ export function PremiumScreen() {
       <Card variant="base" padding="md">
         <Text variant="sectionTitle">Premium 혜택</Text>
         <Spacer size="sm" />
-        <Text variant="body">✓ 조인방 생성 제한 해제</Text>
-        <Text variant="body">✓ 조인방 생성 비용 혜택 (정책에 따라 적용)</Text>
+        <Text variant="body">✓ 쪼인방 생성 제한 해제</Text>
+        <Text variant="body">✓ 쪼인방 생성 비용 혜택 (정책에 따라 적용)</Text>
         <Text variant="body">✓ Premium 배지</Text>
       </Card>
 

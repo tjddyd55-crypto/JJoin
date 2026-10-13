@@ -21,7 +21,7 @@ test('FIELD create is rejected when the venue is SCREEN', () => {
   assert.equal(result.ok, false);
   if (!result.ok) {
     assert.equal(result.code, 'venue_type_mismatch');
-    assert.match(joinCreateClientMessage(result.code), /조인 유형/);
+    assert.match(joinCreateClientMessage(result.code), /쪼인 유형/);
   }
 });
 

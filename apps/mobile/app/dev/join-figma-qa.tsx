@@ -125,7 +125,7 @@ function JoinListPreview() {
         </Pressable>
       </View>
       <View style={styles.sectionTitleRow}>
-        <Text variant="joinSectionTitle" tone="primary">오늘 참여 가능한 조인</Text>
+        <Text variant="joinSectionTitle" tone="primary">오늘 참여 가능한 쪼인</Text>
         <Text variant="joinMeta" tone="tertiary">12개</Text>
       </View>
       <Stack gap="sm">
@@ -139,13 +139,13 @@ function JoinListPreview() {
 function MyJoinsPreview() {
   return (
     <View style={styles.scene}>
-      <Text variant="joinScreenTitle" tone="primary">내 조인</Text>
-      <Section title="내가 만든 조인" titleVariant="joinSectionTitle">
+      <Text variant="joinScreenTitle" tone="primary">내 쪼인</Text>
+      <Section title="내가 만든 쪼인" titleVariant="joinSectionTitle">
         <Stack gap="sm">
           <JoinCard {...JOIN_FIGMA_QA_CARD_MANAGEMENT} onPress={() => {}} />
         </Stack>
       </Section>
-      <Section title="지난 조인" titleVariant="joinSectionTitle">
+      <Section title="지난 쪼인" titleVariant="joinSectionTitle">
         <Text variant="joinMeta" tone="secondary">진행·예정</Text>
         <JoinCard {...JOIN_FIGMA_QA_CARD_MANAGEMENT} onPress={() => {}} />
       </Section>
@@ -156,7 +156,7 @@ function MyJoinsPreview() {
 function HomeJoinPreview() {
   return (
     <View style={styles.scene}>
-      <Text variant="joinSectionTitle" tone="primary">오늘의 추천 조인</Text>
+      <Text variant="joinSectionTitle" tone="primary">오늘의 추천 쪼인</Text>
       <Stack gap="sm">
         <JoinCard {...JOIN_FIGMA_QA_CARD_COMPACT} onPress={() => {}} />
         <JoinCard {...JOIN_FIGMA_QA_CARD_COMPACT} onPress={() => {}} />

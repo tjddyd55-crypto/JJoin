@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -7,8 +8,11 @@ import {
   Param,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import type {
   ActivateUrgentVacancyRequest,
   CreateJoinInvitationsRequest,
@@ -22,6 +26,9 @@ import { AttendanceIntentService } from './attendance-intent.service';
 import { JoinChatService } from './join-chat.service';
 import { JoinInvitationService } from './join-invitation.service';
 import { PlayerReviewService } from './player-review.service';
+import { JoinSessionReviewService } from './join-session-review.service';
+
+type UploadedImageFile = { buffer: Buffer };
 
 @Controller('joins')
 export class JoinLoopController {
@@ -31,6 +38,7 @@ export class JoinLoopController {
     private readonly chat: JoinChatService,
     private readonly invitations: JoinInvitationService,
     private readonly reviews: PlayerReviewService,
+    private readonly sessionReviews: JoinSessionReviewService,
   ) {}
 
   /** Cron: purge chat messages/members after purgeAfter. Must be before :joinId routes. */
@@ -129,6 +137,59 @@ export class JoinLoopController {
     @CurrentUserId() userId: string,
   ) {
     return this.invitations.decline(joinId, invitationId, userId);
+  }
+
+  @Get(':joinId/session-reviews')
+  listSessionReviews(@Param('joinId') joinId: string) {
+    return this.sessionReviews.listForJoin(joinId);
+  }
+
+  @Get(':joinId/session-reviews/me')
+  @UseGuards(MockAuthGuard)
+  mySessionReview(@Param('joinId') joinId: string, @CurrentUserId() userId: string) {
+    return this.sessionReviews.getMine(joinId, userId);
+  }
+
+  @Post(':joinId/session-reviews')
+  @UseGuards(MockAuthGuard)
+  upsertSessionReview(
+    @Param('joinId') joinId: string,
+    @CurrentUserId() userId: string,
+    @Body() body: unknown,
+  ) {
+    return this.sessionReviews.upsert(joinId, userId, body);
+  }
+
+  @Delete(':joinId/session-reviews/:reviewId')
+  @UseGuards(MockAuthGuard)
+  deleteSessionReview(
+    @Param('joinId') joinId: string,
+    @Param('reviewId') reviewId: string,
+    @CurrentUserId() userId: string,
+  ) {
+    return this.sessionReviews.deleteReview(joinId, reviewId, userId);
+  }
+
+  @Post(':joinId/session-reviews/me/photos')
+  @UseGuards(MockAuthGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  addSessionReviewPhoto(
+    @Param('joinId') joinId: string,
+    @CurrentUserId() userId: string,
+    @UploadedFile() file: UploadedImageFile | undefined,
+  ) {
+    if (!file?.buffer?.length) throw new BadRequestException('file_required');
+    return this.sessionReviews.addPhoto(joinId, userId, file.buffer);
+  }
+
+  @Delete(':joinId/session-reviews/me/photos/:photoId')
+  @UseGuards(MockAuthGuard)
+  deleteSessionReviewPhoto(
+    @Param('joinId') joinId: string,
+    @Param('photoId') photoId: string,
+    @CurrentUserId() userId: string,
+  ) {
+    return this.sessionReviews.deletePhoto(joinId, photoId, userId);
   }
 
   @Get(':joinId/review-targets')

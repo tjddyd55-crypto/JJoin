@@ -71,7 +71,7 @@ export function FieldJoinMapPanel({ deviceLocation, locationDenied }: Props) {
         <Text variant="caption" tone="secondary">
           {locationDenied
             ? '필드 골프장 공개데이터에 좌표가 없는 경우가 많습니다. 리스트나 지역별로 찾아 주세요.'
-            : '좌표가 있는 필드 조인이 없습니다. 리스트에서 골프장명·지역으로 찾아 주세요.'}
+            : '좌표가 있는 필드 쪼인이 없습니다. 리스트에서 골프장명·지역으로 찾아 주세요.'}
         </Text>
       </View>
     );
@@ -80,7 +80,7 @@ export function FieldJoinMapPanel({ deviceLocation, locationDenied }: Props) {
   return (
     <View style={styles.list}>
       <Text variant="caption" tone="secondary">
-        좌표가 확인된 필드 조인만 지도 대신 목록으로 보여 줍니다.
+        좌표가 확인된 필드 쪼인만 지도 대신 목록으로 보여 줍니다.
       </Text>
       {items.map((join) => (
         <DiscoverJoinCard

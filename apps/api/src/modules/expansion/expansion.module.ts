@@ -16,7 +16,7 @@ import { RewardsService } from './rewards.service';
 import { StoreBannerAdsService } from './store-banner-ads.service';
 import { StoreProfilePhotoService } from './store-profile-photo.service';
 import { StoreProfilesService } from './store-profiles.service';
-
+import { AppLaunchService } from './app-launch.service';
 @Module({
   imports: [WalletModule, NotificationsModule, PaymentsModule, StorageModule],
   controllers: [PublicExpansionController, MeExpansionController, AdminExpansionController],
@@ -28,6 +28,7 @@ import { StoreProfilesService } from './store-profiles.service';
     StoreProfilePhotoService,
     StoreBannerAdsService,
     RewardsService,
+    AppLaunchService,
     AdminGuard,
   ],
   exports: [FeatureFlagsService, ProfileMatchService, RewardsService],

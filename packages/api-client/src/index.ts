@@ -132,6 +132,14 @@ import {
   type CreateClubNoticeRequest,
   type FeatureFlagDto,
   type HomeBannerDto,
+  type AppLaunchConfigDto,
+  type JoinSessionReviewDto,
+  type MyJoinSessionReviewsHubDto,
+  type UpsertJoinSessionReviewRequest,
+  type JoinReviewPostListResponseDto,
+  type JoinReviewPostDetailDto,
+  type CreateJoinReviewPostRequest,
+  type UpdateJoinReviewPostRequest,
   type PublicStoreListItemDto,
   type PublicStoreDetailDto,
   type StoreProfileDto,
@@ -183,9 +191,24 @@ import { ApiRequestError } from './api-error';
 export { ApiRequestError, isApiRequestError, parseApiErrorBody } from './api-error';
 export type { ParsedApiErrorBody } from './api-error';
 
+export type MultipartUploadFile = {
+  uri: string;
+  name?: string;
+  type?: string;
+};
+
+export type MultipartUploader = (
+  absoluteUrl: string,
+  fieldName: string,
+  file: MultipartUploadFile,
+  headers: Record<string, string>,
+) => Promise<{ status: number; body: string }>;
+
 export type ApiClientConfig = {
   baseUrl: string;
   getAccessToken?: () => string | null | Promise<string | null>;
+  /** React Native: expo-file-system native multipart (fetch FormData is unreliable). */
+  multipartUploader?: MultipartUploader;
 };
 
 async function parseJson<T>(res: Response): Promise<T> {
@@ -234,23 +257,35 @@ export class ApiClient {
     return headers;
   }
 
-  private async uploadMultipart(path: string, file: {
-    uri: string;
-    name?: string;
-    type?: string;
-  }): Promise<MeDto> {
+  private async uploadMultipartAt<T>(
+    path: string,
+    file: MultipartUploadFile,
+  ): Promise<T> {
+    const url = `${this.config.baseUrl}${path}`;
+    const headers = await this.authHeaders(true);
+    if (this.config.multipartUploader) {
+      const result = await this.config.multipartUploader(url, 'file', file, headers);
+      if (result.status < 200 || result.status >= 300) {
+        throw new ApiRequestError(result.status, result.body);
+      }
+      return JSON.parse(result.body) as T;
+    }
     const form = new FormData();
     form.append('file', {
       uri: file.uri,
       name: file.name ?? 'photo.jpg',
       type: file.type ?? 'image/jpeg',
     } as unknown as Blob);
-    const res = await request(`${this.config.baseUrl}${path}`, {
+    const res = await request(url, {
       method: 'POST',
-      headers: await this.authHeaders(true),
+      headers,
       body: form,
     });
     return parseJson(res);
+  }
+
+  private async uploadMultipart(path: string, file: MultipartUploadFile): Promise<MeDto> {
+    return this.uploadMultipartAt<MeDto>(path, file);
   }
 
   async getHealth(): Promise<{ status: string }> {
@@ -673,6 +708,7 @@ export class ApiClient {
       sort?: JoinDiscoverySort;
       joinability?: JoinDiscoveryJoinability;
       venueType?: VenueType | 'SCREEN' | 'FIELD';
+      includeCompleted?: boolean;
     },
     signal?: AbortSignal,
   ): Promise<DiscoverJoinsResponse> {
@@ -2305,6 +2341,139 @@ export class ApiClient {
       headers: await this.headers(false),
     });
     return parseJson(res);
+  }
+
+  async getAppLaunchConfig(): Promise<AppLaunchConfigDto> {
+    const res = await request(`${this.config.baseUrl}/app-config/launch`, {
+      headers: await this.headers(false),
+    });
+    return parseJson(res);
+  }
+
+  async listJoinSessionReviews(joinId: string): Promise<JoinSessionReviewDto[]> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/session-reviews`, {
+      headers: await this.headers(false),
+    });
+    return parseJson(res);
+  }
+
+  async getMyJoinSessionReview(joinId: string): Promise<JoinSessionReviewDto | null> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/session-reviews/me`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async upsertJoinSessionReview(
+    joinId: string,
+    body: UpsertJoinSessionReviewRequest,
+  ): Promise<JoinSessionReviewDto> {
+    const res = await request(`${this.config.baseUrl}/joins/${joinId}/session-reviews`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async getMyJoinSessionReviewsHub(): Promise<MyJoinSessionReviewsHubDto> {
+    const res = await request(`${this.config.baseUrl}/me/join-session-reviews`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async deleteMyJoinSessionReview(joinId: string, reviewId: string): Promise<void> {
+    const res = await request(
+      `${this.config.baseUrl}/joins/${joinId}/session-reviews/${reviewId}`,
+      {
+        method: 'DELETE',
+        headers: await this.headers(true),
+      },
+    );
+    if (!res.ok) {
+      throw new Error(`delete_join_session_review_failed:${res.status}`);
+    }
+  }
+
+  async listJoinReviewPosts(params?: {
+    cursor?: string;
+    limit?: number;
+  }): Promise<JoinReviewPostListResponseDto> {
+    const search = new URLSearchParams();
+    if (params?.cursor) search.set('cursor', params.cursor);
+    if (params?.limit != null) search.set('limit', String(params.limit));
+    const qs = search.toString();
+    const res = await request(`${this.config.baseUrl}/join-reviews${qs ? `?${qs}` : ''}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async getJoinReviewPost(reviewId: string): Promise<JoinReviewPostDetailDto> {
+    const res = await request(`${this.config.baseUrl}/join-reviews/${reviewId}`, {
+      headers: await this.headers(true),
+    });
+    return parseJson(res);
+  }
+
+  async createJoinReviewPost(body: CreateJoinReviewPostRequest): Promise<JoinReviewPostDetailDto> {
+    const res = await request(`${this.config.baseUrl}/join-reviews`, {
+      method: 'POST',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async updateJoinReviewPost(
+    reviewId: string,
+    body: UpdateJoinReviewPostRequest,
+  ): Promise<JoinReviewPostDetailDto> {
+    const res = await request(`${this.config.baseUrl}/join-reviews/${reviewId}`, {
+      method: 'PATCH',
+      headers: await this.headers(true),
+      body: JSON.stringify(body),
+    });
+    return parseJson(res);
+  }
+
+  async deleteJoinReviewPost(reviewId: string): Promise<void> {
+    const res = await request(`${this.config.baseUrl}/join-reviews/${reviewId}`, {
+      method: 'DELETE',
+      headers: await this.headers(true),
+    });
+    if (!res.ok) {
+      throw new Error(`delete_join_review_post_failed:${res.status}`);
+    }
+  }
+
+  async deleteJoinReviewPostPhoto(
+    reviewId: string,
+    photoId: string,
+  ): Promise<JoinReviewPostDetailDto> {
+    const res = await request(
+      `${this.config.baseUrl}/join-reviews/${reviewId}/photos/${photoId}`,
+      {
+        method: 'DELETE',
+        headers: await this.headers(true),
+      },
+    );
+    return parseJson(res);
+  }
+
+  async addJoinReviewPostPhoto(
+    reviewId: string,
+    file: MultipartUploadFile,
+  ): Promise<JoinReviewPostDetailDto> {
+    return this.uploadMultipartAt<JoinReviewPostDetailDto>(
+      `/join-reviews/${reviewId}/photos`,
+      {
+        uri: file.uri,
+        name: file.name ?? 'review.jpg',
+        type: file.type ?? 'image/jpeg',
+      },
+    );
   }
 
   async listScreenStores(query?: { sido?: string; sigungu?: string }): Promise<PublicStoreListItemDto[]> {

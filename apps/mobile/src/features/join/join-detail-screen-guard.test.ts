@@ -30,9 +30,9 @@ const opsPath = join(
 );
 
 const FORBIDDEN_BODY_ACTIONS = [
-  'label="내 조인"',
+  'label="내 쪼인"',
   'label="닫기"',
-  'label="조인 상태 보기"',
+  'label="쪼인 상태 보기"',
   'label="뒤로"',
 ] as const;
 
@@ -50,7 +50,7 @@ test('join detail screen body excludes duplicate navigation actions', () => {
 test('join detail screen removes AppBar and uses hardware back fallback', () => {
   const source = readFileSync(screenPath, 'utf8');
   assert.doesNotMatch(source, /<AppBar/);
-  assert.doesNotMatch(source, /title="조인 상세"/);
+  assert.doesNotMatch(source, /title="쪼인 상세"/);
   assert.match(source, /BackHandler\.addEventListener\('hardwareBackPress'/);
   assert.match(source, /router\.replace\('\/\(tabs\)\/joins'\)/);
 });
@@ -137,4 +137,11 @@ test('FIELD roster wires shared MemberActionMenu instead of local DM or gift', (
   assert.match(memberCard, /memberActions/);
   assert.doesNotMatch(roster, /createDirectConversation|memberGiftHref|\/gift\/\[userId\]/);
   assert.doesNotMatch(memberCard, /메시지 보내기|코인 선물하기|createDirectConversation/);
+});
+
+test('detail status badges receive venueType so FIELD joins are not labelled 스크린', () => {
+  const sections = readFileSync(sectionsPath, 'utf8');
+  const call = sections.slice(sections.indexOf('resolveJoinListStatusBadges({'));
+  const args = call.slice(0, call.indexOf('});'));
+  assert.match(args, /venueType: detail\.venue\.venueType/);
 });

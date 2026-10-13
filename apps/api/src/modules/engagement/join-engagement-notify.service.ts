@@ -23,20 +23,20 @@ const BOOKMARK_TYPE: Record<BookmarkJoinNotifyKind, NotificationType> = {
 
 const BOOKMARK_COPY: Record<BookmarkJoinNotifyKind, { title: string; body: string }> = {
   closing: {
-    title: '관심 조인 마감 임박',
-    body: '북마크한 조인의 모집이 곧 마감됩니다.',
+    title: '관심 쪼인 마감 임박',
+    body: '북마크한 쪼인의 모집이 곧 마감됩니다.',
   },
   spot_left: {
-    title: '관심 조인 자리 남음',
-    body: '북마크한 조인에 자리가 남았습니다.',
+    title: '관심 쪼인 자리 남음',
+    body: '북마크한 쪼인에 자리가 남았습니다.',
   },
   updated: {
-    title: '관심 조인 변경',
-    body: '북마크한 조인 정보가 변경되었습니다.',
+    title: '관심 쪼인 변경',
+    body: '북마크한 쪼인 정보가 변경되었습니다.',
   },
   cancelled: {
-    title: '관심 조인 취소',
-    body: '북마크한 조인이 취소되었습니다.',
+    title: '관심 쪼인 취소',
+    body: '북마크한 쪼인이 취소되었습니다.',
   },
 };
 
@@ -204,10 +204,10 @@ export class JoinEngagementNotifyService {
       await this.notifications.enqueueSafe({
         userId,
         type,
-        title: isAlert ? '조건에 맞는 조인' : '관심 매장 새 조인',
+        title: isAlert ? '조건에 맞는 쪼인' : '관심 매장 새 쪼인',
         body: isAlert
-          ? `${venueName}에 참가 가능한 조인이 열렸습니다.`
-          : `${facilityLabel}에 새 조인이 등록되었습니다.`,
+          ? `${venueName}에 참가 가능한 쪼인이 열렸습니다.`
+          : `${facilityLabel}에 새 쪼인이 등록되었습니다.`,
         data: {
           type,
           joinId: join.id,

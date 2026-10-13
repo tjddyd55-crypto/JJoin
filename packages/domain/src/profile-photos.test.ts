@@ -75,7 +75,7 @@ test('MAX_PROFILE_GALLERY_PHOTOS is 5', () => {
   assert.equal(MAX_PROFILE_GALLERY_PHOTOS, 5);
 });
 
-test('isPublicReadableObjectKey allows mall and profile media only', () => {
+test('isPublicReadableObjectKey allows mall, profile, and DEV investor-demo media', () => {
   assert.equal(
     isPublicReadableObjectKey({
       objectKey: 'development/mall/products/p1/cover/a.png',
@@ -99,6 +99,20 @@ test('isPublicReadableObjectKey allows mall and profile media only', () => {
   );
   assert.equal(
     isPublicReadableObjectKey({
+      objectKey: 'development/investor-demo/v2/banners/field-weekend.jpg',
+      environmentPrefix: 'development',
+    }),
+    true,
+  );
+  assert.equal(
+    isPublicReadableObjectKey({
+      objectKey: 'development/investor-demo/v2/banners/field-weekend.jpg',
+      environmentPrefix: 'production',
+    }),
+    false,
+  );
+  assert.equal(
+    isPublicReadableObjectKey({
       objectKey: 'production/mall/products/p1/cover/a.png',
       environmentPrefix: 'development',
     }),
@@ -107,6 +121,89 @@ test('isPublicReadableObjectKey allows mall and profile media only', () => {
   assert.equal(
     isPublicReadableObjectKey({
       objectKey: 'development/mall/products/p1/secret/a.png',
+      environmentPrefix: 'development',
+    }),
+    false,
+  );
+});
+
+test('isPublicReadableObjectKey allows JoinSessionReview and JoinReviewPost photo keys', () => {
+  assert.equal(
+    isPublicReadableObjectKey({
+      objectKey: 'development/join-reviews/review-1/file-1.jpg',
+      environmentPrefix: 'development',
+    }),
+    true,
+  );
+  assert.equal(
+    isPublicReadableObjectKey({
+      objectKey: 'development/join-review-posts/post123/file123.jpg',
+      environmentPrefix: 'development',
+    }),
+    true,
+  );
+  assert.equal(
+    isPublicReadableObjectKey({
+      objectKey: 'development/join-review-posts/post123/file123.png',
+      environmentPrefix: 'development',
+    }),
+    true,
+  );
+  assert.equal(
+    isPublicReadableObjectKey({
+      objectKey: 'development/join-review-posts/post123/file123.webp',
+      environmentPrefix: 'development',
+    }),
+    true,
+  );
+});
+
+test('isPublicReadableObjectKey rejects invalid join-review-posts keys', () => {
+  assert.equal(
+    isPublicReadableObjectKey({
+      objectKey: 'production/join-review-posts/post123/file123.jpg',
+      environmentPrefix: 'development',
+    }),
+    false,
+  );
+  assert.equal(
+    isPublicReadableObjectKey({
+      objectKey: 'development/join-review-posts/post123',
+      environmentPrefix: 'development',
+    }),
+    false,
+  );
+  assert.equal(
+    isPublicReadableObjectKey({
+      objectKey: 'development/join-review-posts/post123/file123',
+      environmentPrefix: 'development',
+    }),
+    false,
+  );
+  assert.equal(
+    isPublicReadableObjectKey({
+      objectKey: 'development/join-review-posts/post123/file123.exe',
+      environmentPrefix: 'development',
+    }),
+    false,
+  );
+  assert.equal(
+    isPublicReadableObjectKey({
+      objectKey: 'development/join-review-posts/post123/file123.txt',
+      environmentPrefix: 'development',
+    }),
+    false,
+  );
+  assert.equal(
+    isPublicReadableObjectKey({
+      objectKey: 'development/join-review-posts/post123/../secret/file.jpg',
+      environmentPrefix: 'development',
+    }),
+    false,
+  );
+  assert.equal(
+    isPublicReadableObjectKey({
+      objectKey: 'development/foo/join-review-posts/post123/file123.jpg',
       environmentPrefix: 'development',
     }),
     false,

@@ -14,6 +14,7 @@ import type { JoinCardProps } from '@jjoin/design-system';
 import {
   baseJoinCardFields,
   formatJoinDisplayTitle,
+  JOIN_FINISHED_STATUS_LABEL,
   type JoinCardMapperOptions,
 } from './join-display';
 
@@ -75,7 +76,29 @@ export function mapRecommendedToJoinCardProps(
   };
 }
 
+/** Finished join card: dimmed + watermark, no seats/D-day, single finished badge. */
+export function applyCompletedJoinCardProps(props: JoinCardProps): JoinCardProps {
+  return {
+    ...props,
+    completed: true,
+    completedLabel: JOIN_FINISHED_STATUS_LABEL,
+    ddayLabel: null,
+    seatsHighlight: null,
+    isUrgent: false,
+    statusBadges: [{ label: JOIN_FINISHED_STATUS_LABEL, tone: 'closed' }],
+  };
+}
+
 export function mapDiscoverToJoinCardProps(
+  item: DiscoverJoinCardDto,
+  onPress: () => void,
+  options?: JoinCardMapperOptions,
+): JoinCardProps {
+  const props = mapDiscoverToJoinCardPropsBase(item, onPress, options);
+  return item.isCompleted ? applyCompletedJoinCardProps(props) : props;
+}
+
+function mapDiscoverToJoinCardPropsBase(
   item: DiscoverJoinCardDto,
   onPress: () => void,
   options?: JoinCardMapperOptions,

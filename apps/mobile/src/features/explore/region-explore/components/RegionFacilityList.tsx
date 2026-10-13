@@ -78,7 +78,7 @@ export function RegionFacilityList({
           {regionLabel}
         </Text>
         <Text variant="body" tone="secondary" style={styles.emptyText}>
-          오늘 예정된 조인이 아직 없어요.
+          오늘 예정된 쪼인이 아직 없어요.
         </Text>
         {onSwitchToMap ? (
           <Pressable onPress={onSwitchToMap} style={styles.mapLink}>
@@ -98,7 +98,7 @@ export function RegionFacilityList({
           {regionLabel}
         </Text>
         <Text variant="meta" tone="secondary">
-          총 조인 {totalJoinCount}개
+          총 쪼인 {totalJoinCount}개
         </Text>
       </View>
       {facilities.map((f) => {
@@ -116,13 +116,13 @@ export function RegionFacilityList({
               },
             ]}
             accessibilityRole="button"
-            accessibilityLabel={`${f.venueName} 조인 ${f.joinCount}개`}
+            accessibilityLabel={`${f.venueName} 쪼인 ${f.joinCount}개`}
           >
             <Text variant="sectionTitle" tone="primary">
               {f.venueName}
             </Text>
             <Text variant="meta" tone="secondary">
-              {[dist, `조인 ${f.joinCount}개`].filter(Boolean).join(' · ')}
+              {[dist, `쪼인 ${f.joinCount}개`].filter(Boolean).join(' · ')}
             </Text>
             {f.startTimes.length > 0 ? (
               <Text variant="meta" tone="tertiary">

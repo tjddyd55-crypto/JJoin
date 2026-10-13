@@ -104,7 +104,7 @@ export function FieldCoursePickerScreen({ api, state, onChangeState, onSelect }:
           source: 'FIELD_GOLF_COURSE',
         });
       } catch {
-        setError('골프장을 조인 장소로 활성화하지 못했습니다.');
+        setError('골프장을 쪼인 장소로 활성화하지 못했습니다.');
       } finally {
         setActivatingId(null);
       }

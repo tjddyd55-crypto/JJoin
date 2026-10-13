@@ -117,7 +117,7 @@ export function WalletTransactionsScreen() {
             </Text>
             {tx.reference.refType === 'JOIN' && tx.reference.refId ? (
               <Button
-                label="관련 조인"
+                label="관련 쪼인"
                 variant="secondary"
                 fullWidth={false}
                 onPress={() => router.push(`/join/${tx.reference.refId}`)}

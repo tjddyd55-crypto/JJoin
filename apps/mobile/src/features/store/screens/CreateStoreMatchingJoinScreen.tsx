@@ -235,7 +235,7 @@ export function CreateStoreMatchingJoinScreen() {
       return;
     }
     if (!canAfford) {
-      setError('조인을 만들기 위한 코인이 부족합니다.');
+      setError('쪼인을 만들기 위한 코인이 부족합니다.');
       return;
     }
     setSubmitting(true);
@@ -252,8 +252,8 @@ export function CreateStoreMatchingJoinScreen() {
       }
       if (isJoinHostLimitError(e)) {
         Alert.alert(
-          '조인 생성 제한',
-          '현재 생성 가능한 조인 수를 초과했습니다. 진행 중인 조인을 정리하거나 프리미엄을 확인해 주세요.',
+          '쪼인 생성 제한',
+          '현재 생성 가능한 쪼인 수를 초과했습니다. 진행 중인 쪼인을 정리하거나 프리미엄을 확인해 주세요.',
           [{ text: '닫기', style: 'cancel' }],
         );
         return;
@@ -270,7 +270,7 @@ export function CreateStoreMatchingJoinScreen() {
       footer={
         <StickyActionFrame>
           <Button
-            label="모집 조인 만들기"
+            label="모집 쪼인 만들기"
             loading={submitting}
             disabled={!canAfford || !storeOwnershipId || submitting}
             onPress={() => void onCreate()}
@@ -414,7 +414,7 @@ export function CreateStoreMatchingJoinScreen() {
                 walletAvailable={selectedStore?.walletAvailable ?? '0'}
                 shortfall={coinShortfall}
                 creationCoinEnabled={Number(coinRequirement.roomCreationFee) > 0}
-                creatorUserTypeLabel="업주 · 모집 조인"
+                creatorUserTypeLabel="업주 · 모집 쪼인"
               />
               {walletAfterCreation != null ? (
                 <>

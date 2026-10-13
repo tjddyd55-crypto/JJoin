@@ -31,7 +31,13 @@ import {
   isStoreMatchingJoin,
   matchingCanConfirmAttendance,
 } from '../../../src/features/store/matching-join-ui';
-import { canHostManageUrgentRecruitment, summarizeMatchingSettlement, formatCoinWithLabel } from '@jjoin/domain';
+import {
+  canHostManageUrgentRecruitment,
+  summarizeMatchingSettlement,
+  formatCoinWithLabel,
+  isCompletedDiscoveryJoin,
+} from '@jjoin/domain';
+import { JoinSessionReviewsSection } from '../../../src/features/join/components/JoinSessionReviewsSection';
 import { isInternalToolsEnabled } from '../../../src/lib/internal-tools';
 import { isJoinDetailDevPanelEnabled } from '../../../src/lib/join-detail-dev-tools';
 import { publicJoinShareUrl } from '../../../src/lib/landing-url';
@@ -212,7 +218,7 @@ export default function JoinDetailScreen() {
       }
       setAttendance(initial);
     } catch {
-      setError('조인을 불러오지 못했습니다.');
+      setError('쪼인을 불러오지 못했습니다.');
     }
   }, [api, joinId]);
 
@@ -269,7 +275,7 @@ export default function JoinDetailScreen() {
       const next = await api.cancelStoreJoin(joinId);
       setDetail(next);
     } catch {
-      setError('조인 취소에 실패했습니다.');
+      setError('쪼인 취소에 실패했습니다.');
     } finally {
       setBusy(false);
     }
@@ -405,7 +411,7 @@ export default function JoinDetailScreen() {
       } else if (msg.includes('seat_no_longer_available')) {
         setError('이미 다른 참가자가 자리를 채웠습니다.');
       } else if (msg.includes('join_closed') || msg.includes('deadline')) {
-        setError('현재 조인이 마감되었습니다.');
+        setError('현재 쪼인이 마감되었습니다.');
       } else {
         setError('참가 확정에 실패했습니다.');
       }
@@ -546,8 +552,8 @@ export default function JoinDetailScreen() {
         return;
       }
       const url = publicJoinShareUrl(slug);
-      const message = `${detail.venue.name} 조인에 함께해요\n${url}`;
-      await Share.share({ message, url, title: '쪼인존 조인 공유' });
+      const message = `${detail.venue.name} 쪼인에 함께해요\n${url}`;
+      await Share.share({ message, url, title: '쪼인존 쪼인 공유' });
     } catch {
       setError('공유에 실패했습니다.');
     } finally {
@@ -718,6 +724,13 @@ export default function JoinDetailScreen() {
           onShare={() => void onShare()}
           onOpenHost={() => router.push(`/user/${detail.host.id}`)}
         />
+
+        {isCompletedDiscoveryJoin({
+          status: detail.status,
+          scheduledEndAt: detail.scheduledEndAt,
+        }) ? (
+          <JoinSessionReviewsSection joinId={joinId} detail={detail} />
+        ) : null}
 
         {isFieldJoin ? (
           <FieldJoinRosterSections
@@ -1032,7 +1045,7 @@ export default function JoinDetailScreen() {
         {canCancelMatching ? (
           <Section title="모집 관리">
             <Button
-              label="모집 조인 취소"
+              label="모집 쪼인 취소"
               variant="secondary"
               loading={busy}
               onPress={() => void onCancelStoreJoin()}

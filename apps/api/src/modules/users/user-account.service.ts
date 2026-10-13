@@ -463,7 +463,7 @@ export class UserAccountService {
     if (user.identityStatus !== IdentityStatus.VERIFIED) {
       throw new ForbiddenException({
         code: 'IDENTITY_REQUIRED',
-        message: '조인 활동을 위해 본인확인이 필요합니다.',
+        message: '쪼인 활동을 위해 본인확인이 필요합니다.',
         action,
       });
     }

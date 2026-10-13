@@ -21,8 +21,8 @@ export type NotificationContent = {
 
 const COPY: Record<string, (ctx: NotificationContentContext) => NotificationContent> = {
   JOIN_CREATED: (ctx) => ({
-    title: '근처 새 조인',
-    body: `${label(ctx.venueName, '매장')}에 새 조인이 열렸습니다.`,
+    title: '근처 새 쪼인',
+    body: `${label(ctx.venueName, '매장')}에 새 쪼인이 열렸습니다.`,
   }),
   DIRECT_MESSAGE_RECEIVED: (ctx) => ({
     title: '새 메시지',
@@ -38,7 +38,7 @@ const COPY: Record<string, (ctx: NotificationContentContext) => NotificationCont
   }),
   JOIN_APPLICATION_RECEIVED: (ctx) => ({
     title: '새 참가 신청',
-    body: `${label(ctx.actorNickname, '참가자')}님이 조인 참가를 신청했습니다.`,
+    body: `${label(ctx.actorNickname, '참가자')}님이 쪼인 참가를 신청했습니다.`,
   }),
   JOIN_APPLICATION_APPROVED: () => ({
     title: '참가 승인',
@@ -46,15 +46,15 @@ const COPY: Record<string, (ctx: NotificationContentContext) => NotificationCont
   }),
   JOIN_APPLICATION_REJECTED: (ctx) => ({
     title: '참가 거절',
-    body: `${label(ctx.venueName, '조인')} 참가 신청이 거절되었습니다.`,
+    body: `${label(ctx.venueName, '쪼인')} 참가 신청이 거절되었습니다.`,
   }),
   JOIN_UPDATED: (ctx) => ({
-    title: '조인 정보 변경',
-    body: `${label(ctx.venueName, '조인')} 정보가 변경되었습니다.`,
+    title: '쪼인 정보 변경',
+    body: `${label(ctx.venueName, '쪼인')} 정보가 변경되었습니다.`,
   }),
   JOIN_CANCELLED: (ctx) => ({
-    title: '조인 취소',
-    body: `${label(ctx.venueName, '조인')}이 취소되었습니다.`,
+    title: '쪼인 취소',
+    body: `${label(ctx.venueName, '쪼인')}이 취소되었습니다.`,
   }),
   REWARD_PAID: (ctx) => ({
     title: '리워드 지급',
@@ -81,12 +81,12 @@ const COPY: Record<string, (ctx: NotificationContentContext) => NotificationCont
     body: `${label(ctx.clubName, '동호회')} 가입 신청이 거절되었습니다.`,
   }),
   JOIN_ALERT_MATCH: (ctx) => ({
-    title: '조건에 맞는 조인',
-    body: `${label(ctx.venueName, '매장')}에 참가 가능한 조인이 열렸습니다.`,
+    title: '조건에 맞는 쪼인',
+    body: `${label(ctx.venueName, '매장')}에 참가 가능한 쪼인이 열렸습니다.`,
   }),
   FOLLOWED_STORE_NEW_JOIN: (ctx) => ({
-    title: '관심 매장 새 조인',
-    body: `${label(ctx.venueName, '매장')}에 새 조인이 등록되었습니다.`,
+    title: '관심 매장 새 쪼인',
+    body: `${label(ctx.venueName, '매장')}에 새 쪼인이 등록되었습니다.`,
   }),
   ATTENDANCE_REWARD: (ctx) => ({
     title: '오늘 출석 완료',

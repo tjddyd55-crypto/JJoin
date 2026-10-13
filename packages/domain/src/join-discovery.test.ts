@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { JoinStatus } from '@jjoin/types';
 import {
+  compareCompletedDiscoverJoinOrder,
+  isCompletedDiscoveryJoin,
+  orderActiveThenCompleted,
   aggregateFacilityJoinActivity,
   aggregateWeeklyDayCounts,
   buildDiscoverRegionApiQuery,
@@ -420,4 +423,40 @@ test('resolveDiscoverCanJoin states', () => {
     }).state,
     'FULL',
   );
+});
+
+test('isCompletedDiscoveryJoin: ended active / SETTLING / COMPLETED yes; cancelled no', () => {
+  const now = new Date('2026-09-28T01:00:00.000Z');
+  const past = '2026-09-28T00:00:00.000Z';
+  const future = '2026-09-28T03:00:00.000Z';
+  assert.equal(isCompletedDiscoveryJoin({ status: JoinStatus.OPEN, scheduledEndAt: past }, now), true);
+  assert.equal(isCompletedDiscoveryJoin({ status: JoinStatus.OPEN, scheduledEndAt: future }, now), false);
+  assert.equal(isCompletedDiscoveryJoin({ status: JoinStatus.COMPLETED, scheduledEndAt: future }, now), true);
+  assert.equal(isCompletedDiscoveryJoin({ status: JoinStatus.SETTLING, scheduledEndAt: future }, now), true);
+  assert.equal(isCompletedDiscoveryJoin({ status: JoinStatus.CANCELLED, scheduledEndAt: past }, now), false);
+  assert.equal(isCompletedDiscoveryJoin({ status: JoinStatus.DRAFT, scheduledEndAt: past }, now), false);
+});
+
+test('orderActiveThenCompleted keeps active order then completed by recent end', () => {
+  const now = new Date('2026-09-28T05:00:00.000Z');
+  const rows = [
+    { joinId: 'c1', status: JoinStatus.COMPLETED, startAt: '2026-09-27T22:00:00.000Z', scheduledEndAt: '2026-09-28T00:00:00.000Z' },
+    { joinId: 'a1', status: JoinStatus.OPEN, startAt: '2026-09-28T06:00:00.000Z', scheduledEndAt: '2026-09-28T08:00:00.000Z' },
+    { joinId: 'c2', status: JoinStatus.OPEN, startAt: '2026-09-28T01:00:00.000Z', scheduledEndAt: '2026-09-28T03:00:00.000Z' },
+    { joinId: 'a2', status: JoinStatus.FULL, startAt: '2026-09-28T07:00:00.000Z', scheduledEndAt: '2026-09-28T09:00:00.000Z' },
+  ];
+  assert.deepEqual(orderActiveThenCompleted(rows, now).map((r) => r.joinId), ['a1', 'a2', 'c2', 'c1']);
+  assert.ok(compareCompletedDiscoverJoinOrder(rows[2]!, rows[0]!) < 0);
+});
+
+test('resolveJoinDiscoveryBadge: finished joins read 완료, cancelled unchanged', () => {
+  const now = new Date('2026-08-26T10:00:00.000Z');
+  const base = {
+    startAt: '2026-08-26T05:00:00.000Z',
+    scheduledEndAt: '2026-08-26T08:00:00.000Z',
+    now,
+  };
+  assert.equal(resolveJoinDiscoveryBadge({ ...base, status: JoinStatus.COMPLETED }).label, '완료');
+  assert.equal(resolveJoinDiscoveryBadge({ ...base, status: JoinStatus.CONFIRMED }).label, '완료');
+  assert.equal(resolveJoinDiscoveryBadge({ ...base, status: JoinStatus.CANCELLED }).label, '종료');
 });

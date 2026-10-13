@@ -63,7 +63,7 @@ export class PresenceService {
       if (!canBypassIdentityVerification()) {
         throw new BadRequestException({
           code: 'IDENTITY_REQUIRED',
-          message: '조인 활동을 위해 본인확인이 필요합니다.',
+          message: '쪼인 활동을 위해 본인확인이 필요합니다.',
         });
       }
     }
@@ -167,7 +167,7 @@ export class PresenceService {
         null;
       result.push({
         userId: user.id,
-        nickname: user.profile?.nickname ?? '조인러',
+        nickname: user.profile?.nickname ?? '쪼인러',
         avatarUrl: null as string | null,
         verifiedBadge: user.identityStatus === 'VERIFIED',
         ageBand: (user.profile?.ageBand as AgeBand | null) ?? null,

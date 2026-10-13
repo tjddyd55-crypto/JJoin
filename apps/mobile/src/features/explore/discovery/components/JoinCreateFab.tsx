@@ -12,7 +12,7 @@ const FAB_SIZE = 56;
 const DEFAULT_PLAYERS = 4;
 const DEFAULT_REWARD = '0';
 
-/** 조인 탭 탐색 화면 공통 — create route 재사용 */
+/** 쪼인 탭 탐색 화면 공통 — create route 재사용 */
 export function JoinCreateFab() {
   const router = useRouter();
   const theme = useTheme();
@@ -40,7 +40,7 @@ export function JoinCreateFab() {
           router.push({ pathname: '/(tabs)/create', params: { venueType } })
         }
         accessibilityRole="button"
-        accessibilityLabel="조인 만들기"
+        accessibilityLabel="쪼인 만들기"
         style={[
           styles.fab,
           {

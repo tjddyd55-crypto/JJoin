@@ -7,10 +7,17 @@ import {
 } from '@nestjs/common';
 import { NotificationType } from '@prisma/client';
 import {
+  DEV_DEMO_RECOMMENDED_LIMIT,
+  DEV_INVESTOR_DEMO_KEY_MARKER,
+  isDevInvestorDemoAvatarStorageKey,
+  mergeDevDemoRecommendedUserIds,
+} from '@jjoin/domain';
+import {
   GolfFriendRelationship,
   type GolfFriendCardDto,
   type GolfFriendsListResponse,
 } from '@jjoin/types';
+import { isDevelopmentUnsafePathAllowed } from '../../config/app-variant';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UserAccountService } from '../users/user-account.service';
 import { PresenceService } from '../presence/presence.service';
@@ -26,17 +33,18 @@ export class GolfFriendsService {
   ) {}
 
   async listRecommended(viewerId: string): Promise<GolfFriendsListResponse> {
-    const rows = await this.prisma.user.findMany({
-      where: {
-        id: { not: viewerId },
-        status: 'ACTIVE',
-        profile: { isNot: null },
-      },
-      orderBy: { lastLoginAt: 'desc' },
-      take: 20,
-      select: { id: true },
+    const development = isDevelopmentUnsafePathAllowed();
+    const [demoUserIds, recentUserIds] = await Promise.all([
+      development ? this.findDevInvestorDemoUserIds(viewerId) : Promise.resolve([]),
+      this.findRecentlyActiveUserIds(viewerId),
+    ]);
+    const ids = mergeDevDemoRecommendedUserIds({
+      development,
+      viewerId,
+      demoUserIds,
+      recentUserIds,
     });
-    return this.toCards(viewerId, rows.map((r) => r.id));
+    return this.toCards(viewerId, ids);
   }
 
   async listPopular(viewerId: string): Promise<GolfFriendsListResponse> {
@@ -225,6 +233,47 @@ export class GolfFriendsService {
       select: { nickname: true },
     });
     return profile?.nickname ?? '회원';
+  }
+
+  private async findRecentlyActiveUserIds(viewerId: string): Promise<string[]> {
+    const rows = await this.prisma.user.findMany({
+      where: {
+        id: { not: viewerId },
+        status: 'ACTIVE',
+        profile: { isNot: null },
+      },
+      orderBy: { lastLoginAt: 'desc' },
+      take: DEV_DEMO_RECOMMENDED_LIMIT,
+      select: { id: true },
+    });
+    return rows.map((row) => row.id);
+  }
+
+  private async findDevInvestorDemoUserIds(viewerId: string): Promise<string[]> {
+    const rows = await this.prisma.user.findMany({
+      where: {
+        id: { not: viewerId },
+        status: 'ACTIVE',
+        profile: {
+          is: {
+            avatarAsset: {
+              is: { storageKey: { contains: DEV_INVESTOR_DEMO_KEY_MARKER } },
+            },
+          },
+        },
+      },
+      orderBy: { profile: { nickname: 'asc' } },
+      take: DEV_DEMO_RECOMMENDED_LIMIT,
+      select: {
+        id: true,
+        profile: { select: { avatarAsset: { select: { storageKey: true } } } },
+      },
+    });
+    return rows
+      .filter((row) =>
+        isDevInvestorDemoAvatarStorageKey(row.profile?.avatarAsset?.storageKey),
+      )
+      .map((row) => row.id);
   }
 
   private async toCards(viewerId: string, userIds: string[]): Promise<GolfFriendsListResponse> {

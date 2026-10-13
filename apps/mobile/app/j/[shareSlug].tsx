@@ -24,7 +24,7 @@ export default function ShareSlugDeepLinkScreen() {
         if (cancelled) return;
         router.replace(`/join/${resolved.joinId}`);
       } catch {
-        if (!cancelled) setError('공유 조인을 열 수 없습니다.');
+        if (!cancelled) setError('공유 쪼인을 열 수 없습니다.');
       }
     })();
     return () => {
@@ -34,7 +34,7 @@ export default function ShareSlugDeepLinkScreen() {
 
   return (
     <ScrollScreenFrame>
-      <Text tone="secondary">{error ?? '조인으로 이동 중…'}</Text>
+      <Text tone="secondary">{error ?? '쪼인으로 이동 중…'}</Text>
     </ScrollScreenFrame>
   );
 }

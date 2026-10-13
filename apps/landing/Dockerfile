@@ -6,6 +6,7 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY packages/config packages/config
 COPY packages/types packages/types
 COPY packages/domain packages/domain
+COPY apps/admin apps/admin
 COPY apps/landing apps/landing
 RUN pnpm install --frozen-lockfile
 ARG VITE_API_URL=https://api-production-2d67e.up.railway.app

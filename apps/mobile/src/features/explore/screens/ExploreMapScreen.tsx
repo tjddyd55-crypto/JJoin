@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Linking,
@@ -542,9 +542,9 @@ export function ExploreMapScreen({
   }, [myStores, selectedVenue?.golfFacilityId]);
   const screenCreateJoinLabel = useMemo(() => {
     if (venuePickMode) return '이 장소 선택';
-    if (discoveryLinked) return '여기서 조인 만들기';
-    if (ownedStoreForVenue) return '모집 조인 만들기';
-    return '이 매장에서 조인 만들기';
+    if (discoveryLinked) return '여기서 쪼인 만들기';
+    if (ownedStoreForVenue) return '모집 쪼인 만들기';
+    return '이 매장에서 쪼인 만들기';
   }, [discoveryLinked, ownedStoreForVenue, venuePickMode]);
   const selectedUser = useMemo(
     () => data?.users.find((u) => u.userId === selectedUserId) ?? null,
@@ -582,13 +582,13 @@ export function ExploreMapScreen({
     const userCount = data?.users.length ?? 0;
     switch (filter) {
       case 'USER':
-        return `지금 조인 가능 ${userCount}명`;
+        return `지금 쪼인 가능 ${userCount}명`;
       case 'TODAY_JOIN':
-        return `오늘 조인 ${venueCount}곳`;
+        return `오늘 쪼인 ${venueCount}곳`;
       case 'VENUE':
         return `주변 스크린골프장 ${venueCount}곳`;
       default:
-        return `스크린골프장 ${venueCount}곳 · 조인 가능 ${userCount}명`;
+        return `스크린골프장 ${venueCount}곳 · 쪼인 가능 ${userCount}명`;
     }
   }, [filter, sortedVenues.length, data?.users.length]);
 
@@ -829,7 +829,7 @@ export function ExploreMapScreen({
       await loadMap(lastCameraCenter);
     } catch {
       Alert.alert(
-        '지금 조인 가능',
+        '지금 쪼인 가능',
         '서버에 연결하지 못해 활성화할 수 없습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.',
       );
     }
@@ -842,7 +842,7 @@ export function ExploreMapScreen({
       await getApiClient(store).deleteMyPresence();
     } catch {
       setPresence(previous);
-      Alert.alert('조인 가능', '상태를 변경하지 못했습니다. 다시 시도해 주세요.');
+      Alert.alert('쪼인 가능', '상태를 변경하지 못했습니다. 다시 시도해 주세요.');
     }
   };
 
@@ -991,10 +991,10 @@ export function ExploreMapScreen({
             selectedUser={selectedUser}
             presence={presence}
             showPresence={discoveryLinked}
-            peekTitle={discoveryLinked ? '조인이 있는 장소' : '주변 스크린골프장'}
+            peekTitle={discoveryLinked ? '쪼인이 있는 장소' : '주변 스크린골프장'}
             peekSubtitle={
               discoveryLinked
-                ? `선택일 기준 조인 장소 ${sortedVenues.length}곳`
+                ? `선택일 기준 쪼인 장소 ${sortedVenues.length}곳`
                 : screenPeekSubtitle
             }
             onSelectVenue={onVenuePress}
@@ -1037,12 +1037,12 @@ export function ExploreMapScreen({
                     !selectedVenue.canCreateJoin
                   ) {
                     Alert.alert(
-                      '조인 장소',
+                      '쪼인 장소',
                       '위치 정보 확인 중인 시설입니다. 다른 장소를 선택해 주세요.',
                     );
                     return;
                   }
-                  Alert.alert('조인 만들기', '이 장소에서는 조인을 만들 수 없습니다.');
+                  Alert.alert('쪼인 만들기', '이 장소에서는 쪼인을 만들 수 없습니다.');
                   return;
                 }
                 if (!venuePickMode) {

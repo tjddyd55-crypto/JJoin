@@ -69,7 +69,7 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
           setData(null);
           setError(
             locationDenied
-              ? '위치 권한이 없어 내 주변 조인을 불러올 수 없습니다. 전체 또는 다른 지역을 선택해 주세요.'
+              ? '위치 권한이 없어 내 주변 쪼인을 불러올 수 없습니다. 전체 또는 다른 지역을 선택해 주세요.'
               : '위치를 확인하는 중입니다.',
           );
           setLoading(false);
@@ -84,6 +84,7 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
           sort: filter.sort,
           joinability: filter.joinability,
           venueType: filter.venueType === 'FIELD' ? 'FIELD' : 'SCREEN',
+          includeCompleted: true,
           ...regionQuery,
         },
         abort.signal,
@@ -95,7 +96,7 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
       if (seq !== requestSeq.current) return () => abort.abort();
       if ((e as Error)?.name === 'AbortError') return () => abort.abort();
       setData(null);
-      setError('조인을 불러오지 못했습니다.');
+      setError('쪼인을 불러오지 못했습니다.');
     } finally {
       if (seq === requestSeq.current) setLoading(false);
     }
@@ -112,8 +113,10 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
 
   const todayKey = localDayKey(new Date());
   const sectionTitle =
-    filter.date === todayKey ? '오늘 참여 가능한 조인' : '선택한 날 조인';
-  const empty = !loading && !error && (data?.totalCount ?? 0) === 0;
+    filter.date === todayKey ? '오늘 참여 가능한 쪼인' : '선택한 날 쪼인';
+  const completedJoins = data?.completed ?? [];
+  const empty =
+    !loading && !error && (data?.totalCount ?? 0) === 0 && completedJoins.length === 0;
   const listBottomPad = FAB_CLEARANCE;
 
   const filterChips: FilterChip[] = [
@@ -204,7 +207,7 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
         {empty ? (
           <Stack gap="sm" style={styles.emptyBlock}>
             <Text variant="joinMeta" tone="secondary">
-              선택한 날짜로 지역에 조인이 없습니다.
+              선택한 날짜로 지역에 쪼인이 없습니다.
             </Text>
             <View style={styles.emptyActions}>
               {filter.date !== todayKey ? (
@@ -252,6 +255,31 @@ export function DiscoverListPanel({ locationDenied, deviceLocation }: Props) {
               </View>
               <Stack gap="xs">
                 {data!.upcoming.map((join) => (
+                  <DiscoverJoinCard
+                    key={join.joinId}
+                    join={join}
+                    onPress={() => router.push(joinDetailHref(join.joinId))}
+                  />
+                ))}
+              </Stack>
+            </View>
+          </>
+        ) : null}
+
+        {completedJoins.length > 0 ? (
+          <>
+            <Spacer size="sm" />
+            <View style={styles.section}>
+              <View style={styles.sectionHeaderRow}>
+                <Text variant="joinSectionTitle" tone="secondary">
+                  완료된 쪼인
+                </Text>
+                <Text variant="joinMeta" tone="secondary">
+                  {completedJoins.length}개
+                </Text>
+              </View>
+              <Stack gap="xs">
+                {completedJoins.map((join) => (
                   <DiscoverJoinCard
                     key={join.joinId}
                     join={join}

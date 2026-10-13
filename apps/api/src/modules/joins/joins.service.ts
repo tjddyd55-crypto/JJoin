@@ -1,4 +1,4 @@
-﻿import {
+import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
@@ -150,6 +150,7 @@ import { JoinWaitlistService } from './join-waitlist.service';
 import { MediaUrlService } from '../storage/media-url.service';
 import type { AttendanceIntent } from '@jjoin/types';
 import { fieldJoinDetailCreateData, mapFieldJoinDetailDto } from './field-join-detail.map';
+import { resolveJoinDetailHostAvatarKey } from './join-detail-avatar';
 import {
   pickJoinParticipantGolfHandicaps,
   resolveJoinParticipantPublicFields,
@@ -622,7 +623,7 @@ export class JoinsService {
         }
         throw new ConflictException({
           code: 'join_create_conflict',
-          message: '조인 생성이 중복 요청되었습니다. 잠시 후 다시 시도해주세요.',
+          message: '쪼인 생성이 중복 요청되었습니다. 잠시 후 다시 시도해주세요.',
         });
       }
       throw e;
@@ -903,7 +904,12 @@ export class JoinsService {
           },
         },
         sport: true,
-        host: { include: { profile: true, sportProfiles: { include: { sport: true } } } },
+        host: {
+          include: {
+            profile: { include: { avatarAsset: { select: { storageKey: true } } } },
+            sportProfiles: { include: { sport: true } },
+          },
+        },
         participants: {
           include: {
             user: {
@@ -1711,7 +1717,7 @@ export class JoinsService {
     });
   }
 
-  /** Phase F “오늘 조인”: discovery statuses, today-valid or ongoing, not ended. */
+  /** Phase F “오늘 쪼인”: discovery statuses, today-valid or ongoing, not ended. */
   async listOpenJoinVenuesNear(input: {
     centerLat: number;
     centerLng: number;
@@ -1979,6 +1985,7 @@ export class JoinsService {
           ageBand: string | null;
           regionLabel: string | null;
           bio: string | null;
+          avatarAsset?: { storageKey: string } | null;
         } | null;
         sportProfiles: Array<{ skillLevel: string; sport: { code: string } }>;
       };
@@ -2033,10 +2040,10 @@ export class JoinsService {
       clubBridge?: { response: string; finalStatus?: string | null; eventFinalized?: boolean } | null;
     },
   ): JoinDetailDto {
-    const hostProfile = this.toPublicHost(
-      join.host,
-      extras?.reliabilityByUserId?.get(join.host.id),
-    );
+    const hostProfile = {
+      ...this.toPublicHost(join.host, extras?.reliabilityByUserId?.get(join.host.id)),
+      avatarUrl: this.mediaUrls.resolveAvatarUrl(resolveJoinDetailHostAvatarKey(join)),
+    };
     assertPublicProfileHasNoPrivateFields(hostProfile as unknown as Record<string, unknown>);
 
     const isHostViewer = viewerUserId != null && join.host.id === viewerUserId;

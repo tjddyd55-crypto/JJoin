@@ -8,7 +8,7 @@ import { JoinStatusBadge, type JoinStatusBadgeTone } from '../JoinStatusBadge';
 import { JoinVenueRow } from '../JoinVenueRow';
 import { RecommendationReasonTag } from '../RecommendationReasonTag';
 import { useTheme } from '../../theme';
-import { shadows } from '../../tokens';
+import { colors, shadows } from '../../tokens';
 
 export type JoinCardVariant = 'compact' | 'default' | 'preview' | 'management';
 
@@ -39,6 +39,10 @@ export type JoinCardProps = {
   isUrgent?: boolean;
   onPress?: () => void;
   accessibilityLabel?: string;
+  /** Finished join: dimmed card with a "완료" watermark. Stays pressable (read-only detail). */
+  completed?: boolean;
+  /** Watermark text for completed cards (default "쪼인 완료"). */
+  completedLabel?: string;
 };
 
 export function JoinCard({
@@ -61,6 +65,8 @@ export function JoinCard({
   isUrgent,
   onPress,
   accessibilityLabel,
+  completed = false,
+  completedLabel = '쪼인 완료',
 }: JoinCardProps) {
   const theme = useTheme();
   const isCompact = variant === 'compact' || variant === 'preview';
@@ -73,7 +79,7 @@ export function JoinCard({
 
   const a11yLabel =
     accessibilityLabel ??
-    [ddayLabel, title, venueName, scheduleLabel, countLabel, seatsHighlight]
+    [completed ? completedLabel : null, ddayLabel, title, venueName, scheduleLabel, countLabel, seatsHighlight]
       .filter(Boolean)
       .join(' · ');
 
@@ -140,6 +146,23 @@ export function JoinCard({
           ) : null}
         </View>
       </View>
+      {completed ? (
+        <View
+          pointerEvents="none"
+          testID="join-card-completed-overlay"
+          style={[
+            StyleSheet.absoluteFill,
+            styles.completedOverlay,
+            { backgroundColor: colors.overlay, borderRadius: theme.radius.joinCard },
+          ]}
+        >
+          <View style={[styles.completedStamp, { borderColor: colors.white }]}>
+            <Text variant="joinCardTitle" style={[styles.completedStampText, { color: colors.white }]}>
+              {completedLabel}
+            </Text>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 
@@ -186,5 +209,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+  },
+  completedOverlay: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  completedStamp: {
+    borderWidth: 2,
+    borderRadius: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 4,
+    transform: [{ rotate: '-12deg' }],
+  },
+  completedStampText: {
+    fontSize: 26,
+    lineHeight: 32,
+    fontWeight: '800',
+    letterSpacing: 6,
   },
 });

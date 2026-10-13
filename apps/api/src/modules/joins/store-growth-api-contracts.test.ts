@@ -87,7 +87,7 @@ test('OwnerStoreDashboardDto kpi carries re-participant + urgent extras', () => 
       heldCoin: '0',
       todayRewardPaidCoin: '0',
       joinCreationFeeCoin: 0,
-      joinCreationBenefitLabel: '업주 혜택 · 조인방 생성 무료',
+      joinCreationBenefitLabel: '업주 혜택 · 쪼인방 생성 무료',
     },
     joinPricing: {
       canCreate: true,

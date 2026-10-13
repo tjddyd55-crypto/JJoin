@@ -637,7 +637,7 @@ export class SettlementService {
         userId: result.participantUserId,
         type: NotificationType.DISPUTE_OPENED,
         title: '분쟁 접수',
-        body: '조인 참여 상태 확인이 필요합니다.',
+        body: '쪼인 참여 상태 확인이 필요합니다.',
         data: {
           type: NotificationType.DISPUTE_OPENED,
           joinId,
@@ -932,7 +932,7 @@ export class SettlementService {
         title: paid ? '보상 지급 완료' : '분쟁 검토 완료',
         body: paid
           ? '보상 지급이 완료되었습니다.'
-          : '조인 보상 검토가 완료되었습니다.',
+          : '쪼인 보상 검토가 완료되었습니다.',
         data: {
           type: NotificationType.DISPUTE_RESOLVED,
           joinId: result.joinId,

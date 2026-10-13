@@ -1691,6 +1691,8 @@ export type DiscoverJoinCardDto = {
   recruitCount?: number;
   applicationCount?: number;
   benefitLabels?: string[];
+  /** Finished join (ended or SETTLING/COMPLETED) — read-only "완료" card. Only sent with includeCompleted. */
+  isCompleted?: boolean;
 } & JoinRoomCharacterFields & MatchingJoinExtras;
 
 export type DiscoverJoinsResponse = {
@@ -1701,7 +1703,10 @@ export type DiscoverJoinsResponse = {
   joinability: JoinDiscoveryJoinability;
   ongoing: DiscoverJoinCardDto[];
   upcoming: DiscoverJoinCardDto[];
+  /** Active (ongoing + upcoming) count. */
   totalCount: number;
+  /** Finished joins of the selected day, most recent end first (opt-in via includeCompleted). */
+  completed?: DiscoverJoinCardDto[];
 };
 
 export type DiscoverWeeklyCountItemDto = {
@@ -3434,6 +3439,115 @@ export type UpsertHomeBannerRequest = {
   active?: boolean;
   startsAt?: string | null;
   endsAt?: string | null;
+};
+
+export type AppLaunchConfigDto = {
+  enabled: boolean;
+  imageUrl: string | null;
+  displayDurationMs: number;
+  updatedAt: string;
+};
+
+export type AdminAppLaunchSettingDto = AppLaunchConfigDto & {
+  imageObjectKey: string | null;
+};
+
+export type UpdateAppLaunchSettingRequest = {
+  enabled?: boolean;
+  displayDurationMs?: number;
+  imageObjectKey?: string | null;
+};
+
+export type JoinSessionReviewPhotoDto = {
+  photoId: string;
+  imageUrl: string;
+  sortOrder: number;
+};
+
+export type JoinSessionReviewDto = {
+  reviewId: string;
+  joinId: string;
+  authorUserId: string;
+  authorNickname: string;
+  authorAvatarUrl: string | null;
+  title: string;
+  content: string;
+  photos: JoinSessionReviewPhotoDto[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type UpsertJoinSessionReviewRequest = {
+  title: string;
+  content: string;
+};
+
+export type JoinSessionReviewJoinSummaryDto = {
+  joinId: string;
+  title: string | null;
+  venueType: VenueType;
+  venueName: string;
+  startAt: string;
+  scheduledEndAt: string;
+};
+
+export type JoinSessionReviewEligibleItemDto = JoinSessionReviewJoinSummaryDto;
+
+export type JoinSessionReviewMineItemDto = JoinSessionReviewDto & {
+  join: JoinSessionReviewJoinSummaryDto;
+};
+
+export type MyJoinSessionReviewsHubDto = {
+  eligible: JoinSessionReviewEligibleItemDto[];
+  mine: JoinSessionReviewMineItemDto[];
+};
+
+export type JoinReviewPostPhotoDto = {
+  photoId: string;
+  imageUrl: string;
+  sortOrder: number;
+};
+
+export type JoinReviewPostAuthorDto = {
+  userId: string;
+  nickname: string;
+  avatarUrl: string | null;
+};
+
+export type JoinReviewPostListItemDto = {
+  reviewId: string;
+  title: string;
+  contentPreview: string;
+  author: JoinReviewPostAuthorDto;
+  thumbnailUrl: string | null;
+  photoCount: number;
+  createdAt: string;
+};
+
+export type JoinReviewPostDetailDto = {
+  reviewId: string;
+  title: string;
+  content: string;
+  author: JoinReviewPostAuthorDto;
+  photos: JoinReviewPostPhotoDto[];
+  createdAt: string;
+  updatedAt: string;
+  isMine: boolean;
+};
+
+export type JoinReviewPostListResponseDto = {
+  items: JoinReviewPostListItemDto[];
+  nextCursor: string | null;
+};
+
+export type CreateJoinReviewPostRequest = {
+  title: string;
+  content: string;
+};
+
+export type UpdateJoinReviewPostRequest = {
+  title?: string;
+  content?: string;
 };
 
 export type StoreBannerAdRequestDto = {

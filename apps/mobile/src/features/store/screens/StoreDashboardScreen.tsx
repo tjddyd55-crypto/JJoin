@@ -159,7 +159,7 @@ export function StoreDashboardScreen() {
           <Spacer size="md" />
           <Row gap="sm" style={styles.chipRow}>
             <Button
-              label="조인 만들기"
+              label="쪼인 만들기"
               variant="secondary"
               onPress={() => router.push('/join/create' as Href)}
             />
@@ -180,7 +180,7 @@ export function StoreDashboardScreen() {
               <Spacer size="md" />
               <Card variant="base" padding="md">
                 <Text variant="body">
-                  정산이 필요한 조인 {settlementAlert}건
+                  정산이 필요한 쪼인 {settlementAlert}건
                 </Text>
                 <Spacer size="sm" />
                 {dashboard.todayJoins
@@ -192,7 +192,7 @@ export function StoreDashboardScreen() {
                       onPress={() => router.push(joinDetailHref(join.joinId))}
                     >
                       <Text variant="caption" tone="secondary">
-                        {formatJoinTime(join.startAt)} · {join.title ?? '조인'}
+                        {formatJoinTime(join.startAt)} · {join.title ?? '쪼인'}
                       </Text>
                     </Pressable>
                   ))}
@@ -219,12 +219,12 @@ export function StoreDashboardScreen() {
           </Section>
 
           <Spacer size="lg" />
-          <Section title="오늘 조인">
+          <Section title="오늘 쪼인">
             {dashboard.todayJoins.length === 0 ? (
               <>
-                <Text variant="caption" tone="tertiary">오늘 예정된 조인이 없습니다.</Text>
+                <Text variant="caption" tone="tertiary">오늘 예정된 쪼인이 없습니다.</Text>
                 <Spacer size="sm" />
-                <Button label="조인 만들기" onPress={() => router.push('/join/create' as Href)} />
+                <Button label="쪼인 만들기" onPress={() => router.push('/join/create' as Href)} />
               </>
             ) : (
               dashboard.todayJoins.map((join) => (
@@ -245,7 +245,7 @@ export function StoreDashboardScreen() {
                       </Row>
                     </Row>
                     <Text variant="body" tone="secondary">
-                      {join.title ?? '스토어 매칭 조인'}
+                      {join.title ?? '스토어 매칭 쪼인'}
                     </Text>
                     <Text variant="caption" tone="tertiary">
                       {join.confirmedPlayerCount}/{join.plannedPlayerCount}명
@@ -272,7 +272,7 @@ export function StoreDashboardScreen() {
                 보류/HOLD {formatCoinWithLabel(dashboard.coinSummary.heldCoin)}
               </Text>
               <Spacer size="sm" />
-              <Text variant="meta" tone="secondary">조인 생성 정책</Text>
+              <Text variant="meta" tone="secondary">쪼인 생성 정책</Text>
               <Text variant="body">
                 {dashboard.coinSummary.joinCreationBenefitLabel ??
                   (dashboard.coinSummary.joinCreationFeeCoin === 0
@@ -284,7 +284,7 @@ export function StoreDashboardScreen() {
                 <>
                   <Spacer size="sm" />
                   <Text variant="caption" tone="error">
-                    조인 생성에 필요한 Coin이 부족합니다.
+                    쪼인 생성에 필요한 Coin이 부족합니다.
                   </Text>
                   <Spacer size="xs" />
                   <Button

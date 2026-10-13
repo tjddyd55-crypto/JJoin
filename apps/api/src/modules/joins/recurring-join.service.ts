@@ -734,8 +734,8 @@ export class RecurringJoinService {
     await this.notifications.enqueueSafe({
       userId: schedule.ownerUserId,
       type: NotificationType.RECURRING_JOIN_OCCURRENCE_FAILED,
-      title: '반복 조인 자동 생성 실패',
-      body: `${dateKey} 회차를 만들지 못했습니다. 코인 잔액·조인 제한을 확인해 주세요.`,
+      title: '반복 쪼인 자동 생성 실패',
+      body: `${dateKey} 회차를 만들지 못했습니다. 코인 잔액·쪼인 제한을 확인해 주세요.`,
       data: {
         scheduleId: schedule.id,
         occurrenceDate: dateKey,

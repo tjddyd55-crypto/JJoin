@@ -4,11 +4,11 @@
  */
 
 const COIN_TX_LABEL_KO: Record<string, string> = {
-  ROOM_CREATION_FEE: '조인 생성 수수료',
-  JOIN_REWARD_HOLD: '조인 생성 HOLD',
+  ROOM_CREATION_FEE: '쪼인 생성 수수료',
+  JOIN_REWARD_HOLD: '쪼인 생성 HOLD',
   JOIN_REWARD_RELEASE: 'HOLD 해제',
-  JOIN_REWARD_TRANSFER: '조인 참가 보상',
-  JOIN_REWARD_REFUND: '조인 종료 잔여 HOLD 반환',
+  JOIN_REWARD_TRANSFER: '쪼인 참가 보상',
+  JOIN_REWARD_REFUND: '쪼인 종료 잔여 HOLD 반환',
   ADMIN_ADJUSTMENT: '관리자 조정',
   COIN_ISSUANCE: '코인 충전',
   SHOP_PURCHASE: '몰 구매',

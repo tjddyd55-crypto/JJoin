@@ -13,6 +13,9 @@ import type { JoinCardProps, JoinCardStatusBadge, JoinStatusBadgeTone } from '@j
 
 const TZ = 'Asia/Seoul';
 
+/** Join round finished (ended / settling / completed) — not generic “완료” elsewhere. */
+export const JOIN_FINISHED_STATUS_LABEL = '쪼인 완료';
+
 export function formatJoinDisplayTitle(title: string): string {
   const isDev = typeof __DEV__ !== 'undefined' && __DEV__;
   if (!isDev) return title;
@@ -198,14 +201,14 @@ export function resolveJoinListStatusBadges(input: {
     return badges;
   }
   if (input.status === JoinStatus.COMPLETED) {
-    badges.push({ label: '완료', tone: 'closed' });
+    badges.push({ label: JOIN_FINISHED_STATUS_LABEL, tone: 'closed' });
     return badges;
   }
 
   const ended =
     input.scheduledEndAt != null && new Date(input.scheduledEndAt).getTime() <= now.getTime();
   if (ended || input.status === JoinStatus.SETTLING) {
-    badges.push({ label: '종료', tone: 'closed' });
+    badges.push({ label: JOIN_FINISHED_STATUS_LABEL, tone: 'closed' });
     return badges;
   }
 

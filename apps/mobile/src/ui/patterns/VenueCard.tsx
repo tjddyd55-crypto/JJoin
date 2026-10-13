@@ -27,7 +27,7 @@ export function VenueCard({
     todayJoinableCount > 0
       ? `오늘 ${todayJoinableCount}개 모집 중`
       : openJoinCount > 0
-        ? `조인 ${openJoinCount}`
+        ? `쪼인 ${openJoinCount}`
         : null;
 
   return (

@@ -112,7 +112,7 @@ export default function MyJoinsScreen() {
       setData(next);
       setError(null);
     } catch {
-      setError('내 조인을 불러오지 못했습니다.');
+      setError('내 쪼인을 불러오지 못했습니다.');
     }
   }, [api]);
 
@@ -161,7 +161,7 @@ export default function MyJoinsScreen() {
       <Spacer size="md" />
 
       <View onLayout={(e) => setHostedY(e.nativeEvent.layout.y)}>
-        <Section title="내가 만든 조인" titleVariant="joinSectionTitle">
+        <Section title="내가 만든 쪼인" titleVariant="joinSectionTitle">
           {(data?.hosted ?? []).length === 0 ? (
             <Text variant="caption" tone="tertiary">
               없음
@@ -190,7 +190,7 @@ export default function MyJoinsScreen() {
               {hosted.past.length > 0 ? (
                 <Stack gap="xs">
                   <Text variant="joinMeta" tone="secondary">
-                    지난 조인
+                    지난 쪼인
                   </Text>
                   {hosted.past.map((item) => (
                     <JoinRow
@@ -213,7 +213,7 @@ export default function MyJoinsScreen() {
       </View>
 
       <View onLayout={(e) => setParticipatingY(e.nativeEvent.layout.y)}>
-        <Section title="내가 참가한 조인" titleVariant="joinSectionTitle">
+        <Section title="내가 참가한 쪼인" titleVariant="joinSectionTitle">
           {(data?.participating ?? []).length === 0 ? (
             <Text variant="caption" tone="tertiary">
               없음
@@ -242,7 +242,7 @@ export default function MyJoinsScreen() {
               {participating.past.length > 0 ? (
                 <Stack gap="xs">
                   <Text variant="joinMeta" tone="secondary">
-                    지난 조인
+                    지난 쪼인
                   </Text>
                   {participating.past.map((item) => (
                     <JoinRow

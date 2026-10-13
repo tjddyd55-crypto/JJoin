@@ -112,8 +112,11 @@ const RELATION_LABELS: Record<StoreOwnerRelation, string> = {
   [StoreOwnerRelation.OTHER]: '기타',
 };
 
+function redirectToAdminHome() {
+  window.location.replace('/admin');
+}
+
 export function AdminLoginPage() {
-  const navigate = useNavigate();
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -121,9 +124,9 @@ export function AdminLoginPage() {
 
   useEffect(() => {
     if (localStorage.getItem(TOKEN_KEY)) {
-      navigate('/admin', { replace: true });
+      redirectToAdminHome();
     }
-  }, [navigate]);
+  }, []);
 
   async function signInAdmin() {
     setBusy(true);
@@ -134,7 +137,7 @@ export function AdminLoginPage() {
         body: JSON.stringify({ loginId, password }),
       });
       localStorage.setItem(TOKEN_KEY, res.session.accessToken);
-      navigate('/admin', { replace: true });
+      redirectToAdminHome();
     } catch {
       setError('로그인에 실패했습니다. ID/비밀번호를 확인하세요.');
     } finally {
@@ -154,7 +157,7 @@ export function AdminLoginPage() {
         }),
       });
       localStorage.setItem(TOKEN_KEY, res.session.accessToken);
-      navigate('/admin', { replace: true });
+      redirectToAdminHome();
     } catch {
       setError('DEV_ADMIN 로그인 실패');
     } finally {
@@ -291,7 +294,7 @@ function Shell({ children }: { children: React.ReactNode }) {
             className="btn-ghost"
             onClick={() => {
               localStorage.removeItem(TOKEN_KEY);
-              navigate('/admin/login', { replace: true });
+              navigate('/login', { replace: true });
             }}
           >
             로그아웃

@@ -60,6 +60,8 @@ function GolfFriendCardItem({
             label="친구"
             size="sm"
             variant="secondary"
+            fullWidth={false}
+            style={styles.requestButton}
             disabled={acting}
             onPress={() => onAction('unfriend')}
           />
@@ -70,6 +72,8 @@ function GolfFriendCardItem({
             label="요청 취소"
             size="sm"
             variant="secondary"
+            fullWidth={false}
+            style={styles.requestButton}
             disabled={acting}
             loading={acting}
             onPress={() => onAction('cancel')}
@@ -82,6 +86,8 @@ function GolfFriendCardItem({
               label="수락"
               size="sm"
               variant="primary"
+              fullWidth={false}
+              style={styles.requestButton}
               disabled={acting}
               loading={acting}
               onPress={() => onAction('accept')}
@@ -90,6 +96,8 @@ function GolfFriendCardItem({
               label="거절"
               size="sm"
               variant="secondary"
+              fullWidth={false}
+              style={styles.requestButton}
               disabled={acting}
               onPress={() => onAction('reject')}
             />
@@ -101,6 +109,8 @@ function GolfFriendCardItem({
             label="친구요청"
             size="sm"
             variant="primary"
+            fullWidth={false}
+            style={styles.requestButton}
             disabled={acting}
             loading={acting}
             onPress={() => onAction('request')}
@@ -360,6 +370,7 @@ const styles = StyleSheet.create({
     minHeight: 72,
   },
   cardBody: { flex: 1, gap: 2, minWidth: 0 },
-  requestHit: { flexShrink: 0 },
+  requestHit: { flexShrink: 0, justifyContent: 'center' },
+  requestButton: { paddingHorizontal: 10, minHeight: 32 },
   dualActions: { flexDirection: 'row', gap: 6 },
 });

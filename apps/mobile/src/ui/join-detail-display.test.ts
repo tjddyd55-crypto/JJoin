@@ -133,6 +133,44 @@ test('buildJoinRosterSlots includes host and empty slots', () => {
   assert.equal(slots.filter((s) => s.type === 'empty').length, 3);
 });
 
+test('buildJoinRosterSlots keeps host and member photo urls', () => {
+  const slots = buildJoinRosterSlots({
+    plannedPlayerCount: 2,
+    confirmedPlayerCount: 2,
+    host: { id: 'h1', nickname: '방장', avatarUrl: 'https://cdn.example/host.jpg' },
+    participants: [
+      {
+        participantId: 'p-host',
+        userId: 'h1',
+        role: 'HOST',
+        participationStatus: 'APPROVED',
+        nickname: '방장',
+        verifiedBadge: true,
+        appliedAt: '2026-01-01T00:00:00.000Z',
+        approvedAt: null,
+        avatarUrl: 'https://cdn.example/host-roster.jpg',
+      },
+      {
+        participantId: 'p1',
+        userId: 'u2',
+        role: 'PARTICIPANT',
+        participationStatus: 'APPROVED',
+        nickname: '멤버',
+        verifiedBadge: true,
+        appliedAt: '2026-01-01T00:00:00.000Z',
+        approvedAt: null,
+        avatarUrl: 'https://cdn.example/member.jpg',
+      },
+    ],
+  } as never);
+  assert.equal(slots[0].type, 'filled');
+  assert.equal(slots[1].type, 'filled');
+  if (slots[0].type === 'filled' && slots[1].type === 'filled') {
+    assert.equal(slots[0].avatarUrl, 'https://cdn.example/host.jpg');
+    assert.equal(slots[1].avatarUrl, 'https://cdn.example/member.jpg');
+  }
+});
+
 test('canShowJoinChatEntry allows host before room exists', () => {
   assert.equal(
     canShowJoinChatEntry(

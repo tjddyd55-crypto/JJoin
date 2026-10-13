@@ -54,7 +54,7 @@ export class JoinBookmarksService {
       },
     });
     if (!join) {
-      throw new NotFoundException({ code: 'JOIN_NOT_FOUND', message: '조인을 찾을 수 없습니다.' });
+      throw new NotFoundException({ code: 'JOIN_NOT_FOUND', message: '쪼인을 찾을 수 없습니다.' });
     }
 
     try {
@@ -71,7 +71,7 @@ export class JoinBookmarksService {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
         throw new ConflictException({
           code: 'JOIN_ALREADY_BOOKMARKED',
-          message: '이미 북마크한 조인입니다.',
+          message: '이미 북마크한 쪼인입니다.',
         });
       }
       throw e;

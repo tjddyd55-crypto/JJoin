@@ -1,5 +1,7 @@
 import { Platform } from 'react-native';
 import { requireOptionalNativeModule } from 'expo-modules-core';
+import { cacheExtensionForMime } from '../join-review-board/join-review-photo-helpers';
+import { normalizeUploadUri } from '../../lib/normalize-upload-uri';
 import type { PickedProfileImage } from './profile-image-upload-payload';
 
 export type { PickedProfileImage } from './profile-image-upload-payload';
@@ -23,13 +25,6 @@ type ImagePickerAsset = {
   fileName?: string | null;
 };
 
-function extensionForMime(mimeType: string): string {
-  if (mimeType === 'image/png') return 'png';
-  if (mimeType === 'image/webp') return 'webp';
-  if (mimeType === 'image/heic' || mimeType === 'image/heif') return 'jpg';
-  return 'jpg';
-}
-
 function isNativeImagePickerMissing(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return (
@@ -39,31 +34,14 @@ function isNativeImagePickerMissing(error: unknown): boolean {
   );
 }
 
-async function normalizeUploadUri(uri: string, mimeType: string): Promise<string> {
-  if (Platform.OS !== 'android') {
-    return uri;
-  }
-  if (uri.startsWith('file://')) {
-    return uri;
-  }
-  const FileSystem = await import('expo-file-system/legacy');
-  const cacheDir = FileSystem.cacheDirectory;
-  if (!cacheDir) {
-    return uri;
-  }
-  const dest = `${cacheDir}profile-upload-${Date.now()}.${extensionForMime(mimeType)}`;
-  if (__DEV__) {
-    console.log('[profile-image-picker] normalizeUploadUri', { from: uri, to: dest });
-  }
-  await FileSystem.copyAsync({ from: uri, to: dest });
-  return dest;
-}
-
 async function mapAssetToPickedImage(asset: ImagePickerAsset): Promise<PickedProfileImage> {
   const mimeType = asset.mimeType ?? 'image/jpeg';
-  const ext = extensionForMime(mimeType);
+  const ext = cacheExtensionForMime(mimeType);
   const fileName = asset.fileName?.trim() || `profile-${Date.now()}.${ext}`;
-  const uri = await normalizeUploadUri(asset.uri, mimeType);
+  const uri = await normalizeUploadUri(asset.uri, mimeType, 'profile-upload');
+  if (__DEV__) {
+    console.log('[profile-image-picker] normalizeUploadUri', { from: asset.uri, to: uri });
+  }
   return { uri, mimeType, fileName };
 }
 

@@ -86,9 +86,11 @@ export class JoinsController {
     @Query('sort') sort?: string,
     @Query('joinability') joinability?: string,
     @Query('venueType') venueType?: string,
+    @Query('includeCompleted') includeCompleted?: string,
   ) {
     await this.matchingJoins.reconcileDueMatchingDeadlines(20);
     return this.discovery.discover(userId, {
+      includeCompleted: includeCompleted === 'true' || includeCompleted === '1',
       date,
       regionMode,
       lat: optionalNum(lat),

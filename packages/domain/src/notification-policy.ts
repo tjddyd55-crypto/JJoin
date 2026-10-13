@@ -61,7 +61,7 @@ export type NotificationInboxCategory =
 export const NOTIFICATION_INBOX_CATEGORY_LABEL: Record<NotificationInboxCategory, string> = {
   message: '메시지',
   friend: '친구',
-  join: '조인',
+  join: '쪼인',
   settlement: '정산',
   club: '동호회',
   other: '기타',

@@ -20,7 +20,7 @@ type Props = {
  */
 export function HomeHeroBanner({
   title = '오늘도 좋은 사람들과 라운딩 어때요?',
-  subtitle = '나와 잘 맞는 조인을 찾아보세요',
+  subtitle = '나와 잘 맞는 쪼인을 찾아보세요',
   imageUrl = null,
 }: Props) {
   const theme = useTheme();

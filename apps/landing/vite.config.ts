@@ -8,6 +8,7 @@ export default defineConfig({
     alias: {
       '@jjoin/types': path.resolve(__dirname, '../../packages/types/src/index.ts'),
       '@jjoin/domain': path.resolve(__dirname, '../../packages/domain/src/index.ts'),
+      '@jjoin/admin': path.resolve(__dirname, '../admin/src'),
     },
   },
   server: { port: 4173 },

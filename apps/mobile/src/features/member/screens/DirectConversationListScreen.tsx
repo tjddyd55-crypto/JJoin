@@ -50,7 +50,7 @@ export function DirectConversationListScreen() {
   return (
     <ScrollScreenFrame edges={[...NESTED_SCREEN_EDGES]}>
       <Text variant="caption" tone="secondary">
-        1:1 메시지입니다. 조인 채팅과는 별도입니다.
+        1:1 메시지입니다. 쪼인 채팅과는 별도입니다.
       </Text>
       <Spacer size="md" />
       {!enabled ? (

@@ -38,7 +38,7 @@ type ExploreView =
     };
 
 type Props = {
-  /** 조인 탭 내부 서브뷰 — 상위 SafeArea·탭 스위치와 중복 패딩 방지 */
+  /** 쪼인 탭 내부 서브뷰 — 상위 SafeArea·탭 스위치와 중복 패딩 방지 */
   embedded?: boolean;
   onSwitchToMap?: () => void;
 };
@@ -105,7 +105,7 @@ export function RegionJoinExploreScreen({ embedded = false }: Props) {
 
   const headerTitle = useMemo(() => {
     if (currentView.kind === 'root') {
-      return embedded ? '지역별' : '지역별 조인';
+      return embedded ? '지역별' : '지역별 쪼인';
     }
     return currentView.title;
   }, [currentView, embedded]);

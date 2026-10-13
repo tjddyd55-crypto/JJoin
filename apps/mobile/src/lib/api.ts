@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 import { createApiClient, type ApiClient } from '@jjoin/api-client';
 import type { SecureSessionStore } from '../session/secure-session-store';
+import { uploadMultipartNativeRaw } from './native-multipart-upload';
 
 /**
  * API base URL — SSOT order:
@@ -11,7 +12,7 @@ import type { SecureSessionStore } from '../session/secure-session-store';
  * Localhost is no longer the silent default. Override explicitly when needed:
  * EXPO_PUBLIC_API_URL=http://127.0.0.1:3000
  */
-function resolveApiBaseUrl(): string {
+export function resolveApiBaseUrl(): string {
   const fromEnv = (process.env.EXPO_PUBLIC_API_URL ?? '').trim();
   if (fromEnv) return fromEnv;
 
@@ -45,6 +46,8 @@ export function getApiClient(store: SecureSessionStore): ApiClient {
     client = createApiClient({
       baseUrl: baseUrl || 'http://invalid.local',
       getAccessToken: () => store.getToken(),
+      multipartUploader: (absoluteUrl, fieldName, file, headers) =>
+        uploadMultipartNativeRaw(absoluteUrl, fieldName, file, headers),
     });
     clientBaseUrl = baseUrl;
   }

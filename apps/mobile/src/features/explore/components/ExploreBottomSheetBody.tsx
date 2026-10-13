@@ -32,12 +32,12 @@ function PresenceStatusBlock({ presence }: { presence: PresenceVisibility }) {
         현재 상태
       </Text>
       <Row gap="sm" align="center">
-        <Badge label={on ? '조인 가능 ON' : '조인 쉬는 중'} variant={on ? 'gold' : 'neutral'} />
+        <Badge label={on ? '쪼인 가능 ON' : '쪼인 쉬는 중'} variant={on ? 'gold' : 'neutral'} />
       </Row>
       <Text variant="caption" tone="tertiary">
         {on
-          ? '주변 사용자가 나를 조인 가능한 상태로 볼 수 있습니다.'
-          : '현재는 조인 가능한 사용자로 표시되지 않습니다.'}
+          ? '주변 사용자가 나를 쪼인 가능한 상태로 볼 수 있습니다.'
+          : '현재는 쪼인 가능한 사용자로 표시되지 않습니다.'}
       </Text>
     </Stack>
   );
@@ -95,7 +95,7 @@ export function ExploreBottomSheetBody(props: {
               주변 사용자에게 표시
             </Text>
             <Text variant="body" tone="secondary">
-              주변 사용자에게 내 조인 가능 상태를 표시할까요?
+              주변 사용자에게 내 쪼인 가능 상태를 표시할까요?
             </Text>
           </Stack>
           <View
@@ -125,7 +125,7 @@ export function ExploreBottomSheetBody(props: {
             </Text>
           </View>
           <Stack gap="sm">
-            <Button label="조인 가능 상태 켜기" onPress={props.onConfirmPrivacy} />
+            <Button label="쪼인 가능 상태 켜기" onPress={props.onConfirmPrivacy} />
             <Button label="취소" variant="secondary" onPress={props.onCancelPresence} />
           </Stack>
         </Stack>
@@ -139,7 +139,7 @@ export function ExploreBottomSheetBody(props: {
         <Stack gap="md">
           <Stack gap="xs">
             <Text variant="sectionTitle" tone="primary">
-              지금 조인 가능
+              지금 쪼인 가능
             </Text>
             <Text variant="body" tone="secondary">
               공개 시간을 선택하세요. 정확한 위치는 공개되지 않습니다.
@@ -163,8 +163,8 @@ export function ExploreBottomSheetBody(props: {
     const ongoing = v.ongoingJoinCount ?? 0;
     const urgent = v.urgentJoinCount ?? 0;
     const dateJoinLabel = isSelectedToday
-      ? `오늘 조인 ${today}개`
-      : `${selectedDate!.slice(5).replace('-', '/')} 조인 ${today}개`;
+      ? `오늘 쪼인 ${today}개`
+      : `${selectedDate!.slice(5).replace('-', '/')} 쪼인 ${today}개`;
     return (
       <BottomSheetFrame showHandle={false}>
         <Stack gap="md">
@@ -200,7 +200,7 @@ export function ExploreBottomSheetBody(props: {
           ) : null}
           {v.joinPreviews.length === 0 ? (
             <Text variant="caption" tone="tertiary">
-              현재 열린 조인 없음
+              현재 열린 쪼인 없음
             </Text>
           ) : (
             <Stack gap="sm">
@@ -243,14 +243,14 @@ export function ExploreBottomSheetBody(props: {
             )}
             {v.canCreateJoin ? (
               <Button
-                label={props.createJoinLabel ?? '여기서 조인 만들기'}
+                label={props.createJoinLabel ?? '여기서 쪼인 만들기'}
                 onPress={props.onCreateJoin}
               />
             ) : (
               <Text variant="caption" tone="tertiary">
                 {v.source === 'GOLF_FACILITY'
                   ? '위치 정보 확인 중인 시설입니다.'
-                  : '이 장소에서 조인 만들기는 곧 지원됩니다.'}
+                  : '이 장소에서 쪼인 만들기는 곧 지원됩니다.'}
               </Text>
             )}
           </Stack>
@@ -276,7 +276,7 @@ export function ExploreBottomSheetBody(props: {
               약 {(u.approxDistanceMeters / 1000).toFixed(1)}km · {u.regionLabel ?? '주변'}
             </Text>
             <Text variant="bodyStrong" style={{ color: theme.colors.action.primary }}>
-              지금 조인 가능
+              지금 쪼인 가능
             </Text>
             <Text variant="caption" tone="tertiary">
               정확한 위치는 공개되지 않습니다.
@@ -307,9 +307,9 @@ export function ExploreBottomSheetBody(props: {
     : [];
   const hasMoreVenues = showVenueList && venueCount > visibleVenues.length;
   const peekLine = showPresence
-    ? `${peekTitle} · ${venueCount}곳 · 조인 가능 ${userCount}명`
+    ? `${peekTitle} · ${venueCount}곳 · 쪼인 가능 ${userCount}명`
     : mapFilter === 'USER'
-      ? `${peekTitle} · 조인 가능 ${userCount}명`
+      ? `${peekTitle} · 쪼인 가능 ${userCount}명`
       : `${peekTitle} · ${venueCount}곳`;
 
   if (props.compactPeek) {
@@ -328,10 +328,10 @@ export function ExploreBottomSheetBody(props: {
       const urgentTotal = props.venues.reduce((sum, v) => sum + (v.urgentJoinCount ?? 0), 0);
       const urgentHint = urgentTotal > 0 ? ` · 긴급 ${urgentTotal}` : '';
       if (showPresence) {
-        return `스크린골프장 ${venueCount}곳 · 지금 조인 가능 ${userCount}명${urgentHint}`;
+        return `스크린골프장 ${venueCount}곳 · 지금 쪼인 가능 ${userCount}명${urgentHint}`;
       }
       if (mapFilter === 'USER') {
-        return `지금 조인 가능 ${userCount}명`;
+        return `지금 쪼인 가능 ${userCount}명`;
       }
       return `주변 스크린골프장 ${venueCount}곳${urgentHint}`;
     })();
@@ -351,7 +351,7 @@ export function ExploreBottomSheetBody(props: {
           <>
             <PresenceStatusBlock presence={props.presence} />
             <Button
-              label={presenceOn ? '조인 가능 끄기' : '조인 가능 켜기'}
+              label={presenceOn ? '쪼인 가능 끄기' : '쪼인 가능 켜기'}
               variant={presenceOn ? 'secondary' : 'primary'}
               onPress={props.onOpenPresence}
             />
@@ -359,7 +359,7 @@ export function ExploreBottomSheetBody(props: {
         ) : null}
         {mapFilter === 'USER' && userCount === 0 ? (
           <Text variant="caption" tone="tertiary">
-            주변에 조인 가능 상태인 사용자가 없습니다.
+            주변에 쪼인 가능 상태인 사용자가 없습니다.
           </Text>
         ) : null}
         <Stack gap="sm">
@@ -390,7 +390,7 @@ export function ExploreBottomSheetBody(props: {
                   key={u.userId}
                   name={`${u.nickname}${u.verifiedBadge ? ' ✓' : ''}`}
                   distance={`약 ${(u.approxDistanceMeters / 1000).toFixed(1)}km`}
-                  regionLabel="지금 조인 가능"
+                  regionLabel="지금 쪼인 가능"
                   onPress={() => props.onSelectUser(u.userId)}
                 />
               ))

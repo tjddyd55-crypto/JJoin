@@ -83,7 +83,7 @@ export function RegionSummaryList({
             { borderBottomColor: theme.colors.border.subtle },
           ]}
           accessibilityRole="button"
-          accessibilityLabel={`${leadingItem.label}${leadingItem.count != null ? ` 조인 ${leadingItem.count}개` : ''}`}
+          accessibilityLabel={`${leadingItem.label}${leadingItem.count != null ? ` 쪼인 ${leadingItem.count}개` : ''}`}
         >
           <Text variant="body" tone="primary" style={styles.label}>
             {leadingItem.label}
@@ -108,7 +108,7 @@ export function RegionSummaryList({
             { borderBottomColor: theme.colors.border.subtle },
           ]}
           accessibilityRole="button"
-          accessibilityLabel={`${item.label} 조인 ${item.count}개`}
+          accessibilityLabel={`${item.label} 쪼인 ${item.count}개`}
         >
           <Text variant="body" tone="primary" style={styles.label}>
             {item.label}

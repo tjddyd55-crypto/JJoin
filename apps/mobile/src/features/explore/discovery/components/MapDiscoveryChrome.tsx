@@ -183,7 +183,7 @@ export function MapDiscoveryChrome({
       />
       {nearbyDisabled && filter.region.mode === 'NEARBY' ? (
         <Text variant="meta" tone="tertiary" style={styles.hint}>
-          위치 권한이 없어 내 주변 조인을 불러올 수 없습니다. 전체 또는 다른 지역을 선택해 주세요.
+          위치 권한이 없어 내 주변 쪼인을 불러올 수 없습니다. 전체 또는 다른 지역을 선택해 주세요.
         </Text>
       ) : null}
     </View>
