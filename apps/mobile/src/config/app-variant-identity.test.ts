@@ -63,6 +63,7 @@ test('development expo splash plugin renders no visible Android icon; JS owns th
   assert.equal('enableFullScreenImage_legacy' in dev, false);
   assert.equal(dev.android?.resizeMode, 'contain');
   assert.equal(dev.android?.imageWidth, 1);
+  assert.equal(dev.backgroundColor, '#1a2e1a');
   const prod = expoSplashPluginConfigFor('production');
   assert.equal(prod.imageWidth, 200);
 });

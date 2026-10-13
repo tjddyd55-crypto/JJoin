@@ -16,7 +16,6 @@ import {
   updateChannelFor,
   updatesConfigFor,
 } from './eas-update-policy.cjs';
-
 type AppVariant = 'development' | 'production';
 
 /**
@@ -118,6 +117,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const splashPlugin = expoSplashPluginConfigFor(variant);
 
   const plugins: ExpoConfig['plugins'] = [
+    ...(variant === 'development'
+      ? ['./plugins/dev-minimal-android-splash.plugin.cjs' as const]
+      : []),
     'expo-router',
     'expo-updates',
     ['expo-splash-screen', splashPlugin],
@@ -214,7 +216,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     name: identity.name,
     slug: identity.slug,
     owner: 'tjddyd55',
-    version: '0.0.16',
+    version: '0.0.17',
     // appVersion: binaries already bump version/versionCode. Channel isolates DEV vs Production.
     runtimeVersion: RUNTIME_VERSION_POLICY,
     updates: updatesConfigFor(variant, easProjectId),
@@ -242,7 +244,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     android: {
       package: identity.androidPackage,
-      versionCode: 16,
+      versionCode: 17,
       ...(hasGoogleServices ? { googleServicesFile } : {}),
       adaptiveIcon,
       permissions: [

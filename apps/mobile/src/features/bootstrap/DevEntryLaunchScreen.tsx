@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, StyleSheet, View, type ImageSourcePropType } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -33,14 +33,22 @@ export {
 
 type DevEntryLaunchScreenProps = {
   cache: CachedAppLaunch | null;
+  onHeroReady?: () => void;
 };
 
-export function DevEntryLaunchScreen({ cache }: DevEntryLaunchScreenProps) {
+export function DevEntryLaunchScreen({ cache, onHeroReady }: DevEntryLaunchScreenProps) {
   const embedded = useMemo(() => readEmbeddedLaunchImageSource(), []);
+  const heroReadySent = useRef(false);
   const source: ImageSourcePropType = useMemo(() => {
     if (cache?.imageUri) return { uri: cache.imageUri };
     return embedded;
   }, [cache?.imageUri, embedded]);
+
+  const notifyHeroReady = useCallback(() => {
+    if (heroReadySent.current) return;
+    heroReadySent.current = true;
+    onHeroReady?.();
+  }, [onHeroReady]);
 
   return (
     <View style={styles.root} accessibilityRole="image" accessibilityLabel="쪼인존">
@@ -51,6 +59,8 @@ export function DevEntryLaunchScreen({ cache }: DevEntryLaunchScreenProps) {
         resizeMode="cover"
         fadeDuration={0}
         accessibilityIgnoresInvertColors
+        onLoad={notifyHeroReady}
+        onLoadEnd={notifyHeroReady}
       />
     </View>
   );
@@ -61,26 +71,42 @@ type DevEntryLaunchGateProps = {
   children: React.ReactNode;
 };
 
+type BootLaunchCache = CachedAppLaunch | null | 'pending';
+
 export function DevEntryLaunchGate({ bootstrapping, children }: DevEntryLaunchGateProps) {
   const enabled = isDevelopmentVariant() && isAppLaunchEnabled();
-  const [launchCache] = useState<CachedAppLaunch | null>(() => readAppLaunchBootSnapshot());
+  const [launchCache, setLaunchCache] = useState<BootLaunchCache>(() => {
+    const snapshot = readAppLaunchBootSnapshot();
+    return snapshot ?? 'pending';
+  });
   const [overlayDismissed, setOverlayDismissed] = useState(false);
+  const [heroReady, setHeroReady] = useState(false);
 
   useEffect(() => {
-    void appLaunchBootSnapshotReady.catch(() => undefined);
-  }, []);
+    if (launchCache !== 'pending') return;
+    void appLaunchBootSnapshotReady
+      .then((loaded) => setLaunchCache(loaded))
+      .catch(() => setLaunchCache(null));
+  }, [launchCache]);
 
   const launchBlocking = enabled && !overlayDismissed;
+  const bootResolved = launchCache !== 'pending';
+  const showHeroOverlay = launchBlocking && bootResolved;
 
   useEffect(() => {
     if (!enabled) {
       void hideNativeSplashOnce();
       return;
     }
-    if (!launchBlocking) return;
-    // Android 12+ native splash is a small centered icon — hide as soon as JS hero mounts.
+    if (!showHeroOverlay || !heroReady) return;
     void hideNativeSplashOnce();
-  }, [enabled, launchBlocking]);
+  }, [enabled, showHeroOverlay, heroReady]);
+
+  useEffect(() => {
+    if (!showHeroOverlay) {
+      setHeroReady(false);
+    }
+  }, [showHeroOverlay]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -126,9 +152,12 @@ export function DevEntryLaunchGate({ bootstrapping, children }: DevEntryLaunchGa
       >
         {children}
       </View>
-      {launchBlocking ? (
+      {showHeroOverlay ? (
         <View style={styles.overlay} pointerEvents="auto">
-          <DevEntryLaunchScreen cache={launchCache} />
+          <DevEntryLaunchScreen
+            cache={launchCache as CachedAppLaunch | null}
+            onHeroReady={() => setHeroReady(true)}
+          />
         </View>
       ) : null}
     </View>
